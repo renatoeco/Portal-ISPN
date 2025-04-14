@@ -9,7 +9,7 @@ st.set_page_config(layout="wide")
 st.logo("images/logo_ISPN_horizontal_ass.png")
 
 
-st.header("Projetos Institucionais")
+st.header("Projetos")
 
 st.write('')
 
