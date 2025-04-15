@@ -3,7 +3,7 @@ import pandas as pd
 from datetime import datetime
 
 st.set_page_config(layout="wide")
-st.logo("/home/renato/Projetos_Python/ISPN_HUB/app_ispn_hub/images/logo_ISPN_horizontal_ass.png")
+#st.logo("/home/renato/Projetos_Python/ISPN_HUB/app_ispn_hub/images/logo_ISPN_horizontal_ass.png")
 
 st.header("Estratégia")
 
@@ -544,3 +544,4 @@ with aba_ebj_est_ins:
 
     with st.expander('**RESULTADO 8 - x**'):
         st.write('')        
+        
