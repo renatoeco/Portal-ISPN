@@ -4,6 +4,8 @@ import time
 import random
 import smtplib
 from email.mime.text import MIMEText
+from funcoes_auxiliares import conectar_mongo
+
 
 
 ###########################################################################################################
@@ -11,11 +13,8 @@ from email.mime.text import MIMEText
 ###########################################################################################################
 
 
-client = MongoClient(
-    st.secrets["senhas"]["senha_mongo"])
-
-db = client["ISPN_Hub"]                     
-colaboradores = db["Colaboradores"]  
+db = conectar_mongo()  # Isso vai usar o cache automaticamente
+colaboradores = db["Colaboradores"]
 
 
 ###########################################################################################################
