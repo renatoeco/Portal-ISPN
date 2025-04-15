@@ -4,6 +4,8 @@ import time
 import random
 import smtplib
 from email.mime.text import MIMEText
+from funcoes_auxiliares import conectar_mongo
+
 
 
 ###########################################################################################################
@@ -11,9 +13,8 @@ from email.mime.text import MIMEText
 ###########################################################################################################
 
 
-client = MongoClient("mongodb+srv://renato:4hzJ9zuHjr2xw6fH@ispn-gestao.ze7aoez.mongodb.net/?retryWrites=true&w=majority&appName=ISPN-Gestao") 
-db = client["ISPN_Hub"]                     
-colaboradores = db["Colaboradores"]  
+db = conectar_mongo()  # Isso vai usar o cache automaticamente
+colaboradores = db["Colaboradores"]
 
 
 ###########################################################################################################
@@ -36,23 +37,17 @@ def enviar_email(destinatario, codigo):
     </html>
     """
 
-    msg = MIMEText(corpo, "html")
+    msg = MIMEText(corpo, "html", "utf-8")  # charset adicionado
     msg["Subject"] = assunto
     msg["From"] = remetente
     msg["To"] = destinatario
-    
-    # Tenta enviar o e-mail com o código de verificação
+
     try:
-        # Conecta ao servidor de e-mail do Gmail
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-            # Faz login com o e-mail e senha do remetente
             server.login(remetente, senha)
-            # Envia o e-mail
             server.sendmail(remetente, destinatario, msg.as_string())
-        # Se der certo, retorna True
         return True
     except Exception as e:
-        # Se der errado, exibe o erro e retorna False
         st.error(f"Erro ao enviar e-mail: {e}")
         return False
 
@@ -79,6 +74,7 @@ def recuperar_senha_dialog():
                             st.session_state.codigo_verificacao = codigo
                             st.session_state.codigo_enviado = True
                             st.session_state.email_verificado = email
+                            st.success(f"Código enviado para {email}.")
                         else:
                             st.error("Erro ao enviar o e-mail. Tente novamente.")
                     else:
@@ -86,7 +82,7 @@ def recuperar_senha_dialog():
                 else:
                     st.error("Por favor, insira um e-mail.")
 
-    # Etapa 2: Inserir código
+   # Etapa 2: Inserir código
     if st.session_state.codigo_enviado and not st.session_state.codigo_validado:
         with conteudo_dialogo.form("codigo_verificacao_form", border=True):
             st.markdown("### Verificação de Código")
@@ -133,7 +129,8 @@ def recuperar_senha_dialog():
                     
                     # Define o usuário como logado (pode ser usado para redirecionar)
                     st.session_state.logged_in = True
-                    
+
+                    # Adiciona um tempo de espera de 2 segundos
                     time.sleep(2)
 
                     # Redireciona o usuário para a página principal ou perfil após redefinir a senha
@@ -169,10 +166,7 @@ def login():
         st.button("Esqueci a senha", key="forgot_password", type="tertiary", on_click=recuperar_senha_dialog)
 
 
-
 ##############################################################################################################
-
-
 
 # Verifica se o usuário está logado
 if "logged_in" not in st.session_state or not st.session_state["logged_in"]:
