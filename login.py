@@ -180,11 +180,12 @@ else:
         "Estratégia.py", 
         "Programas.py", 
         "Doadores.py", 
-        "Projetos Institucionais.py", 
+        "Projetos.py", 
         "Fundo Ecos.py", 
         "Indicadores.py", 
         "Pessoas.py", 
-        "Viagens.py", 
+        "Viagens.py",
+        "Monitoramento PLs.py", 
         "Manuais.py"
     ])
 
