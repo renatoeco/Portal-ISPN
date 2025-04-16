@@ -12,7 +12,7 @@ from funcoes_auxiliares import conectar_mongo
 # Conectando ao MongoDB
 ###########################################################################################################
 
-fdsdsfs
+
 db = conectar_mongo()  # Isso vai usar o cache automaticamente
 colaboradores = db["Colaboradores"]
 
