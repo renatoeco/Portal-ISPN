@@ -4,7 +4,7 @@ import time
 import random
 import smtplib
 from email.mime.text import MIMEText
-from funcoes_auxiliares import conectar_mongo
+from funcoes_auxiliares import conectar_mongo_portal_ispn
 
 
 
@@ -13,7 +13,7 @@ from funcoes_auxiliares import conectar_mongo
 ###########################################################################################################
 
 
-db = conectar_mongo()  # Isso vai usar o cache automaticamente
+db = conectar_mongo_portal_ispn()  # Isso vai usar o cache automaticamente
 colaboradores = db["Colaboradores"]
 
 
