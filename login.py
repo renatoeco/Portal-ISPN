@@ -52,7 +52,7 @@ def enviar_email(destinatario, codigo):
         return False
 
 
-@st.dialog("Recuperação de Senha", width="large")
+@st.dialog("Recuperação de Senha")
 def recuperar_senha_dialog():
     st.session_state.setdefault("codigo_enviado", False)
     st.session_state.setdefault("codigo_verificacao", "")
@@ -63,30 +63,47 @@ def recuperar_senha_dialog():
 
     # Etapa 1: Inserir e-mail
     if not st.session_state.codigo_enviado:
-        with conteudo_dialogo.form(key="recover_password_form"):
-            email = st.text_input("Digite seu e-mail para redefinir a senha:")
+        with conteudo_dialogo.form(key="recover_password_form", border=False):
+            
+            st.write('')
+
+            email = st.text_input("Digite seu e-mail:")
+            
             if st.form_submit_button("Confirmar"):
+                
                 if email:
                     verificar_colaboradores = colaboradores.find_one({"E-mail": email})  
+                
                     if verificar_colaboradores:
                         codigo = str(random.randint(100, 999))
+                
                         if enviar_email(email, codigo):
                             st.session_state.codigo_verificacao = codigo
                             st.session_state.codigo_enviado = True
                             st.session_state.email_verificado = email
                             st.success(f"Código enviado para {email}.")
+                
                         else:
                             st.error("Erro ao enviar o e-mail. Tente novamente.")
+                
                     else:
                         st.error("E-mail não encontrado. Tente novamente.")
+                
                 else:
                     st.error("Por favor, insira um e-mail.")
 
    # Etapa 2: Inserir código
     if st.session_state.codigo_enviado and not st.session_state.codigo_validado:
-        with conteudo_dialogo.form("codigo_verificacao_form", border=True):
-            st.markdown("### Verificação de Código")
-            st.info(f"Um código foi enviado para: `{st.session_state.email_verificado}`")
+        
+        with conteudo_dialogo.form(key="codigo_verificacao_form", border=False):
+            
+            st.subheader("Código de verificação")
+            
+
+            email = st.session_state.email_verificado.replace("@", "​@")  # O caractere invisível está entre as aspas
+            st.info(f"Um código foi enviado para: **{email}**")
+
+            
             codigo_input = st.text_input("Informe o código recebido por e-mail", placeholder="000")
             enviar_codigo = st.form_submit_button("Verificar")
 
@@ -102,12 +119,14 @@ def recuperar_senha_dialog():
 
                     # Avança para a próxima etapa
                     st.session_state.codigo_validado = True
+                
                 else:
                     st.error("❌ Código inválido. Tente novamente.")
 
 
     # Etapa 3: Definir nova senha
     if st.session_state.codigo_validado:
+        
         with conteudo_dialogo.form("nova_senha_form", border=True):
             st.markdown("### Defina sua nova senha")
             nova_senha = st.text_input("Nova senha", type="password")
@@ -115,6 +134,7 @@ def recuperar_senha_dialog():
             enviar_nova_senha = st.form_submit_button("Salvar")
 
             if enviar_nova_senha:
+        
                 if nova_senha == confirmar_senha and nova_senha.strip():
                     # Atualiza no banco de dados (MongoDB)
                     colaboradores.update_one(
@@ -143,27 +163,51 @@ def recuperar_senha_dialog():
 
 # Função para a tela de login
 def login():
-    st.title("Portal ISPN")
 
-    # Input do usuário para a senha
-    password = st.text_input("Senha", type="password")
 
-    # Verificar se o usuário clicou no botão de login
-    if st.button("Entrar"):
-        # Consultar o banco de dados MongoDB somente pela senha
-        usuario = colaboradores.find_one({"Senha": password})
+    st.markdown(
+        """
+        <div style="text-align: center;">
+            <img src="https://ispn.org.br/site/wp-content/uploads/2021/04/logo_ISPN_2021.png" width="300"/>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
-        if usuario:
-            # Senha válida encontrada
-            st.session_state["logged_in"] = True
-            st.success("Login bem-sucedido!")
-            time.sleep(2)  # Pausa para mostrar a mensagem
-            st.rerun()  # Recarrega a página após login bem-sucedido
-        else:
-            st.error("Senha inválida ou usuário não encontrado!")
-        
-        # Mostrar o botão "Esqueci a senha" caso o login falhe
-        st.button("Esqueci a senha", key="forgot_password", type="tertiary", on_click=recuperar_senha_dialog)
+    st.write('')
+    st.write('')
+    st.write('')
+
+    st.markdown("<div style='text-align: center;'><h1 style='color: #666;'><strong>Portal do ISPN</strong></h1></div>", unsafe_allow_html=True)
+
+    st.write('')
+    st.write('')
+    st.write('')
+
+
+    col1, col2, col3 = st.columns([2, 3, 2])
+
+    # Formulário para a tela de login
+    with col2.form("login_form", border=False):
+        # Input do usuário para a senha
+        password = st.text_input("Insira a senha", type="password")
+
+        # Verificar se o usuário clicou no botão de login
+        if st.form_submit_button("Entrar"):
+            # Consultar o banco de dados MongoDB somente pela senha
+            usuario = colaboradores.find_one({"Senha": password})
+
+            if usuario:
+                # Senha válida encontrada
+                st.session_state["logged_in"] = True
+                st.success("Login bem-sucedido!")
+                time.sleep(2)  # Pausa para mostrar a mensagem
+                st.rerun()  # Recarrega a página após login bem-sucedido
+            else:
+                st.error("Senha inválida ou usuário não encontrado!")
+                
+    # Mostrar o botão "Esqueci a senha" caso o login falhe
+    col2.button("Esqueci a senha", key="forgot_password", type="tertiary", on_click=recuperar_senha_dialog)
 
 
 ##############################################################################################################
