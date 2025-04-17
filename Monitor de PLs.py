@@ -7,7 +7,7 @@ from funcoes_auxiliares import conectar_mongo_pls
 
 st.set_page_config(layout="wide")
 
-st.logo("https://ispn.org.br/site/wp-content/uploads/2021/04/logo_ISPN_2021.png", size="large")
+st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
 
 st.write("")
 st.write("")
