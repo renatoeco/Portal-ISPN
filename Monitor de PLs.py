@@ -5,16 +5,14 @@ from pymongo import MongoClient
 from datetime import datetime, timedelta
 from funcoes_auxiliares import conectar_mongo_pls
 
-st.set_page_config(layout="wide")
 
+st.set_page_config(layout="wide")
 st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
 
-st.write("")
-st.write("")
-st.write("")
-st.write("")
-st.write("")
-st.write("")
+st.header("Monitor de Proposições Legislativas")
+st.write('')
+st.write('Os Projetos de Lei que estão cadastrados (Câmara dos Deputados e Senado) são monitorados diariamente e as atualizações são enviadas por e-mail para as pessoas cadastradas.')
+st.write('')
 
 # Criação de um DataFrame vazio com as colunas finais desejadas, que serão preenchidas mais tarde
 colunas = ['Tema', 'Sub-Tema', 'Proposições', 'Ementa', 'Casa', 'Autor', 'UF', 'Partido',
