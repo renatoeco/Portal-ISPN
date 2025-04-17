@@ -13,7 +13,7 @@ st.header("Projetos Institucionais")
 st.write('')
 
 
-tab1, tab2, tab3 = st.tabs(["Visão geral", "Projeto", "Atividades"])
+tab1, tab2, tab3 = st.tabs(["Visão geral", "Projeto", "Entregas"])
 
 
 with tab1:
@@ -220,17 +220,17 @@ with tab3:
     # col3.write('')
     # col3.write('')
 
-    st.checkbox("Só atividades não concluídas", key="atividades")
+    st.checkbox("Só entregas não concluídas", key="entregas")
 
     st.write('')
     col1, col2, col3 = st.columns(3)
 
     
-    col3.button("Reportar atividade", use_container_width=True)
+    col3.button("Reportar entrega", use_container_width=True)
 
 
-    atividades = {
-        "Atividade": ["Oficina de Advocacy", "Formação de Comunicadores", "Elaboração de Relatório", "Entrega de Relatório"],
+    entregas = {
+        "Entrega": ["Oficina de Advocacy", "Formação de Comunicadores", "Elaboração de Relatório", "Entrega de Relatório"],
         "Programa": ["Cerrado", "Maranhão", "Povos Indígenas", "Sociobiodiversidade"],
         "Projeto": ["Ceres", "USAID II", "Vale Quebradeiras", "Ceres"],
         "Início": ["15/03/2023", "15/05/2023", "15/07/2023", "15/08/2023"],
@@ -238,17 +238,17 @@ with tab3:
         "Responsável": ["Ana", "Pedro", "João", "Ana"],
         "Situação": ["Em andamento", "Em andamento", "Concluído", "Em andamento"]
     }
-    df_atividades = pd.DataFrame(atividades)
+    df_entregas = pd.DataFrame(entregas)
 
-    lista, cronograma = st.tabs(["Lista de atividades", "Cronograma"])
+    lista, cronograma = st.tabs(["Lista de entregas", "Cronograma"])
 
     with lista:
-        st.dataframe(df_atividades, hide_index=True)
+        st.dataframe(df_entregas, hide_index=True)
 
     with cronograma:
 
         df_projeto = pd.DataFrame({
-            "Atividade": ["Oficina de Advocacy", "Formação de Comunicadores", "Elaboração de Relatório", "Entrega de Relatório"],
+            "Entrega": ["Oficina de Advocacy", "Formação de Comunicadores", "Elaboração de Relatório", "Entrega de Relatório"],
             "Programa": ["Cerrado", "Maranhão", "Povos Indígenas", "Sociobiodiversidade"],
             "Projeto": ["Ceres", "USAID II", "Vale Quebradeiras", "Ceres"],
             "Início": ["março/2023", "maio/2023", "julho/2023", "agosto/2023"],
@@ -278,7 +278,7 @@ with tab3:
             df_projeto,
             x_start='Início',
             x_end='Fim',
-            y='Atividade',
+            y='Entrega',
             color='Situação',
             # hover_data=['Valor'],
             height=250  # Diminuindo a altura do gráfico

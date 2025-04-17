@@ -222,14 +222,14 @@ else:
     pg = st.navigation([
         "Institucional.py", 
         "Estratégia.py", 
-        "Programas.py", 
+        "Programas e Áreas.py", 
         "Doadores.py", 
         "Projetos.py", 
         "Fundo Ecos.py", 
         "Indicadores.py", 
         "Pessoas.py", 
         "Viagens.py",
-        "Monitoramento PLs.py", 
+        "Monitor de PLs.py", 
         "Manuais.py"
     ])
 
