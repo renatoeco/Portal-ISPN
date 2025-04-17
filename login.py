@@ -230,8 +230,10 @@ else:
         "Indicadores.py", 
         "Pessoas.py", 
         "Viagens.py",
+        "Férias.py",
         "Monitor de PLs.py", 
-        "Manuais.py"
+        "Manuais.py",
+        
     ])
 
     # Chama o método run() para executar a página selecionada
