@@ -14,12 +14,22 @@ from funcoes_auxiliares import conectar_mongo_portal_ispn
 
 
 db = conectar_mongo_portal_ispn()  # Isso vai usar o cache automaticamente
-colaboradores = db["Colaboradores"]
+colaboradores = db["teste"]
 
 
 ###########################################################################################################
 # Funções
 ###########################################################################################################
+
+
+def encontrar_usuario_por_email(colaboradores, email_busca):
+    for doc in colaboradores.find():
+        for nome, dados in doc.items():
+            if nome != "_id" and isinstance(dados, dict):
+                if dados.get("e‑mail") == email_busca:
+                    return nome, dados
+            
+    return None, None
 
 
 def enviar_email(destinatario, codigo): 
@@ -64,62 +74,38 @@ def recuperar_senha_dialog():
     # Etapa 1: Inserir e-mail
     if not st.session_state.codigo_enviado:
         with conteudo_dialogo.form(key="recover_password_form", border=False):
-            
-            st.write('')
-
             email = st.text_input("Digite seu e-mail:")
-            
             if st.form_submit_button("Confirmar"):
-                
                 if email:
-                    verificar_colaboradores = colaboradores.find_one({"E-mail": email})  
-                
+                    nome, verificar_colaboradores = encontrar_usuario_por_email(colaboradores, email)
                     if verificar_colaboradores:
                         codigo = str(random.randint(100, 999))
-                
                         if enviar_email(email, codigo):
                             st.session_state.codigo_verificacao = codigo
                             st.session_state.codigo_enviado = True
                             st.session_state.email_verificado = email
                             st.success(f"Código enviado para {email}.")
-                
                         else:
                             st.error("Erro ao enviar o e-mail. Tente novamente.")
-                
                     else:
                         st.error("E-mail não encontrado. Tente novamente.")
-                
                 else:
                     st.error("Por favor, insira um e-mail.")
 
-   # Etapa 2: Inserir código
+    # Etapa 2: Inserir código
     if st.session_state.codigo_enviado and not st.session_state.codigo_validado:
-        
         with conteudo_dialogo.form(key="codigo_verificacao_form", border=False):
-            
             st.subheader("Código de verificação")
-            
+            email_mask = st.session_state.email_verificado.replace("@", "​@")  # Caractere invisível entre aspas
+            st.info(f"Um código foi enviado para: **{email_mask}**")
 
-            email = st.session_state.email_verificado.replace("@", "​@")  # O caractere invisível está entre as aspas
-            st.info(f"Um código foi enviado para: **{email}**")
-
-            
             codigo_input = st.text_input("Informe o código recebido por e-mail", placeholder="000")
-            enviar_codigo = st.form_submit_button("Verificar")
-
-            if enviar_codigo:
+            if st.form_submit_button("Verificar"):
                 if codigo_input == st.session_state.codigo_verificacao:
                     sucesso = st.success("✅ Código verificado com sucesso!")
-                    
-                    # Espera 2 segundos antes de limpar a mensagem e avançar para a próxima etapa
                     time.sleep(2)
-                    
-                    # Limpa a mensagem de sucesso
                     sucesso.empty()
-
-                    # Avança para a próxima etapa
                     st.session_state.codigo_validado = True
-                
                 else:
                     st.error("❌ Código inválido. Tente novamente.")
 
@@ -128,33 +114,44 @@ def recuperar_senha_dialog():
     if st.session_state.codigo_validado:
         
         with conteudo_dialogo.form("nova_senha_form", border=True):
+
             st.markdown("### Defina sua nova senha")
+
             nova_senha = st.text_input("Nova senha", type="password")
+
             confirmar_senha = st.text_input("Confirme a senha", type="password")
+
             enviar_nova_senha = st.form_submit_button("Salvar")
 
             if enviar_nova_senha:
-        
+            
                 if nova_senha == confirmar_senha and nova_senha.strip():
-                    # Atualiza no banco de dados (MongoDB)
-                    colaboradores.update_one(
-                        {"E-mail": st.session_state.email_verificado},
-                        {"$set": {"Senha": nova_senha}}
+
+                    # Atualiza a senha diretamente no banco de dados (MongoDB)
+                    result = colaboradores.update_one(
+                        {"e-mail": st.session_state.email_verificado},  # Busca pelo e-mail
+                        {"$set": {"senha": nova_senha}}  # Atualiza a senha
                     )
-                    st.success("Senha redefinida com sucesso!")
-                    
-                    # Limpa os estados após redefinir a senha
-                    for key in ["codigo_enviado", "codigo_verificacao", "email_verificado", "codigo_validado"]:
-                        st.session_state.pop(key, None)
-                    
-                    # Define o usuário como logado (pode ser usado para redirecionar)
-                    st.session_state.logged_in = True
 
-                    # Adiciona um tempo de espera de 2 segundos
-                    time.sleep(2)
+                    # Verifica se a atualização foi bem-sucedida
+                    if result.matched_count > 0:  # Verifica se o documento foi encontrado
+                        st.success("Senha redefinida com sucesso!")
+                        
+                        # Limpa os estados após redefinir a senha
+                        for key in ["codigo_enviado", "codigo_verificacao", "email_verificado", "codigo_validado"]:
+                            st.session_state.pop(key, None)
+                        
+                        # Define o usuário como logado (pode ser usado para redirecionar)
+                        st.session_state.logged_in = True
 
-                    # Redireciona o usuário para a página principal ou perfil após redefinir a senha
-                    st.rerun()
+                        # Adiciona um tempo de espera de 2 segundos
+                        time.sleep(2)
+
+                        # Redireciona o usuário para a página principal ou perfil após redefinir a senha
+                        st.rerun()
+
+                    else:
+                        st.error("Erro ao redefinir a senha. Tente novamente.")
 
                 else:
                     st.error("As senhas não coincidem ou estão vazias.")
