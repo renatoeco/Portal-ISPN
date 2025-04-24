@@ -30,7 +30,7 @@ def encontrar_usuario_por_email(colaboradores, email_busca):
                     return nome, dados
             
     return None, None
-
+ 
 
 def enviar_email(destinatario, codigo): 
     remetente = st.secrets["senhas"]["endereco_email"]
