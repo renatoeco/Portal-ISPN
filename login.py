@@ -112,49 +112,144 @@ def recuperar_senha_dialog():
 
     # Etapa 3: Definir nova senha
     if st.session_state.codigo_validado:
-        
-        with conteudo_dialogo.form("nova_senha_form", border=True):
 
+
+        # Cria um formulário com borda para redefinição de senha
+        with conteudo_dialogo.form("nova_senha_form", border=True):
             st.markdown("### Defina sua nova senha")
 
+            # Campos para digitar e confirmar a nova senha
             nova_senha = st.text_input("Nova senha", type="password")
-
             confirmar_senha = st.text_input("Confirme a senha", type="password")
+            enviar_nova_senha = st.form_submit_button("Salvar")  # Botão de envio do formulário
 
-            enviar_nova_senha = st.form_submit_button("Salvar")
-
+            # Verifica se o botão foi pressionado
             if enviar_nova_senha:
-            
+                # Verifica se as senhas coincidem e não estão vazias
                 if nova_senha == confirmar_senha and nova_senha.strip():
 
-                    # Atualiza a senha diretamente no banco de dados (MongoDB)
-                    result = colaboradores.update_one(
-                        {"e-mail": st.session_state.email_verificado},  # Busca pelo e-mail
-                        {"$set": {"senha": nova_senha}}  # Atualiza a senha
-                    )
+                    # Recupera o e-mail verificado salvo no estado da sessão
+                    email = st.session_state.email_verificado
 
-                    # Verifica se a atualização foi bem-sucedida
-                    if result.matched_count > 0:  # Verifica se o documento foi encontrado
-                        st.success("Senha redefinida com sucesso!")
-                        
-                        # Limpa os estados após redefinir a senha
-                        for key in ["codigo_enviado", "codigo_verificacao", "email_verificado", "codigo_validado"]:
-                            st.session_state.pop(key, None)
-                        
-                        # Define o usuário como logado (pode ser usado para redirecionar)
-                        st.session_state.logged_in = True
+                    # Busca no banco de dados por um documento que contenha o e-mail em qualquer subcampo
+                    documento_encontrado = colaboradores.find_one({
+                        "$or": [
+                            {f"{key}.e‑mail": email}
+                            for doc in colaboradores.find()
+                            for key in doc.keys()
+                            if isinstance(doc.get(key), dict) and "e‑mail" in doc[key]
+                        ]
+                    })
 
-                        # Adiciona um tempo de espera de 2 segundos
-                        time.sleep(2)
+                    if documento_encontrado:
+                        # Tenta identificar a chave do usuário (ex: 'Renaaujo') no documento
+                        usuario_chave = None
+                        for chave, valor in documento_encontrado.items():
+                            if isinstance(valor, dict) and valor.get("e‑mail") == email:
+                                usuario_chave = chave
+                                break
 
-                        # Redireciona o usuário para a página principal ou perfil após redefinir a senha
-                        st.rerun()
+                        if usuario_chave:
+                            # Cria os caminhos para os campos de e-mail e senha no documento
+                            path_email = f"{usuario_chave}.e‑mail"
+                            path_senha = f"{usuario_chave}.senha"
 
+                            try:
+                                # Atualiza a senha do usuário no banco de dados
+                                result = colaboradores.update_one(
+                                    {path_email: email},
+                                    {"$set": {path_senha: nova_senha}}
+                                )
+
+                                if result.matched_count > 0:
+                                    # Senha atualizada com sucesso
+                                    st.success("Senha redefinida com sucesso!")
+
+                                    # Remove variáveis relacionadas à verificação de e-mail da sessão
+                                    for key in ["codigo_enviado", "codigo_verificacao", "email_verificado", "codigo_validado"]:
+                                        st.session_state.pop(key, None)
+
+                                    # Marca o usuário como logado e reinicia a aplicação
+                                    st.session_state.logged_in = True
+                                    time.sleep(2)
+                                    st.rerun()
+                                else:
+                                    st.error("Erro ao redefinir a senha. Tente novamente.")
+                            except Exception as e:
+                                # Tratamento de erro caso a atualização falhe
+                                st.error(f"Erro ao atualizar a senha: {e}")
+                        else:
+                            st.error("Usuário não encontrado com o e-mail informado.")
                     else:
-                        st.error("Erro ao redefinir a senha. Tente novamente.")
-
+                        st.error("Nenhum documento encontrado com esse e-mail.")
                 else:
                     st.error("As senhas não coincidem ou estão vazias.")
+
+
+
+
+
+
+
+
+
+
+        # with conteudo_dialogo.form("nova_senha_form", border=True):
+        #     st.markdown("### Defina sua nova senha")
+
+        #     nova_senha = st.text_input("Nova senha", type="password")
+        #     confirmar_senha = st.text_input("Confirme a senha", type="password")
+        #     enviar_nova_senha = st.form_submit_button("Salvar")
+
+        #     if enviar_nova_senha:
+        #         if nova_senha == confirmar_senha and nova_senha.strip():
+
+        #             email = st.session_state.email_verificado
+        #             documento_encontrado = colaboradores.find_one({
+        #                 # Busca documentos que contenham o e-mail em qualquer subcampo
+        #                 "$or": [
+        #                     {f"{key}.e‑mail": email}
+        #                     for doc in colaboradores.find()
+        #                     for key in doc.keys()
+        #                     if isinstance(doc.get(key), dict) and "e‑mail" in doc[key]
+        #                 ]
+        #             })
+
+        #             if documento_encontrado:
+        #                 # Encontrar a chave de usuário (tipo 'Renaaujo')
+        #                 usuario_chave = None
+        #                 for chave, valor in documento_encontrado.items():
+        #                     if isinstance(valor, dict) and valor.get("e‑mail") == email:
+        #                         usuario_chave = chave
+        #                         break
+
+        #                 if usuario_chave:
+        #                     path_email = f"{usuario_chave}.e‑mail"
+        #                     path_senha = f"{usuario_chave}.senha"
+
+        #                     try:
+        #                         result = colaboradores.update_one(
+        #                             {path_email: email},
+        #                             {"$set": {path_senha: nova_senha}}
+        #                         )
+
+        #                         if result.matched_count > 0:
+        #                             st.success("Senha redefinida com sucesso!")
+        #                             for key in ["codigo_enviado", "codigo_verificacao", "email_verificado", "codigo_validado"]:
+        #                                 st.session_state.pop(key, None)
+        #                             st.session_state.logged_in = True
+        #                             time.sleep(2)
+        #                             st.rerun()
+        #                         else:
+        #                             st.error("Erro ao redefinir a senha. Tente novamente.")
+        #                     except Exception as e:
+        #                         st.error(f"Erro ao atualizar a senha: {e}")
+        #                 else:
+        #                     st.error("Usuário não encontrado com o e-mail informado.")
+        #             else:
+        #                 st.error("Nenhum documento encontrado com esse e-mail.")
+        #         else:
+        #             st.error("As senhas não coincidem ou estão vazias.")
 
 
 
