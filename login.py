@@ -197,7 +197,6 @@ def login():
             if usuario:
                 # Senha válida encontrada
                 st.session_state["logged_in"] = True
-                st.success("Login bem-sucedido!")
                 time.sleep(2)  # Pausa para mostrar a mensagem
                 st.rerun()  # Recarrega a página após login bem-sucedido
             else:
@@ -206,6 +205,8 @@ def login():
     # Mostrar o botão "Esqueci a senha" caso o login falhe
     col2.button("Esqueci a senha", key="forgot_password", type="tertiary", on_click=recuperar_senha_dialog)
 
+    # Mensagem para o primeiro acesso
+    col2.markdown("<div style='color: red;'><br>É o seu primeiro acesso?<br>Clique em \"Esqueci a senha\".</div>", unsafe_allow_html=True)
 
 ##############################################################################################################
 
@@ -219,15 +220,17 @@ else:
     pg = st.navigation([
         "Institucional.py", 
         "Estratégia.py", 
-        "Programas.py", 
+        "Programas e Áreas.py", 
         "Doadores.py", 
         "Projetos.py", 
         "Fundo Ecos.py", 
         "Indicadores.py", 
         "Pessoas.py", 
         "Viagens.py",
-        "Monitoramento PLs.py", 
-        "Manuais.py"
+        "Férias.py",
+        "Monitor de PLs.py", 
+        "Manuais.py",
+        
     ])
 
     # Chama o método run() para executar a página selecionada
