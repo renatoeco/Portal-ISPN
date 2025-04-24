@@ -1,4 +1,41 @@
 import streamlit as st
+from datetime import datetime
+from funcoes_auxiliares import conectar_mongo_portal_ispn
+
+
+###########################################################################################################
+# Conectando ao MongoDB
+###########################################################################################################
+
+
+db = conectar_mongo_portal_ispn()  # Isso vai usar o cache automaticamente
+estatistica = db["estatistica"]
+
+
+
+###########################################################################################################
+# Contador de acessos
+###########################################################################################################
+
+# Nome da página como chave
+nome_pagina = "Institucional"
+timestamp = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+
+# Constrói o campo dinâmico para adicionar o timestamp
+campo_timestamp = f"{nome_pagina}.Time Stamps"
+
+# Atualiza ou cria o documento, acumulando os timestamps
+estatistica.update_one(
+    {},
+    {"$push": {campo_timestamp: timestamp}},
+    upsert=True
+)
+
+
+###########################################################################################################
+# MAIN
+###########################################################################################################
+
 
 st.set_page_config(layout="wide")
 
