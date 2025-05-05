@@ -186,7 +186,7 @@ def recuperar_senha_dialog():
                     st.error("As senhas não coincidem ou estão vazias.")
 
 
-# Função de login
+# Função para a tela de login
 def login():
     st.markdown(
         """
