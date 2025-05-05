@@ -22,7 +22,7 @@ nome_pagina = "Institucional"
 timestamp = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
 # Constrói o campo dinâmico para adicionar o timestamp
-campo_timestamp = f"{nome_pagina}.Time Stamps"
+campo_timestamp = f"{nome_pagina}.Visitas"
 
 # Atualiza ou cria o documento, acumulando os timestamps
 estatistica.update_one(

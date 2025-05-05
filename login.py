@@ -186,11 +186,8 @@ def recuperar_senha_dialog():
                     st.error("As senhas não coincidem ou estão vazias.")
 
 
-
 # Função para a tela de login
 def login():
-
-
     st.markdown(
         """
         <div style="text-align: center;">
@@ -201,40 +198,35 @@ def login():
     )
 
     st.write('')
-    st.write('')
-    st.write('')
-
     st.markdown("<div style='text-align: center;'><h1 style='color: #666;'><strong>Portal do ISPN</strong></h1></div>", unsafe_allow_html=True)
-
     st.write('')
-    st.write('')
-    st.write('')
-
 
     col1, col2, col3 = st.columns([2, 3, 2])
 
-    # Formulário para a tela de login
     with col2.form("login_form", border=False):
-        # Input do usuário para a senha
         password = st.text_input("Insira a senha", type="password")
 
-        # Verificar se o usuário clicou no botão de login
         if st.form_submit_button("Entrar"):
-            # Consultar o banco de dados MongoDB somente pela senha
-            usuario = colaboradores.find_one({"Senha": password})
+            usuario_encontrado = None
 
-            if usuario:
-                # Senha válida encontrada
+            # Percorre todos os documentos da coleção
+            for doc in colaboradores.find():
+                for chave, valor in doc.items():
+                    if isinstance(valor, dict) and valor.get("senha") == password:
+                        usuario_encontrado = valor
+                        break
+                if usuario_encontrado:
+                    break
+
+            if usuario_encontrado:
                 st.session_state["logged_in"] = True
-                time.sleep(2)  # Pausa para mostrar a mensagem
-                st.rerun()  # Recarrega a página após login bem-sucedido
+                time.sleep(2)
+                st.rerun()
             else:
                 st.error("Senha inválida ou usuário não encontrado!")
-                
-    # Mostrar o botão "Esqueci a senha" caso o login falhe
+
     col2.button("Esqueci a senha", key="forgot_password", type="tertiary", on_click=recuperar_senha_dialog)
 
-    # Mensagem para o primeiro acesso
     col2.markdown("<div style='color: red;'><br>É o seu primeiro acesso?<br>Clique em \"Esqueci a senha\".</div>", unsafe_allow_html=True)
 
 ##############################################################################################################
