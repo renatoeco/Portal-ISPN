@@ -186,77 +186,8 @@ def recuperar_senha_dialog():
                     st.error("As senhas não coincidem ou estão vazias.")
 
 
-
-
-
-
-
-
-
-
-        # with conteudo_dialogo.form("nova_senha_form", border=True):
-        #     st.markdown("### Defina sua nova senha")
-
-        #     nova_senha = st.text_input("Nova senha", type="password")
-        #     confirmar_senha = st.text_input("Confirme a senha", type="password")
-        #     enviar_nova_senha = st.form_submit_button("Salvar")
-
-        #     if enviar_nova_senha:
-        #         if nova_senha == confirmar_senha and nova_senha.strip():
-
-        #             email = st.session_state.email_verificado
-        #             documento_encontrado = colaboradores.find_one({
-        #                 # Busca documentos que contenham o e-mail em qualquer subcampo
-        #                 "$or": [
-        #                     {f"{key}.e‑mail": email}
-        #                     for doc in colaboradores.find()
-        #                     for key in doc.keys()
-        #                     if isinstance(doc.get(key), dict) and "e‑mail" in doc[key]
-        #                 ]
-        #             })
-
-        #             if documento_encontrado:
-        #                 # Encontrar a chave de usuário (tipo 'Renaaujo')
-        #                 usuario_chave = None
-        #                 for chave, valor in documento_encontrado.items():
-        #                     if isinstance(valor, dict) and valor.get("e‑mail") == email:
-        #                         usuario_chave = chave
-        #                         break
-
-        #                 if usuario_chave:
-        #                     path_email = f"{usuario_chave}.e‑mail"
-        #                     path_senha = f"{usuario_chave}.senha"
-
-        #                     try:
-        #                         result = colaboradores.update_one(
-        #                             {path_email: email},
-        #                             {"$set": {path_senha: nova_senha}}
-        #                         )
-
-        #                         if result.matched_count > 0:
-        #                             st.success("Senha redefinida com sucesso!")
-        #                             for key in ["codigo_enviado", "codigo_verificacao", "email_verificado", "codigo_validado"]:
-        #                                 st.session_state.pop(key, None)
-        #                             st.session_state.logged_in = True
-        #                             time.sleep(2)
-        #                             st.rerun()
-        #                         else:
-        #                             st.error("Erro ao redefinir a senha. Tente novamente.")
-        #                     except Exception as e:
-        #                         st.error(f"Erro ao atualizar a senha: {e}")
-        #                 else:
-        #                     st.error("Usuário não encontrado com o e-mail informado.")
-        #             else:
-        #                 st.error("Nenhum documento encontrado com esse e-mail.")
-        #         else:
-        #             st.error("As senhas não coincidem ou estão vazias.")
-
-
-
-# Função para a tela de login
+# Função de login
 def login():
-
-
     st.markdown(
         """
         <div style="text-align: center;">
@@ -267,40 +198,35 @@ def login():
     )
 
     st.write('')
-    st.write('')
-    st.write('')
-
     st.markdown("<div style='text-align: center;'><h1 style='color: #666;'><strong>Portal do ISPN</strong></h1></div>", unsafe_allow_html=True)
-
     st.write('')
-    st.write('')
-    st.write('')
-
 
     col1, col2, col3 = st.columns([2, 3, 2])
 
-    # Formulário para a tela de login
     with col2.form("login_form", border=False):
-        # Input do usuário para a senha
         password = st.text_input("Insira a senha", type="password")
 
-        # Verificar se o usuário clicou no botão de login
         if st.form_submit_button("Entrar"):
-            # Consultar o banco de dados MongoDB somente pela senha
-            usuario = colaboradores.find_one({"Senha": password})
+            usuario_encontrado = None
 
-            if usuario:
-                # Senha válida encontrada
+            # Percorre todos os documentos da coleção
+            for doc in colaboradores.find():
+                for chave, valor in doc.items():
+                    if isinstance(valor, dict) and valor.get("senha") == password:
+                        usuario_encontrado = valor
+                        break
+                if usuario_encontrado:
+                    break
+
+            if usuario_encontrado:
                 st.session_state["logged_in"] = True
-                time.sleep(2)  # Pausa para mostrar a mensagem
-                st.rerun()  # Recarrega a página após login bem-sucedido
+                time.sleep(2)
+                st.rerun()
             else:
                 st.error("Senha inválida ou usuário não encontrado!")
-                
-    # Mostrar o botão "Esqueci a senha" caso o login falhe
+
     col2.button("Esqueci a senha", key="forgot_password", type="tertiary", on_click=recuperar_senha_dialog)
 
-    # Mensagem para o primeiro acesso
     col2.markdown("<div style='color: red;'><br>É o seu primeiro acesso?<br>Clique em \"Esqueci a senha\".</div>", unsafe_allow_html=True)
 
 ##############################################################################################################
