@@ -214,12 +214,14 @@ def login():
                 for chave, valor in doc.items():
                     if isinstance(valor, dict) and valor.get("senha") == password:
                         usuario_encontrado = valor
+                        tipo_usuario = valor.get("tipo de usuário", "desconhecido")  # Se não tiver campo 'tipo'
                         break
                 if usuario_encontrado:
                     break
 
             if usuario_encontrado:
                 st.session_state["logged_in"] = True
+                st.session_state["tipo_usuario"] = tipo_usuario  # Armazena o tipo do usuário
                 time.sleep(2)
                 st.rerun()
             else:

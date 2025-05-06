@@ -10,12 +10,14 @@ from funcoes_auxiliares import conectar_mongo_portal_ispn
 
 db = conectar_mongo_portal_ispn()  # Isso vai usar o cache automaticamente
 estatistica = db["estatistica"]
-
+colaboradores = db["colaboradores"]
+institucional = db["institucional"]
 
 
 ###########################################################################################################
 # Contador de acessos
 ###########################################################################################################
+
 
 # Nome da página como chave
 nome_pagina = "Institucional"
@@ -30,6 +32,38 @@ estatistica.update_one(
     {"$push": {campo_timestamp: timestamp}},
     upsert=True
 )
+
+
+###########################################################################################################
+# FUNÇÕES 
+###########################################################################################################
+
+
+@st.dialog("Editar Frase de Força")
+def editar_frase_dialog():
+    frase_doc = institucional.find_one({"frase_forca": {"$exists": True}})
+    frase_atual = frase_doc["frase_forca"] if frase_doc else ""
+    nova_frase = st.text_area("Nova frase de força", value=frase_atual)
+    if st.button("Salvar"):
+        if frase_doc:
+            institucional.update_one({"_id": frase_doc["_id"]}, {"$set": {"frase_forca": nova_frase}})
+        else:
+            institucional.insert_one({"frase_forca": nova_frase})
+        st.success("Frase atualizada com sucesso!")
+        st.rerun()
+
+@st.dialog("Editar Missão")
+def editar_missao_dialog():
+    missao_doc = institucional.find_one({"missao": {"$exists": True}})
+    missao_atual = missao_doc["missao"] if missao_doc else ""
+    nova_missao = st.text_area("Nova missão", value=missao_atual)
+    if st.button("Salvar"):
+        if missao_doc:
+            institucional.update_one({"_id": missao_doc["_id"]}, {"$set": {"missao": nova_missao}})
+        else:
+            institucional.insert_one({"missao": nova_missao})
+        st.success("Missão atualizada com sucesso!")
+        st.rerun()
 
 
 ###########################################################################################################
@@ -49,21 +83,43 @@ st.markdown(
 )
 
 
-
-
-
-st.write('')
-st.write('')
-st.write('')
-
-st.write('')
-st.markdown("<h3 style='text-align: center;'>Fortalecer meios de vida sustentáveis com protagonismo comunitário.</h3>", unsafe_allow_html=True)
+frase_doc = institucional.find_one({"frase_forca": {"$exists": True}})
+frase_atual = frase_doc["frase_forca"] if frase_doc else "Frase não cadastrada ainda."
+missao_doc = institucional.find_one({"missao": {"$exists": True}})
+missao_atual = missao_doc["missao"] if missao_doc else "Missão não cadastrada ainda."
 
 
 st.write('')
 st.write('')
-st.subheader('Missão')
-st.write('Contribuir para viabilizar a equidade social e o equilíbrio ambiental, com o fortalecimento de meios de vida sustentáveis e estratégias de adaptação às mudanças climáticas.')
+st.write('')
+st.write('')
+
+
+col_frase, col_btn = st.columns([10, 1])
+with col_frase:
+    st.markdown(f"<h3 style='text-align: center;'>{frase_atual}</h3>", unsafe_allow_html=True)
+if st.session_state.get("tipo_usuario") == "adm":
+    col_btn.button("Editar", icon=":material/edit:", key="editar_frase", on_click=editar_frase_dialog)
+
+
+#st.markdown("<h3 style='text-align: center;'>Fortalecer meios de vida sustentáveis com protagonismo comunitário.</h3>", unsafe_allow_html=True)
+
+
+st.write('')
+st.write('')
+
+
+col_missao, col_btn2 = st.columns([10, 1])
+with col_missao:
+    st.subheader("Missão")
+    st.write(missao_atual)
+if st.session_state.get("tipo_usuario") == "adm":
+    
+    col_btn2.button("Editar", icon=":material/edit:", key="editar_missao", on_click=editar_missao_dialog)
+    
+
+#st.subheader('Missão')
+#st.write('Contribuir para viabilizar a equidade social e o equilíbrio ambiental, com o fortalecimento de meios de vida sustentáveis e estratégias de adaptação às mudanças climáticas.')
 
 st.write('')
 st.write('')
