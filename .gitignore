@@ -1,4 +1,4 @@
 .streamlit/secrets.toml
 env_ispn_hub
-/portal_ispn
+/venv_portal_ispn
 /__pycache__
