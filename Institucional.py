@@ -123,17 +123,17 @@ def editar_info_institucional_dialog():
         novo_valores_titulo = st.text_input("Novo título para os valores", value=valores_titulo_atual)
 
         # Botão para atualizar apenas o título
-        # if st.button("Atualizar título", key="atualizar_valores_titulo"):
-        #     if valores_doc:
-        #         institucional.update_one(
-        #             {"_id": valores_doc["_id"]},
-        #             {"$set": {"valores_titulo": novo_valores_titulo}}
-        #         )
-        #         st.success("Título dos valores atualizado com sucesso!")
-        #         time.sleep(2)
-        #         st.rerun()
-        #     else:
-        #         st.error("Documento não encontrado.")
+        if st.button("Atualizar título", key="atualizar_valores_titulo"):
+            if valores_doc:
+                institucional.update_one(
+                    {"_id": valores_doc["_id"]},
+                    {"$set": {"valores_titulo": novo_valores_titulo}}
+                )
+                st.success("Título dos valores atualizado com sucesso!")
+                time.sleep(2)
+                st.rerun()
+            else:
+                st.error("Documento não encontrado.")
 
         st.markdown("---")
 
