@@ -1,5 +1,6 @@
 import streamlit as st
 import time
+import re
 from datetime import datetime
 from funcoes_auxiliares import conectar_mongo_portal_ispn  # Função personalizada para conectar ao MongoDB
 
@@ -197,12 +198,8 @@ def editar_info_institucional_dialog():
             st.rerun()
 
         # Adicionar novo valor
-        if not valor_selecionado and st.button("Adicionar valor / Atualizar título", key="adicionar_valor"):
+        if not valor_selecionado and st.button("Adicionar valor", key="adicionar_valor"):
             update_data = {}
-
-            # Atualiza título, se tiver sido alterado
-            if novo_valores_titulo != valores_titulo_atual:
-                update_data["valores_titulo"] = novo_valores_titulo
 
             # Se o título e a descrição do novo valor estiverem preenchidos, adiciona à lista
             if novo_titulo.strip() or nova_descricao.strip():
@@ -221,14 +218,6 @@ def editar_info_institucional_dialog():
                         "valores": [novo_valor]
                     })
                 st.success("Novo valor adicionado com sucesso!")
-
-            elif update_data:
-                # Atualiza apenas o título, se necessário
-                institucional.update_one(
-                    {"_id": valores_doc["_id"]},
-                    {"$set": update_data}
-                )
-                st.success("Título dos valores atualizado com sucesso!")
 
             time.sleep(2)
             st.rerun()
@@ -316,51 +305,34 @@ st.write('')
 
 
 if lista_valores:
-    # Ordena os valores por título (opcional)
-    lista_valores = sorted(lista_valores, key=lambda x: x.get("titulo", "").lower())
+    def extrair_numero(titulo):
+        match = re.match(r"(\d+)", titulo)
+        return int(match.group(1)) if match else float("inf")
 
-    # Define o número de colunas por linha
-    num_colunas = 5
+    # Ordena com base no número extraído do título
+    lista_valores = sorted(lista_valores, key=lambda x: extrair_numero(x.get("titulo", "")))
 
-    # Itera em blocos de até `num_colunas` valores por linha
-    for i in range(0, len(lista_valores), num_colunas):
-        valores_linha = lista_valores[i:i + num_colunas]
-        colunas = st.columns(len(valores_linha))  # Cria somente o número de colunas necessárias
+    total_valores = len(lista_valores)
 
-        for col, valor in zip(colunas, valores_linha):
-            with col.container(border=True):
-                st.markdown(f"**{lista_valores.index(valor) + 1} - {valor['titulo']}**  \n{valor['descricao']}")
+    # Define quantos valores por linha
+    if total_valores <= 3:
+        colunas_por_linha = total_valores
+    elif total_valores == 4:
+        colunas_por_linha = 4
+    else:
+        colunas_por_linha = 5
 
+    # Cria blocos de colunas para exibição
+    for i in range(0, total_valores, colunas_por_linha):
+        valores_linha = lista_valores[i:i + colunas_por_linha]
 
+        # Sempre gera 5 colunas fixas
+        colunas = st.columns(5)
 
+        # Calcula quantas colunas "vazias" à esquerda para centralizar
+        espacos_vazios = (5 - len(valores_linha)) // 2
 
-
-# Exibe os valores do ISPN em colunas com borda
-# col1, col2, col3, col4, col5 = st.columns(5)
-
-# cont1 = col1.container(border=True)
-# cont1.write("""
-# **1 - Relações de confiança** \n
-# Trabalhamos na construção de relações de respeito, confiança, honestidade e transparência, primando pelo diálogo e pela realização conjunta de ações para o alcance das transformações socioambientais.
-# """)
-
-# cont2 = col2.container(border=True)
-# cont2.write("""           
-# **2 - Compromisso socioambiental** \n
-# Agimos com responsabilidade para equilibrar interesses socioeconômicos e ambientais em favor do bem-estar das pessoas e comunidades.
-# """)
-
-# cont3 = col3.container(border=True)
-# cont3.write("""**3 - Reconhecimento de saberes** \n
-# Valorizamos processos de aprendizagem que inspirem e multipliquem a diversidade de saberes e práticas para gerar transformações com impactos socioambientais justos e inclusivos.
-# """)
-
-# cont4 = col4.container(border=True)
-# cont4.write("""**4 - Valorização da diversidade** \n
-# Primamos pelas relações baseadas no respeito e na inclusão de todas as pessoas, reconhecendo e valorizando a pluralidade e o protagonismo de cada indivíduo e de seus coletivos.
-# """)
-
-# cont5 = col5.container(border=True)
-# cont5.write("""**5 - Cooperação** \n
-# Atuamos de maneira colaborativa e solidária no trabalho em equipe e entre organizações, parceiros e comunidades na busca de soluções para os desafios socioambientais contemporâneos.
-# """)
+        for idx, valor in enumerate(valores_linha):
+            posicao = idx + espacos_vazios  # Deslocamento para o centro
+            with colunas[posicao].container(border=True):
+                st.markdown(f"**{valor['titulo']}**  \n{valor['descricao']}")
