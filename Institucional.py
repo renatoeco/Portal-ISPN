@@ -9,10 +9,10 @@ from funcoes_auxiliares import conectar_mongo_portal_ispn  # Função personaliz
 # CONEXÃO COM O BANCO DE DADOS MONGODB
 ###########################################################################################################
 
-# Conecta-se ao banco de dados MongoDB (com cache automático)
+# Conecta-se ao banco de dados MongoDB (usa cache automático para melhorar performance)
 db = conectar_mongo_portal_ispn()
 
-# Define as coleções utilizadas
+# Define as coleções específicas que serão utilizadas a partir do banco
 estatistica = db["estatistica"]
 colaboradores = db["colaboradores"]
 institucional = db["institucional"]
@@ -22,14 +22,16 @@ institucional = db["institucional"]
 # CONTADOR DE ACESSOS À PÁGINA
 ###########################################################################################################
 
-# Define o nome da página atual
+# Nome da página atual, usado como chave para contagem de acessos
 nome_pagina = "Institucional"
-# Gera o timestamp atual no formato "dia/mês/ano hora:minuto:segundo"
+
+# Cria um timestamp formatado com dia/mês/ano hora:minuto:segundo
 timestamp = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-# Cria o campo dinâmico para armazenar visitas
+
+# Cria o nome do campo dinamicamente baseado na página
 campo_timestamp = f"{nome_pagina}.Visitas"
 
-# Atualiza ou cria o documento de estatísticas, acumulando o timestamp da visita
+# Atualiza a coleção de estatísticas com o novo acesso, incluindo o timestamp
 estatistica.update_one(
     {},
     {"$push": {campo_timestamp: timestamp}},
@@ -41,42 +43,34 @@ estatistica.update_one(
 # FUNÇÕES
 ###########################################################################################################
 
-# Diálogo para editar a frase de força institucional
+# Cria uma caixa de diálogo no Streamlit com abas para edição de informações institucionais
 @st.dialog("Informações Institucionais", width="large")
 def editar_info_institucional_dialog():
 
+    # Cria quatro abas para editar diferentes seções institucionais
     tab1, tab2, tab3, tab4 = st.tabs(["Editar frase força", "Editar missão", "Editar visão de futuro", "Editar valores"])
 
-
-    # Frase Força //////////////////////////////////////////////////////
+    # Aba para edição da frase de força
     with tab1:
-        # Recupera a frase atual do banco, se existir
         frase_doc = institucional.find_one({"frase_forca": {"$exists": True}})
         frase_atual = frase_doc["frase_forca"] if frase_doc else ""
-        
-        # Campo para editar a frase
         nova_frase = st.text_area("Nova frase de força", value=frase_atual)
-        
-        # Botão para salvar a nova frase
+
         if st.button("Salvar", key="salvar frase força"):
             if frase_doc:
-                # Atualiza documento existente
                 institucional.update_one({"_id": frase_doc["_id"]}, {"$set": {"frase_forca": nova_frase}})
             else:
-                # Cria novo documento se ainda não existir
                 institucional.insert_one({"frase_forca": nova_frase})
             st.success("Frase atualizada com sucesso!")
             time.sleep(2)
-            st.rerun()  # Recarrega a interface para refletir a atualização
+            st.rerun()
 
-
-    # Missão //////////////////////////////////////////////////////
+    # Aba para edição da missão institucional
     with tab2:
         missao_doc = institucional.find_one({"missao": {"$exists": True}})
         missao_atual = missao_doc["missao"] if missao_doc else ""
-        
         nova_missao = st.text_area("Nova missão", value=missao_atual)
-        
+
         if st.button("Salvar", key="salvar missão"):
             if missao_doc:
                 institucional.update_one({"_id": missao_doc["_id"]}, {"$set": {"missao": nova_missao}})
@@ -86,18 +80,16 @@ def editar_info_institucional_dialog():
             time.sleep(2)
             st.rerun()
 
-
-    # Visão de Futuro //////////////////////////////////////////////////////
+    # Aba para edição da visão de futuro
     with tab3:
         visao_doc_titulo = institucional.find_one({"visao_titulo": {"$exists": True}})
         visao_doc_texto = institucional.find_one({"visao_texto": {"$exists": True}})
         visao_atual_titulo = visao_doc_titulo["visao_titulo"] if visao_doc_titulo else ""
         visao_atual_texto = visao_doc_texto["visao_texto"] if visao_doc_texto else ""
-        
-        nova_visao_titulo = st.text_input("Novo título para a visão", value=visao_atual_titulo)
 
+        nova_visao_titulo = st.text_input("Novo título para a visão", value=visao_atual_titulo)
         nova_visao_texto = st.text_area("Novo texto para a visão", value=visao_atual_texto)
-        
+
         if st.button("Salvar", key="salvar visao"):
             if visao_doc_titulo and visao_doc_texto:
                 institucional.update_one({"_id": visao_doc_titulo["_id"]}, {"$set": {"visao_titulo": nova_visao_titulo}})
@@ -105,25 +97,19 @@ def editar_info_institucional_dialog():
             else:
                 institucional.insert_one({"visao_titulo": nova_visao_titulo})
                 institucional.insert_one({"visao_texto": nova_visao_texto})
-
             st.success("Visão atualizada com sucesso!")
             time.sleep(2)
             st.rerun()
 
-
-    # Valores //////////////////////////////////////////////////////
+    # Aba para edição dos valores institucionais
     with tab4:
-        # Busca o documento no MongoDB que contém os valores
         valores_doc = institucional.find_one({"valores_titulo": {"$exists": True}})
-
-        # Recupera o título atual e a lista de valores
         valores_titulo_atual = valores_doc["valores_titulo"] if valores_doc else ""
         lista_valores_atual = valores_doc["valores"] if valores_doc and "valores" in valores_doc else []
 
-        # Campo para editar o título geral
         novo_valores_titulo = st.text_input("Novo título para os valores", value=valores_titulo_atual)
 
-        # Botão para atualizar apenas o título
+        # Botão para atualizar o título dos valores
         if st.button("Atualizar título", key="atualizar_valores_titulo"):
             if valores_doc:
                 institucional.update_one(
@@ -138,32 +124,26 @@ def editar_info_institucional_dialog():
 
         st.markdown("---")
 
-        # Ordena os valores por título (você pode trocar 'titulo' por outro campo se quiser outra ordem)
+        # Ordena os valores alfabeticamente pelo título
         lista_valores_ordenada = sorted(lista_valores_atual, key=lambda x: x.get("titulo", "").lower())
-
-        # Dropdown com valores ordenados
         opcoes_valores = ["- Novo valor -"] + [valor["titulo"] for valor in lista_valores_ordenada]
 
-
-        # Dropdown com opção de não selecionar nenhum valor
         titulo_selecionado = st.selectbox("Selecione o valor para editar", options=opcoes_valores)
-        
         valor_selecionado = None
         index_valor = None
 
+        # Se um valor já existente foi selecionado, busca esse valor
         if titulo_selecionado != "- Novo valor -":
             valor_selecionado = next((v for v in lista_valores_atual if v["titulo"] == titulo_selecionado), None)
             index_valor = lista_valores_atual.index(valor_selecionado) if valor_selecionado else None
 
-        #st.markdown("---")
-
+        # Título da seção condicional conforme valor selecionado
         st.subheader("Editar valor" if valor_selecionado else "Adicionar novo valor")
 
-        # Campos de entrada
         novo_titulo = st.text_input("Título", value=valor_selecionado.get("titulo", "") if valor_selecionado else "")
         nova_descricao = st.text_area("Descrição", value=valor_selecionado.get("descricao", "") if valor_selecionado else "")
 
-        # Atualizar valor
+        # Atualizar valor existente
         if valor_selecionado and st.button("Atualizar valor", key="atualizar_valor"):
             lista_valores_atual[index_valor]["titulo"] = novo_titulo
             lista_valores_atual[index_valor]["descricao"] = nova_descricao
@@ -176,12 +156,11 @@ def editar_info_institucional_dialog():
                 {"_id": valores_doc["_id"]},
                 {"$set": update_data}
             )
-            
             st.success("Valor atualizado com sucesso!")
             time.sleep(2)
             st.rerun()
 
-        # Excluir valor
+        # Excluir valor existente
         if valor_selecionado and st.button("Excluir valor", key="excluir_valor"):
             lista_valores_atual.pop(index_valor)
 
@@ -201,7 +180,6 @@ def editar_info_institucional_dialog():
         if not valor_selecionado and st.button("Adicionar valor", key="adicionar_valor"):
             update_data = {}
 
-            # Se o título e a descrição do novo valor estiverem preenchidos, adiciona à lista
             if novo_titulo.strip() or nova_descricao.strip():
                 novo_valor = {"titulo": novo_titulo, "descricao": nova_descricao}
                 lista_valores_atual.append(novo_valor)
@@ -223,16 +201,14 @@ def editar_info_institucional_dialog():
             st.rerun()
 
 
-
-
 ###########################################################################################################
 # INTERFACE PRINCIPAL DA PÁGINA
 ###########################################################################################################
 
-# Configuração de layout para largura total
+# Define o layout da página como largura total
 st.set_page_config(layout="wide")
 
-# Exibe o logo do ISPN centralizado
+# Exibe o logo do ISPN centralizado na tela
 st.markdown(
     "<div style='display: flex; justify-content: center;'>"
     "<img src='https://ispn.org.br/site/wp-content/uploads/2021/04/logo_ISPN_2021.png' alt='ISPN Logo'>"
@@ -240,13 +216,11 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-
-# Recupera a frase de força e missão do banco (ou exibe mensagens padrão)
+# Recupera e exibe a frase de força cadastrada (ou mensagem padrão se não houver)
 frase_doc = institucional.find_one({"frase_forca": {"$exists": True}})
 frase_atual = frase_doc["frase_forca"] if frase_doc else "Frase não cadastrada ainda."
 
-
-# Busca o documento da missão
+# Recupera e exibe a missão cadastrada (ou mensagem padrão se não houver)
 missao_doc = institucional.find_one({"missao": {"$exists": True}})
 missao_atual = missao_doc["missao"] if missao_doc else "Missão não cadastrada ainda."
 
@@ -272,9 +246,10 @@ st.write('')
 st.write('')
 st.write('')
 
-# Se for usuário administrador, mostra botão para editar frase
 if st.session_state.get("tipo_usuario") == "adm":
-    st.button("Editar", icon=":material/edit:", key="editar_info", on_click=editar_info_institucional_dialog)
+    col1, col2, col3 = st.columns([6, 1, 1])  # Ajuste os pesos conforme necessário
+    with col3:
+        st.button("Editar", icon=":material/edit:", key="editar_info", on_click=editar_info_institucional_dialog)
 
 # Exibe a frase de força centralizada
 st.markdown(f"<h3 style='text-align: center;'>{frase_atual}</h3>", unsafe_allow_html=True)
@@ -314,25 +289,13 @@ if lista_valores:
 
     total_valores = len(lista_valores)
 
-    # Define quantos valores por linha
-    if total_valores <= 3:
-        colunas_por_linha = total_valores
-    elif total_valores == 4:
-        colunas_por_linha = 4
-    else:
-        colunas_por_linha = 5
-
     # Cria blocos de colunas para exibição
-    for i in range(0, total_valores, colunas_por_linha):
-        valores_linha = lista_valores[i:i + colunas_por_linha]
-
-        # Sempre gera 5 colunas fixas
+    for i in range(0, total_valores, 5):
+        valores_linha = lista_valores[i:i + 5]
         colunas = st.columns(5)
-
-        # Calcula quantas colunas "vazias" à esquerda para centralizar
         espacos_vazios = (5 - len(valores_linha)) // 2
 
         for idx, valor in enumerate(valores_linha):
-            posicao = idx + espacos_vazios  # Deslocamento para o centro
+            posicao = idx + espacos_vazios
             with colunas[posicao].container(border=True):
                 st.markdown(f"**{valor['titulo']}**  \n{valor['descricao']}")
