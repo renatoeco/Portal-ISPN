@@ -1,6 +1,21 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+from funcoes_auxiliares import conectar_mongo_portal_ispn 
+
+
+###########################################################################################################
+# CONEXÃO COM O BANCO DE DADOS MONGODB
+###########################################################################################################
+
+# Conecta-se ao banco de dados MongoDB (usa cache automático para melhorar performance)
+db = conectar_mongo_portal_ispn()
+
+# Define as coleções específicas que serão utilizadas a partir do banco
+estatistica = db["estatistica"]
+colaboradores = db["colaboradores"]
+estrategia = db["estrategia"]
+
 
 st.set_page_config(layout="wide")
 st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
@@ -12,21 +27,42 @@ aba_tm, aba_est, aba_res_2025, aba_res_2030, aba_ebj_est_ins = st.tabs(['Teoria 
 
 # Aba Teoria da mudança
 with aba_tm:
+    
+    # Busca o documento da coleção 'estrategia' que contenha a chave "teoria da mudança"
+    teoria_doc = estrategia.find_one({"teoria da mudança": {"$exists": True}})
+
+    # Inicializa os textos com valores padrão
+    problema = "Problema não cadastrado ainda."
+    proposito = "Propósito não cadastrado ainda."
+    impacto = "Impacto não cadastrado ainda."
+
+    # Se o documento for encontrado, percorre a lista e extrai os textos
+    if teoria_doc:
+        lista_tm = teoria_doc.get("teoria da mudança", [])
+        for item in lista_tm:
+            if "problema" in item:
+                problema = item["problema"]
+            elif "proposito" in item:
+                proposito = item["proposito"]
+            elif "impacto" in item:
+                impacto = item["impacto"]
+
 
     st.write('')
     st.subheader('Teoria da Mudança')
     st.write('')
 
     st.write('**Problema:**')
-    st.write('*Problema aqui*')
+    st.write(problema)
 
     st.write('')
     st.write('**Propósito:**')
-    st.write('*Proposito aqui*')
+    st.write(proposito)
 
     st.write('')
     st.write('**Impacto:**')
-    st.write('*Impacto aqui*')
+    st.write(impacto)
+
 
 
 # Aba Estratégia
