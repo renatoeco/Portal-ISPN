@@ -1,6 +1,75 @@
 import streamlit as st
 import pandas as pd
+import time
 from datetime import datetime
+from funcoes_auxiliares import conectar_mongo_portal_ispn 
+
+
+###########################################################################################################
+# CONEXÃO COM O BANCO DE DADOS MONGODB
+###########################################################################################################
+
+# Conecta-se ao banco de dados MongoDB (usa cache automático para melhorar performance)
+db = conectar_mongo_portal_ispn()
+
+# Define as coleções específicas que serão utilizadas a partir do banco
+estatistica = db["estatistica"]
+colaboradores = db["colaboradores"]
+estrategia = db["estrategia"]
+
+
+###########################################################################################################
+# FUNÇÕES
+###########################################################################################################
+
+@st.dialog("Editar Teoria da Mudança", width="large")
+def editar_info_teoria_mudanca_dialog():
+    teoria_doc = estrategia.find_one({"teoria da mudança": {"$exists": True}})
+
+    lista_tm = teoria_doc["teoria da mudança"] if teoria_doc else []
+
+    # Valores padrões
+    problema_atual = ""
+    proposito_atual = ""
+    impacto_atual = ""
+
+    for item in lista_tm:
+        if "problema" in item:
+            problema_atual = item["problema"]
+        elif "proposito" in item:
+            proposito_atual = item["proposito"]
+        elif "impacto" in item:
+            impacto_atual = item["impacto"]
+
+    novo_problema = st.text_input("Problema", value=problema_atual)
+    novo_proposito = st.text_input("Propósito", value=proposito_atual)
+    novo_impacto = st.text_input("Impacto", value=impacto_atual)
+
+    if st.button("Salvar alterações", key="salvar_teoria_mudanca"):
+        novos_dados = [
+            {"problema": novo_problema},
+            {"proposito": novo_proposito},
+            {"impacto": novo_impacto}
+        ]
+
+        if teoria_doc:
+            estrategia.update_one(
+                {"_id": teoria_doc["_id"]},
+                {"$set": {"teoria da mudança": novos_dados}}
+            )
+            st.success("Teoria da mudança atualizada com sucesso!")
+        else:
+            estrategia.insert_one({"teoria da mudança": novos_dados})
+            st.success("Teoria da mudança criada com sucesso!")
+
+        time.sleep(2)
+        st.rerun()
+    
+
+###########################################################################################################
+# INTERFACE PRINCIPAL
+###########################################################################################################
+
 
 st.set_page_config(layout="wide")
 st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
@@ -12,21 +81,48 @@ aba_tm, aba_est, aba_res_2025, aba_res_2030, aba_ebj_est_ins = st.tabs(['Teoria 
 
 # Aba Teoria da mudança
 with aba_tm:
+    
+    # Busca o documento da coleção 'estrategia' que contenha a chave "teoria da mudança"
+    teoria_doc = estrategia.find_one({"teoria da mudança": {"$exists": True}})
 
+    # Inicializa os textos com valores padrão
+    problema = "Problema não cadastrado ainda."
+    proposito = "Propósito não cadastrado ainda."
+    impacto = "Impacto não cadastrado ainda."
+
+    # Se o documento for encontrado, percorre a lista e extrai os textos
+    if teoria_doc:
+        lista_tm = teoria_doc.get("teoria da mudança", [])
+        for item in lista_tm:
+            if "problema" in item:
+                problema = item["problema"]
+            elif "proposito" in item:
+                proposito = item["proposito"]
+            elif "impacto" in item:
+                impacto = item["impacto"]
+
+
+    if st.session_state.get("tipo_usuario") == "adm":
+        col1, col2, col3 = st.columns([6, 1, 1])  # Ajuste os pesos conforme necessário
+        with col3:
+            st.button("Editar", icon=":material/edit:", key="editar_info_tm", on_click=editar_info_teoria_mudanca_dialog)
+
+    
     st.write('')
     st.subheader('Teoria da Mudança')
     st.write('')
 
     st.write('**Problema:**')
-    st.write('*Problema aqui*')
+    st.write(problema)
 
     st.write('')
     st.write('**Propósito:**')
-    st.write('*Proposito aqui*')
+    st.write(proposito)
 
     st.write('')
     st.write('**Impacto:**')
-    st.write('*Impacto aqui*')
+    st.write(impacto)
+
 
 
 # Aba Estratégia
