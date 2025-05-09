@@ -24,8 +24,10 @@ estrategia = db["estrategia"]
 
 @st.dialog("Editar Teoria da Mudança", width="large")
 def editar_info_teoria_mudanca_dialog():
+    # Pega o documento da coleção estratégia com a teoria da mudança
     teoria_doc = estrategia.find_one({"teoria da mudança": {"$exists": True}})
 
+    # Cria lista com os valores atuais da teoria da mudança
     lista_tm = teoria_doc["teoria da mudança"] if teoria_doc else []
 
     # Valores padrões
@@ -33,38 +35,45 @@ def editar_info_teoria_mudanca_dialog():
     proposito_atual = ""
     impacto_atual = ""
 
+    # Percorre a lista e extrai os valores atuais
     for item in lista_tm:
         if "problema" in item:
             problema_atual = item["problema"]
-        elif "proposito" in item:
+        if "proposito" in item:
             proposito_atual = item["proposito"]
-        elif "impacto" in item:
+        if "impacto" in item:
             impacto_atual = item["impacto"]
 
+    # Input para novos valores
     novo_problema = st.text_input("Problema", value=problema_atual)
     novo_proposito = st.text_input("Propósito", value=proposito_atual)
     novo_impacto = st.text_input("Impacto", value=impacto_atual)
 
+    # Botão para salvar alterações
     if st.button("Salvar alterações", key="salvar_teoria_mudanca"):
+        # Cria lista com os novos valores
         novos_dados = [
             {"problema": novo_problema},
             {"proposito": novo_proposito},
             {"impacto": novo_impacto}
         ]
 
+        # Verifica se o documento existe
         if teoria_doc:
+            # Atualiza o documento
             estrategia.update_one(
                 {"_id": teoria_doc["_id"]},
                 {"$set": {"teoria da mudança": novos_dados}}
             )
             st.success("Teoria da mudança atualizada com sucesso!")
         else:
+            # Cria um novo documento
             estrategia.insert_one({"teoria da mudança": novos_dados})
             st.success("Teoria da mudança criada com sucesso!")
 
+        # Espera 2 segundos e recarrega a página
         time.sleep(2)
         st.rerun()
-    
 
 ###########################################################################################################
 # INTERFACE PRINCIPAL
@@ -96,15 +105,14 @@ with aba_tm:
         for item in lista_tm:
             if "problema" in item:
                 problema = item["problema"]
-            elif "proposito" in item:
+            if "proposito" in item:
                 proposito = item["proposito"]
-            elif "impacto" in item:
+            if "impacto" in item:
                 impacto = item["impacto"]
-
-
+        
     if st.session_state.get("tipo_usuario") == "adm":
-        col1, col2, col3 = st.columns([6, 1, 1])  # Ajuste os pesos conforme necessário
-        with col3:
+        col1, col2 = st.columns([7, 1])  # Ajuste os pesos conforme necessário
+        with col2:
             st.button("Editar", icon=":material/edit:", key="editar_info_tm", on_click=editar_info_teoria_mudanca_dialog)
 
     
