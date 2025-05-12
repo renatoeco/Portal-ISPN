@@ -75,6 +75,106 @@ def editar_info_teoria_mudanca_dialog():
         time.sleep(2)
         st.rerun()
 
+
+@st.dialog("Editar Informações das Estratégias", width="large")
+def editar_titulo_estrategia_dialog():
+    estrategia_doc = estrategia.find_one({"titulo_aba_estrategia": {"$exists": True}})
+    titulo_pagina_atual = estrategia_doc["titulo_aba_estrategia"] if estrategia_doc else ""
+    lista_estrategias_atual = estrategia_doc["estrategias"] if estrategia_doc and "estrategias" in estrategia_doc else []
+
+    novo_titulo_pagina = st.text_input("Título da página de estratégias", value=titulo_pagina_atual)
+
+    # Botão para atualizar o título da página
+    if st.button("Atualizar título da página", key="atualizar_titulo_aba_estrategias"):
+        if estrategia_doc:
+            estrategia.update_one(
+                {"_id": estrategia_doc["_id"]},
+                {"$set": {"titulo_aba_estrategia": novo_titulo_pagina}}
+            )
+            st.success("Título da página atualizado com sucesso!")
+            time.sleep(2)
+            st.rerun()
+        else:
+            st.error("Documento não encontrado.")
+
+    st.markdown("---")
+
+    # Organiza as estratégias por ordem alfabética
+    estrategias_ordenadas = sorted(lista_estrategias_atual, key=lambda x: x.get("titulo", "").lower())
+    opcoes_estrategias = ["- Nova estratégia -"] + [e["titulo"] for e in estrategias_ordenadas]
+
+    titulo_selecionado = st.selectbox("Selecione a estratégia para editar", options=opcoes_estrategias)
+    estrategia_selecionada = None
+    index_estrategia = None
+
+    if titulo_selecionado != "- Nova estratégia -":
+        estrategia_selecionada = next((e for e in lista_estrategias_atual if e["titulo"] == titulo_selecionado), None)
+        index_estrategia = lista_estrategias_atual.index(estrategia_selecionada) if estrategia_selecionada else None
+
+    st.subheader("Editar estratégia" if estrategia_selecionada else "Adicionar nova estratégia")
+
+    novo_titulo = st.text_input("Título", value=estrategia_selecionada.get("titulo", "") if estrategia_selecionada else "")
+
+    # Atualizar estratégia existente
+    if estrategia_selecionada and st.button("Atualizar estratégia", key="atualizar_estrategia"):
+        lista_estrategias_atual[index_estrategia]["titulo"] = novo_titulo
+
+        update_data = {"estrategias": lista_estrategias_atual}
+
+        if novo_titulo_pagina != titulo_pagina_atual:
+            update_data["titulo_aba_estrategia"] = novo_titulo_pagina
+
+        estrategia.update_one(
+            {"_id": estrategia_doc["_id"]},
+            {"$set": update_data}
+        )
+        st.success("Estratégia atualizada com sucesso!")
+        time.sleep(2)
+        st.rerun()
+
+
+    # Excluir estratégia
+    if estrategia_selecionada and st.button("Excluir estratégia", key="excluir_estrategia"):
+        lista_estrategias_atual.pop(index_estrategia)
+
+        update_data = {"estrategias": lista_estrategias_atual}
+        if novo_titulo_pagina != titulo_pagina_atual:
+            update_data["titulo_aba_estrategia"] = novo_titulo_pagina
+
+        estrategia.update_one(
+            {"_id": estrategia_doc["_id"]},
+            {"$set": update_data}
+        )
+        st.success("Estratégia excluída com sucesso!")
+        time.sleep(2)
+        st.rerun()
+
+
+    # Adicionar nova estratégia
+    if not estrategia_selecionada and st.button("Adicionar estratégia", key="adicionar_estrategia"):
+        update_data = {}
+
+        if novo_titulo.strip():
+            nova_estrategia = {"titulo": novo_titulo}
+            lista_estrategias_atual.append(nova_estrategia)
+            update_data["estrategias"] = lista_estrategias_atual
+
+            if estrategia_doc:
+                estrategia.update_one(
+                    {"_id": estrategia_doc["_id"]},
+                    {"$set": update_data}
+                )
+            else:
+                estrategia.insert_one({
+                    "titulo_aba_estrategia": novo_titulo_pagina,
+                    "estrategias": [nova_estrategia]
+                })
+            st.success("Nova estratégia adicionada com sucesso!")
+
+        time.sleep(2)
+        st.rerun()
+
+
 ###########################################################################################################
 # INTERFACE PRINCIPAL
 ###########################################################################################################
@@ -132,16 +232,20 @@ with aba_tm:
     st.write(impacto)
 
 
-
 # Aba Estratégia
 with aba_est:
+    estrategia_doc = estrategia.find_one({"titulo_aba_estrategia": {"$exists": True}})
+    titulo_pagina_atual = estrategia_doc["titulo_aba_estrategia"] if estrategia_doc else ""
+    lista_estrategias_atual = estrategia_doc["estrategias"] if estrategia_doc and "estrategias" in estrategia_doc else []
+
+    if st.session_state.get("tipo_usuario") == "adm":
+        col1, col2 = st.columns([7, 1])  # Ajuste os pesos conforme necessário
+        with col2:
+            st.button("Editar", icon=":material/edit:", key="editar_titulo_estrategia", on_click=editar_titulo_estrategia_dialog)
 
     st.write('')
-    st.subheader('Promoção de Paisagens Produtivas Ecossociais')
+    st.subheader(titulo_pagina_atual if titulo_pagina_atual else 'Promoção de Paisagens Produtivas Ecossociais')
     st.write('')
-
-    # st.markdown("<h5 style='text-align: left;'>Promoção de Paisagens Produtivas Ecossociais</h5>", unsafe_allow_html=True)
-    # st.write('')
 
     col1, col2, col3 = st.columns(3)
 
@@ -157,75 +261,52 @@ with aba_est:
 
     st.write('')
 
+    # Ordenar estratégias com base no número extraído do título, ex: "1 - Estratégia x"
+    def extrair_numero(estrategia):
+        try:
+            return int(estrategia["titulo"].split(" - ")[0])
+        except:
+            return float('inf')  # Coloca no final se não for possível extrair
 
-    with st.expander('**1 - Estratégia 1**'):
-        st.write('Descrição da estratégia.')
+    lista_estrategias_ordenada = sorted(lista_estrategias_atual, key=extrair_numero)
 
-        st.write('')
+    for estrategia_item in lista_estrategias_ordenada:
+        with st.expander(f"**{estrategia_item.get('titulo', 'Título não definido')}**"):
 
-        data = {
-            "Entregas": [
-                "Entrega 1",
-                "Entrega 2",
-                "Entrega 3"
-            ],
-            "Status": [
-                "realizado",
-                "realizado",
-                "não realizado"
-            ],
-            "Ano": [
-                '2020',
-                '2021',
-                '2022',
-            ]
-        }
-        df = pd.DataFrame(data)
-        
-        st.write('')
-        st.write('**AÇÕES PLANEJADAS / REALIZADAS:**')
+            st.write('')
+            st.write('**AÇÕES PLANEJADAS / REALIZADAS:**')
 
-        st.write('**Programa 1**')
-        st.write('**Projeto 1**')
-        st.dataframe(df, hide_index=True)
+            # Dados simulados - substituir futuramente se necessário
+            st.write('**Programa 1**')
+            st.write('**Projeto 1**')
+            st.dataframe(pd.DataFrame({
+                "Entregas": ["Entrega 1", "Entrega 2", "Entrega 3"],
+                "Status": ["realizado", "realizado", "não realizado"],
+                "Ano": ['2020', '2021', '2022'],
+            }), hide_index=True)
 
+            st.write('')
+            st.write('**Programa 2**')
+            st.write('**Projeto 2**')
+            st.dataframe(pd.DataFrame({
+                "Entregas": ["Entrega 1", "Entrega 2", "Entrega 3"],
+                "Status": ["realizado", "realizado", "não realizado"],
+                "Ano": ['2020', '2021', '2022'],
+            }), hide_index=True)
 
-        st.write('')
-
-        st.write('**Programa 2**')
-        st.write('**Projeto 2**')
-        st.dataframe(df, hide_index=True)
-
-        st.divider()
-        st.write('')
-        st.write('**INDICADORES:**')
-
-        df_indicadores = pd.DataFrame({
-            "Indicador": [
-                "1.1 - Indicador x",
-                "1.2 - Indicador x",
-                "1.3 - Indicador x",
-                "1.4 - Indicador x",
-                "1.5 - Indicador x",
-            ],
-            "Alcançado": [
-                120,
-                500,
-                2000,
-                3000,
-                1000,
-            ]
-        })
-        st.dataframe(df_indicadores, hide_index=True)
-
-    with st.expander('**2 - Estratégia x**'):
-        st.write('Descrição da estratégia')
-    
-    with st.expander('**3 - Estratégia x**'):
-        st.write('Descrição da estratégia')
-
-    with st.expander('**4 - Estratégia x**'):
-        st.write('Descrição da estratégia')
+            st.divider()
+            st.write('')
+            st.write('**INDICADORES:**')
+            st.dataframe(pd.DataFrame({
+                "Indicador": [
+                    "1.1 - Indicador x",
+                    "1.2 - Indicador x",
+                    "1.3 - Indicador x",
+                    "1.4 - Indicador x",
+                    "1.5 - Indicador x",
+                ],
+                "Alcançado": [120, 500, 2000, 3000, 1000]
+            }), hide_index=True)
 
 
 with aba_res_2025:
