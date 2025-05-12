@@ -198,7 +198,14 @@ def login():
     )
 
     st.write('')
+    st.write('')
+    st.write('')
+    st.write('')
+
     st.markdown("<div style='text-align: center;'><h1 style='color: #666;'><strong>Portal do ISPN</strong></h1></div>", unsafe_allow_html=True)
+    st.write('')
+    st.write('')
+    st.write('')
     st.write('')
 
     # Cria colunas para centralizar o formulário
