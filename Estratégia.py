@@ -85,7 +85,7 @@ def editar_estrategia_dialog():
     estrategia_doc = estrategia.find_one({"estrategia": {"$exists": True}})
 
     # Obtém o título atual da página de estratégias, se existir
-    titulo_pagina_atual = estrategia_doc.get("estrategia", {}).get("titulo_aba_estrategia", "") if estrategia_doc else ""
+    titulo_pagina_atual = estrategia_doc.get("estrategia", {}).get("titulo_pagina_estrategia", "") if estrategia_doc else ""
 
     # Obtém a lista atual de estratégias, se existir
     lista_estrategias_atual = estrategia_doc.get("estrategia", {}).get("estrategias", []) if estrategia_doc else []
@@ -94,11 +94,11 @@ def editar_estrategia_dialog():
     novo_titulo_pagina = st.text_input("Título da página de estratégias", value=titulo_pagina_atual)
 
     # Botão para atualizar o título da página
-    if st.button("Atualizar título da página", key="atualizar_titulo_aba_estrategias"):
+    if st.button("Atualizar título da página", key="atualizar_titulo_pagina_estrategias"):
         if estrategia_doc:
             estrategia.update_one(
                 {"_id": estrategia_doc["_id"]},
-                {"$set": {"estrategia.titulo_aba_estrategia": novo_titulo_pagina}}
+                {"$set": {"estrategia.titulo_pagina_estrategia": novo_titulo_pagina}}
             )
             st.success("Título da página atualizado com sucesso!")
             time.sleep(2)
@@ -131,7 +131,7 @@ def editar_estrategia_dialog():
 
         update_data = {"estrategia.estrategias": lista_estrategias_atual}
         if novo_titulo_pagina != titulo_pagina_atual:
-            update_data["estrategia.titulo_aba_estrategia"] = novo_titulo_pagina
+            update_data["estrategia.titulo_pagina_estrategia"] = novo_titulo_pagina
 
         estrategia.update_one(
             {"_id": estrategia_doc["_id"]},
@@ -147,7 +147,7 @@ def editar_estrategia_dialog():
 
         update_data = {"estrategia.estrategias": lista_estrategias_atual}
         if novo_titulo_pagina != titulo_pagina_atual:
-            update_data["estrategia.titulo_aba_estrategia"] = novo_titulo_pagina
+            update_data["estrategia.titulo_pagina_estrategia"] = novo_titulo_pagina
 
         estrategia.update_one(
             {"_id": estrategia_doc["_id"]},
@@ -171,7 +171,7 @@ def editar_estrategia_dialog():
 
             if estrategia_doc:
                 if novo_titulo_pagina != titulo_pagina_atual:
-                    update_data["estrategia.titulo_aba_estrategia"] = novo_titulo_pagina
+                    update_data["estrategia.titulo_pagina_estrategia"] = novo_titulo_pagina
                 estrategia.update_one(
                     {"_id": estrategia_doc["_id"]},
                     {"$set": update_data}
@@ -179,7 +179,7 @@ def editar_estrategia_dialog():
             else:
                 estrategia.insert_one({
                     "estrategia": {
-                        "titulo_aba_estrategia": novo_titulo_pagina,
+                        "titulo_pagina_estrategia": novo_titulo_pagina,
                         "estrategias": [nova_estrategia]
                     }
                 })
@@ -213,239 +213,148 @@ def adicionar_acao(i):
     })
 
 # Função principal do diálogo para editar ou adicionar resultados de médio prazo
-@st.dialog("Editar Resultados de Médio Prazo", width="large")
-def editar_resultados_mp_dialog():
+@st.dialog("Editar Título da Página", width="large")
+def editar_titulo_pagina_resultados_mp_dialog():
     # Recupera os dados atuais do banco
     doc = estrategia.find_one({"resultados_medio_prazo": {"$exists": True}})
     resultados_data = doc.get("resultados_medio_prazo", {}) if doc else {}
 
     # Título da aba principal de Resultados de Médio Prazo
-    titulo_atual = resultados_data.get("titulo_aba_resultados_mp", "")
-    lista_resultados = resultados_data.get("resultados_mp", [])
-
-    # Ordenar pelos números antes do " - " no título (sem regex)
-    def extrair_numero(titulo):
-        try:
-            return int(titulo.split(" - ", 1)[0])
-        except (ValueError, IndexError):
-            return float("inf")  # Envia para o final se não for número
-
-    lista_resultados = sorted(lista_resultados, key=lambda r: extrair_numero(r.get("titulo", "")))
-
+    titulo_atual = resultados_data.get("titulo_pagina_resultados_mp", "")
 
     # Campo para editar o título da aba
-    novo_titulo = st.text_input("Título da aba de Resultados de Médio Prazo", value=titulo_atual)
-    if st.button("Atualizar título da aba", key="atualizar_titulo_mp"):
+    novo_titulo = st.text_input("Título da página de Resultados de Médio Prazo", value=titulo_atual)
+    if st.button("Atualizar", key="atualizar_titulo_mp"):
         estrategia.update_one(
             {"_id": doc["_id"]},
-            {"$set": {"resultados_medio_prazo.titulo_aba_resultados_mp": novo_titulo}}
+            {"$set": {"resultados_medio_prazo.titulo_pagina_resultados_mp": novo_titulo}}
         )
-        st.success("Título da aba atualizado com sucesso!")
+        st.success("Título da página atualizado com sucesso!")
         time.sleep(2)
         st.rerun()
 
-    st.markdown("---")
 
-    # Cria abas: uma para novo resultado + uma para cada resultado existente
-    abas = ["+ Adicionar novo resultado"] + [r["titulo"] for r in lista_resultados]
-    tabs = st.tabs(abas)
+# Função principal do diálogo para editar ou adicionar resultados de médio prazo
+@st.dialog("Editar Informações do Resultado", width="large")
+def editar_titulo_de_cada_resultado_mp_dialog(resultado_idx):
+    # Recupera os dados do banco
+    doc = estrategia.find_one({"resultados_medio_prazo": {"$exists": True}})
+    resultados_data = doc.get("resultados_medio_prazo", {})
+    resultados = resultados_data.get("resultados_mp", [])
 
-    for i, tab in enumerate(tabs):
-        with tab:
-            is_new = (i == 0)  # Se for a primeira aba, é novo resultado
-            resultado_data = {} if is_new else lista_resultados[i - 1]
+    # Verifica se o índice é válido
+    if resultado_idx < 0 or resultado_idx >= len(resultados):
+        st.error("Índice de resultado inválido.")
+        return
 
-            st.subheader("Novo resultado" if is_new else "Editar resultado")
-            novo_titulo_resultado = st.text_input("Título do resultado", value=resultado_data.get("titulo", ""), key=f"titulo_resultado_{i}")
-            st.markdown("---")
+    resultado = resultados[resultado_idx]
+    
+    # Tab para editar o título
+    aba1, aba2, aba3 = st.tabs(["Título", "Metas", "Ações Estratégicas"])
 
-            # Inicialização de campos dinâmicos para metas
-            if f"metas_{i}" not in st.session_state:
-                st.session_state[f"metas_{i}"] = (
-                    [{"nome": "", "objetivo": ""}] if is_new else resultado_data.get("metas", [])
-                )
+    # Aba de Título
+    with aba1:
+        st.subheader("Editar Título do Resultado")
+        st.write("")
+        titulo_atual = resultado.get("titulo", "")
+        novo_titulo = st.text_input("Novo título", value=titulo_atual)
 
-            # Inicialização de campos dinâmicos para ações estratégicas
-            if f"acoes_{i}" not in st.session_state:
-                st.session_state[f"acoes_{i}"] = (
-                    [ {
-                        "nome": "",
-                        "responsavel": "",
-                        "data_inicio": "",
-                        "data_fim": "",
-                        "status": "",
-                        "atividades": [{"responsavel": "", "data_inicio": "", "data_fim": "", "status": "", "anotacoes": []}]
-                    }] if is_new else resultado_data.get("acoes_estrategicas", [])
-                )
+        st.write("")
 
-            # === Metas ===
-            st.markdown("### Metas")
-            for idx, meta in enumerate(st.session_state[f"metas_{i}"]):
-                meta["nome"] = st.text_input("Meta", value=meta.get("nome", meta.get("nome_meta_mp", "")), key=f"meta_nome_{i}_{idx}")
-                meta["objetivo"] = st.text_input("Objetivo", value=meta.get("objetivo", ""), key=f"meta_obj_{i}_{idx}")
+        if st.button("Salvar Título", key=f"salvar_titulo_{resultado_idx}"):
+            resultados[resultado_idx]["titulo"] = novo_titulo
+            estrategia.update_one(
+                {"_id": doc["_id"]},
+                {"$set": {"resultados_medio_prazo.resultados_mp": resultados}}
+            )
+            st.success("Título do resultado atualizado com sucesso!")
+            time.sleep(2)
+            st.rerun()
 
-            # Botão para adicionar nova meta
+    # Aba de Metas
+    with aba2:
+        #st.subheader("Editar Metas")
+        #st.write("")
+        metas = resultado.get("metas", [])
+        for m_idx, meta in enumerate(metas):
+            st.subheader(f"Editar Meta {m_idx + 1}")
+            novo_nome_meta = st.text_input(f"Título", value=meta.get("nome_meta_mp", ""), key=f"nome_meta_{resultado_idx}_{m_idx}")
+            novo_objetivo = st.text_input(f"Objetivo", value=meta.get("objetivo", ""), key=f"obj_{resultado_idx}_{m_idx}")
+
             st.write("")
-            st.button("Adicionar nova meta", key=f"add_meta_btn_{i}", on_click=adicionar_meta, args=(i,))
+
+            # Atualiza a meta na lista
+            if st.button(f"Salvar", key=f"salvar_meta_{resultado_idx}_{m_idx}"):
+                resultados[resultado_idx]["metas"][m_idx]["nome_meta_mp"] = novo_nome_meta
+                resultados[resultado_idx]["metas"][m_idx]["objetivo"] = novo_objetivo
+                estrategia.update_one(
+                    {"_id": doc["_id"]},
+                    {"$set": {"resultados_medio_prazo.resultados_mp": resultados}}
+                )
+                st.success(f"Meta {m_idx + 1} atualizada com sucesso!")
+                time.sleep(2)
+                st.rerun()
+
             st.markdown("---")
 
-            # === Ações Estratégicas ===
-            st.markdown("### Ações Estratégicas")
-            for a_idx, acao in enumerate(st.session_state[f"acoes_{i}"]):
-                acao["nome"] = st.text_input("Ação Estratégica", value=acao.get("nome", acao.get("nome_acao_estrategica", "")), key=f"acao_nome_{i}_{a_idx}")
-                acao["responsavel"] = st.text_input("Responsável", value=acao.get("responsavel", ""), key=f"acao_resp_{i}_{a_idx}")
-                acao["data_inicio"] = st.text_input("Data de início", value=acao.get("data_inicio", ""), key=f"acao_ini_{i}_{a_idx}")
-                acao["data_fim"] = st.text_input("Data de fim", value=acao.get("data_fim", ""), key=f"acao_fim_{i}_{a_idx}")
-                acao["status"] = st.text_input("Status", value=acao.get("status", ""), key=f"acao_status_{i}_{a_idx}")
 
-                # === Atividades ===
-                for at_idx, atividade in enumerate(acao["atividades"]):
-                    atividade["responsavel"] = st.text_input("Responsável da Atividade", value=atividade.get("responsavel", ""), key=f"atividade_resp_{i}_{a_idx}_{at_idx}")
-                    atividade["data_inicio"] = st.text_input("Data de Início da Atividade", value=atividade.get("data_inicio", ""), key=f"atividade_ini_{i}_{a_idx}_{at_idx}")
-                    atividade["data_fim"] = st.text_input("Data de Fim da Atividade", value=atividade.get("data_fim", ""), key=f"atividade_fim_{i}_{a_idx}_{at_idx}")
-                    atividade["status"] = st.text_input("Status da Atividade", value=atividade.get("status", ""), key=f"atividade_status_{i}_{a_idx}_{at_idx}")
+    # Aba de Ações Estratégicas
+    with aba3:
+        
+        #st.subheader("Editar Ações Estratégicas")
+        #st.write("")
+        acoes = resultado.get("acoes_estrategicas", [])
+        for a_idx, acao in enumerate(acoes):
+            st.markdown(f"### Editar Ação Estratégica {a_idx + 1}")
+            novo_nome_acao = st.text_input(f"Título", value=acao.get("nome_acao_estrategica", ""), key=f"acao_estrat_{resultado_idx}_{a_idx}")
+            # Campos para editar as atividades dentro de cada ação estratégica
+            atividades = acao.get("atividades", [])
 
-                    # === Anotações ===
-                    st.markdown("---")
-                    st.markdown("#### Anotações")
-                    for n_idx, anotacao in enumerate(atividade["anotacoes"]):
-                        anotacao["data"] = st.text_input("Data da anotação", value=anotacao.get("data", ""), key=f"anot_data_{i}_{a_idx}_{at_idx}_{n_idx}")
-                        anotacao["anotacao"] = st.text_area("Texto da anotação", value=anotacao.get("anotacao", ""), key=f"anot_text_{i}_{a_idx}_{at_idx}_{n_idx}")
-                        anotacao["autor"] = st.text_input("Autor", value=anotacao.get("autor", ""), key=f"anot_autor_{i}_{a_idx}_{at_idx}_{n_idx}")
+            st.write("")
 
-                    st.write("")
+            for atv_idx, atividade in enumerate(atividades):
+                st.markdown(f"#### Atividade {atv_idx + 1}")
 
-                    st.button(
-                        "Adicionar nova anotação",
-                        key=f"add_anot_btn_{i}_{a_idx}_{at_idx}",
-                        on_click=adicionar_anotacao,
-                        args=(i, a_idx, at_idx)
-                    )
+                nova_atividade = st.text_input(f"Atividade - Descrição", value=atividade.get("atividade", ""), key=f"atividade_{resultado_idx}_{a_idx}")
 
-                    st.markdown("---")
+                novo_responsavel = st.text_input(f"Responsável", value=atividade.get("responsavel", ""), key=f"responsavel_{resultado_idx}_{a_idx}")
 
-            # Botão para adicionar nova ação
-            st.button("Adicionar nova ação estratégica", key=f"add_acao_btn_{i}", on_click=adicionar_acao, args=(i,))
+                
+                nova_data_inicio = st.text_input(
+                    f"Data de Início",
+                    value=atividade.get("data_inicio", ""),
+                    key=f"data_inicio_{resultado_idx}_{a_idx}_{atv_idx}"
+                )
 
-            #st.markdown("---")
-
-            # === Salvamento dos dados ===
-            if is_new:
-                # Adicionar novo resultado
-                if st.button("Adicionar resultado", key=f"add_result_{i}"):
-                    metas = [{
-                        "_id": str(ObjectId()),
-                        "nome_meta_mp": meta["nome"],
-                        "objetivo": meta["objetivo"]
-                    } for meta in st.session_state[f"metas_{i}"]]
-
-                    acoes = []
-                    for acao in st.session_state[f"acoes_{i}"]:
-                        atividades = []
-                        for atividade in acao["atividades"]:
-                            atividades.append({
-                                "responsavel": atividade["responsavel"],
-                                "data_inicio": atividade["data_inicio"],
-                                "data_fim": atividade["data_fim"],
-                                "status": atividade["status"],
-                                "anotacoes": [
-                                    {
-                                        "data": anot.get("data", ""),
-                                        "anotacao": anot.get("anotacao", ""),
-                                        "autor": anot.get("autor", "")
-                                    } for anot in atividade.get("anotacoes", [])
-                                ]
-                            })
+                nova_data_fim = st.text_input(
+                    f"Data de Fim",
+                    value=atividade.get("data_fim", ""),
+                    key=f"data_fim_{resultado_idx}_{a_idx}_{atv_idx}"
+                )
 
 
-                        acoes.append({
-                            "_id": acao.get("_id", str(ObjectId())),
-                            "nome_acao_estrategica": acao["nome"],
-                            "responsavel": acao["responsavel"],
-                            "data_inicio": acao["data_inicio"],
-                            "data_fim": acao["data_fim"],
-                            "status": acao["status"],
-                            "atividades": atividades
-                        })
+                novo_status = st.selectbox(f"Status", ["Pendente", "Em andamento", "Concluída"], index=["Pendente", "Em andamento", "Concluída"].index(atividade.get("status", "Pendente")))
 
-
-                    novo_resultado = {
-                        "_id": str(ObjectId()),
-                        "titulo": novo_titulo_resultado,
-                        "metas": metas,
-                        "acoes_estrategicas": acoes
-                    }
-
-                    lista_resultados.insert(0, novo_resultado)  # Adiciona no topo da lista
+                
+                st.write("")
+                # Salvando atividades
+                if st.button(f"Salvar", key=f"salvar_atividade_{resultado_idx}_{a_idx}_{atv_idx}"):
+                    resultados[resultado_idx]["acoes_estrategicas"][a_idx]["atividades"][atv_idx]["atividade"] = nova_atividade
+                    resultados[resultado_idx]["acoes_estrategicas"][a_idx]["atividades"][atv_idx]["responsavel"] = novo_responsavel
+                    resultados[resultado_idx]["acoes_estrategicas"][a_idx]["atividades"][atv_idx]["data_inicio"] = str(nova_data_inicio)
+                    resultados[resultado_idx]["acoes_estrategicas"][a_idx]["atividades"][atv_idx]["data_fim"] = str(nova_data_fim)
+                    resultados[resultado_idx]["acoes_estrategicas"][a_idx]["atividades"][atv_idx]["status"] = novo_status
+                    resultados[resultado_idx]["acoes_estrategicas"][a_idx]["nome_acao_estrategica"] = novo_nome_acao
 
                     estrategia.update_one(
                         {"_id": doc["_id"]},
-                        {"$set": {
-                            "resultados_medio_prazo.resultados_mp": lista_resultados,
-                            "resultados_medio_prazo.titulo_aba_resultados_mp": novo_titulo
-                        }}
+                        {"$set": {"resultados_medio_prazo.resultados_mp": resultados}}
                     )
-                    st.success("Resultado adicionado com sucesso!")
-                    # Limpa os campos após adicionar
-                    st.session_state[f"metas_{i}"] = [{"nome": "", "objetivo": ""}]
-                    st.session_state[f"acoes_{i}"] = [{"nome": "", "responsavel": "", "data_inicio": "", "data_fim": "", "status": "", "atividades": []}]
-                    time.sleep(2)
-                    st.rerun()
-            else:
-                # Atualização de resultado existente
-                if st.button("Confirmar alterações", key=f"confirma_result_{i}"):
-                    metas = [{
-                        "_id": meta.get("_id", str(ObjectId())),
-                        "nome_meta_mp": meta["nome"],
-                        "objetivo": meta["objetivo"]
-                    } for meta in st.session_state[f"metas_{i}"]]
-                    
-                    acoes = []
-                    for acao in st.session_state[f"acoes_{i}"]:
-                        atividades = []
-                        for atividade in acao.get("atividades", []):
-                            anotacoes = [
-                                {
-                                    "data": anot.get("data", ""),
-                                    "anotacao": anot.get("anotacao", ""),
-                                    "autor": anot.get("autor", "")
-                                } for anot in atividade.get("anotacoes", [])
-                            ]
-                            atividades.append({
-                                "responsavel": atividade.get("responsavel", ""),
-                                "data_inicio": atividade.get("data_inicio", ""),
-                                "data_fim": atividade.get("data_fim", ""),
-                                "status": atividade.get("status", ""),
-                                "anotacoes": anotacoes
-                            })
-
-                        acoes.append({
-                            "_id": acao.get("_id", str(ObjectId())),
-                            "nome_acao_estrategica": acao.get("nome", ""),
-                            "responsavel": acao.get("responsavel", ""),
-                            "data_inicio": acao.get("data_inicio", ""),
-                            "data_fim": acao.get("data_fim", ""),
-                            "status": acao.get("status", ""),
-                            "atividades": atividades
-                        })
-
-
-                    lista_resultados[i - 1]["titulo"] = novo_titulo_resultado
-                    lista_resultados[i - 1]["metas"] = metas
-                    lista_resultados[i - 1]["acoes_estrategicas"] = acoes
-
-                    estrategia.update_one(
-                        {"_id": doc["_id"]},
-                        {"$set": {
-                            "resultados_medio_prazo.resultados_mp": lista_resultados,
-                            "resultados_medio_prazo.titulo_aba_resultados_mp": novo_titulo
-                        }}
-                    )
-                    st.success("Resultado atualizado com sucesso!")
+                    st.success(f"Ação estratégica e atividade atualizadas com sucesso!")
                     time.sleep(2)
                     st.rerun()
 
-
+            st.markdown("---")
 
 
 
@@ -511,7 +420,7 @@ with aba_est:
     estrategia_doc = estrategia.find_one({"estrategia": {"$exists": True}})
 
     # Acessa o título e a lista de estratégias de forma segura
-    titulo_pagina_atual = estrategia_doc.get("estrategia", {}).get("titulo_aba_estrategia", "") if estrategia_doc else ""
+    titulo_pagina_atual = estrategia_doc.get("estrategia", {}).get("titulo_pagina_estrategia", "") if estrategia_doc else ""
     lista_estrategias_atual = estrategia_doc.get("estrategia", {}).get("estrategias", []) if estrategia_doc else []
 
     if st.session_state.get("tipo_usuario") == "adm":
@@ -585,258 +494,85 @@ with aba_est:
             }), hide_index=True)
 
 
+
 with aba_res_2025:
+    # Título da seção
+    doc = estrategia.find_one({"resultados_medio_prazo": {"$exists": True}})
+    resultados_data = doc.get("resultados_medio_prazo", {}) if doc else {}
+    
+    titulo_pagina = resultados_data.get("titulo_pagina_resultados_mp", "Resultados de Médio Prazo")
+    lista_resultados = resultados_data.get("resultados_mp", [])
 
     if st.session_state.get("tipo_usuario") == "adm":
         col1, col2 = st.columns([7, 1])  # Ajuste os pesos conforme necessário
         with col2:
-            st.button("Editar", icon=":material/edit:", key="editar_result_mp", on_click=editar_resultados_mp_dialog)
+            st.button("Editar", icon=":material/edit:", key="editar_result_mp", on_click=editar_titulo_pagina_resultados_mp_dialog)
 
-    st.write('')
-    st.subheader('Resultados de Médio Prazo - 2025')
-    st.write('')
-      
-
+    st.subheader(titulo_pagina)
     st.write('')
 
-    with st.expander('**RESULTADO 1 - XXXX**'):
+    for idx, resultado in enumerate(lista_resultados):
+        titulo_resultado = resultado.get("titulo", f"Resultado {idx + 1}")
+        with st.expander(f"**{titulo_resultado}**"):
+            # Botão de edição para ADM
+            if st.session_state.get("tipo_usuario") == "adm":
+                col1, col2 = st.columns([7, 1]) 
+                with col2:
+                    st.button(
+                        "Editar",
+                        key=f"editar_{idx}",
+                        icon=":material/edit:",
+                        on_click=editar_titulo_de_cada_resultado_mp_dialog,
+                        kwargs={"resultado_idx": idx}  # você pode usar isso para passar o índice
+                    )
 
-        st.write('')
+            # Metas
+            st.write("**METAS:**")
+            metas = resultado.get("metas", [])
+            if metas:
+                df_metas = pd.DataFrame([
+                    {
+                        "Meta": m.get("nome_meta_mp", ""),
+                        "Objetivo": m.get("objetivo", ""),
+                        "Alcançado": ""  # Adapte conforme necessidade
+                    }
+                    for m in metas
+                ])
+                st.dataframe(df_metas, hide_index=True)
+            else:
+                st.info("Nenhuma meta cadastrada.")
 
-        st.write('**METAS:**')
+            # Ações estratégicas
+            st.write("")
+            st.write("**AÇÕES ESTRATÉGICAS:**")
+            acoes = resultado.get("acoes_estrategicas", [])
+            if not acoes:
+                st.info("Nenhuma ação estratégica cadastrada.")
+            else:
+                for a_idx, acao in enumerate(acoes):
+                    st.write(f"**{a_idx + 1} - {acao.get('nome_acao_estrategica', '')}**")
+                    atividades = acao.get("atividades", [])
 
-        metas = {
-            "Meta": [
-                "Meta 1",
-                "Meta 2",
-            ],
-            "Indicador": [
-                "Indicador x",
-                "Indicador x",
-            ],
-
-            "Objetivo": [
-                "50%",
-                "50%",
-            ],
-            "Alcançado": [
-                '28%',
-                '34%',
-            ]
-        }
-        df_metas = pd.DataFrame(metas)
-        st.dataframe(df_metas, hide_index=True)
-
-        st.write('')
-
-
-        st.write('**AÇÕES ESTRATÉGICAS:**')
-
-
-        st.write('**1 - Ação estratégica x**')
-
-        # Dados
-        acoes = {
-            "Ações estratégicas": [
-                "Ação x",
-                "Ação x",
-                "Ação x",
-                "Ação x"
-            ],
-            "Responsável": [
-                "X",
-                "Y",
-                "Z",
-                "W"
-            ],
-            "Início": [
-                "janeiro/2024",
-                "",
-                "janeiro/2024",
-                ""
-            ],
-            "Fim": [
-                "dezembro/2024",
-                "dezembro/2024",
-                "dezembro/2024",
-                ""
-            ],
-            "Status": [
-                "Em andamento",
-                "Aguardando recursos",
-                "",
-                "Em andamento"
-            ],
-            "Observações": [
-                "",
-                "",
-                "",
-                ""
-            ]
-        }
-
-        df_acoes_est = pd.DataFrame(acoes)
-        st.dataframe(df_acoes_est, hide_index=True)
-
-        st.write('Ações de projetos')
-
-        df_acoes_proj = pd.DataFrame(
-            {
-                "Atividades": ["atv 1", "atv 2"],
-                "Responsável": ["Y", "X"],
-                "Programa": ["Programa 1", "Programa 2"],
-                "Projeto": ["Y", "X"],
-                "Status": ["Em andamento", "Aguardando recursos"],
-                "Observações": ["", ""]
-            }
-        )
-
-        st.dataframe(df_acoes_proj, hide_index=True)
-
-        st.write('')
-
-        st.write('**2 - Ação estratégica x**')
-
-        # Dados
-        acoes = {
-            "Ações estratégicas": [
-                "ação x",
-                "ação x",
-            ],
-            "Responsável": [
-                "Coordenadores",
-                "x",
-            ],
-            "Início": [
-                "janeiro/2024",
-                "",
-            ],
-            "Fim": [
-                "dezembro/2024",
-                "dezembro/2024",
-            ],
-            "Status": [
-                "Em andamento",
-                "Aguardando recursos",
-            ],
-            "Observações": [
-                "",
-                "OBS x"
-            ]
-        }
-
-        df_acoes_est = pd.DataFrame(acoes)
-        st.dataframe(df_acoes_est, hide_index=True)
-        st.write('Ações de projetos')
-
-        df_acoes_proj = pd.DataFrame(
-            {
-                "Atividades": ["x", "y"],
-                "Responsável": ["Equipe Fundo Ecos", "x"],
-                "Programa": ["Programa 1", "Programa 2"],
-                "Projeto": ["CEPF", "PACT"],
-                "Status": ["Em andamento", "Aguardando recursos"],
-                "Observações": ["", ""]
-            }
-        )
-
-        st.dataframe(df_acoes_proj, hide_index=True)
+                    if atividades:
+                        df_atividades = pd.DataFrame([
+                            {
+                                "Atividade": atv.get("atividade", ""),
+                                "Responsável": atv.get("responsavel", ""),
+                                "Início": atv.get("data_inicio", ""),
+                                "Fim": atv.get("data_fim", ""),
+                                "Status": atv.get("status", ""),
+                                "Observações": ", ".join([
+                                    anot.get("anotacao", "")
+                                    for anot in atv.get("anotacoes", [])
+                                ])
+                            }
+                            for atv in atividades
+                        ])
+                        st.dataframe(df_atividades, hide_index=True)
+                    else:
+                        st.info("Nenhuma atividade registrada.")
 
 
-        st.write('')
-
-        st.write('**3 - Cção estratégica x**')
-
-        # Dados
-        acoes = {
-            "Ações estratégicas": [
-                "x",
-                "y",
-                "z ",
-                "w"
-            ],
-            "Responsável": [
-                "Equipe Fundo Ecos",
-                "x",
-                "y",
-                "z"
-            ],
-            "Início": [
-                "janeiro/2024",
-                "",
-                "janeiro/2024",
-                ""
-            ],
-            "Fim": [
-                "dezembro/2024",
-                "dezembro/2024",
-                "dezembro/2024",
-                ""
-            ],
-            "Status": [
-                "Em andamento",
-                "Aguardando recursos",
-                "",
-                "Em andamento"
-            ],
-            "Observações": [
-                "",
-                "",
-                "",
-                ""
-            ]
-        }
-
-        df_acoes_est = pd.DataFrame(acoes)
-        st.dataframe(df_acoes_est, hide_index=True)
-
-        st.write('Ações de projetos')
-
-        df_acoes_proj = pd.DataFrame(
-            {
-                "Atividades": ["x", "y"],
-                "Responsável": ["Equipe Fundo Ecos", "x"],
-                "Programa": ["Programa 2", "Programa 1"],
-                "Projeto": ["CEPF", "PACT"],
-                "Status": ["Em andamento", "Aguardando recursos"],
-                "Observações": ["", ""]
-            }
-        )
-
-        st.dataframe(df_acoes_proj, hide_index=True)
-
-
-
-        st.write('')
-
-        st.write('**4 - Ação estratégica x**')
-        st.write('')
-
-        st.write('**5 - Ação estratégica x**')
-        st.write('')
-
-        st.write('**6 - Pção estratégica x**')
-        st.write('')
-
-        st.write('**7 - Ação estratégica x**')
-        st.write('')
-
-        st.write('**8 - Ação estratégica x**')
-        st.write('')
-
-        st.write('**9 - Ação estratégica x**')
-        st.write('')
-
-        st.write('**10 - ção estratégica x**')
-        st.write('')
-
-        st.write('**11 - ção estratégica x**')
-
-    with st.expander('**RESULTADO 2 - XXXX**'):
-        st.write('')
-    
-    with st.expander('**RESULTADO 3 - XXXX**'):
-        st.write('')
 
 
 
