@@ -273,88 +273,126 @@ def editar_titulo_de_cada_resultado_mp_dialog(resultado_idx):
 
     # Aba de Metas
     with aba2:
-        #st.subheader("Editar Metas")
-        #st.write("")
         metas = resultado.get("metas", [])
         for m_idx, meta in enumerate(metas):
-            st.subheader(f"Editar Meta {m_idx + 1}")
-            novo_nome_meta = st.text_input(f"Título", value=meta.get("nome_meta_mp", ""), key=f"nome_meta_{resultado_idx}_{m_idx}")
-            novo_objetivo = st.text_input(f"Objetivo", value=meta.get("objetivo", ""), key=f"obj_{resultado_idx}_{m_idx}")
-
-            st.write("")
-
-            # Atualiza a meta na lista
-            if st.button(f"Salvar", key=f"salvar_meta_{resultado_idx}_{m_idx}"):
-                resultados[resultado_idx]["metas"][m_idx]["nome_meta_mp"] = novo_nome_meta
-                resultados[resultado_idx]["metas"][m_idx]["objetivo"] = novo_objetivo
-                estrategia.update_one(
-                    {"_id": doc["_id"]},
-                    {"$set": {"resultados_medio_prazo.resultados_mp": resultados}}
-                )
-                st.success(f"Meta {m_idx + 1} atualizada com sucesso!")
-                time.sleep(2)
-                st.rerun()
-
-            st.markdown("---")
-
-
-    # Aba de Ações Estratégicas
-    with aba3:
-        
-        #st.subheader("Editar Ações Estratégicas")
-        #st.write("")
-        acoes = resultado.get("acoes_estrategicas", [])
-        for a_idx, acao in enumerate(acoes):
-            st.markdown(f"### Editar Ação Estratégica {a_idx + 1}")
-            novo_nome_acao = st.text_input(f"Título", value=acao.get("nome_acao_estrategica", ""), key=f"acao_estrat_{resultado_idx}_{a_idx}")
-            # Campos para editar as atividades dentro de cada ação estratégica
-            atividades = acao.get("atividades", [])
-
-            st.write("")
-
-            for atv_idx, atividade in enumerate(atividades):
-                st.markdown(f"#### Atividade {atv_idx + 1}")
-
-                nova_atividade = st.text_input(f"Atividade - Descrição", value=atividade.get("atividade", ""), key=f"atividade_{resultado_idx}_{a_idx}")
-
-                novo_responsavel = st.text_input(f"Responsável", value=atividade.get("responsavel", ""), key=f"responsavel_{resultado_idx}_{a_idx}")
-
+            titulo_meta = meta.get("nome_meta_mp", f"Meta {m_idx + 1}")
+            with st.expander(f"{titulo_meta}", expanded=False):
+                st.markdown(f"### Editar Meta {m_idx + 1}")
                 
-                nova_data_inicio = st.text_input(
-                    f"Data de Início",
-                    value=atividade.get("data_inicio", ""),
-                    key=f"data_inicio_{resultado_idx}_{a_idx}_{atv_idx}"
+                novo_nome_meta = st.text_input(
+                    "Título",
+                    value=meta.get("nome_meta_mp", ""),
+                    key=f"nome_meta_{resultado_idx}_{m_idx}"
+                )
+                novo_objetivo = st.text_input(
+                    "Objetivo",
+                    value=meta.get("objetivo", ""),
+                    key=f"obj_{resultado_idx}_{m_idx}"
                 )
 
-                nova_data_fim = st.text_input(
-                    f"Data de Fim",
-                    value=atividade.get("data_fim", ""),
-                    key=f"data_fim_{resultado_idx}_{a_idx}_{atv_idx}"
-                )
-
-
-                novo_status = st.selectbox(f"Status", ["Pendente", "Em andamento", "Concluída"], index=["Pendente", "Em andamento", "Concluída"].index(atividade.get("status", "Pendente")))
-
-                
                 st.write("")
-                # Salvando atividades
-                if st.button(f"Salvar", key=f"salvar_atividade_{resultado_idx}_{a_idx}_{atv_idx}"):
-                    resultados[resultado_idx]["acoes_estrategicas"][a_idx]["atividades"][atv_idx]["atividade"] = nova_atividade
-                    resultados[resultado_idx]["acoes_estrategicas"][a_idx]["atividades"][atv_idx]["responsavel"] = novo_responsavel
-                    resultados[resultado_idx]["acoes_estrategicas"][a_idx]["atividades"][atv_idx]["data_inicio"] = str(nova_data_inicio)
-                    resultados[resultado_idx]["acoes_estrategicas"][a_idx]["atividades"][atv_idx]["data_fim"] = str(nova_data_fim)
-                    resultados[resultado_idx]["acoes_estrategicas"][a_idx]["atividades"][atv_idx]["status"] = novo_status
-                    resultados[resultado_idx]["acoes_estrategicas"][a_idx]["nome_acao_estrategica"] = novo_nome_acao
-
+                if st.button(f"Salvar", key=f"salvar_meta_{resultado_idx}_{m_idx}"):
+                    resultados[resultado_idx]["metas"][m_idx]["nome_meta_mp"] = novo_nome_meta
+                    resultados[resultado_idx]["metas"][m_idx]["objetivo"] = novo_objetivo
                     estrategia.update_one(
                         {"_id": doc["_id"]},
                         {"$set": {"resultados_medio_prazo.resultados_mp": resultados}}
                     )
-                    st.success(f"Ação estratégica e atividade atualizadas com sucesso!")
+                    st.success(f"Meta atualizada com sucesso!")
                     time.sleep(2)
                     st.rerun()
 
-            st.markdown("---")
+
+
+    # Aba de Ações Estratégicas
+    with aba3:
+        acoes = resultado.get("acoes_estrategicas", [])
+        for a_idx, acao in enumerate(acoes):
+            titulo_acao = acao.get("nome_acao_estrategica", f"Ação Estratégica {a_idx + 1}")
+            with st.expander(f"{titulo_acao}"):
+                st.markdown(f"### Editar Ação Estratégica {a_idx + 1}")
+
+                novo_nome_acao = st.text_input(
+                    "Título",
+                    value=titulo_acao,
+                    key=f"acao_estrat_{resultado_idx}_{a_idx}"
+                )
+
+                atividades = acao.get("atividades", [])
+                st.write("")
+
+                for atv_idx, atividade in enumerate(atividades):
+                    st.markdown(f"#### Atividade {atv_idx + 1}")
+
+                    nova_atividade = st.text_input(
+                        "Atividade - Descrição",
+                        value=atividade.get("atividade", ""),
+                        key=f"atividade_{resultado_idx}_{a_idx}_{atv_idx}"
+                    )
+                    novo_responsavel = st.text_input(
+                        "Responsável",
+                        value=atividade.get("responsavel", ""),
+                        key=f"responsavel_{resultado_idx}_{a_idx}_{atv_idx}"
+                    )
+                    nova_data_inicio = st.text_input(
+                        "Data de Início",
+                        value=atividade.get("data_inicio", ""),
+                        key=f"data_inicio_{resultado_idx}_{a_idx}_{atv_idx}"
+                    )
+                    nova_data_fim = st.text_input(
+                        "Data de Fim",
+                        value=atividade.get("data_fim", ""),
+                        key=f"data_fim_{resultado_idx}_{a_idx}_{atv_idx}"
+                    )
+                    novo_status = st.selectbox(
+                        "Status",
+                        ["Pendente", "Em andamento", "Concluída"],
+                        index=["Pendente", "Em andamento", "Concluída"].index(
+                            atividade.get("status", "Pendente")
+                        ),
+                        key=f"status_{resultado_idx}_{a_idx}_{atv_idx}"
+                    )
+
+                    # Campos de anotação
+                    anotacoes = atividade.get("anotacoes", [])
+                    for nota_idx, anotacao in enumerate(anotacoes):
+                        st.markdown(f"**Anotação {nota_idx + 1}**")
+                        nova_data = st.text_input(
+                            "Data", value=anotacao.get("data", ""),
+                            key=f"anot_data_{resultado_idx}_{a_idx}_{atv_idx}_{nota_idx}"
+                        )
+                        novo_autor = st.text_input(
+                            "Autor", value=anotacao.get("autor", ""),
+                            key=f"anot_autor_{resultado_idx}_{a_idx}_{atv_idx}_{nota_idx}"
+                        )
+                        novo_texto = st.text_area(
+                            "Anotação", value=anotacao.get("anotacao", ""),
+                            key=f"anot_texto_{resultado_idx}_{a_idx}_{atv_idx}_{nota_idx}"
+                        )
+
+                        # Atualizar anotação
+                        anotacoes[nota_idx]["data"] = nova_data
+                        anotacoes[nota_idx]["autor"] = novo_autor
+                        anotacoes[nota_idx]["anotacao"] = novo_texto
+
+                    st.write("")
+                    if st.button(f"Salvar", key=f"salvar_atividade_{resultado_idx}_{a_idx}_{atv_idx}"):
+                        resultados[resultado_idx]["acoes_estrategicas"][a_idx]["atividades"][atv_idx]["atividade"] = nova_atividade
+                        resultados[resultado_idx]["acoes_estrategicas"][a_idx]["atividades"][atv_idx]["responsavel"] = novo_responsavel
+                        resultados[resultado_idx]["acoes_estrategicas"][a_idx]["atividades"][atv_idx]["data_inicio"] = str(nova_data_inicio)
+                        resultados[resultado_idx]["acoes_estrategicas"][a_idx]["atividades"][atv_idx]["data_fim"] = str(nova_data_fim)
+                        resultados[resultado_idx]["acoes_estrategicas"][a_idx]["atividades"][atv_idx]["status"] = novo_status
+                        resultados[resultado_idx]["acoes_estrategicas"][a_idx]["atividades"][atv_idx]["anotacoes"] = anotacoes
+                        resultados[resultado_idx]["acoes_estrategicas"][a_idx]["nome_acao_estrategica"] = novo_nome_acao
+
+                        estrategia.update_one(
+                            {"_id": doc["_id"]},
+                            {"$set": {"resultados_medio_prazo.resultados_mp": resultados}}
+                        )
+                        st.success(f"Ação estratégica, atividade e anotações atualizadas com sucesso!")
+                        time.sleep(2)
+                        st.rerun()
+
 
 
 
