@@ -263,7 +263,8 @@ else:
         "Pessoas.py", 
         "Viagens.py",
         "Férias.py",
-        "Monitor de PLs.py", 
+        "Monitor de PLs.py",
+        "Monitor de Notícias.py", 
         "Manuais.py",
     ])
 
