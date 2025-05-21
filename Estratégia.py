@@ -430,11 +430,14 @@ with aba_tm:
                 proposito = item["proposito"]
             if "impacto" in item:
                 impacto = item["impacto"]
-        
-    if st.session_state.get("tipo_usuario") == "adm":
-        col1, col2 = st.columns([7, 1])  # Ajuste os pesos conforme necessário
+
+    tipos_usuario = st.session_state.get("tipo_usuario", [])
+    if "adm" in tipos_usuario:
+        col1, col2 = st.columns([7, 1])
         with col2:
             st.button("Editar", icon=":material/edit:", key="editar_info_tm", on_click=editar_info_teoria_mudanca_dialog)
+
+
 
     
     st.write('')
@@ -461,7 +464,8 @@ with aba_est:
     titulo_pagina_atual = estrategia_doc.get("estrategia", {}).get("titulo_pagina_estrategia", "") if estrategia_doc else ""
     lista_estrategias_atual = estrategia_doc.get("estrategia", {}).get("estrategias", []) if estrategia_doc else []
 
-    if st.session_state.get("tipo_usuario") == "adm":
+    tipos_usuario = st.session_state.get("tipo_usuario", [])
+    if "adm" in tipos_usuario:
         col1, col2 = st.columns([7, 1])
         with col2:
             st.button("Editar", icon=":material/edit:", key="editar_titulo_estrategia", on_click=editar_estrategia_dialog)
@@ -541,7 +545,8 @@ with aba_res_2025:
     titulo_pagina = resultados_data.get("titulo_pagina_resultados_mp", "Resultados de Médio Prazo")
     lista_resultados = resultados_data.get("resultados_mp", [])
 
-    if st.session_state.get("tipo_usuario") == "adm":
+    tipos_usuario = st.session_state.get("tipo_usuario", [])
+    if "adm" in tipos_usuario:
         col1, col2 = st.columns([7, 1])  # Ajuste os pesos conforme necessário
         with col2:
             st.button("Editar", icon=":material/edit:", key="editar_result_mp", on_click=editar_titulo_pagina_resultados_mp_dialog)
@@ -553,7 +558,8 @@ with aba_res_2025:
         titulo_resultado = resultado.get("titulo", f"Resultado {idx + 1}")
         with st.expander(f"**{titulo_resultado}**"):
             # Botão de edição para ADM
-            if st.session_state.get("tipo_usuario") == "adm":
+            tipos_usuario = st.session_state.get("tipo_usuario", [])
+            if "adm" in tipos_usuario:
                 col1, col2 = st.columns([7, 1]) 
                 with col2:
                     st.button(
