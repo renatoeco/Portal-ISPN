@@ -1,7 +1,9 @@
 import streamlit as st
 import pandas as pd
 from st_aggrid import AgGrid, GridOptionsBuilder
-from dateutil import parser
+import seaborn as sns
+import matplotlib.dates as mdates
+import time
 from funcoes_auxiliares import conectar_mongo_portal_ispn
 import locale
 
@@ -26,58 +28,72 @@ documentos = list(monitor_noticias.find())
 
 @st.dialog("Triagem", width="large")
 def editar_status_noticias_dialog():
-    # Campo de busca por título da notícia
-    termo_busca = st.text_input("Buscar por título da notícia")
-
     titulos_busca = monitor_noticias.distinct("Palavra-chave")
     abas = st.tabs(titulos_busca)
+
+    edicoes = []  # <- Agora fora do loop principal
 
     for i, titulo in enumerate(titulos_busca):
         with abas[i]:
             doc = monitor_noticias.find_one({"Palavra-chave": titulo})
             noticias = doc.get("noticias", []) if doc else []
 
-            edicoes = []
+            mostrar_irrelevantes = st.checkbox("Mostrar notícias irrelevantes", key=f"mostrar_irrelevantes_{i}")
 
-            # Filtra apenas as notícias que ainda não têm status definido
-            noticias = [n for n in noticias if not n.get("Status")]
-            # Se houver busca, refina ainda mais
-            if termo_busca:
-                noticias = [n for n in noticias if termo_busca.lower() in n.get("Título da notícia", "").lower()]
+            if mostrar_irrelevantes:
+                noticias_exibidas = [n for n in noticias if n.get("Status") == "Irrelevante"]
+            else:
+                noticias_exibidas = [n for n in noticias if not n.get("Status")]
 
-
-            if not noticias:
-                st.info("Nenhuma notícia encontrada com esse título.")
+            if not noticias_exibidas:
+                st.info("Nenhuma notícia encontrada para exibir.")
                 continue
 
-            for idx, noticia in enumerate(noticias):
+            for idx, noticia in enumerate(noticias_exibidas):
                 st.markdown(f"#### {noticia['Título da notícia']}")
                 try:
                     data_formatada = pd.to_datetime(noticia['Data'], dayfirst=True, errors="coerce").strftime('%d/%m/%Y')
                 except Exception:
                     data_formatada = noticia['Data']
-
                 st.markdown(f"**{data_formatada}** | **{noticia['Fonte']}**")
                 st.markdown(f"[Link para a notícia]({noticia['Link']})", unsafe_allow_html=True)
 
-                novo_status = st.selectbox(
-                    "Status:",
-                    options=["Relevante", "Irrelevante"],
-                    index = None,
-                    key=f"{titulo}_status_{idx}", placeholder="Definir status"
-                )
+                status_atual = noticia.get("Status")
+                key_selectbox = f"{titulo}_status_{i}_{idx}"
 
-                edicoes.append((noticia["Link"], novo_status))
+                if status_atual == "Irrelevante":
+                    st.selectbox(
+                        "Status:",
+                        options=["Relevante", "Irrelevante"],
+                        index=None,
+                        key=key_selectbox,
+                        placeholder="Irrelevante"
+                    )
+                else:
+                    novo_status = st.selectbox(
+                        "Status:",
+                        options=["Relevante", "Irrelevante"],
+                        index=None,
+                        key=key_selectbox,
+                        placeholder="Definir status"
+                    )
+                    if novo_status:
+                        edicoes.append((titulo, noticia["Link"], novo_status))
+
                 st.markdown("---")
 
-            if st.button(f"Salvar alterações para: {titulo}", key=f"salvar_{i}"):
-                for link, novo_status in edicoes:
-                    monitor_noticias.update_one(
-                        {"Palavra-chave": titulo, "noticias.Link": link},
-                        {"$set": {"noticias.$.Status": novo_status}}
-                    )
-                st.success("Status atualizado com sucesso!")
-                st.rerun()
+    # Botão global para salvar tudo
+    if st.button("Salvar alterações"):
+        for titulo, link, novo_status in edicoes:
+            monitor_noticias.update_one(
+                {"Palavra-chave": titulo, "noticias.Link": link},
+                {"$set": {"noticias.$.Status": novo_status}}
+            )
+        st.success("Todas as alterações foram salvas com sucesso!")
+        time.sleep(2)
+        st.rerun()
+
+
 
 
 # Função para ajustar a altura do dataframe automaticamente no Streamlit
@@ -217,15 +233,15 @@ else:
 
     tipos_usuario = st.session_state.get("tipo_usuario", [])
     if "adm" in tipos_usuario:
-        col1, col2 = st.columns([4, 1])  # Ajuste os pesos conforme necessário
+        col1, col2 = st.columns([5, 1])  # Ajuste os pesos conforme necessário
         with col2:
             # Botão para abrir editor de status
             st.button("Gerenciar notícias", icon=":material/settings:", on_click=editar_status_noticias_dialog)
 
-    st.subheader(f"{len(df_filtrado)} notícia(s) encontrada(s)")
-
     # Remove as notícias irrelevantes da exibição inicial
     df_filtrado = df_filtrado[df_filtrado["Status"] == "Relevante"]
+
+    st.subheader(f"{len(df_filtrado)} notícia(s) encontrada(s)")
 
     tabela = df_filtrado[[  # Apenas as colunas visíveis
         "Palavra-chave",
@@ -235,9 +251,39 @@ else:
         "Link"
     ]].copy()
 
-    
+    # Define número de linhas por página
+    linhas_por_pagina = 20
 
-    ajustar_altura_dataframe(tabela)
+    # Criação do builder
+    gb = GridOptionsBuilder.from_dataframe(tabela)
+    gb.configure_default_column(editable=True, groupable=True)
+
+    # Define altura por linha e margem
+    altura_por_linha = 30
+    altura_base = 40
+    
+    # Configura colunas com estilo para evitar truncamento
+    gb.configure_column(
+        "Link",
+        cellStyle={"whiteSpace": "nowrap", "overflow": "visible", "textOverflow": "clip"},
+        autoHeight=False
+    )
+
+    gb.configure_pagination(
+        enabled=True,
+        paginationAutoPageSize=False,
+        paginationPageSize=linhas_por_pagina
+    )
+    altura_dinamica = linhas_por_pagina * altura_por_linha + altura_base
+    grid_options = gb.build()
+
+    AgGrid(
+        tabela,
+        gridOptions=grid_options,
+        height=altura_dinamica,
+        allow_unsafe_jscode=True,
+        fit_columns_on_grid_load=True
+    )
 
 
 
