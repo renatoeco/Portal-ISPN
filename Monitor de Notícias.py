@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 from st_aggrid import AgGrid, GridOptionsBuilder
 import seaborn as sns
+import matplotlib.ticker as ticker
+import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import time
 from funcoes_auxiliares import conectar_mongo_portal_ispn
@@ -214,6 +216,51 @@ else:
 
     # Filtra apenas notícias marcadas como Relevantes para exibição
     df_filtrado = df_filtrado[df_filtrado["Status"] == "Relevante"]
+
+    if not df_filtrado.empty:
+        st.subheader("Distribuição de Notícias por Dia")
+
+        # Garanta que 'Data_Convertida' é do tipo datetime
+        df_filtrado['Data_Convertida'] = pd.to_datetime(df_filtrado['Data_Convertida'], errors='coerce')
+
+        # Ordene o DataFrame pela coluna de data
+        df_filtrado_sorted = df_filtrado.sort_values(by='Data_Convertida')
+
+        # Cria a figura e os eixos manualmente
+        fig, ax = plt.subplots(figsize=(12, 6))
+
+        # Desenha o histograma com seaborn histplot
+        sns.histplot(
+            data=df_filtrado_sorted,
+            x='Data_Convertida',
+            binwidth=pd.Timedelta(days=1),  # Define bins diários
+            discrete=True,
+            shrink=0.8,
+            color="#007ad3",
+            ax=ax,
+            edgecolor=None
+        )
+    
+        # Formata os rótulos do eixo x
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%d/%m/%Y'))
+        ax.xaxis.set_major_locator(mdates.DayLocator())
+
+        # Ajusta o eixo x e y
+        plt.xticks(rotation=45, ha='right') # 'ha' para alinhar as labels rotacionadas
+        plt.xlabel('')
+        plt.ylabel('Número de notícias')
+
+        # Força o eixo Y a mostrar apenas inteiros, sem repetições desnecessárias
+        plt.gca().yaxis.set_major_locator(ticker.MaxNLocator(integer=True))
+
+        # Adiciona rótulos apenas se > 0
+        bars = ax.containers[0]
+        labels = [int(bar.get_height()) if bar.get_height() > 0 else '' for bar in bars]
+        ax.bar_label(bars, labels=labels, padding=3)
+
+        plt.tight_layout()
+        st.pyplot(plt.gcf())
+
 
     st.subheader(f"{len(df_filtrado)} notícia(s) encontrada(s)")
 

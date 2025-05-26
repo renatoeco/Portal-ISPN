@@ -312,86 +312,93 @@ def editar_titulo_de_cada_resultado_mp_dialog(resultado_idx):
             with st.expander(f"{titulo_acao}"):
                 st.markdown(f"### Editar Ação Estratégica {a_idx + 1}")
 
-                novo_nome_acao = st.text_input(
-                    "Título",
-                    value=titulo_acao,
-                    key=f"acao_estrat_{resultado_idx}_{a_idx}"
-                )
+                abas = st.tabs(["Título", "Atividades", "Anotações"])
 
-                atividades = acao.get("atividades", [])
+                with abas[0]:  # Aba Título
+                    novo_nome_acao = st.text_input(
+                        "Título da Ação Estratégica",
+                        value=titulo_acao,
+                        key=f"acao_estrat_{resultado_idx}_{a_idx}"
+                    )
+
+                with abas[1]:  # Aba Atividades
+                    atividades = acao.get("atividades", [])
+                    for atv_idx, atividade in enumerate(atividades):
+                        st.markdown(f"#### Atividade {atv_idx + 1}")
+
+                        nova_atividade = st.text_input(
+                            "Descrição da Atividade",
+                            value=atividade.get("atividade", ""),
+                            key=f"atividade_{resultado_idx}_{a_idx}_{atv_idx}"
+                        )
+                        novo_responsavel = st.text_input(
+                            "Responsável",
+                            value=atividade.get("responsavel", ""),
+                            key=f"responsavel_{resultado_idx}_{a_idx}_{atv_idx}"
+                        )
+                        nova_data_inicio = st.text_input(
+                            "Data de Início",
+                            value=atividade.get("data_inicio", ""),
+                            key=f"data_inicio_{resultado_idx}_{a_idx}_{atv_idx}"
+                        )
+                        nova_data_fim = st.text_input(
+                            "Data de Fim",
+                            value=atividade.get("data_fim", ""),
+                            key=f"data_fim_{resultado_idx}_{a_idx}_{atv_idx}"
+                        )
+                        novo_status = st.selectbox(
+                            "Status",
+                            ["Pendente", "Em andamento", "Concluída"],
+                            index=["Pendente", "Em andamento", "Concluída"].index(
+                                atividade.get("status", "Pendente")
+                            ),
+                            key=f"status_{resultado_idx}_{a_idx}_{atv_idx}"
+                        )
+
+                with abas[2]:  # Aba Anotações
+                    atividades = acao.get("atividades", [])
+                    for atv_idx, atividade in enumerate(atividades):
+                        anotacoes = atividade.get("anotacoes", [])
+                        st.markdown(f"#### Atividade {atv_idx + 1} - Anotações")
+                        for nota_idx, anotacao in enumerate(anotacoes):
+                            st.markdown(f"**Anotação {nota_idx + 1}**")
+                            nova_data = st.text_input(
+                                "Data", value=anotacao.get("data", ""),
+                                key=f"anot_data_{resultado_idx}_{a_idx}_{atv_idx}_{nota_idx}"
+                            )
+                            novo_autor = st.text_input(
+                                "Autor", value=anotacao.get("autor", ""),
+                                key=f"anot_autor_{resultado_idx}_{a_idx}_{atv_idx}_{nota_idx}"
+                            )
+                            novo_texto = st.text_area(
+                                "Anotação", value=anotacao.get("anotacao", ""),
+                                key=f"anot_texto_{resultado_idx}_{a_idx}_{atv_idx}_{nota_idx}"
+                            )
+
+                            # Atualizar anotação no objeto local
+                            anotacoes[nota_idx]["data"] = nova_data
+                            anotacoes[nota_idx]["autor"] = novo_autor
+                            anotacoes[nota_idx]["anotacao"] = novo_texto
+
                 st.write("")
+                if st.button(f"Salvar", key=f"salvar_atividade_{resultado_idx}_{a_idx}"):
+                    for atv_idx, atividade in enumerate(atividades):
+                        resultados[resultado_idx]["acoes_estrategicas"][a_idx]["atividades"][atv_idx]["atividade"] = atividade.get("atividade")
+                        resultados[resultado_idx]["acoes_estrategicas"][a_idx]["atividades"][atv_idx]["responsavel"] = atividade.get("responsavel")
+                        resultados[resultado_idx]["acoes_estrategicas"][a_idx]["atividades"][atv_idx]["data_inicio"] = str(atividade.get("data_inicio"))
+                        resultados[resultado_idx]["acoes_estrategicas"][a_idx]["atividades"][atv_idx]["data_fim"] = str(atividade.get("data_fim"))
+                        resultados[resultado_idx]["acoes_estrategicas"][a_idx]["atividades"][atv_idx]["status"] = atividade.get("status")
+                        resultados[resultado_idx]["acoes_estrategicas"][a_idx]["atividades"][atv_idx]["anotacoes"] = atividade.get("anotacoes")
+                    resultados[resultado_idx]["acoes_estrategicas"][a_idx]["nome_acao_estrategica"] = novo_nome_acao
 
-                for atv_idx, atividade in enumerate(atividades):
-                    st.markdown(f"#### Atividade {atv_idx + 1}")
-
-                    nova_atividade = st.text_input(
-                        "Atividade - Descrição",
-                        value=atividade.get("atividade", ""),
-                        key=f"atividade_{resultado_idx}_{a_idx}_{atv_idx}"
+                    estrategia.update_one(
+                        {"_id": doc["_id"]},
+                        {"$set": {"resultados_medio_prazo.resultados_mp": resultados}}
                     )
-                    novo_responsavel = st.text_input(
-                        "Responsável",
-                        value=atividade.get("responsavel", ""),
-                        key=f"responsavel_{resultado_idx}_{a_idx}_{atv_idx}"
-                    )
-                    nova_data_inicio = st.text_input(
-                        "Data de Início",
-                        value=atividade.get("data_inicio", ""),
-                        key=f"data_inicio_{resultado_idx}_{a_idx}_{atv_idx}"
-                    )
-                    nova_data_fim = st.text_input(
-                        "Data de Fim",
-                        value=atividade.get("data_fim", ""),
-                        key=f"data_fim_{resultado_idx}_{a_idx}_{atv_idx}"
-                    )
-                    novo_status = st.selectbox(
-                        "Status",
-                        ["Pendente", "Em andamento", "Concluída"],
-                        index=["Pendente", "Em andamento", "Concluída"].index(
-                            atividade.get("status", "Pendente")
-                        ),
-                        key=f"status_{resultado_idx}_{a_idx}_{atv_idx}"
-                    )
+                    st.success(f"Ação estratégica, atividades e anotações atualizadas com sucesso!")
+                    time.sleep(2)
+                    st.rerun()
 
-                    # Campos de anotação
-                    anotacoes = atividade.get("anotacoes", [])
-                    for nota_idx, anotacao in enumerate(anotacoes):
-                        st.markdown(f"**Anotação {nota_idx + 1}**")
-                        nova_data = st.text_input(
-                            "Data", value=anotacao.get("data", ""),
-                            key=f"anot_data_{resultado_idx}_{a_idx}_{atv_idx}_{nota_idx}"
-                        )
-                        novo_autor = st.text_input(
-                            "Autor", value=anotacao.get("autor", ""),
-                            key=f"anot_autor_{resultado_idx}_{a_idx}_{atv_idx}_{nota_idx}"
-                        )
-                        novo_texto = st.text_area(
-                            "Anotação", value=anotacao.get("anotacao", ""),
-                            key=f"anot_texto_{resultado_idx}_{a_idx}_{atv_idx}_{nota_idx}"
-                        )
-
-                        # Atualizar anotação
-                        anotacoes[nota_idx]["data"] = nova_data
-                        anotacoes[nota_idx]["autor"] = novo_autor
-                        anotacoes[nota_idx]["anotacao"] = novo_texto
-
-                    st.write("")
-                    if st.button(f"Salvar", key=f"salvar_atividade_{resultado_idx}_{a_idx}_{atv_idx}"):
-                        resultados[resultado_idx]["acoes_estrategicas"][a_idx]["atividades"][atv_idx]["atividade"] = nova_atividade
-                        resultados[resultado_idx]["acoes_estrategicas"][a_idx]["atividades"][atv_idx]["responsavel"] = novo_responsavel
-                        resultados[resultado_idx]["acoes_estrategicas"][a_idx]["atividades"][atv_idx]["data_inicio"] = str(nova_data_inicio)
-                        resultados[resultado_idx]["acoes_estrategicas"][a_idx]["atividades"][atv_idx]["data_fim"] = str(nova_data_fim)
-                        resultados[resultado_idx]["acoes_estrategicas"][a_idx]["atividades"][atv_idx]["status"] = novo_status
-                        resultados[resultado_idx]["acoes_estrategicas"][a_idx]["atividades"][atv_idx]["anotacoes"] = anotacoes
-                        resultados[resultado_idx]["acoes_estrategicas"][a_idx]["nome_acao_estrategica"] = novo_nome_acao
-
-                        estrategia.update_one(
-                            {"_id": doc["_id"]},
-                            {"$set": {"resultados_medio_prazo.resultados_mp": resultados}}
-                        )
-                        st.success(f"Ação estratégica, atividade e anotações atualizadas com sucesso!")
-                        time.sleep(2)
-                        st.rerun()
 
 
 
@@ -541,7 +548,7 @@ with aba_res_2025:
     # Título da seção
     doc = estrategia.find_one({"resultados_medio_prazo": {"$exists": True}})
     resultados_data = doc.get("resultados_medio_prazo", {}) if doc else {}
-    
+
     titulo_pagina = resultados_data.get("titulo_pagina_resultados_mp", "Resultados de Médio Prazo")
     lista_resultados = resultados_data.get("resultados_mp", [])
 
@@ -567,7 +574,7 @@ with aba_res_2025:
                         key=f"editar_{idx}",
                         icon=":material/edit:",
                         on_click=editar_titulo_de_cada_resultado_mp_dialog,
-                        kwargs={"resultado_idx": idx}  # você pode usar isso para passar o índice
+                        kwargs={"resultado_idx": idx}
                     )
 
             # Metas
@@ -594,9 +601,27 @@ with aba_res_2025:
                 st.info("Nenhuma ação estratégica cadastrada.")
             else:
                 for a_idx, acao in enumerate(acoes):
-                    st.write(f"**{a_idx + 1} - {acao.get('nome_acao_estrategica', '')}**")
-                    atividades = acao.get("atividades", [])
+                    col_acao, col_popover = st.columns([7, 1])
+                    with col_acao:
+                        st.write(f"**{a_idx + 1} - {acao.get('nome_acao_estrategica', '')}**")
+                    with col_popover:
+                        with st.popover("Anotações"):
+                            atividades = acao.get("atividades", [])
+                            if atividades:
+                                for atv in atividades:
+                                    anotacoes = atv.get("anotacoes", [])
+                                    if anotacoes:
+                                        for anot in anotacoes:
+                                            st.markdown(f"- **{anot.get('data', '')}**")
+                                            st.markdown(f"*{anot.get('autor', '')}*")
+                                            st.write(f"Anotação: {anot.get('anotacao', '')}")
+                                            st.write("---")
+                                    else:
+                                        st.write("Sem anotações para esta atividade.")
+                            else:
+                                st.write("Sem atividades registradas.")
 
+                    atividades = acao.get("atividades", [])
                     if atividades:
                         df_atividades = pd.DataFrame([
                             {
@@ -604,20 +629,13 @@ with aba_res_2025:
                                 "Responsável": atv.get("responsavel", ""),
                                 "Início": atv.get("data_inicio", ""),
                                 "Fim": atv.get("data_fim", ""),
-                                "Status": atv.get("status", ""),
-                                "Observações": ", ".join([
-                                    anot.get("anotacao", "")
-                                    for anot in atv.get("anotacoes", [])
-                                ])
+                                "Status": atv.get("status", "")
                             }
                             for atv in atividades
                         ])
                         st.dataframe(df_atividades, hide_index=True)
                     else:
                         st.info("Nenhuma atividade registrada.")
-
-
-
 
 
 with aba_res_2030:
