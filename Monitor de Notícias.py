@@ -1,13 +1,14 @@
 import streamlit as st
 import pandas as pd
-from st_aggrid import AgGrid, GridOptionsBuilder
 import seaborn as sns
-import matplotlib.ticker as ticker
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import time
+from datetime import date, timedelta
 from funcoes_auxiliares import conectar_mongo_portal_ispn
 import locale
+import math
+import io
 
 
 st.set_page_config(layout="wide")
@@ -172,15 +173,31 @@ else:
                 fontes_opcoes_filtradas = fontes_opcoes  # Mostra todas se nenhuma palavra-chave foi selecionada
 
             fontes_selecionadas = st.multiselect(
-                "Filtrar por fonte",
+                "Filtrar por veículo",
                 options=fontes_opcoes_filtradas,
                 format_func=lambda x: df[df["Fonte limpa"] == x]["Fonte"].iloc[0],
-                placeholder="Escolha uma fonte"
+                placeholder="Escolha um veículo"
             )
 
+            # Usa min e max reais só para restringir o range permitido
             data_min = df["Data_Convertida"].min().date()
             data_max = df["Data_Convertida"].max().date()
-            intervalo_datas = st.date_input("Período", value=(data_min, data_max), format="DD/MM/YYYY")
+
+            # Hoje
+            hoje = date.today()
+
+            # Ajusta o intervalo padrão para respeitar os limites do df
+            inicio_padrao = max(data_min, hoje - timedelta(days=30))
+            fim_padrao = min(data_max, hoje)
+
+            # Date input com intervalo padrão ajustado
+            intervalo_datas = st.date_input(
+                "Período",
+                value=(inicio_padrao, fim_padrao),
+                min_value=data_min,
+                max_value=data_max,
+                format="DD/MM/YYYY"
+            )
 
             aplicar = st.form_submit_button("Aplicar filtros")
 
@@ -218,7 +235,6 @@ else:
     df_filtrado = df_filtrado[df_filtrado["Status"] == "Relevante"]
 
     if not df_filtrado.empty:
-        st.subheader("Distribuição de Notícias por Dia")
 
         # Garanta que 'Data_Convertida' é do tipo datetime
         df_filtrado['Data_Convertida'] = pd.to_datetime(df_filtrado['Data_Convertida'], errors='coerce')
@@ -226,65 +242,144 @@ else:
         # Ordene o DataFrame pela coluna de data
         df_filtrado_sorted = df_filtrado.sort_values(by='Data_Convertida')
 
-        # Cria a figura e os eixos manualmente
-        fig, ax = plt.subplots(figsize=(12, 6))
+        # Cria figura
+        fig, ax = plt.subplots(figsize=(6, 1.5), dpi=200)  
 
-        # Desenha o histograma com seaborn histplot
+        fig.patch.set_alpha(0)  # fundo da figura transparente
+        ax.set_facecolor('none')  # fundo dos eixos transparente
+        
+
+
+        # Desenha histograma com barras finas
         sns.histplot(
             data=df_filtrado_sorted,
             x='Data_Convertida',
-            binwidth=pd.Timedelta(days=1),  # Define bins diários
+            binwidth=pd.Timedelta(days=1),
             discrete=True,
-            shrink=0.8,
+            shrink=0.8,  # barras mais finas
             color="#007ad3",
             ax=ax,
             edgecolor=None
         )
-    
-        # Formata os rótulos do eixo x
+
+
+        ax.set_title("Distribuição de Notícias por Dia", fontsize=5, loc='left')
+
+        # Formata datas do eixo X
         ax.xaxis.set_major_formatter(mdates.DateFormatter('%d/%m/%Y'))
         ax.xaxis.set_major_locator(mdates.DayLocator())
 
-        # Ajusta o eixo x e y
-        plt.xticks(rotation=45, ha='right') # 'ha' para alinhar as labels rotacionadas
+        plt.xticks(rotation=45, ha='right', fontsize=3.5)  # fonte das datas 
         plt.xlabel('')
-        plt.ylabel('Número de notícias')
 
-        # Força o eixo Y a mostrar apenas inteiros, sem repetições desnecessárias
-        plt.gca().yaxis.set_major_locator(ticker.MaxNLocator(integer=True))
+        # Remove eixo Y
+        ax.yaxis.set_visible(False)
 
-        # Adiciona rótulos apenas se > 0
+        # Remove bordas
+        for spine in ax.spines.values():
+            spine.set_visible(False)
+
+        # Adiciona rótulos nas barras com fonte pequena
         bars = ax.containers[0]
         labels = [int(bar.get_height()) if bar.get_height() > 0 else '' for bar in bars]
-        ax.bar_label(bars, labels=labels, padding=3)
+        ax.bar_label(bars, labels=labels, padding=2, fontsize=3.5)  # fonte pequena
 
         plt.tight_layout()
         st.pyplot(plt.gcf())
 
 
-    st.subheader(f"{len(df_filtrado)} notícia(s) encontrada(s)")
+    num_noticias = len(df_filtrado)
+
+    if num_noticias == 1:
+        st.subheader("1 notícia encontrada")
+    else:
+        st.subheader(f"{num_noticias} notícias encontradas")
+
 
     tabela = df_filtrado[["Palavra-chave", "Data da notícia", "Título da notícia", "Fonte", "Link"]].copy()
 
-    # Configura grid interativo
-    linhas_por_pagina = 20
-    gb = GridOptionsBuilder.from_dataframe(tabela)
-    gb.configure_default_column(editable=True, groupable=True)
-    gb.configure_column("Link", cellStyle={"whiteSpace": "nowrap", "overflow": "visible", "textOverflow": "clip"}, autoHeight=False)
-    gb.configure_pagination(enabled=True, paginationAutoPageSize=False, paginationPageSize=linhas_por_pagina)
+    tabela = tabela.rename(columns={
+        "Título da notícia": "Título",
+        "Data da notícia": "Data",
+        "Fonte": "Veículo"
+    })
 
-    altura_dinamica = linhas_por_pagina * 30 + 40
-    grid_options = gb.build()
-
-    AgGrid(
-        tabela,
-        gridOptions=grid_options,
-        height=altura_dinamica,
-        allow_unsafe_jscode=True,
-        fit_columns_on_grid_load=True
+    # Torna a coluna 'Título' um link clicável
+    tabela['Título'] = tabela.apply(
+        lambda row: f'<a href="{row["Link"]}" target="_blank">{row["Título"]}</a>',
+        axis=1
     )
 
+    # Remove a coluna 'Link' (oculta)
+    tabela = tabela.drop(columns=['Link'])
 
+    # Define número de linhas por página
+    linhas_por_pagina = 10
+    total_linhas = len(tabela)
+    total_paginas = math.ceil(total_linhas / linhas_por_pagina)
 
+    # Seleciona página atual
+    col1, col2 = st.columns([1,11])
+    pagina_atual = col1.number_input("Página", min_value=1, max_value=total_paginas, value=1, step=1)
 
+    # Calcula os índices da página
+    inicio = (pagina_atual - 1) * linhas_por_pagina
+    fim = inicio + linhas_por_pagina
 
+    # Fatiar tabela para exibir apenas a página atual
+    tabela_paginada = tabela.iloc[inicio:fim]
+
+    # Gera HTML da tabela
+    html = tabela_paginada.to_html(escape=False, index=False)
+
+    # Injetar CSS para estilização
+    st.markdown(
+        """
+        <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        table th {
+            text-align: left !important;
+            padding: 8px;
+            border: 1px solid #ddd;
+            background-color: #f2f2f2;
+            min-width: 150px; 
+        }
+        table td {
+            padding: 8px;
+            border: 1px solid #ddd;
+            min-width: 150px;
+        }
+        table th:nth-child(1), table td:nth-child(1) { min-width: 320px; }
+        table th:nth-child(2), table td:nth-child(2) { min-width: 100px; }
+        table th:nth-child(3), table td:nth-child(3) { min-width: 350px; }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+    # Exibir a tabela paginada
+    st.markdown(html, unsafe_allow_html=True)
+
+    # Exibir informações de paginação
+    st.write(f"Mostrando {inicio + 1} a {min(fim, total_linhas)} de {total_linhas} resultados")
+
+    st.write("")
+
+    # Botão para exportar
+    if st.button("Exportar Excel"):
+        # Cria um buffer na memória
+        output = io.BytesIO()
+        # Exporta para Excel usando o Pandas
+        tabela.to_excel(output, index=False)
+        output.seek(0)
+
+        # Disponibiliza o download
+        st.download_button(
+            label="Clique aqui para baixar o arquivo Excel",
+            data=output,
+            file_name="tabela_exportada.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
