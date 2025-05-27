@@ -262,7 +262,14 @@ def editar_titulo_de_cada_resultado_mp_dialog(resultado_idx):
         st.write("")
 
         if st.button("Salvar Título", key=f"salvar_titulo_{resultado_idx}"):
+            # Atualiza título
             resultados[resultado_idx]["titulo"] = novo_titulo
+
+            # Se não tiver _id, gera um novo ObjectId como string
+            if "_id" not in resultados[resultado_idx]:
+                resultados[resultado_idx]["_id"] = str(ObjectId())
+
+            # Atualiza no Mongo
             estrategia.update_one(
                 {"_id": doc["_id"]},
                 {"$set": {"resultados_medio_prazo.resultados_mp": resultados}}
@@ -291,9 +298,15 @@ def editar_titulo_de_cada_resultado_mp_dialog(resultado_idx):
                 )
 
                 st.write("")
+
                 if st.button(f"Salvar", key=f"salvar_meta_{resultado_idx}_{m_idx}"):
                     resultados[resultado_idx]["metas"][m_idx]["nome_meta_mp"] = novo_nome_meta
                     resultados[resultado_idx]["metas"][m_idx]["objetivo"] = novo_objetivo
+
+                    # Gera ObjectId caso não tenha ainda
+                    if "_id" not in resultados[resultado_idx]["metas"][m_idx]:
+                        resultados[resultado_idx]["metas"][m_idx]["_id"] = str(ObjectId())
+
                     estrategia.update_one(
                         {"_id": doc["_id"]},
                         {"$set": {"resultados_medio_prazo.resultados_mp": resultados}}
@@ -301,6 +314,7 @@ def editar_titulo_de_cada_resultado_mp_dialog(resultado_idx):
                     st.success(f"Meta atualizada com sucesso!")
                     time.sleep(2)
                     st.rerun()
+
 
 
 
@@ -354,6 +368,17 @@ def editar_titulo_de_cada_resultado_mp_dialog(resultado_idx):
                             ),
                             key=f"status_{resultado_idx}_{a_idx}_{atv_idx}"
                         )
+
+                        atividade["atividade"] = nova_atividade
+                        atividade["responsavel"] = novo_responsavel
+                        atividade["data_inicio"] = nova_data_inicio
+                        atividade["data_fim"] = nova_data_fim
+                        atividade["status"] = novo_status
+
+                        # Gera ObjectId caso não tenha ainda
+                        if "_id" not in atividade:
+                            atividade["_id"] = str(ObjectId())
+
 
                 with abas[2]:  # Aba Anotações
                     atividades = acao.get("atividades", [])
