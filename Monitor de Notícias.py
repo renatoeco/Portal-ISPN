@@ -4,7 +4,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import time
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from funcoes_auxiliares import conectar_mongo_portal_ispn
 import locale
 import math
@@ -233,7 +233,19 @@ else:
 
     # Filtra apenas notícias marcadas como Relevantes para exibição
     df_filtrado = df_filtrado[df_filtrado["Status"] == "Relevante"]
+    
+    num_noticias = len(df_filtrado)
 
+    if num_noticias == 1:
+        st.subheader("1 notícia encontrada")
+    else:
+        st.subheader(f"{num_noticias} notícias encontradas")
+        
+    st.write("")
+    st.write("")
+    st.write("")
+    st.write("")
+    
     if not df_filtrado.empty:
 
         # Garanta que 'Data_Convertida' é do tipo datetime
@@ -262,12 +274,11 @@ else:
             edgecolor=None
         )
 
-
-        ax.set_title("Distribuição de Notícias por Dia", fontsize=5, loc='left')
-
         # Formata datas do eixo X
         ax.xaxis.set_major_formatter(mdates.DateFormatter('%d/%m/%Y'))
         ax.xaxis.set_major_locator(mdates.DayLocator())
+
+        plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
 
         plt.xticks(rotation=45, ha='right', fontsize=3.5)  # fonte das datas 
         plt.xlabel('')
@@ -286,27 +297,22 @@ else:
 
         plt.tight_layout()
         st.pyplot(plt.gcf())
-
-
-    num_noticias = len(df_filtrado)
-
-    if num_noticias == 1:
-        st.subheader("1 notícia encontrada")
-    else:
-        st.subheader(f"{num_noticias} notícias encontradas")
-
+        
 
     tabela = df_filtrado[["Palavra-chave", "Data da notícia", "Título da notícia", "Fonte", "Link"]].copy()
 
+    # Prepara uma versão limpa só para exportação (sem mudar nomes nem transformar em HTML)
+    tabela_exportar = df_filtrado[["Palavra-chave", "Data da notícia", "Título da notícia", "Fonte", "Link"]].copy()
+    
     tabela = tabela.rename(columns={
-        "Título da notícia": "Título",
+        "Título da notícia": "Notícia",
         "Data da notícia": "Data",
         "Fonte": "Veículo"
     })
 
     # Torna a coluna 'Título' um link clicável
-    tabela['Título'] = tabela.apply(
-        lambda row: f'<a href="{row["Link"]}" target="_blank">{row["Título"]}</a>',
+    tabela['Notícia'] = tabela.apply(
+        lambda row: f'<a href="{row["Link"]}" target="_blank">{row["Notícia"]}</a>',
         axis=1
     )
 
@@ -314,17 +320,31 @@ else:
     tabela = tabela.drop(columns=['Link'])
 
     # Define número de linhas por página
-    linhas_por_pagina = 10
+    linhas_por_pagina = 20
     total_linhas = len(tabela)
     total_paginas = math.ceil(total_linhas / linhas_por_pagina)
 
+
     # Seleciona página atual
-    col1, col2 = st.columns([1,11])
-    pagina_atual = col1.number_input("Página", min_value=1, max_value=total_paginas, value=1, step=1)
+    col1, col2 = st.columns([1,13])
+    pagina_atual = col1.selectbox(
+        "Página",
+        options=list(range(1, total_paginas + 1)),
+        index=0,  # index começa em 0, então página 1
+    )
+    
+    if pagina_atual is None:
+        pagina_atual = 1  # valor padrão
+
 
     # Calcula os índices da página
     inicio = (pagina_atual - 1) * linhas_por_pagina
     fim = inicio + linhas_por_pagina
+    
+    st.write("")
+        
+    # Exibir informações de paginação
+    st.write(f"Mostrando {inicio + 1} a {min(fim, total_linhas)} de {total_linhas} resultados")
 
     # Fatiar tabela para exibir apenas a página atual
     tabela_paginada = tabela.iloc[inicio:fim]
@@ -363,23 +383,31 @@ else:
     # Exibir a tabela paginada
     st.markdown(html, unsafe_allow_html=True)
 
-    # Exibir informações de paginação
-    st.write(f"Mostrando {inicio + 1} a {min(fim, total_linhas)} de {total_linhas} resultados")
-
     st.write("")
+    
+    
+    # Renomeia para as colunas desejadas no Excel
+    tabela_exportar = tabela_exportar.rename(columns={
+        "Título da notícia": "Notícia",
+        "Data da notícia": "Data",
+        "Fonte": "Veículo"
+    })
+    
+    # Define as colunas a exportar
+    colunas_exportar = ['Palavra-chave', 'Data', 'Notícia', 'Veículo','Link',]
+    tabela_exportar = tabela_exportar[colunas_exportar]
 
-    # Botão para exportar
-    if st.button("Exportar Excel"):
-        # Cria um buffer na memória
-        output = io.BytesIO()
-        # Exporta para Excel usando o Pandas
-        tabela.to_excel(output, index=False)
-        output.seek(0)
+    # Cria buffer Excel
+    output = io.BytesIO()
+    tabela_exportar.to_excel(output, index=False)
+    output.seek(0)
 
-        # Disponibiliza o download
-        st.download_button(
-            label="Clique aqui para baixar o arquivo Excel",
-            data=output,
-            file_name="tabela_exportada.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+    data_de_hoje = hoje.strftime("%d/%m/%Y")
+
+    # Botão único para exportar e baixar
+    st.download_button(
+        label="Exportar Excel",
+        data=output,
+        file_name=f"tabela_de_noticias - {data_de_hoje}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
