@@ -233,7 +233,7 @@ else:
             st.button("Triagem de notícias", icon=":material/settings:", on_click=editar_status_noticias_dialog)
 
     with col3:
-        if st.button("Atualizar (R)"):
+        if st.button("Atualizar (R)", icon=":material/refresh:"):
             st.rerun()
 
         
