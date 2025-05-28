@@ -4,7 +4,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import time
-from datetime import date, timedelta, datetime
+from datetime import date, timedelta
 from funcoes_auxiliares import conectar_mongo_portal_ispn
 import locale
 import math
@@ -15,9 +15,9 @@ st.set_page_config(layout="wide")
 st.header("Visualizador de Notícias do Google Alertas")
 
 
-# ----------------------------------------------------------------------------------------------------
+#######################################################################################################
 # CONEXÃO COM O BANCO DE DADOS MONGODB
-# ----------------------------------------------------------------------------------------------------
+#######################################################################################################
 
 
 db = conectar_mongo_portal_ispn()
@@ -28,9 +28,9 @@ monitor_noticias = db["monitor_noticias"]  # Coleção de notícias monitoradas
 documentos = list(monitor_noticias.find())
 
 
-# ----------------------------------------------------------------------------------------------------
+########################################################################################################
 # FUNÇÕES
-# ----------------------------------------------------------------------------------------------------
+########################################################################################################
 
 
 # Diálogo de triagem para revisão e alteração de status das notícias
@@ -109,9 +109,9 @@ def renderizar_noticias_fragment(titulo, mostrar_irrelevantes=False):
         st.divider()  # Linha divisória para separar notícias
 
 
-# ----------------------------------------------------------------------------------------------------
+########################################################################################################
 # MAIN
-# ----------------------------------------------------------------------------------------------------
+########################################################################################################
 
 
 # Define o locale para formatação de datas
@@ -154,52 +154,50 @@ else:
     titulos_opcoes = sorted(df["Palavra-chave limpa"].unique())
     fontes_opcoes  = sorted(df["Fonte limpa"].unique())
 
-    # Exibe painel de filtros
     with st.expander("Filtros", expanded=False, icon=":material/info:"):
         with st.form("filtros_form"):
+            col1, col2, col3 = st.columns(3)
 
-            titulos_selecionados = st.multiselect(
-                "Filtrar por palavra-chave",
-                options=titulos_opcoes,
-                format_func=lambda x: df[df["Palavra-chave limpa"] == x]["Palavra-chave"].iloc[0],
-                placeholder="Escolha uma palavra-chave"
-            )
+            with col1:
+                titulos_selecionados = st.multiselect(
+                    "Palavra-chave",
+                    options=titulos_opcoes,
+                    format_func=lambda x: df[df["Palavra-chave limpa"] == x]["Palavra-chave"].iloc[0],
+                    placeholder="Escolha uma palavra-chave"
+                )
 
             # Filtra as opções de fontes com base nas palavras-chave selecionadas
             if titulos_selecionados:
                 df_filtrado_por_titulo = df[df["Palavra-chave limpa"].isin(titulos_selecionados)]
                 fontes_opcoes_filtradas = sorted(df_filtrado_por_titulo["Fonte limpa"].unique())
             else:
-                fontes_opcoes_filtradas = fontes_opcoes  # Mostra todas se nenhuma palavra-chave foi selecionada
+                fontes_opcoes_filtradas = fontes_opcoes
 
-            fontes_selecionadas = st.multiselect(
-                "Filtrar por veículo",
-                options=fontes_opcoes_filtradas,
-                format_func=lambda x: df[df["Fonte limpa"] == x]["Fonte"].iloc[0],
-                placeholder="Escolha um veículo"
-            )
+            with col2:
+                fontes_selecionadas = st.multiselect(
+                    "Veículo",
+                    options=fontes_opcoes_filtradas,
+                    format_func=lambda x: df[df["Fonte limpa"] == x]["Fonte"].iloc[0],
+                    placeholder="Escolha um veículo"
+                )
 
-            # Usa min e max reais só para restringir o range permitido
             data_min = df["Data_Convertida"].min().date()
             data_max = df["Data_Convertida"].max().date()
-
-            # Hoje
             hoje = date.today()
-
-            # Ajusta o intervalo padrão para respeitar os limites do df
             inicio_padrao = max(data_min, hoje - timedelta(days=30))
             fim_padrao = min(data_max, hoje)
 
-            # Date input com intervalo padrão ajustado
-            intervalo_datas = st.date_input(
-                "Período",
-                value=(inicio_padrao, fim_padrao),
-                min_value=data_min,
-                max_value=data_max,
-                format="DD/MM/YYYY"
-            )
+            with col3:
+                intervalo_datas = st.date_input(
+                    "Período",
+                    value=(inicio_padrao, fim_padrao),
+                    min_value=data_min,
+                    max_value=data_max,
+                    format="DD/MM/YYYY"
+                )
 
             aplicar = st.form_submit_button("Aplicar filtros")
+
 
 
     # Aplica os filtros selecionados
@@ -218,18 +216,27 @@ else:
     else:
         df_filtrado = df
 
+    col1, col2, col3 = st.columns([4, 1, 1])
+
     # Se usuário for admin, exibe botão para triagem
     tipos_usuario = st.session_state.get("tipo_usuario", [])
     if "adm" in tipos_usuario:
         noticias_sem_status = df[df["Status"].isna() | (df["Status"].str.strip() == "")]
         qtd_sem_status = len(noticias_sem_status)
 
-        col1, col2 = st.columns([4, 1])
+        
         with col1:
             if qtd_sem_status > 0:
                 st.warning(f"{qtd_sem_status} notícia(s) ainda precisam ser triadas.")
+
         with col2:
             st.button("Triagem de notícias", icon=":material/settings:", on_click=editar_status_noticias_dialog)
+
+    with col3:
+        if st.button("Atualizar (R)"):
+            st.rerun()
+
+        
 
     # Filtra apenas notícias marcadas como Relevantes para exibição
     df_filtrado = df_filtrado[df_filtrado["Status"] == "Relevante"]
