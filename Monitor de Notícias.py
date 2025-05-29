@@ -140,6 +140,7 @@ else:
 
     df = pd.DataFrame(noticias)
 
+
     # Prepara colunas auxiliares para filtros
     def limpar_texto(texto):
         return texto.strip().lower() if texto else ""
@@ -149,10 +150,12 @@ else:
     df["Data_Convertida"] = pd.to_datetime(df["Data"], errors="coerce", dayfirst=True)
     df = df.sort_values("Data_Convertida", ascending=False).reset_index(drop=True)
     df["Data da notícia"] = df["Data_Convertida"].dt.strftime("%d/%m/%Y")
+    df = df[df["Status"] == "Relevante"]
 
     # Prepara opções de filtro
     titulos_opcoes = sorted(df["Palavra-chave limpa"].unique())
     fontes_opcoes  = sorted(df["Fonte limpa"].unique())
+    
 
     with st.expander("Filtros", expanded=False, icon=":material/info:"):
         with st.form("filtros_form"):
@@ -233,13 +236,9 @@ else:
             st.button("Triagem de notícias", icon=":material/settings:", on_click=editar_status_noticias_dialog)
 
     with col3:
-        if st.button("Atualizar (R)", icon=":material/refresh:"):
+        if st.button("Atualizar (R)"):
             st.rerun()
 
-        
-
-    # Filtra apenas notícias marcadas como Relevantes para exibição
-    df_filtrado = df_filtrado[df_filtrado["Status"] == "Relevante"]
     
     num_noticias = len(df_filtrado)
 
