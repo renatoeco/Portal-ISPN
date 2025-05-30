@@ -255,10 +255,10 @@ else:
             fontes_selecionadas = fontes_opcoes
 
         df_filtrado = df_relevantes[
-            (df["Palavra-chave limpa"].isin(titulos_selecionados)) &
-            (df["Fonte limpa"].isin(fontes_selecionadas)) &
-            (df["Data_Convertida"].dt.date >= intervalo_datas[0]) &
-            (df["Data_Convertida"].dt.date <= intervalo_datas[1])
+            (df_relevantes["Palavra-chave limpa"].isin(titulos_selecionados)) &
+            (df_relevantes["Fonte limpa"].isin(fontes_selecionadas)) &
+            (df_relevantes["Data_Convertida"].dt.date >= intervalo_datas[0]) &
+            (df_relevantes["Data_Convertida"].dt.date <= intervalo_datas[1])
         ]
     else:
         df_filtrado = df_relevantes
