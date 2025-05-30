@@ -246,7 +246,8 @@ st.write('')
 st.write('')
 st.write('')
 
-if st.session_state.get("tipo_usuario") == "adm":
+tipos_usuario = st.session_state.get("tipo_usuario", [])
+if "adm" in tipos_usuario:
     col1, col2, col3 = st.columns([6, 1, 1])  # Ajuste os pesos conforme necessário
     with col3:
         st.button("Editar", icon=":material/edit:", key="editar_info", on_click=editar_info_institucional_dialog)

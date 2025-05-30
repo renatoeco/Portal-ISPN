@@ -216,21 +216,24 @@ def login():
 
         if st.form_submit_button("Entrar"):
             usuario_encontrado = None
+            tipo_usuario = "desconhecido"
 
-            # Busca o usuário pela senha
             for doc in colaboradores.find():
                 for chave, valor in doc.items():
+                    if chave == "_id":
+                        continue  # Ignora o _id
                     if isinstance(valor, dict) and valor.get("senha") == password:
                         usuario_encontrado = valor
-                        tipo_usuario = valor.get("tipo de usuário", "desconhecido")
+                        tipo_usuario_dict = valor.get("tipo de usuário", {})
+                        tipo_usuario = list(tipo_usuario_dict.values()) 
                         break
                 if usuario_encontrado:
                     break
 
+
             if usuario_encontrado:
                 st.session_state["logged_in"] = True
                 st.session_state["tipo_usuario"] = tipo_usuario
-                time.sleep(2)
                 st.rerun()
             else:
                 st.error("Senha inválida ou usuário não encontrado!")
@@ -263,7 +266,8 @@ else:
         "Pessoas.py", 
         "Viagens.py",
         "Férias.py",
-        "Monitor de PLs.py", 
+        "Monitor de PLs.py",
+        "Monitor de Notícias.py", 
         "Manuais.py",
     ])
 
