@@ -87,7 +87,7 @@ colecao_2 = db['emails']
 # ###################################################################################################
 
 def main():
-   aba1, aba2 = st.tabs(["Gerenciamento de PLs", "Gerenciamento de pessoas"])
+   aba1, aba2 = st.tabs(["Gerenciamento de PLs", "Gerenciamento de e-mails"])
 
 # Aba 1 - Proposições ////////////////////////////////////////////////////////////////
    with aba1:
@@ -295,7 +295,7 @@ def main():
 
 # Aba 2 - Pessoas ////////////////////////////////////////////////////////////////
     with aba2: 
-        @st.dialog("Gerenciar pessoas", width="large")
+        @st.dialog("Gerenciar e-mails", width="large")
         def dial_gerenciar_pessoas():
 
             # Cria as abas: Adicionar, Editar e Excluir PLs
@@ -346,6 +346,8 @@ def main():
                         format_func=str  # Exibir o nome corretamente
                     )
                     
+                    st.divider()
+
                     # Buscar os dados da pessoa selecionada
                     pessoa_selecionada = colecao_2.find_one({"Nome": nome_selecionado})
                     
@@ -399,7 +401,7 @@ def main():
                     st.write("Nenhum e-mail encontrado no banco de dados.")
 
         
-        st.button("Gerenciar pessoas", icon=":material/person:", use_container_width=False, on_click=dial_gerenciar_pessoas)
+        st.button("Gerenciar e-mails", icon=":material/mail:", use_container_width=False, on_click=dial_gerenciar_pessoas)
 
         # Converter para DataFrame 
         df_emails = pd.DataFrame(list(colecao_2.find()))

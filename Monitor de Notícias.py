@@ -155,18 +155,7 @@ else:
 
     df = pd.DataFrame(noticias)
 
-    # st.write("**Palavras-chave monitoradas pelo Google Alertas:**")
-    # st.write("- PPP-ECOS")
-    # st.write("- Paisagens Produtivas Ecossociais")
-    # st.write("- Tô no Mapa")
-    # st.write("- Rede Cerrado")
-    # st.write("- Instituto Sociedade, População e Natureza")
-    # st.write("- ISPN")
-    # st.write("- Institute for Society, Population and Nature")
-    # st.write("- Observatório da Economia da Sociobiodiversidade")
-    # st.write("- ÓSocioBio")
-    # st.write("- observatório da sociobiodiversidade")
-    # st.write("- economias das sociobiodiversidade")
+
 
     # FILTROS //////////////////////////////////////////////////////////////////////////////////////////////////
     # Prepara colunas auxiliares para filtros
@@ -268,7 +257,7 @@ else:
 
     # Botão de triagem só para alguns tipos de usuário
     tipos_usuario = st.session_state.get("tipo_usuario", [])
-    if "adm" in tipos_usuario:
+    if "admin" in tipos_usuario:
 
         col1, col2, col3, col4, col5 = st.columns([1, 1, 1, 1, 1])
 
