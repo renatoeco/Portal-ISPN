@@ -52,7 +52,7 @@ def editar_info_teoria_mudanca_dialog():
     novo_impacto = st.text_input("Impacto", value=impacto_atual)
 
     # Botão para salvar alterações
-    if st.button("Salvar alterações", key="salvar_teoria_mudanca"):
+    if st.button("Salvar alterações", key="salvar_teoria_mudanca", icon=":material/save:"):
         # Cria lista com os novos valores
         novos_dados = [
             {"problema": novo_problema},
@@ -94,7 +94,7 @@ def editar_estrategia_dialog():
     novo_titulo_pagina = st.text_input("Título da página de estratégias", value=titulo_pagina_atual)
 
     # Botão para atualizar o título da página
-    if st.button("Atualizar título da página", key="atualizar_titulo_pagina_estrategias"):
+    if st.button("Atualizar título da página", key="atualizar_titulo_pagina_estrategias", icon=":material/save:"):
         if estrategia_doc:
             estrategia.update_one(
                 {"_id": estrategia_doc["_id"]},
@@ -126,7 +126,7 @@ def editar_estrategia_dialog():
     novo_titulo = st.text_input("Título", value=estrategia_selecionada.get("titulo", "") if estrategia_selecionada else "")
 
     # Atualizar estratégia existente
-    if estrategia_selecionada and st.button("Atualizar estratégia", key="atualizar_estrategia"):
+    if estrategia_selecionada and st.button("Atualizar estratégia", key="atualizar_estrategia", icon=":material/save:"):
         lista_estrategias_atual[index_estrategia]["titulo"] = novo_titulo
 
         update_data = {"estrategia.estrategias": lista_estrategias_atual}
@@ -142,7 +142,7 @@ def editar_estrategia_dialog():
         st.rerun()
 
     # Excluir estratégia
-    if estrategia_selecionada and st.button("Excluir estratégia", key="excluir_estrategia"):
+    if estrategia_selecionada and st.button("Excluir estratégia", key="excluir_estrategia", icon=":material/delete:"):
         lista_estrategias_atual.pop(index_estrategia)
 
         update_data = {"estrategia.estrategias": lista_estrategias_atual}
@@ -158,7 +158,7 @@ def editar_estrategia_dialog():
         st.rerun()
 
     # Adicionar nova estratégia
-    if not estrategia_selecionada and st.button("Adicionar estratégia", key="adicionar_estrategia"):
+    if not estrategia_selecionada and st.button("Adicionar estratégia", key="adicionar_estrategia", icon=":material/add:"):
         update_data = {}
 
         if novo_titulo.strip():
@@ -224,7 +224,7 @@ def editar_titulo_pagina_resultados_mp_dialog():
 
     # Campo para editar o título da aba
     novo_titulo = st.text_input("Título da página de Resultados de Médio Prazo", value=titulo_atual)
-    if st.button("Atualizar", key="atualizar_titulo_mp"):
+    if st.button("Atualizar", key="atualizar_titulo_mp", icon=":material/save:"):
         estrategia.update_one(
             {"_id": doc["_id"]},
             {"$set": {"resultados_medio_prazo.titulo_pagina_resultados_mp": novo_titulo}}
@@ -467,11 +467,8 @@ with aba_tm:
     if "adm" in tipos_usuario:
         col1, col2 = st.columns([7, 1])
         with col2:
-            st.button("Editar", icon=":material/edit:", key="editar_info_tm", on_click=editar_info_teoria_mudanca_dialog)
+            st.button("Editar página", icon=":material/edit:", key="editar_info_tm", on_click=editar_info_teoria_mudanca_dialog, use_container_width=True)
 
-
-
-    
     st.write('')
     st.subheader('Teoria da Mudança')
     st.write('')
@@ -497,10 +494,10 @@ with aba_est:
     lista_estrategias_atual = estrategia_doc.get("estrategia", {}).get("estrategias", []) if estrategia_doc else []
 
     tipos_usuario = st.session_state.get("tipo_usuario", [])
-    if "adm" in tipos_usuario:
+    if "admin" in tipos_usuario:
         col1, col2 = st.columns([7, 1])
         with col2:
-            st.button("Editar", icon=":material/edit:", key="editar_titulo_estrategia", on_click=editar_estrategia_dialog)
+            st.button("Editar página", icon=":material/edit:", key="editar_titulo_estrategia", on_click=editar_estrategia_dialog, use_container_width=True)
 
     st.write('')
     st.subheader(titulo_pagina_atual if titulo_pagina_atual else 'Promoção de Paisagens Produtivas Ecossociais')
@@ -581,7 +578,7 @@ with aba_res_2025:
     if "adm" in tipos_usuario:
         col1, col2 = st.columns([7, 1])  # Ajuste os pesos conforme necessário
         with col2:
-            st.button("Editar", icon=":material/edit:", key="editar_result_mp", on_click=editar_titulo_pagina_resultados_mp_dialog)
+            st.button("Editar página", icon=":material/edit:", key="editar_result_mp", on_click=editar_titulo_pagina_resultados_mp_dialog, use_container_width=True)
 
     st.subheader(titulo_pagina)
     st.write('')

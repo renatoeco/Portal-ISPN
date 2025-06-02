@@ -56,7 +56,7 @@ def editar_info_institucional_dialog():
         frase_atual = frase_doc["frase_forca"] if frase_doc else ""
         nova_frase = st.text_area("Nova frase de força", value=frase_atual)
 
-        if st.button("Salvar", key="salvar frase força"):
+        if st.button("Salvar", key="salvar frase força", icon=":material/save:"):
             if frase_doc:
                 institucional.update_one({"_id": frase_doc["_id"]}, {"$set": {"frase_forca": nova_frase}})
             else:
@@ -71,7 +71,7 @@ def editar_info_institucional_dialog():
         missao_atual = missao_doc["missao"] if missao_doc else ""
         nova_missao = st.text_area("Nova missão", value=missao_atual)
 
-        if st.button("Salvar", key="salvar missão"):
+        if st.button("Salvar", key="salvar missão", icon=":material/save:"):
             if missao_doc:
                 institucional.update_one({"_id": missao_doc["_id"]}, {"$set": {"missao": nova_missao}})
             else:
@@ -90,7 +90,7 @@ def editar_info_institucional_dialog():
         nova_visao_titulo = st.text_input("Novo título para a visão", value=visao_atual_titulo)
         nova_visao_texto = st.text_area("Novo texto para a visão", value=visao_atual_texto)
 
-        if st.button("Salvar", key="salvar visao"):
+        if st.button("Salvar", key="salvar visao", icon=":material/save:"):
             if visao_doc_titulo and visao_doc_texto:
                 institucional.update_one({"_id": visao_doc_titulo["_id"]}, {"$set": {"visao_titulo": nova_visao_titulo}})
                 institucional.update_one({"_id": visao_doc_texto["_id"]}, {"$set": {"visao_texto": nova_visao_texto}})
@@ -110,7 +110,7 @@ def editar_info_institucional_dialog():
         novo_valores_titulo = st.text_input("Novo título para os valores", value=valores_titulo_atual)
 
         # Botão para atualizar o título dos valores
-        if st.button("Atualizar título", key="atualizar_valores_titulo"):
+        if st.button("Atualizar título", key="atualizar_valores_titulo", icon=":material/save:"):
             if valores_doc:
                 institucional.update_one(
                     {"_id": valores_doc["_id"]},
@@ -177,7 +177,7 @@ def editar_info_institucional_dialog():
             st.rerun()
 
         # Adicionar novo valor
-        if not valor_selecionado and st.button("Adicionar valor", key="adicionar_valor"):
+        if not valor_selecionado and st.button("Adicionar valor", key="adicionar_valor", icon=":material/add:"):
             update_data = {}
 
             if novo_titulo.strip() or nova_descricao.strip():
@@ -247,10 +247,10 @@ st.write('')
 st.write('')
 
 tipos_usuario = st.session_state.get("tipo_usuario", [])
-if "adm" in tipos_usuario:
+if "admin" in tipos_usuario:
     col1, col2, col3 = st.columns([6, 1, 1])  # Ajuste os pesos conforme necessário
     with col3:
-        st.button("Editar", icon=":material/edit:", key="editar_info", on_click=editar_info_institucional_dialog)
+        st.button("Editar página", icon=":material/edit:", key="editar_info", on_click=editar_info_institucional_dialog, use_container_width=True)
 
 # Exibe a frase de força centralizada
 st.markdown(f"<h3 style='text-align: center;'>{frase_atual}</h3>", unsafe_allow_html=True)
