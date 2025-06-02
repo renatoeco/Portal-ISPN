@@ -33,18 +33,6 @@ documentos = list(monitor_noticias.find())
 ########################################################################################################
 
 
-# Diálogo de triagem para revisão e alteração de status das notícias
-# @st.dialog("Triagem", width="large")
-# def editar_status_noticias_dialog():
-#     titulos_busca = monitor_noticias.distinct("Palavra-chave")
-#     abas = st.tabs(titulos_busca)
-
-#     for i, titulo in enumerate(titulos_busca):
-#         with abas[i]:
-#             mostrar_irrelevantes = st.checkbox("Mostrar notícias irrelevantes", key=f"mostrar_irrelevantes_{i}")
-#             renderizar_noticias_fragment(titulo, mostrar_irrelevantes=mostrar_irrelevantes)
-
-
 @st.dialog("Triagem de notícias", width="large")
 def editar_status_noticias_dialog():
     
@@ -63,6 +51,7 @@ def editar_status_noticias_dialog():
 # Fragmento reutilizável que renderiza as notícias e os botões de triagem
 @st.fragment
 def renderizar_noticias_fragment(titulo, mostrar_irrelevantes=False):
+    
     doc = monitor_noticias.find_one({"Palavra-chave": titulo})
     noticias = doc.get("noticias", []) if doc else []
 
@@ -72,9 +61,6 @@ def renderizar_noticias_fragment(titulo, mostrar_irrelevantes=False):
     else:
         noticias_exibidas = [n for n in noticias if not n.get("Status")]
 
-    # if not noticias_exibidas:
-    #     st.info("Nenhuma notícia para exibir.")
-    #     return
 
     # Loop para exibir cada notícia
     for idx, noticia in enumerate(noticias_exibidas):
@@ -98,10 +84,6 @@ def renderizar_noticias_fragment(titulo, mostrar_irrelevantes=False):
         if mostrar_irrelevantes:
             st.markdown(f"**Status:** {noticia.get('Status', 'Sem status')}")
 
-        # Centraliza os botões na interface
-        # left_col, center_col, right_col = st.columns([1, 1, 1])
-        # with left_col:
-
         btn_cols = st.columns([1, 1, 2])
         if mostrar_irrelevantes:
             # Mostra apenas o botão "Relevante"
@@ -115,23 +97,29 @@ def renderizar_noticias_fragment(titulo, mostrar_irrelevantes=False):
                 st.rerun(scope="fragment")
         else:
             # Mostra os dois botões: Relevante e Irrelevante
-            if btn_cols[0].button("Relevante", key=f"relevante_{titulo}_{idx}", icon=":material/check:", use_container_width=True):
-                monitor_noticias.update_one(
-                    {"Palavra-chave": titulo, "noticias.Link": noticia["Link"]},
-                    {"$set": {"noticias.$.Status": "Relevante"}}
-                )
-                btn_cols[2].success(":material/check: Notícia marcada como **relevante**.")
-                time.sleep(2)
-                st.rerun(scope="fragment")
+            with btn_cols[0]:
+                st.write("")
+                if st.button("Relevante", key=f"relevante_{titulo}_{idx}", icon=":material/check:", use_container_width=True):
+            # if btn_cols[0].button("Relevante", key=f"relevante_{titulo}_{idx}", icon=":material/check:", use_container_width=True):
+                    monitor_noticias.update_one(
+                        {"Palavra-chave": titulo, "noticias.Link": noticia["Link"]},
+                        {"$set": {"noticias.$.Status": "Relevante"}}
+                    )
+                    btn_cols[2].success(":material/check: Notícia marcada como **relevante**.")
+                    time.sleep(2)
+                    st.rerun(scope="fragment")
 
-            if btn_cols[1].button("Irrelevante", key=f"irrelevante_{titulo}_{idx}", icon=":material/close:", use_container_width=True):
-                monitor_noticias.update_one(
-                    {"Palavra-chave": titulo, "noticias.Link": noticia["Link"]},
-                    {"$set": {"noticias.$.Status": "Irrelevante"}}
-                )
-                btn_cols[2].warning(":material/close: Notícia marcada como **Irrelevante**.")
-                time.sleep(2)
-                st.rerun(scope="fragment")
+            with btn_cols[1]:
+                st.write("")
+                if st.button("Irrelevante", key=f"irrelevante_{titulo}_{idx}", icon=":material/close:", use_container_width=True):
+            # if btn_cols[1].button("Irrelevante", key=f"irrelevante_{titulo}_{idx}", icon=":material/close:", use_container_width=True):
+                    monitor_noticias.update_one(
+                        {"Palavra-chave": titulo, "noticias.Link": noticia["Link"]},
+                        {"$set": {"noticias.$.Status": "Irrelevante"}}
+                    )
+                    btn_cols[2].warning(":material/close: Notícia marcada como **Irrelevante**.")
+                    time.sleep(2)
+                    st.rerun(scope="fragment")
 
         st.divider()  # Linha divisória para separar notícias
 
@@ -267,16 +255,14 @@ else:
 
 
     # TRIAGEM //////////////////////////////////////////////////////////////////////////////////////////////
-    # Botão de triagem de notícias
-    # def editar_status_noticias_dialog():
-    #     st.session_state["triagem_dialog_aberto"] = True
+
 
     noticias_sem_status = df[df["Status"].isna() | (df["Status"].str.strip() == "")]
     qtd_sem_status = len(noticias_sem_status)
 
     # Notificação de triagem pendente
     if qtd_sem_status > 0:
-        st.warning(f"{qtd_sem_status} notícia(s) precisam ser triadas.")
+        st.warning(f"{qtd_sem_status} notícia(s) precisam ser triadas. Se já foram triadas, clique no botão 'Atualizar página'.", icon=":material/warning:")
 
     st.write("")
 
@@ -284,7 +270,7 @@ else:
     tipos_usuario = st.session_state.get("tipo_usuario", [])
     if "adm" in tipos_usuario:
 
-        col1, col2, col3, col4 = st.columns([1, 1, 1, 2])
+        col1, col2, col3, col4, col5 = st.columns([1, 1, 1, 1, 1])
 
         with col1:
             st.button("Triagem de notícias", icon=":material/search:", use_container_width=True, on_click=editar_status_noticias_dialog)
@@ -295,6 +281,37 @@ else:
 
         with col3:
             container_botao_exportar = st.container()
+
+        with col4:
+            @st.dialog("Palavras-chave monitoradas")
+            def mostrar_palavras_chave():
+                # Lista de palavras
+                palavras = [
+                    "Economias da sociobiodiversidade",
+                    "Fundo Ecos",
+                    "Institute for Society, Population and Nature",
+                    "Instituto Sociedade, População e Natureza",
+                    "ISPN",
+                    "Observatório da Economia da Sociobiodiversidade",
+                    "Observatório da sociobiodiversidade",
+                    "ÓSocioBio",
+                    "Paisagens Produtivas Ecossociais",
+                    "PPP-ECOS",
+                    "Rede Cerrado",
+                    "Tô no Mapa"
+                ]
+
+                # Exibir cada palavra com marcador
+                for palavra in palavras:
+                    st.write(f"- {palavra}")
+                st.divider()
+                st.write("Para adicionar novas palavras-chave, entre em contato com renato@ispn.org.br ou bernardo@ispn.org.br.")
+
+
+
+            if st.button("Palavras-chave", icon=":material/list:", use_container_width=True):
+                mostrar_palavras_chave()
+
 
     st.write('')
 
@@ -316,7 +333,7 @@ else:
         df_filtrado_sorted = df_filtrado.sort_values(by='Data_Convertida')
 
         # Cria figura
-        fig, ax = plt.subplots(figsize=(6, 1.2), dpi=400)  
+        fig, ax = plt.subplots(figsize=(10, 1), dpi=400)  
 
         fig.patch.set_alpha(0)  # fundo da figura transparente
         ax.set_facecolor('none')  # fundo dos eixos transparente
@@ -339,7 +356,7 @@ else:
 
         plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
 
-        plt.xticks(rotation=45, ha='right', fontsize=3.5)  # fonte das datas 
+        plt.xticks(fontsize=5.5)  # fonte das datas 
         plt.xlabel('')
 
         # Remove eixo Y
@@ -352,13 +369,15 @@ else:
         # Adiciona rótulos nas barras com fonte pequena
         bars = ax.containers[0]
         labels = [int(bar.get_height()) if bar.get_height() > 0 else '' for bar in bars]
-        ax.bar_label(bars, labels=labels, padding=2, fontsize=3.5)  # fonte pequena
+        ax.bar_label(bars, labels=labels, padding=2, fontsize=6)  # fonte pequena
 
         plt.tight_layout()
         st.pyplot(plt.gcf())
         
+
+
     # TABELA ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////// 
-    tabela = df_filtrado[["Palavra-chave", "Data da notícia", "Título da notícia", "Fonte", "Link"]].copy()
+    tabela = df_filtrado[["Data da notícia", "Título da notícia", "Fonte", "Palavra-chave", "Link"]].copy()
 
     # Prepara uma versão limpa só para exportação (sem mudar nomes nem transformar em HTML)
     tabela_exportar = df_filtrado[["Palavra-chave", "Data da notícia", "Título da notícia", "Fonte", "Link"]].copy()
@@ -399,8 +418,6 @@ else:
         step=1
     )
     
-    # number = col1.number_input("Página")
-
     if pagina_atual is None:
         pagina_atual = 1  # valor padrão
 
@@ -428,6 +445,8 @@ else:
         table {
             width: 100%;
             border-collapse: collapse;
+            border-radius: 10px;
+            overflow: hidden;
         }
         table th {
             text-align: left !important;
@@ -441,9 +460,12 @@ else:
             border: 1px solid #ddd;
             min-width: 150px;
         }
-        table th:nth-child(1), table td:nth-child(1) { min-width: 320px; }
-        table th:nth-child(2), table td:nth-child(2) { min-width: 100px; }
-        table th:nth-child(3), table td:nth-child(3) { min-width: 350px; }
+
+
+        table th:nth-child(1), table td:nth-child(1) { min-width: 100px; }
+        table th:nth-child(2), table td:nth-child(2) { min-width: 350px; }
+        table th:nth-child(3), table td:nth-child(3) { min-width: 320px; }
+
         </style>
         """,
         unsafe_allow_html=True
