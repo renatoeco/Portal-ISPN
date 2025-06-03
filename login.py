@@ -356,7 +356,7 @@ else:
         "Indicadores.py", 
         "Pessoas.py", 
         "Viagens.py",
-        "Férias.py",
+        "Férias e recessos.py",
         "Monitor de PLs.py",
         "Monitor de Notícias.py", 
         "Manuais.py",
