@@ -1,8 +1,8 @@
 import streamlit as st
 import pandas as pd
 import time
-from pymongo import MongoClient
 from datetime import datetime, timedelta
+from dateutil.parser import parse
 from funcoes_auxiliares import conectar_mongo_pls
 
 
@@ -77,14 +77,18 @@ def excluir_pls(numero_pl):
 # CONEXÃO MONGO DB
 # ###################################################################################################
 
+
 db = conectar_mongo_pls()
 
-colecao = db['PLS']
+colecao = db['pls_camara_senado']
 colecao_2 = db['emails']
+colecao_3 = db['pls_ma']
+
 
 # ###################################################################################################
 # MAIN
 # ###################################################################################################
+
 
 def main():
    aba1, aba2 = st.tabs(["Gerenciamento de PLs", "Gerenciamento de e-mails"])
@@ -99,140 +103,180 @@ def main():
         tab1, tab2, tab3 = st.tabs([":material/add: Adicionar", ":material/edit: Editar", ":material/delete: Excluir"])
 
         # ADICIONAR //////////////////////////////////////////////////////
-        # Interface para adicionar novos PLs
         with tab1:
-            
-            # Conecta ao banco de dados e busca os temas disponíveis
-            temas_disponiveis = sorted(list(colecao.distinct("Tema")))
 
-            # Cria selectbox para escolher o tema do PL
+            # Junta os temas disponíveis das duas coleções
+            temas_camara_senado = list(colecao.distinct("Tema"))
+            temas_ma = list(colecao_3.distinct("Tema"))
+            temas_disponiveis = sorted(list(set(temas_camara_senado + temas_ma)))
+
+            # Selectbox para o tema
             tema_pl = st.selectbox("Qual o tema do PL?", temas_disponiveis)
 
-            # Busca subtemas relacionados ao tema selecionado
-            sub_temas_disponiveis = sorted(list(colecao.distinct("Sub-Tema", {"Tema": tema_pl})))
+            # Junta os subtemas correspondentes ao tema selecionado nas duas coleções
+            subtemas_camara_senado = list(colecao.distinct("Sub-Tema", {"Tema": tema_pl}))
+            subtemas_ma = list(colecao_3.distinct("Sub-Tema", {"Tema": tema_pl}))
+            sub_temas_disponiveis = sorted(list(set(subtemas_camara_senado + subtemas_ma)))
 
-            # Cria selectbox para escolher o sub-tema do PL
+            # Selectbox para o subtema
             sub_tema_pl = st.selectbox("Qual o sub-tema do PL?", sub_temas_disponiveis)
 
-            # Cria campo de entrada para o link do PL
+            # Campo de entrada para o link
             link_pl = st.text_input("Qual o link do PL?")
 
-            dados = {
-                'Tema': tema_pl,
-                'Sub-Tema': sub_tema_pl,
-                'Proposições': "Provisório",
-                'Ementa': "",
-                'Casa': "",
-                'Autor': "",
-                'UF': "",
-                'Partido': "",
-                'Apresentação': "",
-                'Situação': "",
-                'Data da Última Ação Legislativa': "",
-                'Última Ação Legislativa': "",
-                'Link': link_pl,
-            }
-            
-            # Variável de feedback temporário
+            # Campo de feedback
             feedback = st.empty()
 
-            # Verifica se o botão de adicionar foi pressionado
+            # Ao clicar no botão
             if st.button("Adicionar PL", use_container_width=True, icon=":material/add:", type="primary"):
-                if tema_pl and sub_tema_pl and link_pl:  
+                if tema_pl and sub_tema_pl and link_pl:
                     try:
+                        # Identificação da coleção e estrutura apropriada
+                        if any(domain in link_pl for domain in ["camara.leg.br", "camara.gov.br", "senado.leg.br"]):
+                            colecao_destino = colecao
+                            dados = {
+                                'Tema': tema_pl,
+                                'Sub-Tema': sub_tema_pl,
+                                'Proposições': "Provisório",
+                                'Ementa': "",
+                                'Casa': "",
+                                'Autor': "",
+                                'UF': "",
+                                'Partido': "",
+                                'Apresentação': "",
+                                'Situação': "",
+                                'Data da Última Ação Legislativa': "",
+                                'Última Ação Legislativa': "",
+                                'Link': link_pl,
+                            }
+                        elif "sapl.al.ma.leg.br" in link_pl:
+                            colecao_destino = colecao_3
+                            dados = {
+                                'Tema': tema_pl,
+                                'Sub-Tema': sub_tema_pl,
+                                'Proposição': "Provisório", 
+                                'Ementa': "",
+                                'Casa': "",
+                                'Autor': "",
+                                'Apresentação': "",
+                                'Situação': "",
+                                'Data da Última Ação Legislativa': "",
+                                'Última Ação Legislativa': "",
+                                'Origem': "",
+                                'Destino': "",
+                                'Link': link_pl,
+                            }
 
-                        # Verifica se o link já existe no banco de dados
-                        link_repetido = colecao.find_one({"Link": link_pl})
+                        else:
+                            feedback.error("Link não reconhecido. Use links da Câmara, Senado ou AL-MA.")
+                            raise ValueError("Domínio de link inválido")
 
+                        # Verificação de duplicidade
+                        link_repetido = colecao_destino.find_one({"Link": link_pl})
                         if link_repetido:
                             feedback.warning("Essa proposição já está cadastrada no banco de dados!")
-                        
                         else:
-                            colecao.insert_one(dados)
-                            feedback.success("PL adicionado com sucesso!")  # Só exibe essa mensagem se for inserido
-                            
-                            time.sleep(6)  
+                            colecao_destino.insert_one(dados)
+                            feedback.success("PL adicionado com sucesso!")
+                            time.sleep(2)
                             feedback.empty()
                             st.rerun()
 
                     except Exception as e:
                         feedback.error(f"Erro ao adicionar PL: {str(e)}")
+
                     
         # EDITAR /////////////////////////////////////////////////////////
-        # Interface para editar um PL existente
         with tab2:
-            # Carrega as proposições do banco de dados
-            pls = list(colecao.find({}, {"Proposições": 1, "Tema": 1, "Sub-Tema": 1, "Link": 1, "Ementa": 1}))
+            # Carrega os PLs de ambas as coleções com metadado da origem
+            pls_1 = list(colecao.find({}, {"Proposições": 1, "Tema": 1, "Sub-Tema": 1, "Link": 1, "Ementa": 1}))
+            for pl in pls_1:
+                pl['colecao'] = 'pls_camara_senado'
+
+            pls_3 = list(colecao_3.find({}, {"Proposição": 1, "Tema": 1, "Sub-Tema": 1, "Link": 1, "Ementa": 1}))
+            for pl in pls_3:
+                pl['colecao'] = 'pls_ma'
+
+            pls = pls_1 + pls_3
 
             if pls:
-                # Cria selectbox para selecionar qual PL editar
                 pl_selecionado = st.selectbox(
-                    "Escolha o PL para editar", 
-                    pls, 
-                    format_func=lambda x: f"{x['Proposições']}"
+                    "Escolha o PL para editar",
+                    pls,
+                    format_func=lambda x: x.get("Proposições") or x.get("Proposição") or "Sem título"
                 )
 
-                # Se um PL for selecionado, exibe os detalhes para edição
                 if pl_selecionado:
                     st.write(f"{pl_selecionado.get('Ementa', 'Sem ementa disponível')}")
 
-                    # Consulta para buscar os temas únicos no banco
-                    temas_unicos = list(colecao.distinct("Tema"))
-                    
-                    # Cria selectbox para selecionar o novo tema
+                    # Determina de qual coleção o PL veio
+                    colecao_atual = colecao if pl_selecionado['colecao'] == 'pls_camara_senado' else colecao_3
+
+                    # Unifica os temas de ambas as coleções
+                    temas_1 = list(colecao.distinct("Tema"))
+                    temas_3 = list(colecao_3.distinct("Tema"))
+                    temas_disponiveis = sorted(set(temas_1 + temas_3))
+
                     tema_selecionado = st.selectbox(
                         "Tema",
-                        temas_unicos,
-                        index=temas_unicos.index(pl_selecionado['Tema']) if pl_selecionado['Tema'] in temas_unicos else 0
+                        temas_disponiveis,
+                        index=temas_disponiveis.index(pl_selecionado['Tema']) if pl_selecionado['Tema'] in temas_disponiveis else 0
                     )
 
-                    # Consulta para buscar subtemas relacionados ao tema selecionado
-                    sub_tema_opcoes = list(colecao.find({"Tema": tema_selecionado}, {"Sub-Tema": 1}))
-                    sub_tema_opcoes = [st.get("Sub-Tema") for st in sub_tema_opcoes]  # Obtém apenas os subtemas
+                    # Unifica sub-temas com base no tema escolhido
+                    subtemas_1 = colecao.distinct("Sub-Tema", {"Tema": tema_selecionado})
+                    subtemas_3 = colecao_3.distinct("Sub-Tema", {"Tema": tema_selecionado})
+                    sub_temas_disponiveis = sorted(set(subtemas_1 + subtemas_3))
 
-                    # Cria selectbox para selecionar o sub-tema
                     sub_tema_selecionado = st.selectbox(
                         "Sub-Tema",
-                        sub_tema_opcoes,
-                        index=sub_tema_opcoes.index(pl_selecionado['Sub-Tema']) if pl_selecionado['Sub-Tema'] in sub_tema_opcoes else 0
+                        sub_temas_disponiveis,
+                        index=sub_temas_disponiveis.index(pl_selecionado['Sub-Tema']) if pl_selecionado['Sub-Tema'] in sub_temas_disponiveis else 0
                     )
 
-                    # Botão para salvar as alterações no banco de dados
                     if st.button("Salvar alterações", use_container_width=True, icon=":material/save:", type="primary"):
-                        # Atualiza o banco de dados com os novos valores
-                        colecao.update_one(
+                        colecao_atual.update_one(
                             {"_id": pl_selecionado['_id']},  
                             {"$set": {
                                 "Tema": tema_selecionado,
                                 "Sub-Tema": sub_tema_selecionado,
                             }}
                         )
-                        st.success(f"'{pl_selecionado['Proposições']}' atualizada com sucesso!")
-
-                        # Aguarda e atualiza a interface
+                        st.success(f"'{pl_selecionado.get('Proposições') or pl_selecionado.get('Proposição') or 'PL'}' atualizado com sucesso!")
                         time.sleep(2)
                         st.rerun()
-
             else:
-                # Caso não haja PLs cadastrados, exibe um aviso
                 st.warning("Nenhuma proposição encontrada no banco de dados.")
 
-        # EXCLUIR ////////////////////////////////////////////////////////
-        # Interface para excluir um PL existente
-        with tab3:
-            # Carrega as proposições do banco de dados
-            pls = list(colecao.find({}, {"Proposições": 1, "Tema": 1, "Sub-Tema": 1, "Link": 1}))
 
-            # Exibe os itens em um formato de lista
+        # EXCLUIR ////////////////////////////////////////////////////////
+        with tab3:
+
+            pls_1 = list(colecao.find({}, {"Proposições": 1, "Tema": 1, "Sub-Tema": 1, "Link": 1}))
+            for pl in pls_1:
+                pl['colecao'] = 'pls_camara_senado'
+
+            pls_3 = list(colecao_3.find({}, {"Proposição": 1, "Tema": 1, "Sub-Tema": 1, "Link": 1}))
+            for pl in pls_3:
+                pl['colecao'] = 'pls_ma'
+
+            pls = pls_1 + pls_3
+
             if pls:
-                # Cria selectbox para escolher qual PL excluir
-                pls = st.selectbox("Escolha o PL para excluir", pls, format_func=lambda x: f"{x['Proposições']}")
-                
+                pl_selecionado = st.selectbox(
+                    "Escolha o PL para excluir",
+                    pls,
+                    format_func=lambda x: x.get("Proposições") or x.get("Proposição") or "Sem título"
+                )
+
                 if st.button("Excluir PL", icon=":material/delete:", use_container_width=True, type="primary"):
-                    # Exclui o PL selecionado do banco de dados
-                    excluir_pls(pls["Proposições"])
+                    colecao_alvo = colecao if pl_selecionado['colecao'] == 'pls_camara_senado' else colecao_3
+                    colecao_alvo.delete_one({"_id": pl_selecionado['_id']})
+                    st.success(f"'{pl_selecionado.get('Proposições') or pl_selecionado.get('Proposição') or 'PL'}' excluído com sucesso!")
+                    time.sleep(2)
+                    st.rerun()
+
             else:
-                # Caso não haja PLs para excluir, exibe uma mensagem
                 st.write("Nenhum PL encontrado no banco de dados.")
 
     col1, col2 = st.columns([4,1])
@@ -241,57 +285,6 @@ def main():
 
     col2.button("Gerenciar PLs", icon=":material/settings:", use_container_width=True, on_click=dial_gerenciar_pls)
 
-    # Consulta todos os documentos da coleção
-    #documentos = colecao.find()  # Você pode adicionar filtros no find() se necessário
-
-    # Converter para DataFrame 
-    df = pd.DataFrame(list(colecao.find()))
-    df_sem_id = df.drop(columns=['_id'])  # Remove a coluna _id, se necessário
-
-    # Converte a coluna 'Data da Última Ação Legislativa' para o formato datetime
-    df_sem_id["Data da Última Ação Legislativa"] = pd.to_datetime(
-        df_sem_id["Data da Última Ação Legislativa"], dayfirst=True, errors="coerce"
-    )
-
-    # Cria opções de filtro para o usuário
-    opcoes_filtro = ["Todos os PLs", "Atualizados no último mês", "Atualizados na última semana"]
-    selecionado = st.radio("Teste", opcoes_filtro, index=0, label_visibility="collapsed")
-
-    # Aplica o filtro selecionado pelo usuário
-    hoje = datetime.now()
-    if selecionado == "Todos os PLs":
-        df_filtrado_nao_atualizado = df_sem_id.copy()
-        
-    elif selecionado == "Atualizados no último mês":
-        inicio_mes = hoje - timedelta(days=30)
-        df_filtrado_nao_atualizado = df_sem_id[df_sem_id["Data da Última Ação Legislativa"] >= inicio_mes]
-        
-    elif selecionado == "Atualizados na última semana":
-        inicio_semana = hoje - timedelta(days=7)
-        df_filtrado_nao_atualizado = df_sem_id[df_sem_id["Data da Última Ação Legislativa"] >= inicio_semana]
-
-    # Ordena os dados pela data da última ação
-    df_nao_atualizado = df_filtrado_nao_atualizado.sort_values(by="Data da Última Ação Legislativa", ascending=False)
-
-    # Formata as datas para exibição no formato desejado
-    df_nao_atualizado["Data da Última Ação Legislativa"] = df_filtrado_nao_atualizado["Data da Última Ação Legislativa"].dt.strftime("%d/%m/%Y")
-
-    # Definindo a nova ordem das colunas
-    nova_ordem = [
-        'Tema', 'Sub-Tema', 'Data da Última Ação Legislativa', 'Proposições',
-        'Ementa', 'Situação', 'Última Ação Legislativa', 'Casa',
-        'Autor', 'UF', 'Partido', 'Apresentação', 'Link'
-    ]
-
-    # Reorganizando as colunas do DataFrame
-    df_nao_atualizado = df_nao_atualizado[nova_ordem]
-
-    # Renomear a coluna Apresentação para Data de apresentação
-    df_nao_atualizado = df_nao_atualizado.rename(columns={"Apresentação": "Data de apresentação"})
-
-    contagem_pls.subheader(f'{len(df_nao_atualizado)} PLs monitorados')
-
-    ajustar_altura_dataframe(df_nao_atualizado, 1)
 
 # Aba 2 - Pessoas ////////////////////////////////////////////////////////////////
     with aba2: 
@@ -410,6 +403,84 @@ def main():
         df_emails.columns = df_emails.columns.str.strip()
 
         st.dataframe(df_emails.sort_values(by="Nome"), hide_index=True)
-           
-            
+
+
+# ###################################################################################################
+# EXIBIÇÃO DO DATAFRAME
+# ###################################################################################################
+
+    
+    # Filtro de data e origem
+    col1, col2 = st.columns([1, 5])
+    with col1:
+        opcoes_filtro = ["Todos os PLs", "Atualizados no último mês", "Atualizados na última semana"]
+        selecionado = st.radio("Filtrar por data da última ação", opcoes_filtro, index=0)
+
+    with col2:
+        origem_opcao = st.radio(
+            "Selecione quais PLs deseja visualizar",
+            ["PLs Federais", "PLs Estaduais do Maranhão"],
+            index=0
+        )
+
+    # Decide qual coleção usar com base na escolha
+    colecao_usada = colecao_3 if origem_opcao == "PLs Estaduais do Maranhão" else colecao
+
+    # Carrega os dados da coleção selecionada
+    df = pd.DataFrame(list(colecao_usada.find()))
+    if df.empty:
+        st.warning("Nenhum PL encontrado na coleção selecionada.")
+    else:
+        df_sem_id = df.drop(columns=['_id'], errors='ignore')
+
+        # Converte a coluna de data, se existir
+        if "Data da Última Ação Legislativa" in df_sem_id.columns:
+            df_sem_id["Data da Última Ação Legislativa"] = pd.to_datetime(
+                df_sem_id["Data da Última Ação Legislativa"], dayfirst=True, errors="coerce"
+            )
+
+        # Aplica o filtro de tempo
+        hoje = datetime.now()
+        if selecionado == "Todos os PLs":
+            df_filtrado = df_sem_id.copy()
+        elif selecionado == "Atualizados no último mês":
+            df_filtrado = df_sem_id[df_sem_id["Data da Última Ação Legislativa"] >= hoje - timedelta(days=30)]
+        elif selecionado == "Atualizados na última semana":
+            df_filtrado = df_sem_id[df_sem_id["Data da Última Ação Legislativa"] >= hoje - timedelta(days=7)]
+
+        # Ordena por data
+        df_filtrado = df_filtrado.sort_values(by="Data da Última Ação Legislativa", ascending=False)
+
+        # Formata a data
+        if "Data da Última Ação Legislativa" in df_filtrado.columns:
+            df_filtrado["Data da Última Ação Legislativa"] = df_filtrado["Data da Última Ação Legislativa"].dt.strftime("%d/%m/%Y")
+
+        # Define ordem das colunas com base na origem
+        if origem_opcao == "PLs Estaduais do Maranhão":
+            nova_ordem = [
+                'Tema', 'Sub-Tema', 'Data da Última Ação Legislativa', 'Proposição',
+                'Ementa', 'Situação', 'Última Ação Legislativa', 'Origem', 'Destino', 'Casa',
+                'Autor', 'Apresentação', 'Link'
+            ]
+        else:
+            nova_ordem = [
+                'Tema', 'Sub-Tema', 'Data da Última Ação Legislativa', 'Proposições',
+                'Ementa', 'Situação', 'Última Ação Legislativa', 'Casa',
+                'Autor', 'UF', 'Partido', 'Apresentação', 'Link'
+            ]
+
+        # Filtra apenas colunas existentes
+        colunas_exibir = [col for col in nova_ordem if col in df_filtrado.columns]
+        df_exibir = df_filtrado[colunas_exibir]
+
+        # Renomeia a coluna 'Apresentação'
+        df_exibir = df_exibir.rename(columns={"Apresentação": "Data de apresentação"})
+
+        # Exibe resultado
+        contagem_pls.subheader(f'{len(df_exibir)} PLs monitorados')
+        ajustar_altura_dataframe(df_exibir, 1)
+
+   
+
+
 main()

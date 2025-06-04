@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import streamlit_shadcn_ui as ui
 from funcoes_auxiliares import conectar_mongo_portal_ispn
-from bson import ObjectId
+from pymongo import UpdateOne
 
 
 st.set_page_config(layout="wide")
@@ -16,8 +16,8 @@ st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
 
 db = conectar_mongo_portal_ispn()
 estatistica = db["estatistica"]  # Coleção de estatísticas
-programas_areas = db["programas_areas"]  # Coleção de notícias monitoradas
-colaboradores_raw = list(db["colaboradores"].find())
+programas_areas = db["programas_areas"] 
+colaboradores_raw = list(db["pessoas"].find())
 
 # Buscando todos os documentos da coleção programas_areas
 dados_programas = list(programas_areas.find())
@@ -28,65 +28,101 @@ dados_programas = list(programas_areas.find())
 ######################################################################################################
 
 
-colaborador_id_para_nome = {}
+# Verifica se há programas sem coordenador
+programas_sem_coordenador = [
+    prog for prog in dados_programas if not prog.get("coordenador_id")
+]
 
-for col in colaboradores_raw:
-    # Extrai o nome (a primeira chave depois do _id)
-    nomes = [k for k in col.keys() if k != "_id"]
-    if nomes:
-        nome = nomes[0]
-        colaborador_id_para_nome[str(col["_id"])] = nome
+if programas_sem_coordenador:
+    atualizacoes = []
 
-# Lista para armazenar os programas e coordenadores
+    for programa in programas_sem_coordenador:
+        nome_programa = programa.get("nome_programa_area")
+        coordenador_id = programa.get("coordenador_id")
+
+        if not coordenador_id:
+            # Busca coordenador correspondente ao programa
+            for pessoa in colaboradores_raw:
+                if (
+                    pessoa.get("tipo de usuário", "").strip().lower() == "coordenador"
+                    and pessoa.get("programa_area", "").strip() == nome_programa.strip()
+                ):
+                    novo_id = pessoa["_id"]
+                    atualizacoes.append(UpdateOne(
+                        {"_id": programa["_id"]},
+                        {"$set": {"coordenador_id": novo_id}}
+                    ))
+                    break  # Parar no primeiro coordenador compatível encontrado
+
+    # Executa as atualizações em lote
+    if atualizacoes:
+        resultado = programas_areas.bulk_write(atualizacoes)
+        st.success(f"{resultado.modified_count} programa(s) atualizado(s) com coordenador_id.")
+    else:
+        st.info("Programas sem coordenador encontrados, mas nenhum coordenador correspondente foi localizado.")
+
+colaborador_id_para_nome = {
+    str(col["_id"]): col.get("nome_completo", "Não encontrado")
+    for col in colaboradores_raw
+}
+
+# Lista com nomes dos coordenadores, para filtrar da equipe
+nomes_coordenadores = set()
+
 lista_programas = []
 
 for doc in dados_programas:
-    for programa in doc.get("programas_areas", []):
+    # Verifica se o documento é um programa simples ou tem subprogramas embutidos
+    programas_embutidos = doc.get("nome_programa_area")
+    if not isinstance(programas_embutidos, list):
+        programas_embutidos = [doc] if isinstance(doc, dict) else []
+
+    for programa in programas_embutidos:
+        if not isinstance(programa, dict):
+            continue
+
         coordenador_id = programa.get("coordenador_id")
         nome_coordenador = colaborador_id_para_nome.get(str(coordenador_id), "Não encontrado")
+        nomes_coordenadores.add(nome_coordenador)
 
-        # Pegar o gênero do coordenador
         genero_coordenador = "Não informado"
         for colab_doc in colaboradores_raw:
-            if colab_doc.get("_id") == ObjectId(coordenador_id):
-                dados_coordenador = colab_doc.get(nome_coordenador, {})
-                genero_coordenador = dados_coordenador.get("gênero", "Não informado")
+            if str(colab_doc.get("_id")) == str(coordenador_id):
+                genero_coordenador = colab_doc.get("gênero", "Não informado")
                 break
 
         lista_programas.append({
-            "titulo": programa.get("titulo_programa_area"),
+            "titulo": programa.get("nome_programa_area", "Sem título"),
             "coordenador": nome_coordenador,
             "genero_coordenador": genero_coordenador
         })
 
-# Lista com nomes dos coordenadores, para filtrar da equipe
-nomes_coordenadores = {p['coordenador'] for p in lista_programas}
+titulos_abas = [p['titulo'] for p in lista_programas if p.get('titulo')]
+
 lista_equipe = []
 
 for colab_doc in colaboradores_raw:
-    for nome, dados in colab_doc.items():
-        if nome == "_id":
-            continue
+    nome = colab_doc.get("nome_completo", "Desconhecido")
 
-        # Ignora se o nome estiver entre os coordenadores
-        if nome in nomes_coordenadores:
-            continue
+    # Ignora coordenadores
+    if nome in nomes_coordenadores:
+        continue
 
-        genero = dados.get("gênero", "Não informado")
-        programa_area = dados.get("programa_area", "Não informado")
+    genero = colab_doc.get("gênero", "Não informado")
+    programa_area = colab_doc.get("programa_area", "Não informado")
 
-        if programa_area in ["Adm. Santa Inês", "Programa Maranhão"]:
-            programa_area_final = "Programa Maranhão"
-        elif programa_area == "Adm. Brasília":
-            programa_area_final = "Administrativo Financeiro"
-        else:
-            programa_area_final = programa_area
+    if programa_area in ["Adm. Santa Inês", "Programa Maranhão"]:
+        programa_area_final = "Programa Maranhão"
+    elif programa_area == "Adm. Brasília":
+        programa_area_final = "Administrativo Financeiro"
+    else:
+        programa_area_final = programa_area
 
-        lista_equipe.append({
-            "Nome": nome,
-            "Gênero": genero,
-            "Programa": programa_area_final,
-        })
+    lista_equipe.append({
+        "Nome": nome,
+        "Gênero": genero,
+        "Programa": programa_area_final,
+    })
 
 df_equipe = pd.DataFrame(lista_equipe)
 
@@ -94,16 +130,10 @@ df_equipe = pd.DataFrame(lista_equipe)
 df_equipe_exibir = df_equipe[["Nome", "Gênero"]].copy()
 df_equipe_exibir["Projetos"] = ""
 
-
-st.header("Programas")
+st.header("Programas e Áreas")
 
 st.write("")
 
-
-# Cria lista só com os títulos dos programas
-titulos_abas = [p['titulo'] for p in lista_programas]
-
-# Gera as abas no Streamlit
 abas = st.tabs(titulos_abas)
 
 for i, aba in enumerate(abas):

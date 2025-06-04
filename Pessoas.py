@@ -2,12 +2,31 @@ import streamlit as st
 import pandas as pd 
 import streamlit_shadcn_ui as ui
 import plotly.express as px
+from funcoes_auxiliares import conectar_mongo_portal_ispn
+
 
 st.set_page_config(layout="wide")
 st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
 
 st.header("Pessoas")
 st.write('')
+
+
+######################################################################################################
+# CONEXÃO COM O BANCO DE DADOS MONGODB
+######################################################################################################
+
+
+db = conectar_mongo_portal_ispn()
+estatistica = db["estatistica"] 
+pessoas = db["pessoas"]  
+
+# Obter dados da coleção "pessoas"
+dados_pessoas = list(pessoas.find())
+
+######################################################################################################
+# FUNÇÕES
+######################################################################################################
 
 
 # Função para cadastrar colaborador
@@ -138,35 +157,39 @@ st.button("Cadastrar colaborador(a)", on_click=cadastrar_colaborador, use_contai
 
 
 
+# Converter os documentos MongoDB para lista de dicionários
+pessoas_lista = []
+for pessoa in dados_pessoas:
+    pessoas_lista.append({
+        "Nome": pessoa.get("nome_completo", "Não informado"),
+        "Programa": pessoa.get("programa", "Não informado"),
+        "Projeto": pessoa.get("projeto", "Não informado"),
+        "Setor": pessoa.get("programa_area", "Não informado"),
+        "Cargo": pessoa.get("cargo", "Não informado"),
+        "Escolaridade": pessoa.get("escolaridade", "Não informado"),
+        "E-mail": pessoa.get("email", "Não informado"),
+        "Telefone": pessoa.get("telefone", "Não informado"),
+        "Gênero": pessoa.get("gênero", "Não informado"),
+        "Raça": pessoa.get("raça", "Não informado")
+    })
+
+# Criar DataFrame
+pessoas = pd.DataFrame(pessoas_lista)
+
+# Filtros (pode-se popular dinamicamente se quiser)
 col1, col2, col3, col4 = st.columns(4)
 
 col1.selectbox("Programa", ["Todos", "Cerrado", "Iniciativas Comunitárias", "Maranhão", "Sociobiodiversidade", "Povos Indígenas"])
 col2.selectbox("Setor", ["Todos", "Projeto 1", "Projeto 2", "Projeto 3", "Projeto 4", "Projeto 5"])
-
-
 col3.selectbox("Doador", ["Todos", "USAID", "GEF", "UE", "Laudes Foundation"])
 col4.selectbox("Projeto", ["Todos", "Projeto 1", "Projeto 2", "Projeto 3", "Projeto 4", "Projeto 5"])
 
-pessoas = pd.DataFrame(
-    {
-        "Nome": ["Ana", "Pedro", "João", "Maria", "Paulo", "Lívia", "Matheus", "Vitória", "Terena"],
-        "Programa": ["Cerrado", "Administrativo", "Administrativo", "Iniciativas Comunitárias", "Povos Indígenas", "Administrativo", "Maranhão", "Sociobiodiversidade", "Administrativo"],
-        "Projeto": ["Projeto 1", "Projeto 2", "Projeto 2", "Projeto 4", "Projeto 5", "Projeto 2", "Projeto 7", "Projeto 8", "Projeto 9"],
-        "Setor": ["Administração", "Comunicação", "Gestão de Projetos", "Gestão de Projetos", "Gestão de Projetos", "Administração", "Comunicação", "Gestão de Projetos", "Gestão de Projetos"],
-        "Cargo": ["Assistente Administrativo", "Assistente de Comunicação", "Coordenador de Projetos", "Coordenadora de Projetos", "Coordenador de Projetos", "Assistente Administrativo", "Assistente de Comunicação", "Coordenador de Projetos", "Coordenadora de Projetos"],
-        "Escolaridade": ["Segundo grau", "Pós graduação", "Mestrado", "Doutorado", "Especialização", "Graduação", "Segundo grau", "Pós graduação", "Mestrado"],
-        "E-mail": ["ana@ispn.org.br", "pedro@ispn.org.br", "joao@ispn.org.br", "maria@ispn.org.br", "paulo@ispn.org.br", "livia@ispn.org.br", "matheus@ispn.org.br", "vitoria@ispn.org.br", "terena@ispn.org.br"],
-        "Telefone": ["(61) 99999-9999", "(61) 99999-9999", "(61) 99999-9999", "(61) 99999-9999", "(61) 99999-9999", "(61) 99999-9999", "(61) 99999-9999", "(61) 99999-9999", "(61) 99999-9999"],
-        "Gênero": ["Feminino", "Masculino", "Masculino", "Feminino", "Masculino", "Feminino", "Masculino", "Feminino", "Masculino"],
-        "Raça": ["Branca", "Preta", "Parda", "Amarela", "Indígena", "Branca", "Preta", "Parda", "Amarela"]
-    }
-)
-
+# Exibir DataFrame
 st.subheader(f'{len(pessoas)} colaboradores(as)')
 st.write('')
-
 st.dataframe(pessoas, hide_index=True)
 
+# Gráficos
 col1, col2 = st.columns(2)
 
 # Programa
@@ -177,24 +200,17 @@ col1.plotly_chart(fig)
 fig = px.bar(pessoas, x='Projeto', color='Programa', title='Distribuição de Pessoas por Projeto')
 col2.plotly_chart(fig)
 
-
 # Setor
 fig = px.pie(pessoas, names='Setor', title='Distribuição de Pessoas por Setor')
 col1.plotly_chart(fig)
-
-
-# col1, col2, col3 = st.columns(3)
-
 
 # Cargo
 fig = px.pie(pessoas, names='Cargo', title='Distribuição de Pessoas por Cargo')
 col2.plotly_chart(fig)
 
-
-# Genero
+# Gênero
 fig = px.pie(pessoas, names='Gênero', title='Distribuição de Pessoas por Gênero')
 col1.plotly_chart(fig)
-
 
 # Raça
 fig = px.pie(pessoas, names='Raça', title='Distribuição de Pessoas por Raça')
