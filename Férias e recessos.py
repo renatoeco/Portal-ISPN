@@ -15,10 +15,12 @@ from funcoes_auxiliares import conectar_mongo_portal_ispn  # Função personaliz
 st.set_page_config(layout="wide")
 st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
 
+
 st.header("Férias e recessos")
 st.write('')
 
-
+# ??????????????????????????????????????????????
+st.write(st.session_state)
 
 # st.subheader('Sistema em manutenção...')
 
@@ -31,6 +33,7 @@ st.write('')
 db = conectar_mongo_portal_ispn()
 
 # Função para carregar / recarregar a coleção do banco de dados de colaboradores
+@st.cache_resource
 def carregar_colaboradores():
     # banco_dados = cliente['ISPN_ferias']  # Seleciona o banco de dados chamado 'ISPN_ferias'
     # colecao = banco_dados['colaboradores']  # Seleciona a coleção 'colaboradores' dentro do banco de dados
@@ -48,10 +51,11 @@ colecao_programas_areas = bd_programas_areas.find({}, {"_id": 0, "nome_programa_
 # Convertendo para uma lista simples
 lista_programas_areas = [doc['nome_programa_area'] for doc in colecao_programas_areas]
 
+
+
 # ###########################################################################
 # FUNÇÕES AUXILIARES
 # ###########################################################################
-
 
 # Função para enviar e-mail
 def enviar_email(destinatario, assunto, corpo, html=False):
@@ -208,130 +212,6 @@ def atualizar_dados_colaborador():
             colecao.update_one(filtro, {"$set": novos_valores})
 
 
-
-
-
-
-
-
-
-
-
-# Função para atualizar o total_gozado e o saldo_atual sempre que cadastrar uma nova solicitação, editar uma solicitação ou deletar uma solicitação
-# def atualizar_dados_colaborador():
-#     # ATUALIZA TODOS OS DADOS DE COLABORADORES
-#     colecao = carregar_colaboradores()
-    
-#     # Buscar todos os documentos da coleção de colaboradores
-#     colaboradores = list(colecao.find())  # Recupera todos os documentos da coleção e os transforma em uma lista
-
-#     # Filtra os dados do colaborador selecionado
-#     colaborador_dados = next(
-#         (registro[colaborador_selecionado] for registro in colaboradores if colaborador_selecionado in registro),
-#         None
-#     )
-
-#     # Acessa os dados de "anos" dentro de colaborador_dados
-#     colaborador_dados_anos = colaborador_dados.get("anos", {})
-
-#     # Verifica se há dados de anos
-#     if not colaborador_dados_anos:
-#         st.warning("Nenhum dado de anos encontrado para o colaborador.")
-#         return
-
-#     # Ordena os anos para garantir que o cálculo ocorra na ordem correta
-#     anos_ordenados = sorted(colaborador_dados_anos.keys())
-
-#     # Itera sobre cada ano na ordem correta
-#     for i, ano in enumerate(anos_ordenados):
-#         dados_ano = colaborador_dados_anos[ano]
-
-#         if 'solicitacoes' in dados_ano:  # Garante que há solicitações no ano
-
-#             # Calcula o total gozado
-#             total_gozado = sum(
-#                 solicitacao.get('numero_dias_uteis', 0) for solicitacao in dados_ano.get('solicitacoes', [])
-#             )
-
-#             # Calcula o residual do ano anterior
-#             if i > 0:  # Se não for o primeiro ano, pega o saldo do ano anterior
-#                 ano_anterior = anos_ordenados[i - 1]
-#                 residual_ano_anterior = min(colaborador_dados_anos[ano_anterior].get('saldo_atual', 0), 11) # limitado a 11
-
-#             else:  # Primeiro ano usa o valor padrão
-#                 residual_ano_anterior = min(dados_ano.get('residual_ano_anterior', 0), 11) # limitado a 11
-
-#             # Calcula o valor inicial do ano atual
-#             valor_inicial_ano_atual = dados_ano.get('valor_inicial_ano_atual', 0)
-
-#             # Calcula o saldo atual
-#             saldo_atual = residual_ano_anterior + valor_inicial_ano_atual - total_gozado
-
-#             # Atualiza os valores no banco
-#             filtro = {
-#                 "_id": next(registro["_id"] for registro in colaboradores if colaborador_selecionado in registro),
-#                 f"{colaborador_selecionado}.anos.{ano}": {"$exists": True}
-#             }
-
-#             novos_valores = {
-#                 f"{colaborador_selecionado}.anos.{ano}.total_gozado": total_gozado,
-#                 f"{colaborador_selecionado}.anos.{ano}.saldo_atual": saldo_atual,
-#                 f"{colaborador_selecionado}.anos.{ano}.residual_ano_anterior": residual_ano_anterior,
-#                 # f"{colaborador_selecionado}.anos.{ano}.residual_ano_anterior": min(residual_ano_anterior, 11),  # Limita a 11
-#                 f"{colaborador_selecionado}.anos.{ano}.valor_inicial_ano_atual": valor_inicial_ano_atual,
-#             }
-
-#             colecao.update_one(filtro, {"$set": novos_valores})
-
-#             # Atualiza os dados localmente para propagar corretamente
-#             colaborador_dados_anos[ano]["saldo_atual"] = saldo_atual
-
-
-#         else:  # Se não houver solicitações para o ano
-
-#             # Define o total gozado como 0, já que não há solicitações
-#             total_gozado = 0
-
-#             # Converte o ano anterior para verificar se ele existe
-#             ano_anterior = str(int(ano) - 1)
-
-#             # Inicializa o residual do ano anterior
-#             residual_ano_anterior = 0
-
-#             # Verifica se o ano anterior existe nos dados do colaborador
-#             if ano_anterior in colaborador_dados_anos:
-#                 # Define o residual do ano anterior como o saldo do ano anterior
-#                 residual_ano_anterior = min(colaborador_dados_anos.get(ano_anterior, {}).get('saldo_atual', 0), 11) #
-
-#             else:
-#                 # Mantém o residual do ano anterior como já definido nos dados atuais (ou 0 se não existir)
-#                 residual_ano_anterior = min(dados_ano.get('residual_ano_anterior', 0), 11) # limitado a 11
-
-#             # Obtém o saldo inicial do ano atual (valor inicial do ano)
-#             valor_inicial_ano_atual = dados_ano.get('valor_inicial_ano_atual', 0)
-
-#             # Calcula o saldo atual
-#             saldo_atual = residual_ano_anterior + valor_inicial_ano_atual - total_gozado
-
-#             # Cria o filtro para identificar o colaborador e o ano atual no banco de dados
-#             filtro = {
-#                 "_id": next(registro["_id"] for registro in colaboradores if colaborador_selecionado in registro),  # Localiza o ID do colaborador
-#                 f"{colaborador_selecionado}.anos.{ano}": {"$exists": True}  # Verifica se o ano atual existe nos dados do colaborador
-#             }
-
-#             # Define os novos valores para atualizar no banco de dados
-#             novos_valores = {
-#                 f"{colaborador_selecionado}.anos.{ano}.total_gozado": total_gozado,  # Atualiza o total gozado para 0
-#                 # f"{colaborador_selecionado}.anos.{ano}.residual_ano_anterior": min(residual_ano_anterior, 11),  # Limita a 11
-#                 f"{colaborador_selecionado}.anos.{ano}.residual_ano_anterior": residual_ano_anterior,  # Atualiza o residual com base no saldo do ano anterior, se existir
-#                 f"{colaborador_selecionado}.anos.{ano}.saldo_atual": saldo_atual,  # Atualiza o saldo atual com base na fórmula
-#                 f"{colaborador_selecionado}.anos.{ano}.valor_inicial_ano_atual": valor_inicial_ano_atual  # Garante o valor inicial do ano no banco
-#             }
-
-#             # Atualiza o banco de dados com os novos valores para o ano atual
-#             colecao.update_one(filtro, {"$set": novos_valores})
-
-
 # Função para atualizar os dados dos colaboradores, usada na virada do ano
 def atualizar_dados_colaboradores(colecao):
     colaboradores = list(colecao.find())  # Recupera todos os documentos da coleção e os transforma em uma lista
@@ -388,83 +268,590 @@ colaboradores = list(colecao.find())  # Recupera todos os documentos da coleçã
 # TELA PRINCIPAL
 # ###########################################################################
 
-# LISTA DE COLABORADORES COM SALDO
-@st.dialog("Lista de colaboradores por ano", width="large")
-def lista_colaboradores():
-    # Recupera todos os documentos da coleção e os transforma em uma lista
-    # colaboradores = list(bd_colaboradores.find())
 
-    if not colaboradores:
-        st.write("Não há colaboradores cadastrados.")
-        return
+# Função para gerar o gráfico e a tabela, usado para todo tipo de usuário
+def gerar_grafico_tabela(colaborador_selecionado):
+    # Container que vai receber a parte que responde ao filtro de mês e ano
+    container_mês = st.container(border=True)  # Cria um container para os filtros de mês e ano
 
-    # Inicializa o set para armazenar todos os anos disponíveis
-    todos_os_anos = set()
 
-    # Dicionário para mapear colaboradores e saldos por ano
-    saldos_por_colaborador = {}
+    # ###########################################################################
+    # GRÁFICO DE GANTT
+    # ###########################################################################
 
-    # Itera sobre cada colaborador para coletar os anos e preencher os saldos
+    # Listas para armazenar dados do gráfico de Gantt e solicitações
+    gantt_data = []  # Lista que armazenará os dados para o gráfico de Gantt
+    solicitacoes_data = []  # Lista para armazenar todas as solicitações
+
+    # Inicializando a lista para armazenar as informações do Gantt e o set de anos disponíveis
+    anos_disponiveis = set()  # Conjunto para armazenar os anos disponíveis
+
+    # Inicialização das variáveis de filtros
+    setor_selecionado = "Todos"  # Inicializa com o valor padrão
+
+    # Obtém o ano e o mês atuais
+    ano_atual = str(datetime.now().year)  # Obtém o ano atual como string
+    mes_atual = datetime.now().month  # Obtém o mês atual como inteiro
+
+    # Recupera todos os documentos da coleção
+    colaboradores = list(colecao.find())
+
+    gantt_data = []
+    anos_disponiveis = set()
+
+    # Iteração para capturar a lista de anos e criar o dataframe para o gráfico de Gantt
     for colaborador in colaboradores:
-        colaborador_nome = colaborador.get("nome_completo", "Não informado")
-        setor = colaborador.get("programa_area", "Não informado")
+        nome = colaborador.get("nome_completo", "Desconhecido")
+        setor = colaborador.get("programa_area", "Desconhecido")
 
-        # Acessa os dados de férias → anos
-        dados_anos = colaborador.get("férias", {}).get("anos", {})
+        anos = colaborador.get("férias", {}).get("anos", {})
 
-        # Adiciona os anos deste colaborador ao set de anos disponíveis
-        todos_os_anos.update(dados_anos.keys())
+        for ano, dados_ano in anos.items():
+            solicitacoes = dados_ano.get("solicitacoes", [])
 
-        # Salva os saldos atuais do colaborador por ano
-        for ano, dados in dados_anos.items():
-            saldo_atual = dados.get("saldo_atual", 0)
+            for solicitacao in solicitacoes:
+                lista_de_dias = solicitacao.get("lista_de_dias", [])
 
-            if ano not in saldos_por_colaborador:
-                saldos_por_colaborador[ano] = []
+                # Verifica se há pares de datas (início e fim)
+                for i in range(0, len(lista_de_dias) - 1, 2):
+                    try:
+                        inicio = datetime.strptime(lista_de_dias[i], "%d/%m/%Y")
+                        fim = datetime.strptime(lista_de_dias[i + 1], "%d/%m/%Y")
 
-            saldos_por_colaborador[ano].append({
-                "Nome": colaborador_nome,
-                "Setor": setor,
-                "Saldo Atual": saldo_atual
-            })
+                        gantt_data.append({
+                            'Colaborador': nome,
+                            'Início': inicio,
+                            'Fim': fim,
+                            'Setor': setor
+                        })
 
-    # Ordena os anos de forma decrescente
-    anos_disponiveis = sorted(todos_os_anos, reverse=True)
+                        anos_disponiveis.add(inicio.year)
+                        anos_disponiveis.add(fim.year)
 
-    # Coluna para diminuir a largura do dropdown
-    col_dropdown, col_vazia = st.columns([1, 2])
+                    except (ValueError, IndexError) as e:
+                        print(f"Erro ao processar datas para {nome} no ano {ano}: {e}")
 
-    # Dropdown para seleção de ano
-    ano_selecionado = col_dropdown.selectbox(
-        "Selecione o ano:",
-        anos_disponiveis,
-        key="ano_selecionado_saldo"
-    )
 
-    # Prepara o DataFrame apenas para o ano selecionado
-    if ano_selecionado in saldos_por_colaborador:
-        df_saldos = pd.DataFrame(saldos_por_colaborador[ano_selecionado])
+
+
+    # Cria o DataFrame com as colunas Colaborador, Início e Fim
+    df_gantt = pd.DataFrame(gantt_data)
+
+    # Converte o conjunto anos_disponiveis para uma lista e ordena
+    anos_disponiveis = sorted(list(anos_disponiveis), reverse=True)
+
+    # Lista de meses em português
+    meses = [
+        "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+        "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+    ]
+
+    # Cria as colunas para os filtros
+    col1, col2, col3, col4, col5 = container_mês.columns([6, 2, 1, 2, 2])  # Define a proporção das colunas
+
+    # Nome do colaborador no início da página
+    with col1:
+        titulo_mes = st.container()  # Cria um container para o título do mês
+        titulo_mes.write('')  # Adiciona um espaçamento
+
+    # Selectbox para os setores, com o Todos como padrão
+    # Mostra somente se o colaborador selecionado for igual a Todos(as)
+    if colaborador_selecionado == "Todos(as)":
+        with col2:
+            st.write('')
+            setor_selecionado = st.selectbox("Programa / Área", options=["Todos"] + lista_programas_areas, index=0)
+
+    # Selectbox para os meses, com o mês atual como padrão
+    with col4:
+        st.write('')
+        mes_selecionado = st.selectbox("Selecione o mês", options=meses, index=mes_atual - 1)
+
+    # Selectbox para os anos, com o ano atual como padrão
+    with col5:
+        st.write('')
+
+        # Encontrar o índice do ano atual na lista de anos disponíveis
+        if int(ano_atual) in anos_disponiveis:
+            # Encontrar o índice do ano atual
+            index_ano_atual = anos_disponiveis.index(int(ano_atual))
+        else:
+            # Definir índice padrão como 0
+            index_ano_atual = 0
+
+        # Criar o selectbox com o ano atual selecionado por padrão
+        ano_selecionado = st.selectbox("Selecione o ano", options=anos_disponiveis, index=index_ano_atual)
+
+    # Escrevendo o mês e ano na col1
+    if ano_selecionado != None:
+        titulo_mes.subheader(f'{mes_selecionado} de {ano_selecionado}')  # Exibe o mês e ano selecionados
+
+    # Mapeia o nome do mês para seu número (1-12)
+    mes_numero = meses.index(mes_selecionado) + 1
+
+
+    # Define a data de referência para o mês e ano selecionados
+    data_inicio_mes = datetime(int(ano_selecionado), mes_numero, 1)  # Primeiro dia do mês selecionado
+    if mes_numero == 12:  # Caso seja dezembro, calcula o último dia do mês
+        data_fim_mes = datetime(int(ano_selecionado) + 1, 1, 1) - pd.Timedelta(days=1)
+    else:  # Para outros meses, calcula o último dia normalmente
+        data_fim_mes = datetime(int(ano_selecionado), mes_numero + 1, 1) - pd.Timedelta(days=1)
+
+    # Filtra o DataFrame para incluir somente os registros do mês e ano selecionados
+    df_gantt = df_gantt[
+        ((df_gantt["Início"].dt.year == int(ano_selecionado)) & 
+        (df_gantt["Início"].dt.month == mes_numero)) |
+        ((df_gantt["Fim"].dt.year == int(ano_selecionado)) & 
+        (df_gantt["Fim"].dt.month == mes_numero)) |
+        ((df_gantt["Início"] <= data_fim_mes) & 
+        (df_gantt["Fim"] >= data_inicio_mes))
+    ]
+
+    # Verifica se há registros para o gráfico
+    if df_gantt.empty:
+        st.write('')
+        container_mês.write(f"Não há férias programadas para o mês de {mes_selecionado.lower()}.")  # Mensagem de ausência de dados
+
+    # Tem registros
     else:
-        df_saldos = pd.DataFrame(columns=["Nome", "Setor", "Saldo Atual"])
+        # Filtra os dados se um colaborador específico estiver selecionado
+        if colaborador_selecionado != "Todos(as)":
+            df_gantt = df_gantt[df_gantt["Colaborador"] == colaborador_selecionado]
 
-    df_saldos = df_saldos.reset_index(drop=True)
+        # Se o colaborador for Todos(as),Filtra os dados se um setor específico estiver selecionado
+        elif setor_selecionado != "Todos":
+            df_gantt = df_gantt[df_gantt["Setor"] == setor_selecionado]  # Assumindo que há uma coluna 'Setor' no DataFrame
 
-    # Renomeações e formatações
-    df_saldos = df_saldos.rename(columns={'Saldo Atual': 'Saldo do ano'})
-    df_saldos['Saldo do ano'] = df_saldos['Saldo do ano'].astype(int)
+        # Verifica novamente se há dados após o filtro por colaborador
+        if df_gantt.empty:
+            container_mês.write(f"Não há férias programadas para o mês de {mes_selecionado.lower()}.")  # Mensagem após o filtro
+        else:
+            # Define a altura do gráfico com base na seleção
+            if colaborador_selecionado == "Todos(as)":
+                altura_grafico = 500  # Altura padrão para todos
+            else:
+                altura_grafico = 130  # Altura menor para um colaborador específico
 
-    df_saldos = df_saldos.sort_values(by='Saldo do ano', ascending=False)
-    df_saldos = df_saldos[['Nome', 'Saldo do ano', 'Setor']]
-    df_saldos = df_saldos.rename(columns={'Setor': 'Programa / Setor'})
+            # Define o primeiro e o último dia do mês selecionado
+            primeiro_dia = datetime(int(ano_selecionado), mes_numero, 1)
+            ultimo_dia = (primeiro_dia + timedelta(days=31)).replace(day=1)
 
-    # Exibe o DataFrame formatado
-    st.dataframe(df_saldos, hide_index=True, use_container_width=True)
-# Botão para abrir o diálogo de lista de colaboradores
-st.button(
-    "Lista de colaboradores",
-    on_click=lista_colaboradores,
-    icon=":material/groups:"
-)
+            # Adiciona 1 dia ao valor da coluna "Fim" para ajustar visualmente o gráfico
+            df_gantt["Final"] = df_gantt["Fim"] + pd.Timedelta(days=1)
+
+            # Adiciona a menor data de "Início" por colaborador
+            df_gantt['Menor_Início'] = df_gantt.groupby('Colaborador')['Início'].transform('min')
+
+            # Ordena o DataFrame com base na menor data de "Início" e depois pela data "Início"
+            df_gantt = df_gantt.sort_values(by=['Menor_Início', 'Início'], ascending=False)
+
+            # Definindo a paleta de cores divergente
+            cores_setores = {
+                "Advocacy": "rgba(255, 127, 14, 0.55)",              # Laranja brilhante
+                "Adm. Brasília": "rgba(44, 160, 44, 0.55)",          # Verde
+                "Adm. Santa Inês": "rgba(227, 119, 194, 0.55)",       # Azul
+                "Comunicação": "rgba(148, 103, 189, 0.55)",          # Roxo
+                "Coordenação": "rgba(214, 39, 40, 0.55)",            # Vermelho
+                "Estagiário(a)": "rgba(255, 187, 120, 0.55)",        # Laranja claro
+                "Programa Cerrado": "rgba(140, 86, 75, 0.55)",       # Marrom
+                "Programa Iniciativas Comunitárias": "rgba(31, 119, 180, 0.55)", # Rosa
+                "Programa Maranhão": "rgba(188, 189, 34, 0.55)",     # Verde amarelado
+                "Programa Povos Indígenas": "rgba(23, 190, 207, 0.55)", # Ciano
+                "Programa Sociobiodiversidade": "rgba(127, 127, 127, 0.55)" # Cinza
+            }
+
+
+            # Se setor_selecionado for "Todos(as)", utilizamos a paleta de cores
+            if setor_selecionado == "Todos":
+                # Cria o gráfico de Gantt com as cores baseadas no setor
+                fig = px.timeline(
+                    df_gantt,
+                    x_start="Início",
+                    x_end="Final",
+                    y="Colaborador",
+                    color="Setor",  # Cor baseada na coluna 'Setor'
+                    color_discrete_map=cores_setores,  # Mapeia as cores de acordo com os setores
+                    hover_data={"Início": False, "Final": False}  # Oculta "Início" e "Final"
+
+                )
+            else:
+                # Cria o gráfico de Gantt com o setor selecionado, usando a cor do setor selecionado
+                fig = px.timeline(
+                    df_gantt[df_gantt["Setor"] == setor_selecionado],  # Filtra apenas o setor selecionado
+                    x_start="Início",
+                    x_end="Final",
+                    y="Colaborador",
+                    color="Setor",  # Cor baseada na coluna 'Setor'
+                    color_discrete_map=cores_setores,  # Mapeia as cores de acordo com os setores
+                    hover_data={"Início": False, "Final": False}  # Oculta "Início" e "Final"
+                )
+
+            
+            # Adiciona uma linha vertical vermelha para marcar o dia de hoje
+            hoje = datetime.now().date()  # Multiplicado por 1000 para obter o timestamp em milissegundos
+            fig.add_vline(
+                x=hoje,  # Posição da linha vertical (data de hoje)
+                line_width=2,  # Espessura da linha
+                # line_dash="dash",  # Estilo da linha (tracejada)
+                line_color="red",  # Cor da linha
+            )
+
+
+            # Estilo do gráfico
+            fig.update_layout(
+                yaxis=dict(tickfont=dict(size=15)),  # Ajusta o tamanho da fonte do eixo Y
+                height=altura_grafico,  # Define a altura do gráfico
+                margin=dict(l=20, r=20, t=50, b=50),  # Define margens
+                xaxis=dict(side="top"),  # Move os rótulos do eixo X para o topo
+                legend=dict(
+                    orientation="h",  # Define a orientação da legenda como horizontal
+                    y=-0.2,  # Move a legenda para baixo do gráfico
+                    x=0.5,  # Centraliza a legenda horizontalmente
+                    xanchor="center",  # Define o ponto de ancoragem da legenda
+                    title=None
+                )
+            )
+
+            # Remove o título do eixo Y
+            fig.update_yaxes(title_text='')  
+
+            # Configura o eixo X para mostrar todos os dias do mês selecionado
+            fig.update_xaxes(
+                range=[primeiro_dia, ultimo_dia], 
+                dtick="D1", 
+                tickformat="%d/%m", 
+                showgrid=True, 
+                gridwidth=0.5, 
+                gridcolor="lightgrey"
+            )
+
+
+            # Exibe o gráfico no container
+            container_mês.plotly_chart(fig)
+
+    # except:
+    #     st.warning('Cadastre um(a) colaborador(a) e ao menos uma solicitação de férias.')
+
+
+    st.write('')
+
+
+    # ###########################################################################
+    # TODOS(AS)
+    # ###########################################################################
+
+
+
+    if colaborador_selecionado == "Todos(as)":
+        # Inicializa uma lista para armazenar as solicitações de todos os colaboradores
+        todas_solicitacoes = []
+
+        # Itera sobre todos os registros de colaboradores
+        for registro in colaboradores:
+            nome = registro.get("nome_completo", "Não informado")
+            setor = registro.get("programa_area", "Não informado")
+
+            # Obtém os dados dos anos dentro de "férias"
+            dados_anos = registro.get("férias", {}).get("anos", {})
+
+            # Obtém os dados para o ano selecionado e o ano anterior
+            ano_dados_atual = dados_anos.get(str(ano_selecionado), {})
+            ano_dados_anterior = dados_anos.get(str(int(ano_selecionado) - 1), {})
+
+            # Combina os dados dos dois anos em uma lista
+            todos_anos_dados = [ano_dados_atual, ano_dados_anterior]
+
+            # Itera sobre os dados combinados
+            for ano_dados in todos_anos_dados:
+                if not ano_dados:
+                    continue  # Pula se não houver dados para o ano
+
+                # Obtém as solicitações de férias
+                solicitacoes = ano_dados.get("solicitacoes", [])
+
+                for solicitacao in solicitacoes:
+                    lista_de_dias = solicitacao.get('lista_de_dias', [])
+
+                    # Verifica se há datas na solicitação
+                    if not lista_de_dias:
+                        continue
+
+                    # Converte as datas para objetos datetime
+                    lista_de_dias_timestamp = pd.to_datetime(lista_de_dias, dayfirst=True)
+                    lista_de_dias_timestamp = sorted(lista_de_dias_timestamp)
+
+                    inicio_periodo = lista_de_dias_timestamp[0]
+                    fim_periodo = lista_de_dias_timestamp[-1]
+
+                    # Define o intervalo do mês selecionado
+                    data_referencia_inicio = pd.to_datetime(f"{ano_selecionado}-{mes_numero}-01")
+                    data_referencia_fim = data_referencia_inicio + pd.offsets.MonthEnd(0)
+
+                    # Verifica sobreposição com o mês selecionado
+                    if (inicio_periodo <= data_referencia_fim) and (fim_periodo >= data_referencia_inicio):
+                        todas_solicitacoes.append({
+                            "Nome": nome,
+                            "Setor": setor,
+                            "Data do registro": solicitacao.get('data_solicitacao', 'Data não disponível'),
+                            "Período solicitado": lista_de_dias,
+                            "Total de dias úteis": solicitacao.get('numero_dias_uteis', 'Não disponível'),
+                            "Observações": solicitacao.get('observacoes', 'Nenhuma observação')
+                        })
+
+        # Cria o DataFrame
+        df_todas_solicitacoes = pd.DataFrame(todas_solicitacoes)
+
+        if not df_todas_solicitacoes.empty:
+            # Ordena por nome
+            df_todas_solicitacoes.sort_values(by='Nome', inplace=True)
+
+            # Filtro por setor, se aplicável
+            if setor_selecionado != "Todos":
+                df_todas_solicitacoes = df_todas_solicitacoes[
+                    df_todas_solicitacoes["Setor"] == setor_selecionado
+                ]
+
+            # Subtítulo
+            container_mês.subheader("**Solicitações de férias no mês**")
+
+            # Altura dinâmica do DataFrame
+            altura_df_solicitacoes = ((len(df_todas_solicitacoes) + 1) * 35) + 2
+
+            # Exibição
+            container_mês.dataframe(
+                df_todas_solicitacoes,
+                hide_index=True,
+                use_container_width=True,
+                height=altura_df_solicitacoes,
+                column_config={
+                    "Setor": "Programa / Setor"
+                },
+            )
+
+
+
+
+
+    # ###########################################################################
+    # INDIVIDUAL
+    # ###########################################################################
+
+    else:
+        
+        st.write('\n' * 3)  # Insere espaços vazios para separação visual
+
+        # Cria um container para os botões de "Nova solicitação" e "Editar solicitação"
+        linha_de_botoes = st.container()
+
+        # Filtra os dados do colaborador selecionado
+        colaborador_dados = next(
+            (registro[colaborador_selecionado] for registro in colaboradores if colaborador_selecionado in registro),
+            None
+        )
+
+        if colaborador_dados:
+
+            # Escreve o setor do colaborador no container abaixo do nome
+            setor_colaborador = colaborador_dados["setor"]
+            container_setor.write(f"{setor_colaborador}")
+
+            # Ordena os anos disponíveis nos dados do colaborador, do mais recente para o mais antigo
+            anos_disponiveis = sorted(colaborador_dados.get("anos", {}).keys(), reverse=True)
+
+            # Itera sobre os anos disponíveis para exibir as informações de saldo e solicitações de cada ano
+            for ano in anos_disponiveis:
+                
+                # Adiciona uma linha divisória para separar os anos exibidos
+                st.divider()
+
+                st.subheader(ano)  # Exibe o ano como um subtítulo para identificar a seção correspondente
+
+                # Define a estrutura de colunas para layout: coluna 1 (saldo), espaço entre colunas, coluna 2 (solicitações)
+                coluna1, espaco_entre, coluna2 = st.columns([12, 1, 30])
+
+                # # Obtém os dados do saldo do ano atual
+                ano_dados = colaborador_dados.get("anos", {}).get(ano, {})
+
+                # Cria um DataFrame com os dados de saldo e o exibe na primeira coluna
+                df_saldo = montar_dataframe_saldo_do_ano(ano, ano_dados)
+                coluna1.dataframe(df_saldo, hide_index=True, use_container_width=True)
+                
+                # Mostrar a_receber
+                if ano_dados.get("a_receber"):
+                    coluna1.write(f'\\* Na virada do ano receberá {ano_dados.get("a_receber")} dias.')
+
+                # Obtém as solicitações de férias do ano atual
+                solicitacoes = ano_dados.get("solicitacoes", [])
+                solicitacoes_ano = [  # Cria uma lista formatada com os detalhes das solicitações
+                    {
+                        "Data do registro": solicitacao.get('data_solicitacao', 'Data não disponível'),  # Data da criação da solicitação
+                        # "Data da Solicitação": solicitacao.get('data_solicitacao', 'Data não disponível'),  # Data da criação da solicitação
+                        "Período solicitado": solicitacao['lista_de_dias'],  # Lista de dias solicitados
+                        # "Dias solicitados": solicitacao['lista_de_dias'],  # Lista de dias solicitados
+                        "Total de dias úteis": solicitacao.get('numero_dias_uteis', 'Dias não disponíveis'),  # Total de dias úteis na solicitação
+                        "Observações": solicitacao.get('observacoes', 'Nenhuma observação')  # Comentários ou notas da solicitação
+                    }
+                    for solicitacao in solicitacoes
+                ]
+
+                # Cria um DataFrame com os dados das solicitações e o exibe na segunda coluna
+                df_solicitacoes = pd.DataFrame(solicitacoes_ano)
+
+                if not df_solicitacoes.empty:
+                    # Calcula a altura necessária para exibir o DataFrame, baseada no número de linhas
+                    altura_df_solicitacoes_individual = ((len(df_solicitacoes) + 1) * 35) + 2
+                    # Exibe o DataFrame na segunda coluna com a altura ajustada
+                    coluna2.dataframe(df_solicitacoes, hide_index=True, use_container_width=True, height=altura_df_solicitacoes_individual)
+                else:
+                    # Mensagem exibida caso não existam solicitações de férias para o ano
+                    coluna2.write(f"Não há solicitações de férias para {ano} até o momento.")
+
+
+        # Configura as colunas para os botões "Nova Solicitação" e "Editar Solicitação"
+        coluna_botao_1, coluna_botao_2, coluna_botao_3, coluna_botao_4 = linha_de_botoes.columns([9, 9, 9, 9])
+
+
+
+# Função da interface de Férias para admin, gestao_ferias e supervisao_ferias
+def ferias_admin_gestaoFerias_supervisaoFerias():
+    
+    todos, pessoal = st.tabs(["Todos(as)", "Pessoal"])
+
+    # Aba pessoal --------------------------------------------
+    with pessoal:
+        st.write(" ")
+
+
+
+
+
+    # Aba todos ----------------------------------------------
+    with todos:
+
+        # LISTA DE COLABORADORES COM SALDO
+        st.write('')
+        @st.dialog("Lista de colaboradores por ano", width="large")
+        def lista_colaboradores():
+            # Recupera todos os documentos da coleção e os transforma em uma lista
+            # colaboradores = list(bd_colaboradores.find())
+
+            if not colaboradores:
+                st.write("Não há colaboradores cadastrados.")
+                return
+
+            # Inicializa o set para armazenar todos os anos disponíveis
+            todos_os_anos = set()
+
+            # Dicionário para mapear colaboradores e saldos por ano
+            saldos_por_colaborador = {}
+
+            # Itera sobre cada colaborador para coletar os anos e preencher os saldos
+            for colaborador in colaboradores:
+                colaborador_nome = colaborador.get("nome_completo", "Não informado")
+                setor = colaborador.get("programa_area", "Não informado")
+
+                # Acessa os dados de férias → anos
+                dados_anos = colaborador.get("férias", {}).get("anos", {})
+
+                # Adiciona os anos deste colaborador ao set de anos disponíveis
+                todos_os_anos.update(dados_anos.keys())
+
+                # Salva os saldos atuais do colaborador por ano
+                for ano, dados in dados_anos.items():
+                    saldo_atual = dados.get("saldo_atual", 0)
+
+                    if ano not in saldos_por_colaborador:
+                        saldos_por_colaborador[ano] = []
+
+                    saldos_por_colaborador[ano].append({
+                        "Nome": colaborador_nome,
+                        "Setor": setor,
+                        "Saldo Atual": saldo_atual
+                    })
+
+            # Ordena os anos de forma decrescente
+            anos_disponiveis = sorted(todos_os_anos, reverse=True)
+
+            # Coluna para diminuir a largura do dropdown
+            col_dropdown, col_vazia = st.columns([1, 2])
+
+            # Dropdown para seleção de ano
+            ano_selecionado = col_dropdown.selectbox(
+                "Selecione o ano:",
+                anos_disponiveis,
+                key="ano_selecionado_saldo"
+            )
+
+            # Prepara o DataFrame apenas para o ano selecionado
+            if ano_selecionado in saldos_por_colaborador:
+                df_saldos = pd.DataFrame(saldos_por_colaborador[ano_selecionado])
+            else:
+                df_saldos = pd.DataFrame(columns=["Nome", "Setor", "Saldo Atual"])
+
+            df_saldos = df_saldos.reset_index(drop=True)
+
+            # Renomeações e formatações
+            df_saldos = df_saldos.rename(columns={'Saldo Atual': 'Saldo do ano'})
+            df_saldos['Saldo do ano'] = df_saldos['Saldo do ano'].astype(int)
+
+            df_saldos = df_saldos.sort_values(by='Saldo do ano', ascending=False)
+            df_saldos = df_saldos[['Nome', 'Saldo do ano', 'Setor']]
+            df_saldos = df_saldos.rename(columns={'Setor': 'Programa / Área'})
+
+            # Exibe o DataFrame formatado
+            st.dataframe(df_saldos, hide_index=True, use_container_width=True)
+
+        # Botão para abrir o diálogo de lista de colaboradores
+        st.button(
+            "Colaboradores e saldos",
+            on_click=lista_colaboradores,
+            icon=":material/groups:"
+        )
+
+        # DROPDOWN DE SELEÇÃO DE COLABORADOR
+        # Cria a lista de colaboradores e adiciona "Todos(as)" como o primeiro item, para o dropdown
+        lista_nomes = [item.get("nome_completo", "Desconhecido") for item in colaboradores]
+        # lista_nomes = [list(item.keys())[1] for item in colaboradores]  # Extrai os nomes dos colaboradores (chave do segundo item)
+        lista_nomes.sort()  # Ordena os nomes em ordem alfabética
+        lista_nomes.insert(0, "Todos(as)")  # Insere a opção "Todos(as)" no início da lista
+
+        # Container reservado para as mensagens com o usuário
+        # espaco_alerta = st.container()
+        
+        st.write('')
+        st.write("**Selecione o(a) colaborador(a):**")  # Exibe um subtítulo no menu lateral
+
+        col = st.columns(4)
+        
+        colaborador_selecionado = col[0].selectbox(  # Cria um dropdown para selecionar um colaborador
+            "Selecione o(a) colaborador(a)", 
+            options=lista_nomes, 
+            label_visibility="collapsed",  # Oculta o rótulo padrão do dropdown
+            index=0,  # Define "Todos(as)" como opção selecionada por padrão
+        )
+
+        # Nome do colaborador no topo
+        st.header(f"{colaborador_selecionado}")  # Exibe o nome do colaborador selecionado no topo da página
+        
+        gerar_grafico_tabela(colaborador_selecionado)
+
+
+
+
+# ######################################################################################################
+# INÍCIO DA PÁGINA ========================
+# ######################################################################################################
+
+
+
+# Roteamento de tipo de usuário especial
+if set(st.session_state.tipo_usuario) & {"admin", "gestao_ferias", "supervisao_ferias"}:
+
+    # Página de férias para admin, gestao_ferias e supervisao_ferias
+    ferias_admin_gestaoFerias_supervisaoFerias()
+
+
+# Se for um usuário comum
+# else:
 
 
 
@@ -472,31 +859,6 @@ st.button(
 
 
 
-# Cria a lista de colaboradores e adiciona "Todos(as)" como o primeiro item, para o dropdown
-lista_nomes = [item.get("nome_completo", "Desconhecido") for item in colaboradores]
-# lista_nomes = [list(item.keys())[1] for item in colaboradores]  # Extrai os nomes dos colaboradores (chave do segundo item)
-lista_nomes.sort()  # Ordena os nomes em ordem alfabética
-lista_nomes.insert(0, "Todos(as)")  # Insere a opção "Todos(as)" no início da lista
-
-
-# with st.sidebar:
-
-
-# Container reservado para as mensagens com o usuário
-espaco_alerta = st.container()
-
-st.subheader("Colaborador(a):")  # Exibe um subtítulo no menu lateral
-colaborador_selecionado = st.selectbox(  # Cria um dropdown para selecionar um colaborador
-    "Selecione o(a) colaborador(a)", 
-    options=lista_nomes, 
-    label_visibility="collapsed",  # Oculta o rótulo padrão do dropdown
-    index=0  # Define "Todos(as)" como opção selecionada por padrão
-)
-
-# st.write('')  # Adiciona espaçamentos no layout
-# st.write('')
-# st.write('')
-# st.write('')
 
 # st.divider()  # Adiciona uma linha divisória no layout
 
@@ -609,7 +971,6 @@ colaborador_selecionado = st.selectbox(  # Cria um dropdown para selecionar um c
 
 
 
-# LISTA DE COLABORADORES COM SALDO =======================
 
 
 
@@ -617,397 +978,278 @@ colaborador_selecionado = st.selectbox(  # Cria um dropdown para selecionar um c
 
 
 
-# Nome do colaborador no topo
-st.header(f"{colaborador_selecionado}")  # Exibe o nome do colaborador selecionado no topo da página
+
 container_setor = st.container()
 
 st.write('')  # Adiciona um espaçamento
 
-# Container que vai receber a parte que responde ao filtro de mês e ano
-container_mês = st.container(border=True)  # Cria um container para os filtros de mês e ano
+# # Container que vai receber a parte que responde ao filtro de mês e ano
+# container_mês = st.container(border=True)  # Cria um container para os filtros de mês e ano
 
 
-# ###########################################################################
-# GRÁFICO DE GANTT
-# ###########################################################################
+# # ###########################################################################
+# # GRÁFICO DE GANTT
+# # ###########################################################################
 
-# Listas para armazenar dados do gráfico de Gantt e solicitações
-gantt_data = []  # Lista que armazenará os dados para o gráfico de Gantt
-solicitacoes_data = []  # Lista para armazenar todas as solicitações
+# # Listas para armazenar dados do gráfico de Gantt e solicitações
+# gantt_data = []  # Lista que armazenará os dados para o gráfico de Gantt
+# solicitacoes_data = []  # Lista para armazenar todas as solicitações
 
-# Inicializando a lista para armazenar as informações do Gantt e o set de anos disponíveis
-anos_disponiveis = set()  # Conjunto para armazenar os anos disponíveis
+# # Inicializando a lista para armazenar as informações do Gantt e o set de anos disponíveis
+# anos_disponiveis = set()  # Conjunto para armazenar os anos disponíveis
 
-# Inicialização das variáveis de filtros
-setor_selecionado = "Todos"  # Inicializa com o valor padrão
+# # Inicialização das variáveis de filtros
+# setor_selecionado = "Todos"  # Inicializa com o valor padrão
 
-# Obtém o ano e o mês atuais
-ano_atual = str(datetime.now().year)  # Obtém o ano atual como string
-mes_atual = datetime.now().month  # Obtém o mês atual como inteiro
+# # Obtém o ano e o mês atuais
+# ano_atual = str(datetime.now().year)  # Obtém o ano atual como string
+# mes_atual = datetime.now().month  # Obtém o mês atual como inteiro
 
-# Recupera todos os documentos da coleção
-colaboradores = list(colecao.find())
+# # Recupera todos os documentos da coleção
+# colaboradores = list(colecao.find())
 
-gantt_data = []
-anos_disponiveis = set()
+# gantt_data = []
+# anos_disponiveis = set()
 
-# Iteração para capturar a lista de anos e criar o dataframe para o gráfico de Gantt
-for colaborador in colaboradores:
-    nome = colaborador.get("nome_completo", "Desconhecido")
-    setor = colaborador.get("programa_area", "Desconhecido")
-
-    anos = colaborador.get("férias", {}).get("anos", {})
-
-    for ano, dados_ano in anos.items():
-        solicitacoes = dados_ano.get("solicitacoes", [])
-
-        for solicitacao in solicitacoes:
-            lista_de_dias = solicitacao.get("lista_de_dias", [])
-
-            # Verifica se há pares de datas (início e fim)
-            for i in range(0, len(lista_de_dias) - 1, 2):
-                try:
-                    inicio = datetime.strptime(lista_de_dias[i], "%d/%m/%Y")
-                    fim = datetime.strptime(lista_de_dias[i + 1], "%d/%m/%Y")
-
-                    gantt_data.append({
-                        'Colaborador': nome,
-                        'Início': inicio,
-                        'Fim': fim,
-                        'Setor': setor
-                    })
-
-                    anos_disponiveis.add(inicio.year)
-                    anos_disponiveis.add(fim.year)
-
-                except (ValueError, IndexError) as e:
-                    print(f"Erro ao processar datas para {nome} no ano {ano}: {e}")
-
-
-
-# # Iteração para capturar a lista de anos e criar o dataframe com datas para o gráfico de Gantt
+# # Iteração para capturar a lista de anos e criar o dataframe para o gráfico de Gantt
 # for colaborador in colaboradores:
-#     for nome, dados_por_ano in colaborador.items():
-#         if nome != "_id":  # Ignora o campo "_id" no MongoDB
-#             setor = dados_por_ano.get("programa_area", "Desconhecido")  # Obtém o setor do colaborador
-            
-#             # Itera sobre cada ano no dicionário do colaborador
-#             for ano, dados in dados_por_ano.get("anos").items():
-#                 # Itera sobre todas as solicitações no ano atual
-#                 for solicitacao in dados.get("solicitacoes", []):
-#                     # Itera sobre as duplas de datas na lista_de_dias
-#                     lista_de_dias = solicitacao.get("lista_de_dias", [])
-#                     for i in range(0, len(lista_de_dias) - 1, 2):  # Percorre as datas de início e fim
-#                         inicio = datetime.strptime(lista_de_dias[i], "%d/%m/%Y")  # Converte a data de início
-#                         fim = datetime.strptime(lista_de_dias[i + 1], "%d/%m/%Y")  # Converte a data de fim
-                        
-#                         # Adiciona uma linha ao gantt_data com o nome, início, fim e setor
-#                         gantt_data.append({
-#                             'Colaborador': nome,
-#                             'Início': inicio,
-#                             'Fim': fim,
-#                             'Setor': setor  # Inclui o setor no registro
-#                         })
+#     nome = colaborador.get("nome_completo", "Desconhecido")
+#     setor = colaborador.get("programa_area", "Desconhecido")
 
-#                         # Adiciona os anos das datas ao conjunto anos_disponiveis
-#                         anos_disponiveis.add(inicio.year)
-#                         anos_disponiveis.add(fim.year)
+#     anos = colaborador.get("férias", {}).get("anos", {})
 
+#     for ano, dados_ano in anos.items():
+#         solicitacoes = dados_ano.get("solicitacoes", [])
 
-# Cria o DataFrame com as colunas Colaborador, Início e Fim
-df_gantt = pd.DataFrame(gantt_data)
+#         for solicitacao in solicitacoes:
+#             lista_de_dias = solicitacao.get("lista_de_dias", [])
 
-# Converte o conjunto anos_disponiveis para uma lista e ordena
-anos_disponiveis = sorted(list(anos_disponiveis), reverse=True)
+#             # Verifica se há pares de datas (início e fim)
+#             for i in range(0, len(lista_de_dias) - 1, 2):
+#                 try:
+#                     inicio = datetime.strptime(lista_de_dias[i], "%d/%m/%Y")
+#                     fim = datetime.strptime(lista_de_dias[i + 1], "%d/%m/%Y")
 
-# Lista de meses em português
-meses = [
-    "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
-]
+#                     gantt_data.append({
+#                         'Colaborador': nome,
+#                         'Início': inicio,
+#                         'Fim': fim,
+#                         'Setor': setor
+#                     })
 
-# Cria as colunas para os filtros
-col1, col2, col3, col4, col5 = container_mês.columns([6, 2, 1, 2, 2])  # Define a proporção das colunas
+#                     anos_disponiveis.add(inicio.year)
+#                     anos_disponiveis.add(fim.year)
 
-# Nome do colaborador no início da página
-with col1:
-    titulo_mes = st.container()  # Cria um container para o título do mês
-    titulo_mes.write('')  # Adiciona um espaçamento
-
-# Selectbox para os setores, com o Todos como padrão
-# Mostra somente se o colaborador selecionado for igual a Todos(as)
-if colaborador_selecionado == "Todos(as)":
-    with col2:
-        st.write('')
-        setor_selecionado = st.selectbox("Programa / Área", options=["Todos"] + lista_programas_areas, index=0)
-
-# Selectbox para os meses, com o mês atual como padrão
-with col4:
-    st.write('')
-    mes_selecionado = st.selectbox("Selecione o mês", options=meses, index=mes_atual - 1)
-
-# Selectbox para os anos, com o ano atual como padrão
-with col5:
-    st.write('')
-
-    # Encontrar o índice do ano atual na lista de anos disponíveis
-    if int(ano_atual) in anos_disponiveis:
-        # Encontrar o índice do ano atual
-        index_ano_atual = anos_disponiveis.index(int(ano_atual))
-    else:
-        # Definir índice padrão como 0
-        index_ano_atual = 0
-
-    # Criar o selectbox com o ano atual selecionado por padrão
-    ano_selecionado = st.selectbox("Selecione o ano", options=anos_disponiveis, index=index_ano_atual)
-
-# Escrevendo o mês e ano na col1
-if ano_selecionado != None:
-    titulo_mes.subheader(f'{mes_selecionado} de {ano_selecionado}')  # Exibe o mês e ano selecionados
-
-# Mapeia o nome do mês para seu número (1-12)
-mes_numero = meses.index(mes_selecionado) + 1
+#                 except (ValueError, IndexError) as e:
+#                     print(f"Erro ao processar datas para {nome} no ano {ano}: {e}")
 
 
-# Define a data de referência para o mês e ano selecionados
-data_inicio_mes = datetime(int(ano_selecionado), mes_numero, 1)  # Primeiro dia do mês selecionado
-if mes_numero == 12:  # Caso seja dezembro, calcula o último dia do mês
-    data_fim_mes = datetime(int(ano_selecionado) + 1, 1, 1) - pd.Timedelta(days=1)
-else:  # Para outros meses, calcula o último dia normalmente
-    data_fim_mes = datetime(int(ano_selecionado), mes_numero + 1, 1) - pd.Timedelta(days=1)
-
-# Filtra o DataFrame para incluir somente os registros do mês e ano selecionados
-df_gantt = df_gantt[
-    ((df_gantt["Início"].dt.year == int(ano_selecionado)) & 
-    (df_gantt["Início"].dt.month == mes_numero)) |
-    ((df_gantt["Fim"].dt.year == int(ano_selecionado)) & 
-    (df_gantt["Fim"].dt.month == mes_numero)) |
-    ((df_gantt["Início"] <= data_fim_mes) & 
-    (df_gantt["Fim"] >= data_inicio_mes))
-]
-
-# Verifica se há registros para o gráfico
-if df_gantt.empty:
-    st.write('')
-    container_mês.write(f"Não há férias programadas para o mês de {mes_selecionado.lower()}.")  # Mensagem de ausência de dados
-
-# Tem registros
-else:
-    # Filtra os dados se um colaborador específico estiver selecionado
-    if colaborador_selecionado != "Todos(as)":
-        df_gantt = df_gantt[df_gantt["Colaborador"] == colaborador_selecionado]
-
-    # Se o colaborador for Todos(as),Filtra os dados se um setor específico estiver selecionado
-    elif setor_selecionado != "Todos":
-        df_gantt = df_gantt[df_gantt["Setor"] == setor_selecionado]  # Assumindo que há uma coluna 'Setor' no DataFrame
-
-    # Verifica novamente se há dados após o filtro por colaborador
-    if df_gantt.empty:
-        container_mês.write(f"Não há férias programadas para o mês de {mes_selecionado.lower()}.")  # Mensagem após o filtro
-    else:
-        # Define a altura do gráfico com base na seleção
-        if colaborador_selecionado == "Todos(as)":
-            altura_grafico = 500  # Altura padrão para todos
-        else:
-            altura_grafico = 130  # Altura menor para um colaborador específico
-
-        # Define o primeiro e o último dia do mês selecionado
-        primeiro_dia = datetime(int(ano_selecionado), mes_numero, 1)
-        ultimo_dia = (primeiro_dia + timedelta(days=31)).replace(day=1)
-
-        # Adiciona 1 dia ao valor da coluna "Fim" para ajustar visualmente o gráfico
-        df_gantt["Final"] = df_gantt["Fim"] + pd.Timedelta(days=1)
-
-        # Adiciona a menor data de "Início" por colaborador
-        df_gantt['Menor_Início'] = df_gantt.groupby('Colaborador')['Início'].transform('min')
-
-        # Ordena o DataFrame com base na menor data de "Início" e depois pela data "Início"
-        df_gantt = df_gantt.sort_values(by=['Menor_Início', 'Início'], ascending=False)
-
-        # Definindo a paleta de cores divergente
-        cores_setores = {
-            "Advocacy": "rgba(255, 127, 14, 0.55)",              # Laranja brilhante
-            "Adm. Brasília": "rgba(44, 160, 44, 0.55)",          # Verde
-            "Adm. Santa Inês": "rgba(227, 119, 194, 0.55)",       # Azul
-            "Comunicação": "rgba(148, 103, 189, 0.55)",          # Roxo
-            "Coordenação": "rgba(214, 39, 40, 0.55)",            # Vermelho
-            "Estagiário(a)": "rgba(255, 187, 120, 0.55)",        # Laranja claro
-            "Programa Cerrado": "rgba(140, 86, 75, 0.55)",       # Marrom
-            "Programa Iniciativas Comunitárias": "rgba(31, 119, 180, 0.55)", # Rosa
-            "Programa Maranhão": "rgba(188, 189, 34, 0.55)",     # Verde amarelado
-            "Programa Povos Indígenas": "rgba(23, 190, 207, 0.55)", # Ciano
-            "Programa Sociobiodiversidade": "rgba(127, 127, 127, 0.55)" # Cinza
-        }
 
 
-        # Se setor_selecionado for "Todos(as)", utilizamos a paleta de cores
-        if setor_selecionado == "Todos":
-            # Cria o gráfico de Gantt com as cores baseadas no setor
-            fig = px.timeline(
-                df_gantt,
-                x_start="Início",
-                x_end="Final",
-                y="Colaborador",
-                color="Setor",  # Cor baseada na coluna 'Setor'
-                color_discrete_map=cores_setores,  # Mapeia as cores de acordo com os setores
-                hover_data={"Início": False, "Final": False}  # Oculta "Início" e "Final"
+# # Cria o DataFrame com as colunas Colaborador, Início e Fim
+# df_gantt = pd.DataFrame(gantt_data)
 
-            )
-        else:
-            # Cria o gráfico de Gantt com o setor selecionado, usando a cor do setor selecionado
-            fig = px.timeline(
-                df_gantt[df_gantt["Setor"] == setor_selecionado],  # Filtra apenas o setor selecionado
-                x_start="Início",
-                x_end="Final",
-                y="Colaborador",
-                color="Setor",  # Cor baseada na coluna 'Setor'
-                color_discrete_map=cores_setores,  # Mapeia as cores de acordo com os setores
-                hover_data={"Início": False, "Final": False}  # Oculta "Início" e "Final"
-            )
+# # Converte o conjunto anos_disponiveis para uma lista e ordena
+# anos_disponiveis = sorted(list(anos_disponiveis), reverse=True)
+
+# # Lista de meses em português
+# meses = [
+#     "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+#     "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+# ]
+
+# # Cria as colunas para os filtros
+# col1, col2, col3, col4, col5 = container_mês.columns([6, 2, 1, 2, 2])  # Define a proporção das colunas
+
+# # Nome do colaborador no início da página
+# with col1:
+#     titulo_mes = st.container()  # Cria um container para o título do mês
+#     titulo_mes.write('')  # Adiciona um espaçamento
+
+# # Selectbox para os setores, com o Todos como padrão
+# # Mostra somente se o colaborador selecionado for igual a Todos(as)
+# if colaborador_selecionado == "Todos(as)":
+#     with col2:
+#         st.write('')
+#         setor_selecionado = st.selectbox("Programa / Área", options=["Todos"] + lista_programas_areas, index=0)
+
+# # Selectbox para os meses, com o mês atual como padrão
+# with col4:
+#     st.write('')
+#     mes_selecionado = st.selectbox("Selecione o mês", options=meses, index=mes_atual - 1)
+
+# # Selectbox para os anos, com o ano atual como padrão
+# with col5:
+#     st.write('')
+
+#     # Encontrar o índice do ano atual na lista de anos disponíveis
+#     if int(ano_atual) in anos_disponiveis:
+#         # Encontrar o índice do ano atual
+#         index_ano_atual = anos_disponiveis.index(int(ano_atual))
+#     else:
+#         # Definir índice padrão como 0
+#         index_ano_atual = 0
+
+#     # Criar o selectbox com o ano atual selecionado por padrão
+#     ano_selecionado = st.selectbox("Selecione o ano", options=anos_disponiveis, index=index_ano_atual)
+
+# # Escrevendo o mês e ano na col1
+# if ano_selecionado != None:
+#     titulo_mes.subheader(f'{mes_selecionado} de {ano_selecionado}')  # Exibe o mês e ano selecionados
+
+# # Mapeia o nome do mês para seu número (1-12)
+# mes_numero = meses.index(mes_selecionado) + 1
+
+
+# # Define a data de referência para o mês e ano selecionados
+# data_inicio_mes = datetime(int(ano_selecionado), mes_numero, 1)  # Primeiro dia do mês selecionado
+# if mes_numero == 12:  # Caso seja dezembro, calcula o último dia do mês
+#     data_fim_mes = datetime(int(ano_selecionado) + 1, 1, 1) - pd.Timedelta(days=1)
+# else:  # Para outros meses, calcula o último dia normalmente
+#     data_fim_mes = datetime(int(ano_selecionado), mes_numero + 1, 1) - pd.Timedelta(days=1)
+
+# # Filtra o DataFrame para incluir somente os registros do mês e ano selecionados
+# df_gantt = df_gantt[
+#     ((df_gantt["Início"].dt.year == int(ano_selecionado)) & 
+#     (df_gantt["Início"].dt.month == mes_numero)) |
+#     ((df_gantt["Fim"].dt.year == int(ano_selecionado)) & 
+#     (df_gantt["Fim"].dt.month == mes_numero)) |
+#     ((df_gantt["Início"] <= data_fim_mes) & 
+#     (df_gantt["Fim"] >= data_inicio_mes))
+# ]
+
+# # Verifica se há registros para o gráfico
+# if df_gantt.empty:
+#     st.write('')
+#     container_mês.write(f"Não há férias programadas para o mês de {mes_selecionado.lower()}.")  # Mensagem de ausência de dados
+
+# # Tem registros
+# else:
+#     # Filtra os dados se um colaborador específico estiver selecionado
+#     if colaborador_selecionado != "Todos(as)":
+#         df_gantt = df_gantt[df_gantt["Colaborador"] == colaborador_selecionado]
+
+#     # Se o colaborador for Todos(as),Filtra os dados se um setor específico estiver selecionado
+#     elif setor_selecionado != "Todos":
+#         df_gantt = df_gantt[df_gantt["Setor"] == setor_selecionado]  # Assumindo que há uma coluna 'Setor' no DataFrame
+
+#     # Verifica novamente se há dados após o filtro por colaborador
+#     if df_gantt.empty:
+#         container_mês.write(f"Não há férias programadas para o mês de {mes_selecionado.lower()}.")  # Mensagem após o filtro
+#     else:
+#         # Define a altura do gráfico com base na seleção
+#         if colaborador_selecionado == "Todos(as)":
+#             altura_grafico = 500  # Altura padrão para todos
+#         else:
+#             altura_grafico = 130  # Altura menor para um colaborador específico
+
+#         # Define o primeiro e o último dia do mês selecionado
+#         primeiro_dia = datetime(int(ano_selecionado), mes_numero, 1)
+#         ultimo_dia = (primeiro_dia + timedelta(days=31)).replace(day=1)
+
+#         # Adiciona 1 dia ao valor da coluna "Fim" para ajustar visualmente o gráfico
+#         df_gantt["Final"] = df_gantt["Fim"] + pd.Timedelta(days=1)
+
+#         # Adiciona a menor data de "Início" por colaborador
+#         df_gantt['Menor_Início'] = df_gantt.groupby('Colaborador')['Início'].transform('min')
+
+#         # Ordena o DataFrame com base na menor data de "Início" e depois pela data "Início"
+#         df_gantt = df_gantt.sort_values(by=['Menor_Início', 'Início'], ascending=False)
+
+#         # Definindo a paleta de cores divergente
+#         cores_setores = {
+#             "Advocacy": "rgba(255, 127, 14, 0.55)",              # Laranja brilhante
+#             "Adm. Brasília": "rgba(44, 160, 44, 0.55)",          # Verde
+#             "Adm. Santa Inês": "rgba(227, 119, 194, 0.55)",       # Azul
+#             "Comunicação": "rgba(148, 103, 189, 0.55)",          # Roxo
+#             "Coordenação": "rgba(214, 39, 40, 0.55)",            # Vermelho
+#             "Estagiário(a)": "rgba(255, 187, 120, 0.55)",        # Laranja claro
+#             "Programa Cerrado": "rgba(140, 86, 75, 0.55)",       # Marrom
+#             "Programa Iniciativas Comunitárias": "rgba(31, 119, 180, 0.55)", # Rosa
+#             "Programa Maranhão": "rgba(188, 189, 34, 0.55)",     # Verde amarelado
+#             "Programa Povos Indígenas": "rgba(23, 190, 207, 0.55)", # Ciano
+#             "Programa Sociobiodiversidade": "rgba(127, 127, 127, 0.55)" # Cinza
+#         }
+
+
+#         # Se setor_selecionado for "Todos(as)", utilizamos a paleta de cores
+#         if setor_selecionado == "Todos":
+#             # Cria o gráfico de Gantt com as cores baseadas no setor
+#             fig = px.timeline(
+#                 df_gantt,
+#                 x_start="Início",
+#                 x_end="Final",
+#                 y="Colaborador",
+#                 color="Setor",  # Cor baseada na coluna 'Setor'
+#                 color_discrete_map=cores_setores,  # Mapeia as cores de acordo com os setores
+#                 hover_data={"Início": False, "Final": False}  # Oculta "Início" e "Final"
+
+#             )
+#         else:
+#             # Cria o gráfico de Gantt com o setor selecionado, usando a cor do setor selecionado
+#             fig = px.timeline(
+#                 df_gantt[df_gantt["Setor"] == setor_selecionado],  # Filtra apenas o setor selecionado
+#                 x_start="Início",
+#                 x_end="Final",
+#                 y="Colaborador",
+#                 color="Setor",  # Cor baseada na coluna 'Setor'
+#                 color_discrete_map=cores_setores,  # Mapeia as cores de acordo com os setores
+#                 hover_data={"Início": False, "Final": False}  # Oculta "Início" e "Final"
+#             )
 
         
-        # Adiciona uma linha vertical vermelha para marcar o dia de hoje
-        hoje = datetime.now().date()  # Multiplicado por 1000 para obter o timestamp em milissegundos
-        fig.add_vline(
-            x=hoje,  # Posição da linha vertical (data de hoje)
-            line_width=2,  # Espessura da linha
-            # line_dash="dash",  # Estilo da linha (tracejada)
-            line_color="red",  # Cor da linha
-        )
+#         # Adiciona uma linha vertical vermelha para marcar o dia de hoje
+#         hoje = datetime.now().date()  # Multiplicado por 1000 para obter o timestamp em milissegundos
+#         fig.add_vline(
+#             x=hoje,  # Posição da linha vertical (data de hoje)
+#             line_width=2,  # Espessura da linha
+#             # line_dash="dash",  # Estilo da linha (tracejada)
+#             line_color="red",  # Cor da linha
+#         )
 
 
-        # Estilo do gráfico
-        fig.update_layout(
-            yaxis=dict(tickfont=dict(size=15)),  # Ajusta o tamanho da fonte do eixo Y
-            height=altura_grafico,  # Define a altura do gráfico
-            margin=dict(l=20, r=20, t=50, b=50),  # Define margens
-            xaxis=dict(side="top"),  # Move os rótulos do eixo X para o topo
-            legend=dict(
-                orientation="h",  # Define a orientação da legenda como horizontal
-                y=-0.2,  # Move a legenda para baixo do gráfico
-                x=0.5,  # Centraliza a legenda horizontalmente
-                xanchor="center",  # Define o ponto de ancoragem da legenda
-                title=None
-            )
-        )
+#         # Estilo do gráfico
+#         fig.update_layout(
+#             yaxis=dict(tickfont=dict(size=15)),  # Ajusta o tamanho da fonte do eixo Y
+#             height=altura_grafico,  # Define a altura do gráfico
+#             margin=dict(l=20, r=20, t=50, b=50),  # Define margens
+#             xaxis=dict(side="top"),  # Move os rótulos do eixo X para o topo
+#             legend=dict(
+#                 orientation="h",  # Define a orientação da legenda como horizontal
+#                 y=-0.2,  # Move a legenda para baixo do gráfico
+#                 x=0.5,  # Centraliza a legenda horizontalmente
+#                 xanchor="center",  # Define o ponto de ancoragem da legenda
+#                 title=None
+#             )
+#         )
 
-        # Remove o título do eixo Y
-        fig.update_yaxes(title_text='')  
+#         # Remove o título do eixo Y
+#         fig.update_yaxes(title_text='')  
 
-        # Configura o eixo X para mostrar todos os dias do mês selecionado
-        fig.update_xaxes(
-            range=[primeiro_dia, ultimo_dia], 
-            dtick="D1", 
-            tickformat="%d/%m", 
-            showgrid=True, 
-            gridwidth=0.5, 
-            gridcolor="lightgrey"
-        )
-
-
-        # Exibe o gráfico no container
-        container_mês.plotly_chart(fig)
-
-# except:
-#     st.warning('Cadastre um(a) colaborador(a) e ao menos uma solicitação de férias.')
+#         # Configura o eixo X para mostrar todos os dias do mês selecionado
+#         fig.update_xaxes(
+#             range=[primeiro_dia, ultimo_dia], 
+#             dtick="D1", 
+#             tickformat="%d/%m", 
+#             showgrid=True, 
+#             gridwidth=0.5, 
+#             gridcolor="lightgrey"
+#         )
 
 
-st.write('')
+#         # Exibe o gráfico no container
+#         container_mês.plotly_chart(fig)
+
+# # except:
+# #     st.warning('Cadastre um(a) colaborador(a) e ao menos uma solicitação de férias.')
 
 
-# ###########################################################################
-# TODOS(AS)
-# ###########################################################################
+# st.write('')
 
 
-
-if colaborador_selecionado == "Todos(as)":
-    # Inicializa uma lista para armazenar as solicitações de todos os colaboradores
-    todas_solicitacoes = []
-
-    # Itera sobre todos os registros de colaboradores
-    for registro in colaboradores:
-        nome = registro.get("nome_completo", "Não informado")
-        setor = registro.get("programa_area", "Não informado")
-
-        # Obtém os dados dos anos dentro de "férias"
-        dados_anos = registro.get("férias", {}).get("anos", {})
-
-        # Obtém os dados para o ano selecionado e o ano anterior
-        ano_dados_atual = dados_anos.get(str(ano_selecionado), {})
-        ano_dados_anterior = dados_anos.get(str(int(ano_selecionado) - 1), {})
-
-        # Combina os dados dos dois anos em uma lista
-        todos_anos_dados = [ano_dados_atual, ano_dados_anterior]
-
-        # Itera sobre os dados combinados
-        for ano_dados in todos_anos_dados:
-            if not ano_dados:
-                continue  # Pula se não houver dados para o ano
-
-            # Obtém as solicitações de férias
-            solicitacoes = ano_dados.get("solicitacoes", [])
-
-            for solicitacao in solicitacoes:
-                lista_de_dias = solicitacao.get('lista_de_dias', [])
-
-                # Verifica se há datas na solicitação
-                if not lista_de_dias:
-                    continue
-
-                # Converte as datas para objetos datetime
-                lista_de_dias_timestamp = pd.to_datetime(lista_de_dias, dayfirst=True)
-                lista_de_dias_timestamp = sorted(lista_de_dias_timestamp)
-
-                inicio_periodo = lista_de_dias_timestamp[0]
-                fim_periodo = lista_de_dias_timestamp[-1]
-
-                # Define o intervalo do mês selecionado
-                data_referencia_inicio = pd.to_datetime(f"{ano_selecionado}-{mes_numero}-01")
-                data_referencia_fim = data_referencia_inicio + pd.offsets.MonthEnd(0)
-
-                # Verifica sobreposição com o mês selecionado
-                if (inicio_periodo <= data_referencia_fim) and (fim_periodo >= data_referencia_inicio):
-                    todas_solicitacoes.append({
-                        "Nome": nome,
-                        "Setor": setor,
-                        "Data do registro": solicitacao.get('data_solicitacao', 'Data não disponível'),
-                        "Período solicitado": lista_de_dias,
-                        "Total de dias úteis": solicitacao.get('numero_dias_uteis', 'Não disponível'),
-                        "Observações": solicitacao.get('observacoes', 'Nenhuma observação')
-                    })
-
-    # Cria o DataFrame
-    df_todas_solicitacoes = pd.DataFrame(todas_solicitacoes)
-
-    if not df_todas_solicitacoes.empty:
-        # Ordena por nome
-        df_todas_solicitacoes.sort_values(by='Nome', inplace=True)
-
-        # Filtro por setor, se aplicável
-        if setor_selecionado != "Todos":
-            df_todas_solicitacoes = df_todas_solicitacoes[
-                df_todas_solicitacoes["Setor"] == setor_selecionado
-            ]
-
-        # Subtítulo
-        container_mês.subheader("**Solicitações de férias no mês**")
-
-        # Altura dinâmica do DataFrame
-        altura_df_solicitacoes = ((len(df_todas_solicitacoes) + 1) * 35) + 2
-
-        # Exibição
-        container_mês.dataframe(
-            df_todas_solicitacoes,
-            hide_index=True,
-            use_container_width=True,
-            height=altura_df_solicitacoes,
-            column_config={
-                "Setor": "Programa / Setor"
-            },
-        )
-
-
+# # ###########################################################################
+# # TODOS(AS)
+# # ###########################################################################
 
 
 
@@ -1015,168 +1257,169 @@ if colaborador_selecionado == "Todos(as)":
 #     # Inicializa uma lista para armazenar as solicitações de todos os colaboradores
 #     todas_solicitacoes = []
 
-#     # try:
 #     # Itera sobre todos os registros de colaboradores
 #     for registro in colaboradores:
+#         nome = registro.get("nome_completo", "Não informado")
+#         setor = registro.get("programa_area", "Não informado")
 
-#         for colaborador, dados in registro.items():
-#             if colaborador != "_id":  # Ignora o campo "_id" do MongoDB
+#         # Obtém os dados dos anos dentro de "férias"
+#         dados_anos = registro.get("férias", {}).get("anos", {})
 
-#                 # Obtém os dados para o ano selecionado e o ano anterior
-#                 ano_dados_atual = dados.get("anos").get(str(ano_selecionado), {})  # Dados do ano atual
-#                 ano_dados_anterior = dados.get("anos").get(str(int(ano_selecionado) - 1), {})  # Dados do ano anterior
+#         # Obtém os dados para o ano selecionado e o ano anterior
+#         ano_dados_atual = dados_anos.get(str(ano_selecionado), {})
+#         ano_dados_anterior = dados_anos.get(str(int(ano_selecionado) - 1), {})
 
-#                 # Combina os dados dos dois anos em uma lista
-#                 todos_anos_dados = [ano_dados_atual, ano_dados_anterior]
+#         # Combina os dados dos dois anos em uma lista
+#         todos_anos_dados = [ano_dados_atual, ano_dados_anterior]
 
-#                 # Itera sobre os dados combinados
-#                 for ano_dados in todos_anos_dados:
-#                     if not ano_dados:  # Pula iterações com dados vazios
-#                         continue
-                    
-#                     # Obtém as solicitações para o ano atual ou anterior
-#                     solicitacoes = ano_dados.get("solicitacoes", [])
+#         # Itera sobre os dados combinados
+#         for ano_dados in todos_anos_dados:
+#             if not ano_dados:
+#                 continue  # Pula se não houver dados para o ano
 
-#                     # Itera sobre as solicitações para adicionar à lista formatada
-#                     for solicitacao in solicitacoes:
-                        
-#                         # Converte as datas da solicitação para objetos datetime
-#                         lista_de_dias_timestamp = pd.to_datetime(solicitacao['lista_de_dias'], dayfirst=True)
+#             # Obtém as solicitações de férias
+#             solicitacoes = ano_dados.get("solicitacoes", [])
 
-#                         # Ordena a lista de datas para garantir que estejam em ordem cronológica
-#                         lista_de_dias_timestamp = sorted(lista_de_dias_timestamp)
+#             for solicitacao in solicitacoes:
+#                 lista_de_dias = solicitacao.get('lista_de_dias', [])
 
-#                         # Define a data de início e fim do período solicitado
-#                         inicio_periodo = lista_de_dias_timestamp[0]
-#                         fim_periodo = lista_de_dias_timestamp[-1]
+#                 # Verifica se há datas na solicitação
+#                 if not lista_de_dias:
+#                     continue
 
-#                         # Define o intervalo do mês selecionado
-#                         data_referencia_inicio = pd.to_datetime(f"{ano_selecionado}-{mes_numero}-01")
-#                         data_referencia_fim = data_referencia_inicio + pd.offsets.MonthEnd(0)  # Último dia do mês
+#                 # Converte as datas para objetos datetime
+#                 lista_de_dias_timestamp = pd.to_datetime(lista_de_dias, dayfirst=True)
+#                 lista_de_dias_timestamp = sorted(lista_de_dias_timestamp)
 
-#                         # Verifica se há sobreposição entre o período solicitado e o mês selecionado
-#                         if (inicio_periodo <= data_referencia_fim) and (fim_periodo >= data_referencia_inicio):
-#                             # Adiciona a solicitação à lista formatada
-#                             todas_solicitacoes.append({
-#                                 "Nome": colaborador,  # Nome do colaborador
-#                                 "Setor": dados.get("setor", "Desconhecido"),  # Setor do colaborador
-#                                 "Data do registro": solicitacao.get('data_solicitacao', 'Data não disponível'),  # Data do pedido
-#                                 "Período solicitado": solicitacao['lista_de_dias'],  # Período solicitado
-#                                 "Total de dias úteis": solicitacao.get('numero_dias_uteis', 'Dias não disponíveis'),  # Número de dias úteis
-#                                 "Observações": solicitacao.get('observacoes', 'Nenhuma observação')  # Observações adicionais
-#                             })
+#                 inicio_periodo = lista_de_dias_timestamp[0]
+#                 fim_periodo = lista_de_dias_timestamp[-1]
 
-#     # Cria um DataFrame a partir da lista de solicitações
+#                 # Define o intervalo do mês selecionado
+#                 data_referencia_inicio = pd.to_datetime(f"{ano_selecionado}-{mes_numero}-01")
+#                 data_referencia_fim = data_referencia_inicio + pd.offsets.MonthEnd(0)
+
+#                 # Verifica sobreposição com o mês selecionado
+#                 if (inicio_periodo <= data_referencia_fim) and (fim_periodo >= data_referencia_inicio):
+#                     todas_solicitacoes.append({
+#                         "Nome": nome,
+#                         "Setor": setor,
+#                         "Data do registro": solicitacao.get('data_solicitacao', 'Data não disponível'),
+#                         "Período solicitado": lista_de_dias,
+#                         "Total de dias úteis": solicitacao.get('numero_dias_uteis', 'Não disponível'),
+#                         "Observações": solicitacao.get('observacoes', 'Nenhuma observação')
+#                     })
+
+#     # Cria o DataFrame
 #     df_todas_solicitacoes = pd.DataFrame(todas_solicitacoes)
 
-#     # Verifica se o DataFrame não está vazio
 #     if not df_todas_solicitacoes.empty:
-#         # Ordena o DataFrame por nome
+#         # Ordena por nome
 #         df_todas_solicitacoes.sort_values(by='Nome', inplace=True)
 
-#         # Se um setor específico for selecionado, filtra o DataFrame
+#         # Filtro por setor, se aplicável
 #         if setor_selecionado != "Todos":
-#             df_todas_solicitacoes = df_todas_solicitacoes[df_todas_solicitacoes["Setor"] == setor_selecionado]
+#             df_todas_solicitacoes = df_todas_solicitacoes[
+#                 df_todas_solicitacoes["Setor"] == setor_selecionado
+#             ]
 
-#         # Adiciona um subtítulo ao container
+#         # Subtítulo
 #         container_mês.subheader("**Solicitações de férias no mês**")
 
-#         # Calcula a altura do DataFrame dinamicamente com base no número de solicitações
+#         # Altura dinâmica do DataFrame
 #         altura_df_solicitacoes = ((len(df_todas_solicitacoes) + 1) * 35) + 2
 
-#         # Exibe o DataFrame no container
+#         # Exibição
 #         container_mês.dataframe(
-#             df_todas_solicitacoes, 
-#             hide_index=True,  # Oculta o índice
-#             use_container_width=True,  # Ajusta o DataFrame à largura do container
-#             height=altura_df_solicitacoes,  # Define a altura calculada
-#             column_config={ # renomear coluna Setor
+#             df_todas_solicitacoes,
+#             hide_index=True,
+#             use_container_width=True,
+#             height=altura_df_solicitacoes,
+#             column_config={
 #                 "Setor": "Programa / Setor"
 #             },
 #         )
 
-#     # except Exception as e:
-#     #     pass
 
 
 
-# ###########################################################################
-# INDIVIDUAL
-# ###########################################################################
 
-else:
+# # ###########################################################################
+# # INDIVIDUAL
+# # ###########################################################################
+
+# else:
     
-    st.write('\n' * 3)  # Insere espaços vazios para separação visual
+#     st.write('\n' * 3)  # Insere espaços vazios para separação visual
 
-    # Cria um container para os botões de "Nova solicitação" e "Editar solicitação"
-    linha_de_botoes = st.container()
+#     # Cria um container para os botões de "Nova solicitação" e "Editar solicitação"
+#     linha_de_botoes = st.container()
 
-    # Filtra os dados do colaborador selecionado
-    colaborador_dados = next(
-        (registro[colaborador_selecionado] for registro in colaboradores if colaborador_selecionado in registro),
-        None
-    )
+#     # Filtra os dados do colaborador selecionado
+#     colaborador_dados = next(
+#         (registro[colaborador_selecionado] for registro in colaboradores if colaborador_selecionado in registro),
+#         None
+#     )
 
-    if colaborador_dados:
+#     if colaborador_dados:
 
-        # Escreve o setor do colaborador no container abaixo do nome
-        setor_colaborador = colaborador_dados["setor"]
-        container_setor.write(f"{setor_colaborador}")
+#         # Escreve o setor do colaborador no container abaixo do nome
+#         setor_colaborador = colaborador_dados["setor"]
+#         container_setor.write(f"{setor_colaborador}")
 
-        # Ordena os anos disponíveis nos dados do colaborador, do mais recente para o mais antigo
-        anos_disponiveis = sorted(colaborador_dados.get("anos", {}).keys(), reverse=True)
+#         # Ordena os anos disponíveis nos dados do colaborador, do mais recente para o mais antigo
+#         anos_disponiveis = sorted(colaborador_dados.get("anos", {}).keys(), reverse=True)
 
-        # Itera sobre os anos disponíveis para exibir as informações de saldo e solicitações de cada ano
-        for ano in anos_disponiveis:
+#         # Itera sobre os anos disponíveis para exibir as informações de saldo e solicitações de cada ano
+#         for ano in anos_disponiveis:
             
-            # Adiciona uma linha divisória para separar os anos exibidos
-            st.divider()
+#             # Adiciona uma linha divisória para separar os anos exibidos
+#             st.divider()
 
-            st.subheader(ano)  # Exibe o ano como um subtítulo para identificar a seção correspondente
+#             st.subheader(ano)  # Exibe o ano como um subtítulo para identificar a seção correspondente
 
-            # Define a estrutura de colunas para layout: coluna 1 (saldo), espaço entre colunas, coluna 2 (solicitações)
-            coluna1, espaco_entre, coluna2 = st.columns([12, 1, 30])
+#             # Define a estrutura de colunas para layout: coluna 1 (saldo), espaço entre colunas, coluna 2 (solicitações)
+#             coluna1, espaco_entre, coluna2 = st.columns([12, 1, 30])
 
-            # # Obtém os dados do saldo do ano atual
-            ano_dados = colaborador_dados.get("anos", {}).get(ano, {})
+#             # # Obtém os dados do saldo do ano atual
+#             ano_dados = colaborador_dados.get("anos", {}).get(ano, {})
 
-            # Cria um DataFrame com os dados de saldo e o exibe na primeira coluna
-            df_saldo = montar_dataframe_saldo_do_ano(ano, ano_dados)
-            coluna1.dataframe(df_saldo, hide_index=True, use_container_width=True)
+#             # Cria um DataFrame com os dados de saldo e o exibe na primeira coluna
+#             df_saldo = montar_dataframe_saldo_do_ano(ano, ano_dados)
+#             coluna1.dataframe(df_saldo, hide_index=True, use_container_width=True)
             
-            # Mostrar a_receber
-            if ano_dados.get("a_receber"):
-                coluna1.write(f'\\* Na virada do ano receberá {ano_dados.get("a_receber")} dias.')
+#             # Mostrar a_receber
+#             if ano_dados.get("a_receber"):
+#                 coluna1.write(f'\\* Na virada do ano receberá {ano_dados.get("a_receber")} dias.')
 
-            # Obtém as solicitações de férias do ano atual
-            solicitacoes = ano_dados.get("solicitacoes", [])
-            solicitacoes_ano = [  # Cria uma lista formatada com os detalhes das solicitações
-                {
-                    "Data do registro": solicitacao.get('data_solicitacao', 'Data não disponível'),  # Data da criação da solicitação
-                    # "Data da Solicitação": solicitacao.get('data_solicitacao', 'Data não disponível'),  # Data da criação da solicitação
-                    "Período solicitado": solicitacao['lista_de_dias'],  # Lista de dias solicitados
-                    # "Dias solicitados": solicitacao['lista_de_dias'],  # Lista de dias solicitados
-                    "Total de dias úteis": solicitacao.get('numero_dias_uteis', 'Dias não disponíveis'),  # Total de dias úteis na solicitação
-                    "Observações": solicitacao.get('observacoes', 'Nenhuma observação')  # Comentários ou notas da solicitação
-                }
-                for solicitacao in solicitacoes
-            ]
+#             # Obtém as solicitações de férias do ano atual
+#             solicitacoes = ano_dados.get("solicitacoes", [])
+#             solicitacoes_ano = [  # Cria uma lista formatada com os detalhes das solicitações
+#                 {
+#                     "Data do registro": solicitacao.get('data_solicitacao', 'Data não disponível'),  # Data da criação da solicitação
+#                     # "Data da Solicitação": solicitacao.get('data_solicitacao', 'Data não disponível'),  # Data da criação da solicitação
+#                     "Período solicitado": solicitacao['lista_de_dias'],  # Lista de dias solicitados
+#                     # "Dias solicitados": solicitacao['lista_de_dias'],  # Lista de dias solicitados
+#                     "Total de dias úteis": solicitacao.get('numero_dias_uteis', 'Dias não disponíveis'),  # Total de dias úteis na solicitação
+#                     "Observações": solicitacao.get('observacoes', 'Nenhuma observação')  # Comentários ou notas da solicitação
+#                 }
+#                 for solicitacao in solicitacoes
+#             ]
 
-            # Cria um DataFrame com os dados das solicitações e o exibe na segunda coluna
-            df_solicitacoes = pd.DataFrame(solicitacoes_ano)
+#             # Cria um DataFrame com os dados das solicitações e o exibe na segunda coluna
+#             df_solicitacoes = pd.DataFrame(solicitacoes_ano)
 
-            if not df_solicitacoes.empty:
-                # Calcula a altura necessária para exibir o DataFrame, baseada no número de linhas
-                altura_df_solicitacoes_individual = ((len(df_solicitacoes) + 1) * 35) + 2
-                # Exibe o DataFrame na segunda coluna com a altura ajustada
-                coluna2.dataframe(df_solicitacoes, hide_index=True, use_container_width=True, height=altura_df_solicitacoes_individual)
-            else:
-                # Mensagem exibida caso não existam solicitações de férias para o ano
-                coluna2.write(f"Não há solicitações de férias para {ano} até o momento.")
+#             if not df_solicitacoes.empty:
+#                 # Calcula a altura necessária para exibir o DataFrame, baseada no número de linhas
+#                 altura_df_solicitacoes_individual = ((len(df_solicitacoes) + 1) * 35) + 2
+#                 # Exibe o DataFrame na segunda coluna com a altura ajustada
+#                 coluna2.dataframe(df_solicitacoes, hide_index=True, use_container_width=True, height=altura_df_solicitacoes_individual)
+#             else:
+#                 # Mensagem exibida caso não existam solicitações de férias para o ano
+#                 coluna2.write(f"Não há solicitações de férias para {ano} até o momento.")
 
 
-    # Configura as colunas para os botões "Nova Solicitação" e "Editar Solicitação"
-    coluna_botao_1, coluna_botao_2, coluna_botao_3, coluna_botao_4 = linha_de_botoes.columns([9, 9, 9, 9])
+#     # Configura as colunas para os botões "Nova Solicitação" e "Editar Solicitação"
+#     coluna_botao_1, coluna_botao_2, coluna_botao_3, coluna_botao_4 = linha_de_botoes.columns([9, 9, 9, 9])
 
 
 
@@ -1186,84 +1429,84 @@ else:
 # ###########################################################################
 
 
-    # Função para abrir o modal "Nova solicitação"
-    @st.dialog("Nova solicitação")
-    def nova_solicitacao():
-        # Inicia um formulário para registrar uma nova solicitação de férias
-        with st.form("Nova solicitação", clear_on_submit=True):
+    # # Função para abrir o modal "Nova solicitação"
+    # @st.dialog("Nova solicitação")
+    # def nova_solicitacao():
+    #     # Inicia um formulário para registrar uma nova solicitação de férias
+    #     with st.form("Nova solicitação", clear_on_submit=True):
             
-            # Exibe o nome do colaborador como título centralizado no modal
-            st.markdown(f"<p style='text-align: center;'>{colaborador_selecionado.upper()}</p>", unsafe_allow_html=True)
+    #         # Exibe o nome do colaborador como título centralizado no modal
+    #         st.markdown(f"<p style='text-align: center;'>{colaborador_selecionado.upper()}</p>", unsafe_allow_html=True)
             
-            # Subtítulo indicando a ação de criar uma nova solicitação
-            st.write(f'**Nova solicitação de férias:**')
+    #         # Subtítulo indicando a ação de criar uma nova solicitação
+    #         st.write(f'**Nova solicitação de férias:**')
 
-            # Captura a data atual como a data da solicitação
-            data_solicitacao = datetime.now().strftime("%d/%m/%Y")
+    #         # Captura a data atual como a data da solicitação
+    #         data_solicitacao = datetime.now().strftime("%d/%m/%Y")
 
-            # Campo para selecionar o período de férias, com valor padrão de hoje até amanhã
-            periodo_solicitado = st.date_input(
-                "Qual é o período?",
-                value=(date.today(), date.today() + timedelta(days=1)),  # Período padrão
-                format="DD/MM/YYYY"  # Formato de exibição
-            )
+    #         # Campo para selecionar o período de férias, com valor padrão de hoje até amanhã
+    #         periodo_solicitado = st.date_input(
+    #             "Qual é o período?",
+    #             value=(date.today(), date.today() + timedelta(days=1)),  # Período padrão
+    #             format="DD/MM/YYYY"  # Formato de exibição
+    #         )
 
-            # Campo para inserir o total de dias úteis, com valor mínimo de 0 e incremento de 1
-            total_dias_uteis = st.number_input("Total de dias úteis:", min_value=0, step=1)
+    #         # Campo para inserir o total de dias úteis, com valor mínimo de 0 e incremento de 1
+    #         total_dias_uteis = st.number_input("Total de dias úteis:", min_value=0, step=1)
 
-            # Campo opcional para adicionar observações sobre a solicitação
-            observacoes = st.text_input("Observações: (opcional)")
+    #         # Campo opcional para adicionar observações sobre a solicitação
+    #         observacoes = st.text_input("Observações: (opcional)")
 
-            # Botão para enviar o formulário e registrar a solicitação
-            if st.form_submit_button('Registrar férias', use_container_width=True, icon=":material/check:", type="primary"):
+    #         # Botão para enviar o formulário e registrar a solicitação
+    #         if st.form_submit_button('Registrar férias', use_container_width=True, icon=":material/check:", type="primary"):
             
-                # Verifica se o total de dias úteis foi informado
-                if total_dias_uteis < 1:
+    #             # Verifica se o total de dias úteis foi informado
+    #             if total_dias_uteis < 1:
             
-                    # Exibe uma mensagem de aviso caso o campo esteja vazio ou com valor 0
-                    st.warning("Informe o total de dias úteis.")
+    #                 # Exibe uma mensagem de aviso caso o campo esteja vazio ou com valor 0
+    #                 st.warning("Informe o total de dias úteis.")
             
-                else:
-                    # Extrai o ano do início do período solicitado
-                    ano_solicitacao = str(periodo_solicitado[0].year)
+    #             else:
+    #                 # Extrai o ano do início do período solicitado
+    #                 ano_solicitacao = str(periodo_solicitado[0].year)
 
-                    # Formata a lista de dias selecionados no período para o formato "dd/mm/yyyy"
-                    lista_de_dias = [dia.strftime("%d/%m/%Y") for dia in periodo_solicitado]
+    #                 # Formata a lista de dias selecionados no período para o formato "dd/mm/yyyy"
+    #                 lista_de_dias = [dia.strftime("%d/%m/%Y") for dia in periodo_solicitado]
 
-                    # Verifica se a lista contém apenas 1 item e duplica o valor
-                    if len(lista_de_dias) == 1:
-                        lista_de_dias.append(lista_de_dias[0])
+    #                 # Verifica se a lista contém apenas 1 item e duplica o valor
+    #                 if len(lista_de_dias) == 1:
+    #                     lista_de_dias.append(lista_de_dias[0])
 
-                    # Cria o objeto representando a nova solicitação
-                    nova_solicitacao = {
-                        "data_solicitacao": data_solicitacao,  # Data de registro
-                        "lista_de_dias": lista_de_dias,  # Período solicitado
-                        "numero_dias_uteis": total_dias_uteis,  # Total de dias úteis
-                        "observacoes": observacoes  # Observações fornecidas pelo usuário
-                    }
+    #                 # Cria o objeto representando a nova solicitação
+    #                 nova_solicitacao = {
+    #                     "data_solicitacao": data_solicitacao,  # Data de registro
+    #                     "lista_de_dias": lista_de_dias,  # Período solicitado
+    #                     "numero_dias_uteis": total_dias_uteis,  # Total de dias úteis
+    #                     "observacoes": observacoes  # Observações fornecidas pelo usuário
+    #                 }
 
-                    # Atualiza o banco de dados MongoDB com a nova solicitação
-                    # Substitua colecao.update_one pela lógica correta para seu banco
-                    colecao.update_one(
-                        { colaborador_selecionado: { "$exists": True } },  # Verifica se o colaborador existe no banco
-                        {
-                            # Adiciona a nova solicitação ao ano correspondente
-                            "$push": { f"{colaborador_selecionado}.anos.{ano_solicitacao}.solicitacoes": nova_solicitacao },
-                        }
-                    )
+    #                 # Atualiza o banco de dados MongoDB com a nova solicitação
+    #                 # Substitua colecao.update_one pela lógica correta para seu banco
+    #                 colecao.update_one(
+    #                     { colaborador_selecionado: { "$exists": True } },  # Verifica se o colaborador existe no banco
+    #                     {
+    #                         # Adiciona a nova solicitação ao ano correspondente
+    #                         "$push": { f"{colaborador_selecionado}.anos.{ano_solicitacao}.solicitacoes": nova_solicitacao },
+    #                     }
+    #                 )
 
-                    # Função para atualizar os dados do colaborador (substitua com a lógica do seu sistema)
-                    atualizar_dados_colaborador()
+    #                 # Função para atualizar os dados do colaborador (substitua com a lógica do seu sistema)
+    #                 atualizar_dados_colaborador()
 
-                    # Exibe uma mensagem de sucesso após o registro
-                    st.success("Período de férias registrado!", icon=":material/thumb_up:")
+    #                 # Exibe uma mensagem de sucesso após o registro
+    #                 st.success("Período de férias registrado!", icon=":material/thumb_up:")
 
-                    # Aguarda 3 segundos antes de recarregar a página para atualizar os dados
-                    time.sleep(3)
-                    st.rerun()  # Recarrega a aplicação
+    #                 # Aguarda 3 segundos antes de recarregar a página para atualizar os dados
+    #                 time.sleep(3)
+    #                 st.rerun()  # Recarrega a aplicação
 
-    # Botão para abrir o modal de nova solicitação
-    coluna_botao_1.button("Nova solicitação", on_click=nova_solicitacao, use_container_width=True, icon=":material/calendar_add_on:")
+    # # Botão para abrir o modal de nova solicitação
+    # coluna_botao_1.button("Nova solicitação", on_click=nova_solicitacao, use_container_width=True, icon=":material/calendar_add_on:")
 
 
 
@@ -1274,402 +1517,402 @@ else:
 
 
 
-    # Função para abrir o modal "Editar solicitação"
-    @st.dialog("Editar solicitação")
-    def editar_solicitacao():
-        # Verifica se há dados do colaborador selecionado
-        if colaborador_dados:
+#     # Função para abrir o modal "Editar solicitação"
+#     @st.dialog("Editar solicitação")
+#     def editar_solicitacao():
+#         # Verifica se há dados do colaborador selecionado
+#         if colaborador_dados:
             
-            # Obtém uma lista de todos os anos disponíveis na chave "anos"
-            anos_disponiveis = reversed(list(colaborador_dados["anos"].keys()))
+#             # Obtém uma lista de todos os anos disponíveis na chave "anos"
+#             anos_disponiveis = reversed(list(colaborador_dados["anos"].keys()))
 
-            # Primeiro selectbox para o ano
-            ano_selecionado = st.selectbox("Selecione o ano", anos_disponiveis, format_func=str, key="ano_selecionado")
+#             # Primeiro selectbox para o ano
+#             ano_selecionado = st.selectbox("Selecione o ano", anos_disponiveis, format_func=str, key="ano_selecionado")
 
-            # Obter as solicitações do ano selecionado
-            solicitacoes_ano = colaborador_dados["anos"].get(ano_selecionado, {}).get("solicitacoes", [])
+#             # Obter as solicitações do ano selecionado
+#             solicitacoes_ano = colaborador_dados["anos"].get(ano_selecionado, {}).get("solicitacoes", [])
 
-            # Verifica se há solicitações disponíveis no ano selecionado
-            if solicitacoes_ano:
-                # Define o rótulo e as opções para seleção de uma solicitação específica
-                def formatar_opcao(indice):
-                    # Exibe o período da solicitação selecionada (início e fim)
-                    return f"{solicitacoes_ano[indice]['lista_de_dias'][0]} a {solicitacoes_ano[indice]['lista_de_dias'][-1]}"
+#             # Verifica se há solicitações disponíveis no ano selecionado
+#             if solicitacoes_ano:
+#                 # Define o rótulo e as opções para seleção de uma solicitação específica
+#                 def formatar_opcao(indice):
+#                     # Exibe o período da solicitação selecionada (início e fim)
+#                     return f"{solicitacoes_ano[indice]['lista_de_dias'][0]} a {solicitacoes_ano[indice]['lista_de_dias'][-1]}"
 
-                solicitacao_selecionada_indice = st.selectbox(
-                    "Selecione uma solicitação:",
-                    range(len(solicitacoes_ano)),
-                    format_func=formatar_opcao,
-                    key="solicitacao_selecionada_indice"
-                )
+#                 solicitacao_selecionada_indice = st.selectbox(
+#                     "Selecione uma solicitação:",
+#                     range(len(solicitacoes_ano)),
+#                     format_func=formatar_opcao,
+#                     key="solicitacao_selecionada_indice"
+#                 )
                 
-                # Recupera os dados da solicitação selecionada usando o índice retornado pelo `selectbox`
-                solicitacao_editar = solicitacoes_ano[solicitacao_selecionada_indice]
+#                 # Recupera os dados da solicitação selecionada usando o índice retornado pelo `selectbox`
+#                 solicitacao_editar = solicitacoes_ano[solicitacao_selecionada_indice]
                 
-                # Cria abas para permitir edição ou exclusão da solicitação
-                tab1, tab2 = st.tabs([":material/edit: EDITAR", ":material/delete: EXCLUIR"])
+#                 # Cria abas para permitir edição ou exclusão da solicitação
+#                 tab1, tab2 = st.tabs([":material/edit: EDITAR", ":material/delete: EXCLUIR"])
                 
-                # Aba para EDITAR a solicitação ===================
-                with tab1.form(key=f'form_editar_solicitacao_{solicitacao_selecionada_indice}'):
+#                 # Aba para EDITAR a solicitação ===================
+#                 with tab1.form(key=f'form_editar_solicitacao_{solicitacao_selecionada_indice}'):
                     
-                    # Exibe campos para edição dos dados da solicitação
-                    data_solicitacao = st.text_input("Data da solicitação", value=solicitacao_editar.get('data_solicitacao', ''))
-                    dias_solicitados = st.text_input(
-                        "Período solicitado",
-                        value=", ".join(map(str, solicitacao_editar.get('lista_de_dias', [])))
-                    )
-                    dias_uteis = st.number_input(
-                        "Dias úteis",
-                        value=int(solicitacao_editar.get('numero_dias_uteis', 0)),
-                        min_value=0,
-                        step=1
-                    )
-                    observacoes = st.text_input("Observações (opcional)", value=solicitacao_editar.get('observacoes', ''))
+#                     # Exibe campos para edição dos dados da solicitação
+#                     data_solicitacao = st.text_input("Data da solicitação", value=solicitacao_editar.get('data_solicitacao', ''))
+#                     dias_solicitados = st.text_input(
+#                         "Período solicitado",
+#                         value=", ".join(map(str, solicitacao_editar.get('lista_de_dias', [])))
+#                     )
+#                     dias_uteis = st.number_input(
+#                         "Dias úteis",
+#                         value=int(solicitacao_editar.get('numero_dias_uteis', 0)),
+#                         min_value=0,
+#                         step=1
+#                     )
+#                     observacoes = st.text_input("Observações (opcional)", value=solicitacao_editar.get('observacoes', ''))
                     
-                    # Botão para salvar as alterações realizadas
-                    if st.form_submit_button("Salvar alterações", use_container_width=True, icon=":material/save:", type="primary"):
-                        # Atualiza a solicitação específica no ano selecionado
-                        solicitacoes_ano[solicitacao_selecionada_indice] = {
-                            'data_solicitacao': data_solicitacao,
-                            'lista_de_dias': [dia.strip() for dia in dias_solicitados.split(',')],
-                            'numero_dias_uteis': dias_uteis,
-                            'observacoes': observacoes
-                        }
+#                     # Botão para salvar as alterações realizadas
+#                     if st.form_submit_button("Salvar alterações", use_container_width=True, icon=":material/save:", type="primary"):
+#                         # Atualiza a solicitação específica no ano selecionado
+#                         solicitacoes_ano[solicitacao_selecionada_indice] = {
+#                             'data_solicitacao': data_solicitacao,
+#                             'lista_de_dias': [dia.strip() for dia in dias_solicitados.split(',')],
+#                             'numero_dias_uteis': dias_uteis,
+#                             'observacoes': observacoes
+#                         }
                         
-                        # Atualiza o banco de dados MongoDB para o ano correto
-                        filtro = {f"{colaborador_selecionado}.anos.{ano_selecionado}": {"$exists": True}}
-                        novo_valor = {
-                            "$set": {
-                                f"{colaborador_selecionado}.anos.{ano_selecionado}.solicitacoes": solicitacoes_ano
-                            }
-                        }
-                        colecao.update_one(filtro, novo_valor)
-                        atualizar_dados_colaborador()
+#                         # Atualiza o banco de dados MongoDB para o ano correto
+#                         filtro = {f"{colaborador_selecionado}.anos.{ano_selecionado}": {"$exists": True}}
+#                         novo_valor = {
+#                             "$set": {
+#                                 f"{colaborador_selecionado}.anos.{ano_selecionado}.solicitacoes": solicitacoes_ano
+#                             }
+#                         }
+#                         colecao.update_one(filtro, novo_valor)
+#                         atualizar_dados_colaborador()
                         
-                        # Mensagem de sucesso e recarregamento da página
-                        st.success("Período atualizado com sucesso!", icon=":material/thumb_up:")
-                        time.sleep(4)
-                        st.rerun()
+#                         # Mensagem de sucesso e recarregamento da página
+#                         st.success("Período atualizado com sucesso!", icon=":material/thumb_up:")
+#                         time.sleep(4)
+#                         st.rerun()
                 
-                # Aba para DELETAR a solicitação ===================
-                with tab2:
-                    st.write('Você tem certeza que deseja EXCLUIR esse período de férias?')
-                    st.write(f'**{formatar_opcao(solicitacao_selecionada_indice)}**')
-                    st.markdown('<p style="color:red;">Após apertar o botão, a operação não poderá ser desfeita!</p>', unsafe_allow_html=True)
+#                 # Aba para DELETAR a solicitação ===================
+#                 with tab2:
+#                     st.write('Você tem certeza que deseja EXCLUIR esse período de férias?')
+#                     st.write(f'**{formatar_opcao(solicitacao_selecionada_indice)}**')
+#                     st.markdown('<p style="color:red;">Após apertar o botão, a operação não poderá ser desfeita!</p>', unsafe_allow_html=True)
                     
-                    if st.button("Excluir período", icon=":material/delete:", type="primary", key=f'deletar_solicitacao_{solicitacao_selecionada_indice}', use_container_width=True):
-                        # Remove a solicitação selecionada
-                        del solicitacoes_ano[solicitacao_selecionada_indice]
+#                     if st.button("Excluir período", icon=":material/delete:", type="primary", key=f'deletar_solicitacao_{solicitacao_selecionada_indice}', use_container_width=True):
+#                         # Remove a solicitação selecionada
+#                         del solicitacoes_ano[solicitacao_selecionada_indice]
                         
-                        # Atualiza o banco de dados
-                        colecao.update_one(
-                            { f"{colaborador_selecionado}.anos.{ano_selecionado}": {"$exists": True} },
-                            { "$set": { f"{colaborador_selecionado}.anos.{ano_selecionado}.solicitacoes": solicitacoes_ano } }
-                        )
-                        atualizar_dados_colaborador()
+#                         # Atualiza o banco de dados
+#                         colecao.update_one(
+#                             { f"{colaborador_selecionado}.anos.{ano_selecionado}": {"$exists": True} },
+#                             { "$set": { f"{colaborador_selecionado}.anos.{ano_selecionado}.solicitacoes": solicitacoes_ano } }
+#                         )
+#                         atualizar_dados_colaborador()
                         
-                        # Mensagem de sucesso
-                        st.success("Período excluído!", icon=":material/thumb_up:")
-                        time.sleep(4)
-                        st.rerun()
+#                         # Mensagem de sucesso
+#                         st.success("Período excluído!", icon=":material/thumb_up:")
+#                         time.sleep(4)
+#                         st.rerun()
 
-            else:
-                # Mensagem se não houver solicitações no ano
-                st.write("Não há solicitações neste ano.")
+#             else:
+#                 # Mensagem se não houver solicitações no ano
+#                 st.write("Não há solicitações neste ano.")
 
-    # Botão para abrir o modal de "Editar solicitação"
-    coluna_botao_2.button("Editar solicitação", on_click=editar_solicitacao, use_container_width=True, icon=":material/edit:")
-
-
-# ###########################################################################
-# ENVIAR EMAIL DE SALDO
-# ###########################################################################
+#     # Botão para abrir o modal de "Editar solicitação"
+#     coluna_botao_2.button("Editar solicitação", on_click=editar_solicitacao, use_container_width=True, icon=":material/edit:")
 
 
-    @st.dialog("Enviar saldo")
-    def enviar_saldo():
-        # Verifica se há dados do colaborador selecionado
-        if colaborador_dados:
-            anos_disponiveis = sorted(colaborador_dados.get("anos", {}).keys(), reverse=True)
-        else:
-            st.write("Não há dados.")
-            return  # Encerra o modal caso não haja dados disponíveis
+# # ###########################################################################
+# # ENVIAR EMAIL DE SALDO
+# # ###########################################################################
 
-        # Título dentro do modal
-        st.write("**Enviar saldo por e-mail**")
 
-        # Selectbox para selecionar o ano
-        ano_selecionado = st.selectbox("Selecione o ano", anos_disponiveis, key="ano_selecionado_email")
+#     @st.dialog("Enviar saldo")
+#     def enviar_saldo():
+#         # Verifica se há dados do colaborador selecionado
+#         if colaborador_dados:
+#             anos_disponiveis = sorted(colaborador_dados.get("anos", {}).keys(), reverse=True)
+#         else:
+#             st.write("Não há dados.")
+#             return  # Encerra o modal caso não haja dados disponíveis
 
-        # Input para o destinatário
-        destinatario = st.text_input(
-            "Enviar para:", 
-            value=colaborador_dados.get("email", ""),  # Obtém o valor da chave "email", ou uma string vazia se não existir
-            key="email_destinatario"
-        )
+#         # Título dentro do modal
+#         st.write("**Enviar saldo por e-mail**")
 
-        # Garante que os dados do ano selecionado são acessados
-        if ano_selecionado:
-            ano_dados = colaborador_dados.get("anos", {}).get(ano_selecionado, {})
-            df_mail = montar_dataframe_saldo_do_ano(ano_selecionado, ano_dados)
+#         # Selectbox para selecionar o ano
+#         ano_selecionado = st.selectbox("Selecione o ano", anos_disponiveis, key="ano_selecionado_email")
 
-        # Botão para enviar o e-mail
-        if st.button("Enviar e-mail", use_container_width=True, icon=":material/mail:", type="primary"):
-            # Extrai os valores do DataFrame com base nas linhas e colunas
-            residual_ano_anterior = df_mail.iloc[0, 1]  # Primeira linha, segunda coluna
-            saldo_inicio_ano = df_mail.iloc[1, 1]      # Segunda linha, segunda coluna
-            total_gozado = df_mail.iloc[2, 1]          # Terceira linha, segunda coluna
-            saldo_atual = df_mail.iloc[3, 1]           # Quarta linha, segunda coluna
+#         # Input para o destinatário
+#         destinatario = st.text_input(
+#             "Enviar para:", 
+#             value=colaborador_dados.get("email", ""),  # Obtém o valor da chave "email", ou uma string vazia se não existir
+#             key="email_destinatario"
+#         )
 
-            # Verifica se há solicitações para o ano
+#         # Garante que os dados do ano selecionado são acessados
+#         if ano_selecionado:
+#             ano_dados = colaborador_dados.get("anos", {}).get(ano_selecionado, {})
+#             df_mail = montar_dataframe_saldo_do_ano(ano_selecionado, ano_dados)
+
+#         # Botão para enviar o e-mail
+#         if st.button("Enviar e-mail", use_container_width=True, icon=":material/mail:", type="primary"):
+#             # Extrai os valores do DataFrame com base nas linhas e colunas
+#             residual_ano_anterior = df_mail.iloc[0, 1]  # Primeira linha, segunda coluna
+#             saldo_inicio_ano = df_mail.iloc[1, 1]      # Segunda linha, segunda coluna
+#             total_gozado = df_mail.iloc[2, 1]          # Terceira linha, segunda coluna
+#             saldo_atual = df_mail.iloc[3, 1]           # Quarta linha, segunda coluna
+
+#             # Verifica se há solicitações para o ano
             
-            # Se há solicitações, envia tabela de saldo e a tabela de solicitações
-            if not df_solicitacoes.empty:
-                # Aplicar a transformação diretamente com lambda para listas
-                df_solicitacoes['Período solicitado'] = df_solicitacoes['Período solicitado'].apply(
-                    lambda periodo: f"{periodo[0]} a {periodo[1]}"
-                )
+#             # Se há solicitações, envia tabela de saldo e a tabela de solicitações
+#             if not df_solicitacoes.empty:
+#                 # Aplicar a transformação diretamente com lambda para listas
+#                 df_solicitacoes['Período solicitado'] = df_solicitacoes['Período solicitado'].apply(
+#                     lambda periodo: f"{periodo[0]} a {periodo[1]}"
+#                 )
 
-                # Renomear a coluna Período solicitado para Dias de início e fim
-                df_solicitacoes.rename(columns={'Período solicitado': 'Dias de início e fim'}, inplace=True)
+#                 # Renomear a coluna Período solicitado para Dias de início e fim
+#                 df_solicitacoes.rename(columns={'Período solicitado': 'Dias de início e fim'}, inplace=True)
 
-                # Converte df_solicitacoes para HTML
-                df_solicitacoes_html = df_solicitacoes.to_html(index=False, classes="table", border=1, justify="left")
+#                 # Converte df_solicitacoes para HTML
+#                 df_solicitacoes_html = df_solicitacoes.to_html(index=False, classes="table", border=1, justify="left")
 
-                # Monta o conteúdo do e-mail com uma tabela HTML
-                conteudo_email = f"""
-                    <html>
-                    <head>
-                        <style>
-                            body {{
-                                font-family: Arial, sans-serif;
-                                line-height: 1.6;
-                                color: #333;
-                                margin: 50px;
-                            }}
-                            table {{
-                                border-collapse: collapse;
-                                width: auto;
-                                margin-top: 20px;
-                                border: 1px solid #333;
-                            }}
-                            th, td {{
-                                border: 1px solid #333;
-                                padding: 8px;
-                                text-align: left;
-                            }}
-                            td:nth-child(2) {{
-                                text-align: right;
-                            }}
-                        </style>
-                    </head>
-                    <body>
-                        <p>Olá <strong>{colaborador_selecionado}</strong>,</p>
-                        <p>Segue abaixo o seu saldo de férias para o ano de {ano_selecionado}:</p>
-                        <table>
-                            <tr>
-                                <td>Residual do ano anterior ({int(ano_selecionado) - 1})</td>
-                                <td>{residual_ano_anterior}</td>
-                            </tr>
-                            <tr>
-                                <td>Saldo do início do ano</td>
-                                <td>{saldo_inicio_ano}</td>
-                            </tr>
-                            <tr>
-                                <td>Total gozado</td>
-                                <td>{total_gozado}</td>
-                            </tr>
-                            <tr>
-                                <td>Saldo atual</td>
-                                <td>{saldo_atual}</td>
-                            </tr>
-                        </table>
-                        <br>
-                        <p>Solicitações do ano:</p>
-                        {df_solicitacoes_html}
-                        <br>
-                        <p>Atenciosamente,</p>
-                        <p><strong>Departamento Pessoal do ISPN</strong></p>
-                    </body>
-                    </html>
-                """
+#                 # Monta o conteúdo do e-mail com uma tabela HTML
+#                 conteudo_email = f"""
+#                     <html>
+#                     <head>
+#                         <style>
+#                             body {{
+#                                 font-family: Arial, sans-serif;
+#                                 line-height: 1.6;
+#                                 color: #333;
+#                                 margin: 50px;
+#                             }}
+#                             table {{
+#                                 border-collapse: collapse;
+#                                 width: auto;
+#                                 margin-top: 20px;
+#                                 border: 1px solid #333;
+#                             }}
+#                             th, td {{
+#                                 border: 1px solid #333;
+#                                 padding: 8px;
+#                                 text-align: left;
+#                             }}
+#                             td:nth-child(2) {{
+#                                 text-align: right;
+#                             }}
+#                         </style>
+#                     </head>
+#                     <body>
+#                         <p>Olá <strong>{colaborador_selecionado}</strong>,</p>
+#                         <p>Segue abaixo o seu saldo de férias para o ano de {ano_selecionado}:</p>
+#                         <table>
+#                             <tr>
+#                                 <td>Residual do ano anterior ({int(ano_selecionado) - 1})</td>
+#                                 <td>{residual_ano_anterior}</td>
+#                             </tr>
+#                             <tr>
+#                                 <td>Saldo do início do ano</td>
+#                                 <td>{saldo_inicio_ano}</td>
+#                             </tr>
+#                             <tr>
+#                                 <td>Total gozado</td>
+#                                 <td>{total_gozado}</td>
+#                             </tr>
+#                             <tr>
+#                                 <td>Saldo atual</td>
+#                                 <td>{saldo_atual}</td>
+#                             </tr>
+#                         </table>
+#                         <br>
+#                         <p>Solicitações do ano:</p>
+#                         {df_solicitacoes_html}
+#                         <br>
+#                         <p>Atenciosamente,</p>
+#                         <p><strong>Departamento Pessoal do ISPN</strong></p>
+#                     </body>
+#                     </html>
+#                 """
             
-            # Se não há solicitações, envia só a tabela de saldo
-            else:
-                # Monta o conteúdo do e-mail sem a tabela de solicitações
-                conteudo_email = f"""
-                    <html>
-                    <head>
-                        <style>
-                            body {{
-                                font-family: Arial, sans-serif;
-                                line-height: 1.6;
-                                color: #333;
-                                margin: 50px;
-                            }}
-                            table {{
-                                border-collapse: collapse;
-                                width: auto;
-                                margin-top: 20px;
-                                border: 1px solid #333;
-                            }}
-                            th, td {{
-                                border: 1px solid #333;
-                                padding: 8px;
-                                text-align: left;
-                            }}
-                            td:nth-child(2) {{
-                                text-align: right;
-                            }}
-                        </style>
-                    </head>
-                    <body>
-                        <p>Olá <strong>{colaborador_selecionado}</strong>,</p>
-                        <p>Segue abaixo o seu saldo de férias para o ano de {ano_selecionado}:</p>
+#             # Se não há solicitações, envia só a tabela de saldo
+#             else:
+#                 # Monta o conteúdo do e-mail sem a tabela de solicitações
+#                 conteudo_email = f"""
+#                     <html>
+#                     <head>
+#                         <style>
+#                             body {{
+#                                 font-family: Arial, sans-serif;
+#                                 line-height: 1.6;
+#                                 color: #333;
+#                                 margin: 50px;
+#                             }}
+#                             table {{
+#                                 border-collapse: collapse;
+#                                 width: auto;
+#                                 margin-top: 20px;
+#                                 border: 1px solid #333;
+#                             }}
+#                             th, td {{
+#                                 border: 1px solid #333;
+#                                 padding: 8px;
+#                                 text-align: left;
+#                             }}
+#                             td:nth-child(2) {{
+#                                 text-align: right;
+#                             }}
+#                         </style>
+#                     </head>
+#                     <body>
+#                         <p>Olá <strong>{colaborador_selecionado}</strong>,</p>
+#                         <p>Segue abaixo o seu saldo de férias para o ano de {ano_selecionado}:</p>
 
-                        <table>
-                            <tr>
-                                <td>Residual do ano anterior ({int(ano_selecionado) - 1})</td>
-                                <td>{residual_ano_anterior}</td>
-                            </tr>
-                            <tr>
-                                <td>Saldo do início do ano</td>
-                                <td>{saldo_inicio_ano}</td>
-                            </tr>
-                            <tr>
-                                <td>Total gozado</td>
-                                <td>{total_gozado}</td>
-                            </tr>
-                            <tr>
-                                <td>Saldo atual</td>
-                                <td>{saldo_atual}</td>
-                            </tr>
-                        </table>
-                        <br>
-                        <p>Atenciosamente,</p>
-                        <p><strong>Departamento Pessoal do ISPN</strong></p>
-                    </body>
-                    </html>
-                """
+#                         <table>
+#                             <tr>
+#                                 <td>Residual do ano anterior ({int(ano_selecionado) - 1})</td>
+#                                 <td>{residual_ano_anterior}</td>
+#                             </tr>
+#                             <tr>
+#                                 <td>Saldo do início do ano</td>
+#                                 <td>{saldo_inicio_ano}</td>
+#                             </tr>
+#                             <tr>
+#                                 <td>Total gozado</td>
+#                                 <td>{total_gozado}</td>
+#                             </tr>
+#                             <tr>
+#                                 <td>Saldo atual</td>
+#                                 <td>{saldo_atual}</td>
+#                             </tr>
+#                         </table>
+#                         <br>
+#                         <p>Atenciosamente,</p>
+#                         <p><strong>Departamento Pessoal do ISPN</strong></p>
+#                     </body>
+#                     </html>
+#                 """
 
-            # Lógica de envio do e-mail
-            enviar_email(destinatario, f"Saldo de férias - {ano_selecionado}", conteudo_email, html=True)
+#             # Lógica de envio do e-mail
+#             enviar_email(destinatario, f"Saldo de férias - {ano_selecionado}", conteudo_email, html=True)
 
-            # Mensagem de confirmação
-            st.success("E-mail enviado com sucesso!", icon=":material/mail:")
+#             # Mensagem de confirmação
+#             st.success("E-mail enviado com sucesso!", icon=":material/mail:")
 
-            # Aguarda 4 segundos antes de recarregar
-            time.sleep(4)
-            st.rerun()
-
-
-    # Botão para abrir o modal "Enviar saldo"
-    coluna_botao_3.button("Enviar saldo", on_click=enviar_saldo, use_container_width=True, icon=":material/mail:")
+#             # Aguarda 4 segundos antes de recarregar
+#             time.sleep(4)
+#             st.rerun()
 
 
-# ###########################################################################
-# EDITAR COLABORADOR(A)
-# ###########################################################################
+#     # Botão para abrir o modal "Enviar saldo"
+#     coluna_botao_3.button("Enviar saldo", on_click=enviar_saldo, use_container_width=True, icon=":material/mail:")
 
-    # Função para encontrar o menor ano
-    def encontrar_ano_menor_valor(anos):
-        return min(anos, key=lambda ano: anos[ano].get("valor_inicial_ano_atual", float('inf')))
 
-    @st.dialog("Editar colaborador(a)")
-    def editar_colaborador(nome_colaborador, colaborador_dados):
+# # ###########################################################################
+# # EDITAR COLABORADOR(A)
+# # ###########################################################################
 
-        global colaborador_selecionado
+#     # Função para encontrar o menor ano
+#     def encontrar_ano_menor_valor(anos):
+#         return min(anos, key=lambda ano: anos[ano].get("valor_inicial_ano_atual", float('inf')))
 
-        # Identificar o menor ano
-        anos_cadastrados = colaborador_dados.get("anos", {})
-        ano_menor_valor = encontrar_ano_menor_valor(anos_cadastrados)
+#     @st.dialog("Editar colaborador(a)")
+#     def editar_colaborador(nome_colaborador, colaborador_dados):
 
-        # Input para editar Nome
-        novo_nome = st.text_input("Nome", value=nome_colaborador)
+#         global colaborador_selecionado
+
+#         # Identificar o menor ano
+#         anos_cadastrados = colaborador_dados.get("anos", {})
+#         ano_menor_valor = encontrar_ano_menor_valor(anos_cadastrados)
+
+#         # Input para editar Nome
+#         novo_nome = st.text_input("Nome", value=nome_colaborador)
         
-        # Input para editar E-mail
-        novo_email = st.text_input("E-mail", value=colaborador_dados["email"])
+#         # Input para editar E-mail
+#         novo_email = st.text_input("E-mail", value=colaborador_dados["email"])
         
-        # Input para editar Setor
-        # Definir setor atual como placeholder
-        setor_atual = colaborador_dados["setor"]
-        # Selectbox para escolher o programa ou setor
-        novo_setor = st.selectbox(
-            "Programa / Setor",
-            ["Selecione..."] + programas_setores,  # Adiciona uma opção inicial
-            index=programas_setores.index(setor_atual) + 1 if setor_atual in programas_setores else 0,
-        )
-        # Se o usuário não selecionar nada, mantém o setor atual
-        if novo_setor == "Selecione...":
-            novo_setor = setor_atual
+#         # Input para editar Setor
+#         # Definir setor atual como placeholder
+#         setor_atual = colaborador_dados["setor"]
+#         # Selectbox para escolher o programa ou setor
+#         novo_setor = st.selectbox(
+#             "Programa / Setor",
+#             ["Selecione..."] + programas_setores,  # Adiciona uma opção inicial
+#             index=programas_setores.index(setor_atual) + 1 if setor_atual in programas_setores else 0,
+#         )
+#         # Se o usuário não selecionar nada, mantém o setor atual
+#         if novo_setor == "Selecione...":
+#             novo_setor = setor_atual
 
-        # Input para editar o residual do ano anterior
-        residual_atual = anos_cadastrados[ano_menor_valor].get("residual_ano_anterior")
-        novo_residual = st.number_input(f"Residual do ano anterior ao primeiro ano cadastrado ({int(ano_menor_valor) - 1})", 
-                                         value=residual_atual, 
-                                         step=1,
-                                         help="Só é possível editar o primeiro ano cadastrado."
-                                        )
+#         # Input para editar o residual do ano anterior
+#         residual_atual = anos_cadastrados[ano_menor_valor].get("residual_ano_anterior")
+#         novo_residual = st.number_input(f"Residual do ano anterior ao primeiro ano cadastrado ({int(ano_menor_valor) - 1})", 
+#                                          value=residual_atual, 
+#                                          step=1,
+#                                          help="Só é possível editar o primeiro ano cadastrado."
+#                                         )
 
-        # Input para editar as férias recebidas no primeiro ano cadastrado
-        recebidas_atual = anos_cadastrados[ano_menor_valor].get("valor_inicial_ano_atual")
-        novo_dias_recebidos = st.number_input(f"Férias recebidas no primeiro ano cadastrado ({ano_menor_valor})", 
-                                         value=recebidas_atual, 
-                                         step=1,
-                                         help="Só é possível editar o primeiro ano cadastrado."
-                                        )
-
-
-        # Input para editar "a_receber"
-        a_receber_atual = anos_cadastrados[ano_menor_valor].get("a_receber")
-        novo_a_receber = st.number_input(f"Dias a receber na virada do primeiro ano", 
-                                         value=a_receber_atual, 
-                                         step=1,
-                                         help="Só para novos cadastros, que vão receber alguns de dias na virada do próximo ano."
-                                        )
+#         # Input para editar as férias recebidas no primeiro ano cadastrado
+#         recebidas_atual = anos_cadastrados[ano_menor_valor].get("valor_inicial_ano_atual")
+#         novo_dias_recebidos = st.number_input(f"Férias recebidas no primeiro ano cadastrado ({ano_menor_valor})", 
+#                                          value=recebidas_atual, 
+#                                          step=1,
+#                                          help="Só é possível editar o primeiro ano cadastrado."
+#                                         )
 
 
-        # Botão para salvar alterações no banco de dados
-        if st.button("Salvar alterações", type="primary", icon=":material/save:"):
-            # Criar o dicionário de atualização
-            atualizacoes = {
-                f"{novo_nome}.email": novo_email,
-                f"{novo_nome}.setor": novo_setor,
-                f"{novo_nome}.anos.{ano_menor_valor}.a_receber": novo_a_receber,
-                f"{novo_nome}.anos.{ano_menor_valor}.residual_ano_anterior": novo_residual,
-                f"{novo_nome}.anos.{ano_menor_valor}.valor_inicial_ano_atual": novo_dias_recebidos,
+#         # Input para editar "a_receber"
+#         a_receber_atual = anos_cadastrados[ano_menor_valor].get("a_receber")
+#         novo_a_receber = st.number_input(f"Dias a receber na virada do primeiro ano", 
+#                                          value=a_receber_atual, 
+#                                          step=1,
+#                                          help="Só para novos cadastros, que vão receber alguns de dias na virada do próximo ano."
+#                                         )
 
-            }
+
+#         # Botão para salvar alterações no banco de dados
+#         if st.button("Salvar alterações", type="primary", icon=":material/save:"):
+#             # Criar o dicionário de atualização
+#             atualizacoes = {
+#                 f"{novo_nome}.email": novo_email,
+#                 f"{novo_nome}.setor": novo_setor,
+#                 f"{novo_nome}.anos.{ano_menor_valor}.a_receber": novo_a_receber,
+#                 f"{novo_nome}.anos.{ano_menor_valor}.residual_ano_anterior": novo_residual,
+#                 f"{novo_nome}.anos.{ano_menor_valor}.valor_inicial_ano_atual": novo_dias_recebidos,
+
+#             }
             
-            # Se o nome foi alterado, renomeia a chave no MongoDB
-            if novo_nome != nome_colaborador:
-                bd_colaboradores.update_one(
-                    {nome_colaborador: {"$exists": True}},  # Filtra pelo nome do colaborador
-                    {"$rename": {nome_colaborador: novo_nome}}
-                )
-                # Atualiza o nome do colaborador selecionado
-                colaborador_selecionado = novo_nome
+#             # Se o nome foi alterado, renomeia a chave no MongoDB
+#             if novo_nome != nome_colaborador:
+#                 bd_colaboradores.update_one(
+#                     {nome_colaborador: {"$exists": True}},  # Filtra pelo nome do colaborador
+#                     {"$rename": {nome_colaborador: novo_nome}}
+#                 )
+#                 # Atualiza o nome do colaborador selecionado
+#                 colaborador_selecionado = novo_nome
 
-            # Atualizar os outros campos no MongoDB
-            bd_colaboradores.update_one(
-                {novo_nome: {"$exists": True}},  # Agora filtra pelo novo nome
-                {"$set": atualizacoes}
-            )
+#             # Atualizar os outros campos no MongoDB
+#             bd_colaboradores.update_one(
+#                 {novo_nome: {"$exists": True}},  # Agora filtra pelo novo nome
+#                 {"$set": atualizacoes}
+#             )
 
-            # Atualiza banco de dados
-            atualizar_dados_colaborador()
+#             # Atualiza banco de dados
+#             atualizar_dados_colaborador()
 
-            st.success("Informações atualizadas com sucesso!")
+#             st.success("Informações atualizadas com sucesso!")
 
-            # Aguarda 3 segundos antes de recarregar a página para atualizar os dados
-            time.sleep(3)
-            st.rerun()
+#             # Aguarda 3 segundos antes de recarregar a página para atualizar os dados
+#             time.sleep(3)
+#             st.rerun()
 
-    # Botão para editar colaborardor
-    coluna_botao_4.button("Editar colaborador(a)", 
-                          on_click=lambda: editar_colaborador(colaborador_selecionado, colaborador_dados), 
-                          use_container_width=True, 
-                          icon=":material/person_edit:")
+#     # Botão para editar colaborardor
+#     coluna_botao_4.button("Editar colaborador(a)", 
+#                           on_click=lambda: editar_colaborador(colaborador_selecionado, colaborador_dados), 
+#                           use_container_width=True, 
+#                           icon=":material/person_edit:")
 
 
 # ###########################################################################
