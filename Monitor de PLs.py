@@ -1,8 +1,8 @@
 import streamlit as st
 import pandas as pd
 import time
-from pymongo import MongoClient
 from datetime import datetime, timedelta
+from dateutil.parser import parse
 from funcoes_auxiliares import conectar_mongo_pls
 
 
@@ -411,16 +411,20 @@ def main():
 
     
     # Filtro de data e origem
-    col1, col2 = st.columns([3, 1])
+    col1, col2 = st.columns([1, 5])
     with col1:
         opcoes_filtro = ["Todos os PLs", "Atualizados no último mês", "Atualizados na última semana"]
         selecionado = st.radio("Filtrar por data da última ação", opcoes_filtro, index=0)
 
     with col2:
-        mostrar_ma = st.checkbox("Somente PLs do Maranhão")
+        origem_opcao = st.radio(
+            "Selecione quais PLs deseja visualizar",
+            ["PLs Federais", "PLs Estaduais do Maranhão"],
+            index=0
+        )
 
-    # Decide qual coleção usar
-    colecao_usada = colecao_3 if mostrar_ma else colecao
+    # Decide qual coleção usar com base na escolha
+    colecao_usada = colecao_3 if origem_opcao == "PLs Estaduais do Maranhão" else colecao
 
     # Carrega os dados da coleção selecionada
     df = pd.DataFrame(list(colecao_usada.find()))
@@ -452,7 +456,7 @@ def main():
             df_filtrado["Data da Última Ação Legislativa"] = df_filtrado["Data da Última Ação Legislativa"].dt.strftime("%d/%m/%Y")
 
         # Define ordem das colunas com base na origem
-        if mostrar_ma:
+        if origem_opcao == "PLs Estaduais do Maranhão":
             nova_ordem = [
                 'Tema', 'Sub-Tema', 'Data da Última Ação Legislativa', 'Proposição',
                 'Ementa', 'Situação', 'Última Ação Legislativa', 'Origem', 'Destino', 'Casa',
@@ -475,6 +479,7 @@ def main():
         # Exibe resultado
         contagem_pls.subheader(f'{len(df_exibir)} PLs monitorados')
         ajustar_altura_dataframe(df_exibir, 1)
+
    
 
 
