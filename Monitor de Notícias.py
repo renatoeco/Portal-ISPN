@@ -222,7 +222,7 @@ else:
                     format="DD/MM/YYYY"
                 )
 
-            aplicar = st.form_submit_button("Aplicar filtros", icon=":material/check:")
+            aplicar = st.form_submit_button("Aplicar filtros", icon=":material/check:", type="primary")
 
     # Aplica os filtros selecionados
     if aplicar:
@@ -366,6 +366,10 @@ else:
 
 
     # TABELA ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////// 
+    st.write("")
+    
+    container_tabela = st.container()
+    
     tabela = df_filtrado[["Data da notícia", "Título da notícia", "Fonte", "Palavra-chave", "Link"]].copy()
 
     # Prepara uma versão limpa só para exportação (sem mudar nomes nem transformar em HTML)
@@ -453,7 +457,8 @@ else:
 
         table th:nth-child(1), table td:nth-child(1) { min-width: 100px; }
         table th:nth-child(2), table td:nth-child(2) { min-width: 350px; }
-        table th:nth-child(3), table td:nth-child(3) { min-width: 320px; }
+        table th:nth-child(3), table td:nth-child(3) { max-width: 250px; }
+        table th:nth-child(4), table td:nth-child(4) { max-width: 300px; }
 
         </style>
         """,
@@ -461,9 +466,8 @@ else:
     )
 
     # Exibir a tabela paginada
-    st.markdown(html, unsafe_allow_html=True)
+    container_tabela.markdown(html, unsafe_allow_html=True)
 
-    st.write("")
     
     # EXPORTAR TABELA
 
