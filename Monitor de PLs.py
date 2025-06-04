@@ -11,7 +11,7 @@ st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
 
 st.header("Monitor de Proposições Legislativas")
 st.write('')
-st.write('Os Projetos de Lei que estão cadastrados (Câmara dos Deputados e Senado) são monitorados diariamente e as atualizações são enviadas por e-mail para as pessoas cadastradas.')
+st.write('Os Projetos de Lei que estão cadastrados (Câmara dos Deputados, Senado e Assembléia Legislativa do Maranhão) são monitorados diariamente e as atualizações são enviadas por e-mail para as pessoas cadastradas.')
 st.write('')
 
 # Criação de um DataFrame vazio com as colunas finais desejadas, que serão preenchidas mais tarde
@@ -128,7 +128,7 @@ def main():
             feedback = st.empty()
 
             # Ao clicar no botão
-            if st.button("Adicionar PL", use_container_width=True, icon=":material/add:", type="primary"):
+            if st.button("Adicionar PL", icon=":material/add:", type="primary"):
                 if tema_pl and sub_tema_pl and link_pl:
                     try:
                         # Identificação da coleção e estrutura apropriada
@@ -234,7 +234,7 @@ def main():
                         index=sub_temas_disponiveis.index(pl_selecionado['Sub-Tema']) if pl_selecionado['Sub-Tema'] in sub_temas_disponiveis else 0
                     )
 
-                    if st.button("Salvar alterações", use_container_width=True, icon=":material/save:", type="primary"):
+                    if st.button("Salvar alterações", icon=":material/save:", type="primary"):
                         colecao_atual.update_one(
                             {"_id": pl_selecionado['_id']},  
                             {"$set": {
@@ -269,7 +269,7 @@ def main():
                     format_func=lambda x: x.get("Proposições") or x.get("Proposição") or "Sem título"
                 )
 
-                if st.button("Excluir PL", icon=":material/delete:", use_container_width=True, type="primary"):
+                if st.button("Excluir PL", icon=":material/delete:", type="primary"):
                     colecao_alvo = colecao if pl_selecionado['colecao'] == 'pls_camara_senado' else colecao_3
                     colecao_alvo.delete_one({"_id": pl_selecionado['_id']})
                     st.success(f"'{pl_selecionado.get('Proposições') or pl_selecionado.get('Proposição') or 'PL'}' excluído com sucesso!")
@@ -302,7 +302,7 @@ def main():
                 nome = st.text_input("Nome")
                 email = st.text_input("E-mail")
 
-                if st.button("Adicionar"):
+                if st.button("Adicionar", icon=":material/add:",type="primary"):
                     if nome and email:
                         
                         try:
@@ -354,7 +354,7 @@ def main():
                     email_selecionado = st.text_input("Edite o e-mail", value=email_atual or "")
 
                     # Botão para salvar as alterações no banco de dados
-                    if st.button("Salvar alterações", use_container_width=True, icon=":material/save:", type="primary"):
+                    if st.button("Salvar alterações", icon=":material/save:", type="primary"):
                         if email_selecionado.strip():  # Evita salvar um e-mail vazio
                             colecao_2.update_one(
                                 {"Nome": pessoa_selecionada["Nome"]},  # Filtro para encontrar o documento correto
@@ -381,7 +381,7 @@ def main():
                     # Cria selectbox para escolher qual PL excluir
                     email_para_excluir = st.selectbox("Escolha o e-mail para excluir", email_para_excluir, format_func=str)
                     
-                    if st.button("Excluir e-mail", icon=":material/delete:", use_container_width=True, type="primary"):
+                    if st.button("Excluir e-mail", icon=":material/delete:", type="primary"):
                         # Exclui o PL selecionado do banco de dados
                         colecao_2.delete_one({"E-mail": email_para_excluir})
                         
@@ -395,6 +395,8 @@ def main():
 
         
         st.button("Gerenciar e-mails", icon=":material/mail:", use_container_width=False, on_click=dial_gerenciar_pessoas)
+
+        st.write('**Pessoas que recebem o e-mail de atualizações:**')
 
         # Converter para DataFrame 
         df_emails = pd.DataFrame(list(colecao_2.find()))
@@ -411,15 +413,15 @@ def main():
 
     
     # Filtro de data e origem
-    col1, col2 = st.columns([1, 5])
-    with col1:
+    colunas = st.columns(3)
+    with colunas[0]:
         opcoes_filtro = ["Todos os PLs", "Atualizados no último mês", "Atualizados na última semana"]
         selecionado = st.radio("Filtrar por data da última ação", opcoes_filtro, index=0)
 
-    with col2:
+    with colunas[1]:
         origem_opcao = st.radio(
             "Selecione quais PLs deseja visualizar",
-            ["PLs Federais", "PLs Estaduais do Maranhão"],
+            ["PLs Federais (Câmara dos Deputados e Senado)", "PLs Estaduais do Maranhão"],
             index=0
         )
 
@@ -477,10 +479,9 @@ def main():
         df_exibir = df_exibir.rename(columns={"Apresentação": "Data de apresentação"})
 
         # Exibe resultado
+        st.write('')
         contagem_pls.subheader(f'{len(df_exibir)} PLs monitorados')
         ajustar_altura_dataframe(df_exibir, 1)
 
    
-
-
 main()
