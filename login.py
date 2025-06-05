@@ -218,6 +218,7 @@ def login():
                 st.session_state["tipo_usuario"] = tipo_usuario
                 st.session_state["nome"] = usuario_encontrado.get("nome_completo")
                 st.session_state["cpf"] = usuario_encontrado.get("CPF")
+                st.session_state["id_usuario"] = usuario_encontrado.get("_id")
                 st.rerun()
             else:
                 st.error("Senha inválida ou usuário não encontrado!")    
