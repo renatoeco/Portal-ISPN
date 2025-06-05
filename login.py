@@ -256,7 +256,7 @@ else:
         "Viagens.py",
         "Férias e recessos.py",
         "Monitor de PLs.py",
-        "Monitor de Notícias.py", 
+        "Clipping de Notícias.py", 
         "Manuais.py",
     ])
 

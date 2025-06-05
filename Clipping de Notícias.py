@@ -79,7 +79,6 @@ def renderizar_noticias_fragment(titulo, mostrar_irrelevantes=False):
 
         # Palavra chave
         st.write(f"**Palavra-chave:** {titulo}")
-        st.write('')
 
         if mostrar_irrelevantes:
             st.markdown(f"**Status:** {noticia.get('Status', 'Sem status')}")
