@@ -1,7 +1,8 @@
 import streamlit as st
 import pandas as pd 
-import streamlit_shadcn_ui as ui
 import plotly.express as px
+from datetime import datetime
+import time
 from funcoes_auxiliares import conectar_mongo_portal_ispn
 
 
@@ -24,157 +25,151 @@ pessoas = db["pessoas"]
 # Obter dados da coleção "pessoas"
 dados_pessoas = list(pessoas.find())
 
+
+# Converter os documentos MongoDB para lista de dicionários
+pessoas_lista = []
+for pessoa in dados_pessoas:
+    pessoas_lista.append({
+        "Nome": pessoa.get("nome_completo", ""),
+        "Programa/Área": pessoa.get("programa_area", ""),
+        "Projeto": pessoa.get("projeto", ""),
+        "Setor": pessoa.get("setor", ""),
+        "Cargo": pessoa.get("cargo", ""),
+        "Escolaridade": pessoa.get("escolaridade", ""),
+        "E-mail": pessoa.get("e‑mail", ""),
+        "Telefone": pessoa.get("telefone", ""),
+        "Gênero": pessoa.get("gênero", ""),
+        "Raça": pessoa.get("raça", "")
+    })
+
+
 ######################################################################################################
 # FUNÇÕES
 ######################################################################################################
 
 
-# Função para cadastrar colaborador
-@st.dialog("Cadastrar colaborador(a)", width='medium')
+@st.dialog("Cadastrar colaborador(a)", width='large')
 def cadastrar_colaborador():
-    with st.form("Cadastrar colaborador(a)", clear_on_submit=True):  # Formulário com limpeza ao enviar
-        st.write('**Novo(a) colaborador(a):**')  # Texto explicativo
+    with st.form("form_cadastro_colaborador", clear_on_submit=True):
+        st.write('**Novo(a) colaborador(a):**')
 
-        # Campo de texto para o nome do novo colaborador
-        novo_nome = st.text_input("Nome:", key="novo_nome")  
+        col1, col2 = st.columns([1,1])
 
-        # Selectbox para escolher o programa ou setor
-        novo_setor = st.selectbox(
-            "Programa / Área:",
-            lista_programas_areas,
-            index=None,
-            placeholder="Selecione...",
-        )
+        nome = col1.text_input("Nome completo:")
+        genero = col2.selectbox("Gênero:", ["Masculino", "Feminino", "Outro"], index=None, placeholder="")
 
-        # Campo de texto para o e-mail do novo colaborador
-        novo_email = st.text_input("E-mail:", key="novo_email")  
+        col1, col2 = st.columns([1,1])
 
-        # Campo para inserir quantos dias receberá na virada do ano
-        a_receber = st.number_input(  
-            "Quantos dias de férias receberá na virada do ano?:", 
-            key="a_receber", 
-            format="%d", 
-            step=1, 
-            min_value=0  # Não permite valores negativos
-        )
+        cpf = col1.text_input("CPF:", placeholder="000.000.000-00")
+        rg = col2.text_input("RG e órgão emissor:")
 
-        saldo_inicial = 0  
-        # # Campo para inserir o saldo inicial em dias
-        # saldo_inicial = st.number_input(  
-        #     "Saldo inicial (dias):", 
-        #     key="saldo_inicial", 
-        #     format="%d", 
-        #     step=1, 
-        #     min_value=0  # Não permite valores negativos
-        # )
 
-        residual_ano_anterior = 0
-        # # Campo para inserir o residual do ano anterior
-        # residual_ano_anterior = st.number_input(  
-        #     "Residual do ano anterior (dias):", 
-        #     key="residual_ano_anterior", 
-        #     format="%d", 
-        #     step=1,
-        #     value=0, 
-        #     min_value=0  # Não permite valores negativos
-        # )
+        col1, col2, col3 = st.columns([1,2,2])
 
-        # Botão de submissão do formulário
-        if st.form_submit_button('Cadastrar', type="primary", icon=":material/person_add:"):  # Se o botão for clicado:
-            # Verifica se o nome foi preenchido
-            if not novo_nome:
-                st.warning("Insira o nome.")  # Mostra uma mensagem de alerta se o nome estiver vazio
-
-            # Verifica se o setor foi preenchido
-            elif not novo_setor:
-                st.warning("Selecione o programa ou setor.")  # Mostra uma mensagem de alerta se o setor estiver vazio
-
-            # Verifica se o email foi preenchido
-            elif not novo_email:
-                st.warning("Insira o e-mail.")  # Mostra uma mensagem de alerta se o nome estiver vazio
-
-            # Verifica se a receber foi preenchido
-            elif a_receber == 0:
-                st.warning("Insira um valor a receber maior que zero.")  # Mostra alerta para saldo zero
-    
-            else:
-                # Define o ano atual
-                ano_atual = str(datetime.now().year)  # Obtém o ano atual como string
+        data_nascimento = col1.text_input("Data de nascimento:", placeholder="dd/mm/aaaa")
+        telefone = col2.text_input("Telefone:")
         
-                # Cria o novo documento com a estrutura especificada
-                novo_colaborador = {
-                    novo_nome: {
-                        "email": novo_email,
-                        "setor": novo_setor,
-                        "anos": {  # Adiciona a chave 'anos' que contém o ano atual
+        email = col3.text_input("E-mail:")
+
+        col1, col2 = st.columns([1,1])
+
+        email_coord = col1.text_input("Nome do(a) coordenador(a):")
+        lista_programas_areas = sorted({pessoa["Programa/Área"] for pessoa in pessoas_lista if pessoa["Programa/Área"]})
+        programa_area = col2.selectbox("Programa / Área:", lista_programas_areas, index=None, placeholder="")
+
+
+        st.markdown("---")
+
+        # Banco
+        st.markdown("#### Dados bancários")
+        st.write("")
+
+        col1, col2 = st.columns([1,1])
+
+        nome_banco = col1.text_input("Nome do banco:")
+        agencia = col2.text_input("Agência:")
+
+        col1, col2 = st.columns([1,1])
+
+        conta = col1.text_input("Conta:")
+        tipo_conta = col2.selectbox("Tipo de conta:", ["Conta Corrente", "Conta Poupança", "Conta Salário"], index=None, placeholder="")
+
+        st.markdown("---")
+
+        # Férias
+        st.markdown("#### Férias")
+
+        col1, col2 = st.columns([1,2])
+
+        a_receber = col1.number_input("Dias de férias a receber:", step=1, min_value=0)
+        residual_ano_anterior = 0
+        valor_inicial_ano_atual = 0
+        total_gozado = 0
+        saldo_atual = residual_ano_anterior + valor_inicial_ano_atual
+
+        st.write("")
+
+        if st.form_submit_button("Cadastrar", type="secondary", icon=":material/person_add:"):
+            if not nome or not email or not programa_area:
+                st.warning("Preencha os campos obrigatórios: Nome, E-mail e Programa/Área.")
+            else:
+                ano_atual = str(datetime.now().year)
+
+                novo_documento = {
+                    "nome_completo": nome,
+                    "CPF": cpf,
+                    "RG": rg,
+                    "e‑mail": email,
+                    "telefone": telefone,
+                    "data_nascimento": data_nascimento,
+                    "gênero": genero,
+                    "senha": "",
+                    "tipo de usuário": "",
+                    "programa_area": programa_area,
+                    "e‑mail_coordenador": email_coord,
+                    "status": "ativo",
+                    "banco": {
+                        "nome_banco": nome_banco,
+                        "agencia": agencia,
+                        "conta": conta,
+                        "tipo_conta": tipo_conta
+                    },
+                    "férias": {
+                        "anos": {
                             ano_atual: {
-                                "residual_ano_anterior": residual_ano_anterior,  # Residual do ano anterior
-                                "valor_inicial_ano_atual": saldo_inicial,  # Saldo inicial do ano atual
-                                "total_gozado": 0,  # Total de férias gozadas
-                                "saldo_atual": residual_ano_anterior + saldo_inicial,  # Saldo atual de férias
+                                "residual_ano_anterior": residual_ano_anterior,
+                                "valor_inicial_ano_atual": valor_inicial_ano_atual,
+                                "total_gozado": total_gozado,
+                                "saldo_atual": saldo_atual,
+                                "solicitacoes": [],
                                 "a_receber": a_receber
                             }
                         }
                     }
                 }
 
-                # Insere o novo colaborador na coleção MongoDB
-                colecao.insert_one(novo_colaborador) 
+                # Inserir no MongoDB
+                pessoas.insert_one(novo_documento)
 
-                # Exibe uma mensagem de confirmação
-                st.success(f'Colaborador(a) cadastrado(a) com sucesso: **{novo_nome}**', icon=":material/thumb_up:")
-
-                # Pausa por 3 segundos e recarrega a página
-                time.sleep(3)  # Aguarda 3 segundos
-                st.rerun()  # Recarrega a aplicação para atualizar os dados
-
-# Botão para abrir o modal de cadastro
-st.button("Cadastrar colaborador(a)", on_click=cadastrar_colaborador, use_container_width=True, icon=":material/person_add:")
+                st.success(f"Colaborador(a) **{nome}** cadastrado(a) com sucesso!", icon=":material/thumb_up:")
+                time.sleep(2)
+                st.rerun()
 
 
+######################################################################################################
+# MAIN
+######################################################################################################
 
 
+# Botão de cadastro de novos colaboradores só para alguns tipos de usuário
+tipos_usuario = st.session_state.get("tipo_usuario", [])
+if "admin" in tipos_usuario:
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# Converter os documentos MongoDB para lista de dicionários
-pessoas_lista = []
-for pessoa in dados_pessoas:
-    pessoas_lista.append({
-        "Nome": pessoa.get("nome_completo", "Não informado"),
-        "Programa": pessoa.get("programa", "Não informado"),
-        "Projeto": pessoa.get("projeto", "Não informado"),
-        "Setor": pessoa.get("programa_area", "Não informado"),
-        "Cargo": pessoa.get("cargo", "Não informado"),
-        "Escolaridade": pessoa.get("escolaridade", "Não informado"),
-        "E-mail": pessoa.get("email", "Não informado"),
-        "Telefone": pessoa.get("telefone", "Não informado"),
-        "Gênero": pessoa.get("gênero", "Não informado"),
-        "Raça": pessoa.get("raça", "Não informado")
-    })
+    # Botão para abrir o modal de cadastro
+    st.button("Cadastrar colaborador(a)", on_click=cadastrar_colaborador, use_container_width=True, icon=":material/person_add:")
 
 # Criar DataFrame
-pessoas = pd.DataFrame(pessoas_lista)
+df_pessoas = pd.DataFrame(pessoas_lista)
 
 # Filtros (pode-se popular dinamicamente se quiser)
 col1, col2, col3, col4 = st.columns(4)
@@ -185,39 +180,49 @@ col3.selectbox("Doador", ["Todos", "USAID", "GEF", "UE", "Laudes Foundation"])
 col4.selectbox("Projeto", ["Todos", "Projeto 1", "Projeto 2", "Projeto 3", "Projeto 4", "Projeto 5"])
 
 # Exibir DataFrame
-st.subheader(f'{len(pessoas)} colaboradores(as)')
+st.subheader(f'{len(df_pessoas)} colaboradores(as)')
 st.write('')
-st.dataframe(pessoas, hide_index=True)
+st.dataframe(df_pessoas, hide_index=True)
 
 # Gráficos
 col1, col2 = st.columns(2)
 
-# Programa
-fig = px.bar(pessoas, x='Programa', color='Programa', title='Distribuição de Pessoas por Programa')
+# Agrupar e ordenar
+programa_counts = df_pessoas['Programa/Área'].value_counts().reset_index()
+programa_counts.columns = ['Programa/Área', 'Quantidade']
+
+# Criar gráfico ordenado do maior para o menor
+fig = px.bar(
+    programa_counts,
+    x='Programa/Área',
+    y='Quantidade',
+    color='Programa/Área',
+    title='Distribuição de Pessoas por Programa/Área'
+)
 col1.plotly_chart(fig)
 
 # Projeto
-fig = px.bar(pessoas, x='Projeto', color='Programa', title='Distribuição de Pessoas por Projeto')
+fig = px.bar(df_pessoas, x='Projeto', color='Projeto', title='Distribuição de Pessoas por Projeto')
 col2.plotly_chart(fig)
 
 # Setor
-fig = px.pie(pessoas, names='Setor', title='Distribuição de Pessoas por Setor')
+fig = px.pie(df_pessoas, names='Setor', title='Distribuição de Pessoas por Setor')
 col1.plotly_chart(fig)
 
 # Cargo
-fig = px.pie(pessoas, names='Cargo', title='Distribuição de Pessoas por Cargo')
+fig = px.pie(df_pessoas, names='Cargo', title='Distribuição de Pessoas por Cargo')
 col2.plotly_chart(fig)
 
 # Gênero
-fig = px.pie(pessoas, names='Gênero', title='Distribuição de Pessoas por Gênero')
+fig = px.pie(df_pessoas, names='Gênero', title='Distribuição de Pessoas por Gênero')
 col1.plotly_chart(fig)
 
 # Raça
-fig = px.pie(pessoas, names='Raça', title='Distribuição de Pessoas por Raça')
+fig = px.pie(df_pessoas, names='Raça', title='Distribuição de Pessoas por Raça')
 col2.plotly_chart(fig)
 
 # Escolaridade
-fig = px.pie(pessoas, names='Escolaridade', title='Distribuição de Pessoas por Escolaridade')
+fig = px.pie(df_pessoas, names='Escolaridade', title='Distribuição de Pessoas por Escolaridade')
 col1.plotly_chart(fig)
 
 
