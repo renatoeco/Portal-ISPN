@@ -1,10 +1,122 @@
 import streamlit as st
 import pandas as pd
 import streamlit_shadcn_ui as ui
+import ast
 import plotly.express as px
+from bson import ObjectId
+from funcoes_auxiliares import conectar_mongo_portal_ispn
 
 st.set_page_config(layout="wide")
 st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
+
+
+######################################################################################################
+# CONEXÃO COM O BANCO DE DADOS MONGODB
+######################################################################################################
+
+
+db = conectar_mongo_portal_ispn()
+estatistica = db["estatistica"]  # Coleção de estatísticas
+pj = list(db["projetos_pj"].find())
+pf = list(db["projetos_pf"].find())
+projetos_ispn = list(db["projetos_ispn"].find())
+ufs_municipios = db["ufs_municipios"]
+
+
+######################################################################################################
+# FUNÇÕES
+######################################################################################################
+
+
+# Função para converter lista de códigos em lista de nomes
+def converter_codigos_para_nomes(valor):
+    if not valor:
+        return ""
+
+    try:
+        # Divide por vírgula, remove espaços e filtra vazios
+        partes = [v.strip() for v in valor.split(",") if v.strip()]
+        nomes = []
+
+        for parte in partes:
+            if parte.isdigit():
+                # Tenta mapear o código (int convertido para str)
+                nome = codigo_para_nome.get(parte, parte)
+                nomes.append(nome)
+            else:
+                # Já é nome (ex: 'Brasília')
+                nomes.append(parte)
+
+        return ", ".join(nomes)
+    except Exception as e:
+        return valor
+
+
+######################################################################################################
+# MAIN
+######################################################################################################
+
+
+# Combine os dados
+todos_projetos = pj + pf
+
+dados_municipios = list(ufs_municipios.find())
+
+mapa_doador = {str(proj["_id"]): proj.get("doador", "") for proj in projetos_ispn}
+
+# Criar dicionário de mapeamento código -> nome
+codigo_para_nome = {}
+for doc in dados_municipios:
+    for m in doc.get("municipios", []):
+        codigo_para_nome[str(m["codigo_municipio"])] = m["nome_municipio"]
+         
+for projeto in todos_projetos:
+    projeto_pai_id = projeto.get("codigo_projeto_pai")
+    if projeto_pai_id:
+        projeto["doador"] = mapa_doador.get(str(projeto_pai_id), "")
+    else:
+        projeto["doador"] = ""
+
+# Transforme em DataFrame
+df_projetos = pd.DataFrame(todos_projetos)
+
+# Lista base de colunas obrigatórias
+colunas = [
+    "codigo",
+    "edital",
+    "proponente",
+    "valor",
+    "ano_de_aprovacao",
+    "municipios",
+    "tipo"
+]
+
+# Adiciona "doador" se ela estiver presente no DataFrame
+if "doador" in df_projetos.columns:
+    colunas.insert(3, "doador")  # Mantém a ordem: após "proponente"
+
+# Seleciona apenas as colunas existentes
+df_projetos = df_projetos[colunas].rename(columns={
+    "codigo": "Código",
+    "edital": "Edital",
+    "proponente": "Proponente",
+    "doador": "Doador",
+    "valor": "Valor",
+    "ano_de_aprovacao": "Ano",
+    "municipios": "Municípios",
+    "tipo": "Tipo"
+})
+
+
+# Garantir que todos os campos estão como string
+df_projetos = df_projetos.fillna("").astype(str)
+
+# Aplicar a função na coluna 'Municípios'
+df_projetos["Municípios"] = df_projetos["Municípios"].apply(converter_codigos_para_nomes)
+
+# Corrigir a coluna 'Ano' para remover ".0"
+df_projetos["Ano"] = df_projetos["Ano"].str.replace(".0", "", regex=False)
+
 
 st.header("Fundo Ecos")
 
@@ -47,30 +159,61 @@ st.write('')
 geral, lista, mapa = st.tabs(["Visão geral", "Projetos", "Mapa"])
 
 with geral:
+    # Total de projetos apoiados
+    total_projetos = len(df_projetos)
 
+    # Total de editais únicos (remover vazios)
+    total_editais = df_projetos["Edital"].replace("", pd.NA).dropna().nunique()
+
+    # Total de doadores únicos (remover vazios)
+    total_doador = df_projetos["Doador"].replace("", pd.NA).dropna().nunique()
+
+    # Total de estados únicos a partir dos municípios (usando código nomeado ex: "BA - Salvador")
+    estados_unicos = set()
+
+    for municipios in df_projetos["Municípios"]:
+        for m in municipios.split(","):
+            m = m.strip()
+            if " - " in m:
+                estado = m.split(" - ")[-1]  # Pega o que vem DEPOIS do traço
+                estados_unicos.add(estado)
+
+
+    # Total de municípios únicos
+    todos_municipios = set()
+    for municipios in df_projetos["Municípios"]:
+        for m in municipios.split(","):
+            m = m.strip()
+            todos_municipios.add(m)
+    total_municipios = len(todos_municipios)
+
+    # Converter valores para float
+    df_projetos["Valor_float"] = pd.to_numeric(df_projetos["Valor"].str.replace(",", "").str.replace(".", "", regex=False), errors="coerce")
+
+    contratos_usd = df_projetos[df_projetos["Doador"].str.upper().str.contains("USAID")]["Valor_float"].sum()
+    contratos_eur = df_projetos[df_projetos["Doador"].str.upper().str.contains("UE|EURO|EU ")]["Valor_float"].sum()
+    contratos_brl = df_projetos[~df_projetos["Doador"].str.upper().str.contains("USAID|UE|EURO|EU ")]["Valor_float"].sum()
+
+    total_convertido_usd = contratos_usd + contratos_eur + contratos_brl  # Aqui você pode aplicar conversão real se quiser
+
+    # Apresentar
     col1, col2, col3 = st.columns(3)
+    col1.metric("Projetos apoiados", f"{total_projetos}")
+    col2.metric("Editais", f"{total_editais}")
+    col3.metric("Doadores", f"{total_doador}")
 
-    col1.metric("Projetos apoiados", "1251")
-
-    col2.metric("Editais", "53")
-
-    col3.metric("Doadores", "13")
-
-    col1.metric("Estados", "18")
-
-    col2.metric("Municípios", "294")
+    col1.metric("Estados", len(estados_unicos))
+    col2.metric("Municípios", f"{total_municipios}")
 
     st.divider()
 
     col1, col2, col3 = st.columns(3)
 
-    col1.metric("Contratos em US$", "11.020.251")
+    col1.metric("Contratos em US$", f"{contratos_usd:,.2f}")
+    col2.metric("Contratos em EU$", f"{contratos_eur:,.2f}")
+    col3.metric("Contratos em R$", f"{contratos_brl:,.2f}")
 
-    col2.metric("Contratos em EU$", "9.010.243")
-
-    col3.metric("Contratos em R$", "29.020.251")
-
-    col1.metric("Total convertido para US$", "85.020.251")
+    col1.metric("Total convertido para US$", f"{total_convertido_usd:,.2f}")
 
 with lista:
 
@@ -191,7 +334,7 @@ with lista:
         ],
     }
 
-    df_projetos = pd.DataFrame(projetos)
+    #df_projetos = pd.DataFrame(projetos)
     # st.dataframe(df_projetos, height=200)
 
     # ui.table(data=df_projetos)
