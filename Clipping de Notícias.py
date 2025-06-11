@@ -13,6 +13,9 @@ import io
 
 st.set_page_config(layout="wide")
 st.header("Clipping de Notícias")
+
+st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
+
 st.write('')
 
 #######################################################################################################
@@ -250,7 +253,7 @@ else:
 
     # Notificação de triagem pendente
     if qtd_sem_status > 0:
-        st.warning(f"{qtd_sem_status} notícia(s) precisam ser triadas. Se já foram triadas, clique no botão 'Atualizar página'.", icon=":material/warning:")
+        st.warning(f"{qtd_sem_status} notícia(s) precisam ser triadas.", icon=":material/warning:")
 
     st.write("")
 
