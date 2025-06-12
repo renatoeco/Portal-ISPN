@@ -50,6 +50,56 @@ def converter_codigos_para_nomes(valor):
         return ", ".join(nomes)
     except Exception as e:
         return valor
+    
+def converter_uf_codigo_para_nome(valor):
+    """
+    Converte um ou mais códigos de UF para seus nomes correspondentes.
+    Exemplo de entrada: "12,27"
+    """
+    if not valor:
+        return ""
+
+    try:
+        partes = [v.strip() for v in valor.split(",") if v.strip()]
+        nomes = []
+
+        for parte in partes:
+            if parte.isdigit():
+                nome = uf_para_nome.get(parte, parte)
+                nomes.append(nome)
+            else:
+                nomes.append(parte)
+
+        return ", ".join(nomes)
+    except Exception as e:
+        return valor
+
+    
+
+@st.dialog("Detalhes do projeto", width="large")
+def mostrar_detalhes(i):
+    projeto_df = df_projetos.iloc[i]
+    projeto = todos_projetos[i]  # Supondo que todos_projetos e df_projetos estão na mesma ordem
+
+    st.write(f"**Proponente:** {projeto_df['Proponente']}")
+    st.write(f"**Nome do projeto:** {projeto.get('nome_do_projeto', '')}")
+    st.write(f"**Edital:** {projeto_df['Edital']}")
+    st.write(f"**Ano de aprovação:** {projeto_df['Ano']}")
+    st.write(f"**Ponto Focal:** {projeto.get('ponto_focal', '')}")
+    st.write(f"**Estado:** {converter_uf_codigo_para_nome(projeto.get('ufs', ''))}")
+    st.write(f"**Município(s):** {projeto_df['Municípios']}")
+    st.write(f"**Situação:** {projeto.get('status', '')}")
+    st.write(f"**Data de início:** {projeto.get('data_inicio_do_contrato', '')}")
+    st.write(f"**Data de fim:** {projeto.get('data_final_do_contrato', '')}")
+    st.write(f"**Doador:** {projeto_df['Doador']}")
+    st.write(f"**Moeda:** {projeto.get('moeda', '')}")
+    st.write(f"**Valor:** {projeto_df['Valor']}")
+    st.write(f"**Tipo:** {projeto_df['Tipo']}")
+
+    if "indicadores" in projeto:
+        df_indicadores = pd.DataFrame(projeto["indicadores"])
+        st.write("**Indicadores:**")
+        st.dataframe(df_indicadores, hide_index=True)
 
 
 ######################################################################################################
@@ -63,6 +113,12 @@ todos_projetos = pj + pf
 dados_municipios = list(ufs_municipios.find())
 
 mapa_doador = {str(proj["_id"]): proj.get("doador", "") for proj in projetos_ispn}
+
+# Criar dicionário código_uf -> nome_uf
+uf_para_nome = {}
+for doc in dados_municipios:
+    for uf in doc.get("ufs", []):
+        uf_para_nome[str(uf["codigo_uf"])] = uf["nome_uf"]
 
 # Criar dicionário de mapeamento código -> nome
 codigo_para_nome = {}
@@ -159,6 +215,18 @@ st.write('')
 geral, lista, mapa = st.tabs(["Visão geral", "Projetos", "Mapa"])
 
 with geral:
+
+    # Contabilização única e limpa de UFs
+    ufs_unicos = set()
+
+    for projeto in todos_projetos:
+        ufs_str = projeto.get("ufs", "")
+        ufs_list = [uf.strip() for uf in ufs_str.split(",") if uf.strip()]
+        ufs_unicos.update(ufs_list)
+
+    # Contar apenas UFs válidas
+    total_ufs = len(ufs_unicos)
+
     # Total de projetos apoiados
     total_projetos = len(df_projetos)
 
@@ -168,174 +236,60 @@ with geral:
     # Total de doadores únicos (remover vazios)
     total_doador = df_projetos["Doador"].replace("", pd.NA).dropna().nunique()
 
-    # Total de estados únicos a partir dos municípios (usando código nomeado ex: "BA - Salvador")
+    # Total de estados únicos a partir dos municípios (código do estado antes do traço)
     estados_unicos = set()
-
     for municipios in df_projetos["Municípios"]:
         for m in municipios.split(","):
             m = m.strip()
             if " - " in m:
-                estado = m.split(" - ")[-1]  # Pega o que vem DEPOIS do traço
+                estado = m.split(" - ")[0]  # Pega o que vem ANTES do traço (ex: "BA")
                 estados_unicos.add(estado)
 
+    total_estados = len(estados_unicos)
 
-    # Total de municípios únicos
-    todos_municipios = set()
-    for municipios in df_projetos["Municípios"]:
-        for m in municipios.split(","):
-            m = m.strip()
-            todos_municipios.add(m)
-    total_municipios = len(todos_municipios)
+    # Contabilização única e limpa de municípios
+    municipios_unicos = set()
 
-    # Converter valores para float
-    df_projetos["Valor_float"] = pd.to_numeric(df_projetos["Valor"].str.replace(",", "").str.replace(".", "", regex=False), errors="coerce")
+    for projeto in todos_projetos:
+        municipios_str = projeto.get("municipios", "")
+        codigos = [m.strip() for m in municipios_str.split(",") if m.strip()]
+        nomes = [codigo_para_nome.get(cod, cod) for cod in codigos]
+        municipios_unicos.update(nomes)
 
-    contratos_usd = df_projetos[df_projetos["Doador"].str.upper().str.contains("USAID")]["Valor_float"].sum()
-    contratos_eur = df_projetos[df_projetos["Doador"].str.upper().str.contains("UE|EURO|EU ")]["Valor_float"].sum()
-    contratos_brl = df_projetos[~df_projetos["Doador"].str.upper().str.contains("USAID|UE|EURO|EU ")]["Valor_float"].sum()
+    total_municipios = len(municipios_unicos)
 
-    total_convertido_usd = contratos_usd + contratos_eur + contratos_brl  # Aqui você pode aplicar conversão real se quiser
-
-    # Apresentar
+    # Apresentar em colunas organizadas
     col1, col2, col3 = st.columns(3)
+
     col1.metric("Projetos apoiados", f"{total_projetos}")
     col2.metric("Editais", f"{total_editais}")
     col3.metric("Doadores", f"{total_doador}")
 
-    col1.metric("Estados", len(estados_unicos))
+    col1.metric("Estados", f"{total_ufs}")
     col2.metric("Municípios", f"{total_municipios}")
 
     st.divider()
 
-    col1, col2, col3 = st.columns(3)
+    # Converter valores para float
+    # df_projetos["Valor_float"] = pd.to_numeric(df_projetos["Valor"].str.replace(",", "").str.replace(".", "", regex=False), errors="coerce")
 
-    col1.metric("Contratos em US$", f"{contratos_usd:,.2f}")
-    col2.metric("Contratos em EU$", f"{contratos_eur:,.2f}")
-    col3.metric("Contratos em R$", f"{contratos_brl:,.2f}")
+    # contratos_usd = df_projetos[df_projetos["Doador"].str.upper().str.contains("USAID")]["Valor_float"].sum()
+    # contratos_eur = df_projetos[df_projetos["Doador"].str.upper().str.contains("UE|EURO|EU ")]["Valor_float"].sum()
+    # contratos_brl = df_projetos[~df_projetos["Doador"].str.upper().str.contains("USAID|UE|EURO|EU ")]["Valor_float"].sum()
 
-    col1.metric("Total convertido para US$", f"{total_convertido_usd:,.2f}")
+    #total_convertido_usd = contratos_usd + contratos_eur + contratos_brl  # Aqui você pode aplicar conversão real se quiser
+
+    # Apresentar
+
+    #col1, col2, col3 = st.columns(3)
+
+    # col1.metric("Contratos em US$", f"{contratos_usd:,.2f}")
+    # col2.metric("Contratos em EU$", f"{contratos_eur:,.2f}")
+    # col3.metric("Contratos em R$", f"{contratos_brl:,.2f}")
+
+    # col1.metric("Total convertido para US$", f"{total_convertido_usd:,.2f}")
 
 with lista:
-
-    @st.dialog("Detalhes do projeto", width="large")
-    def mostrar_detalhes():
-        st.write("**Proponente:** Associação de moradores do Vale do Corda")
-        st.write("**Nome do projeto:** Recuperação de áreas degradadas na bacia do Rio Pajeú")
-        st.write("**Edital:** 38")
-        st.write("**Ponto focal:** Renato")
-        st.write("**Estado(s):** BA")
-        st.write("**Município(s):** João Pessoa")
-        st.write("**Contatos do projeto:**")
-        st.write('- Jorge Palma - jorge@gmail.com - (31) 99999-9999')
-        st.write("**Situação:** Em dia")
-        st.write("**Visitas:** 15/03/2024 - Renato - Participação do seminário de encerramento")
-        st.write("**Data de início:** 15/03/2024")
-        st.write("**Data de fim:** 15/03/2025")
-        st.write("**Indicadores:**")
-        df_indicadores = pd.DataFrame({
-            "Indicador": [
-                "Número de organizações apoiadas",
-                "Número de comunidades fortalecidas",
-                "Número de indígenas",
-                "Número de famílias"
-            ],
-            "Reporte": [
-                "Organizações do Cerrativismo",
-                "Projeto ADEL",
-                "Preparação pra COP do Clima",
-                "Apoio à Central do Cerrado"
-            ],
-            "Valor": [
-                25,
-                2,
-                8,
-                18,
-            ],
-            "Ano": [
-                2023,
-                2023,
-                2023,
-                2023,
-            ],
-            "Observações": [
-                "Contagem manual",
-                "Por conversa telefônica",
-                "Se refere ao seminário estadual",
-                "Contagem manual",
-            ],
-            "Autor": [
-                "João",
-                "Maria",
-                "José",
-                "Pedro",
-            ]
-        })
-        st.dataframe(df_indicadores, hide_index=True)
-
-
-
-
-    projetos = {
-        "Código": [
-            "BRA/25/01",
-            "BRA/25/02",
-            "BRA/25/03",
-            "BRA/25/04",
-            "BRA/25/05",
-        ],
-        "Edital": [
-            "001/2020",
-            "002/2020",
-            "003/2020",
-            "004/2020",
-            "005/2020",
-        ],
-        "Proponente": [
-            "Associação X",
-            "Associação Y",
-            "Associação Z",
-            "Associação W",
-            "Associação V",
-        ],
-        "Doador": [
-            "UE",
-            "GIZ",
-            "KFW",
-            "USAID",
-            "Citi Foundation",
-        ],
-        "Valor": [
-            "50000.0",
-            "120000.0",
-            "80000.0",
-            "150000.0",
-            "20000.0",
-        ],
-        "Ano": [
-            "2020",
-            "2020",
-            "2020",
-            "2020",
-            "2020",
-        ],
-        "Municípios": [
-            "Município A",
-            "Município B",
-            "Município C",
-            "Município D",
-            "Município E",
-        ],
-        "Tipo": [
-            "PJ",
-            "PJ",
-            "PF",
-            "PJ",
-            "PJ",
-        ],
-    }
-
-    #df_projetos = pd.DataFrame(projetos)
-    # st.dataframe(df_projetos, height=200)
 
     # ui.table(data=df_projetos)
     # Cabeçalho da tabela
@@ -345,6 +299,42 @@ with lista:
     st.markdown("### Projetos")
     st.write('')
 
+    # Número de itens por página
+    itens_por_pagina = 20
+
+    # Total de linhas do DataFrame
+    total_linhas = len(df_projetos)
+
+    # Total de páginas
+    total_paginas = (total_linhas - 1) // itens_por_pagina + 1
+
+    col1, col2, col3 = st.columns([5, 2, 1])
+
+    # Seleciona página atual (com key para manter estado)
+    pagina_atual = col3.number_input(
+        "Página",
+        min_value=1,
+        max_value=total_paginas,
+        value=1,
+        step=1,
+        key="pagina_projetos"
+    )
+
+    # Calcula os índices da página atual
+    inicio = (pagina_atual - 1) * itens_por_pagina
+    fim = inicio + itens_por_pagina
+
+    # Fatiar DataFrame com os dados da página atual
+    df_paginado = df_projetos.iloc[inicio:fim]
+
+    # Exibir informação de paginação
+    with col2:
+        st.write("")
+        st.write("")
+        st.write(f"Mostrando {inicio + 1} a {min(fim, total_linhas)} de {total_linhas} resultados")
+
+    st.write("")
+
     # Cabeçalho visual
     header_cols = st.columns(col_sizes)
     for col, header in zip(header_cols, headers):
@@ -352,21 +342,21 @@ with lista:
 
     st.divider()
 
+    # Fatia do DataFrame
+    df_paginado = df_projetos.iloc[inicio:fim]
+
+    
+
     # Linhas
-    for i, row in df_projetos.iterrows():
+    for i, row in df_paginado.iterrows():
         cols = st.columns(col_sizes)
         for j, key in enumerate(df_projetos.columns):
             cols[j].write(row[key])
 
-        # Última coluna com botão
-        cols[-1].button("Detalhes", key=f"ver_{i}", on_click=mostrar_detalhes)
-
+        # Botão de detalhes, o índice original é necessário
+        idx_original = row.name
+        cols[-1].button("Detalhes", key=f"ver_{idx_original}", on_click=mostrar_detalhes, args=(idx_original,))
         st.divider()
-
-
-
-
-
 
 
 
