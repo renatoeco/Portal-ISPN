@@ -23,7 +23,7 @@ doadores = db["projetos_ispn"]
 cursor = doadores.find({
     "valor": {"$exists": True, "$ne": ""}
 })
-   
+
 
 ######################################################################################################
 # MAIN
@@ -35,6 +35,21 @@ st.header("Doadores")
 dados = list(cursor)
 df = pd.DataFrame(dados)
 
+# Cotações
+cotacoes = {
+    "Dólar": 5.54,
+    "Dólares": 5.54,
+    "Euro": 6.40,
+    "Euros": 6.40,
+    "Real": 1.0,
+    "Reais": 1.0
+}
+
+
+def converter_para_brl(valor, moeda):
+    taxa = cotacoes.get(moeda, 1.0)
+    return valor * taxa
+
 # Conversão e limpeza do valor
 df["valor"] = (
     df["valor"]
@@ -43,6 +58,15 @@ df["valor"] = (
     .str.replace(",", ".", regex=False)  # Troca vírgula decimal por ponto
 )
 df["valor"] = pd.to_numeric(df["valor"], errors="coerce")
+
+# Preencha moeda com "Reais" se estiver vazia
+df["moeda"] = df.get("moeda", "Reais").fillna("Reais")
+
+# Converta para BRL
+df["valor_brl"] = df.apply(lambda x: converter_para_brl(x["valor"], x["moeda"]), axis=1)
+
+# Formato brasileiro: R$ 1.234,56 
+df["valor_brl_str"] = df["valor_brl"].apply(lambda x: f'R$ {x:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.'))
 
 df["tipo_de_doador"] = df["tipo_de_doador"].str.capitalize()
 
@@ -65,14 +89,15 @@ with tab1:
 
     # Agrupar por doador
     resumo = df.groupby(["doador", "tipo_de_doador"], as_index=False).agg({
-        "valor": "sum",
+        "valor_brl": "sum",
         "_id": "count"
     }).rename(columns={
-        "valor": "Valor",
-        "_id": "Numero de projetos apoiados",
+        "valor_brl": "Valor",
+        "_id": "Numero de projetos",
         "doador": "Doadores",
         "tipo_de_doador": "Tipo de Doador"
     })
+
 
     # Gerar cores únicas por doador
     def gerar_cor():
@@ -80,17 +105,29 @@ with tab1:
     resumo["Cor"] = [gerar_cor() for _ in range(len(resumo))]
 
     # Gráfico com Altair
-    resumo["Valor_br"] = resumo["Valor"].apply(lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+    resumo["Valor_br"] = resumo["Valor"].apply(
+        lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    )
 
-    chart = alt.Chart(resumo).mark_circle().encode(
-        x=alt.X('Numero de projetos apoiados', title='Número de Projetos Apoiados'),
-        y=alt.Y('Valor', title='Valor (R$)'),
+
+    chart = alt.Chart(resumo).mark_circle(size=150).encode(
+        x=alt.X(
+            'Numero de projetos:Q',
+            title='Número de Projetos',
+            axis=alt.Axis(format='d'),
+            scale=alt.Scale(domain=[0, 10])  # Força o eixo X ir de 0 a 10
+        ),
+        y=alt.Y(
+            'Valor:Q',
+            title='Valor (R$)',
+            axis=alt.Axis(format=",.2f")
+        ),
         size=alt.Size('Valor', legend=None),
         color=alt.Color('Doadores:N', scale=alt.Scale(domain=resumo['Doadores'], range=resumo['Cor'])),
         tooltip=[
             'Doadores',
             alt.Tooltip('Valor_br', type='nominal', title='Valor'),
-            'Numero de projetos apoiados'
+            'Numero de projetos'
         ]
     ).properties(
         width=700,
@@ -165,12 +202,12 @@ with tab2:
 
     df_doador["Início"] = df_doador["data_inicio_contrato"].apply(parse_data)
     df_doador["Fim"] = df_doador["data_fim_contrato"].apply(parse_data)
-    df_doador["Projeto"] = df_doador["nome_do_projeto"].fillna("Sem nome")
+    df_doador["Projeto"] = df_doador["sigla"].fillna("Sem nome")
     df_doador["Situação"] = df_doador["status"].fillna("Desconhecido")
 
     # Mostrar métrica total
     valor_total = df_doador['valor'].sum()
-    st.metric('Valor total dos apoios', f"R$ {valor_total:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+    st.metric('Valor total dos apoios', df_doador['valor_brl'].sum())
 
 
     st.write('')
@@ -186,7 +223,7 @@ with tab2:
         })
         .sort_values(by="Início")
         .style.format({
-            "Valor (R$)": lambda x: f"{x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        "Valor (R$)": lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
         }),
         hide_index=True
         )
@@ -197,6 +234,10 @@ with tab2:
     # Ordena por data de início para exibir em ordem cronológica
     df_doador_sorted = df_doador.sort_values(by="Início", ascending=False)
 
+    # Altura proporcional ao número de projetos
+    num_projetos = df_doador_sorted["Projeto"].nunique()
+    altura_total = max(300, num_projetos * 50)
+
     fig = px.timeline(
         df_doador_sorted,
         x_start='Início',
@@ -204,14 +245,23 @@ with tab2:
         y='Projeto',
         color='Situação',
         hover_data=['valor'],
-        height=300
+        height=altura_total
     )
 
-    # Atualiza o eixo Y com os projetos na ordem correta
     fig.update_yaxes(
         categoryorder='array',
         categoryarray=df_doador_sorted["Projeto"].tolist()
     )
 
+    fig.update_xaxes(
+        dtick="M12",           # Mostrar a cada 12 meses
+        tickformat="%Y",       # Exibir apenas o ano (2022, 2023 etc.)
+        tickangle=-50
+    )
+
+    fig.update_layout(
+        margin=dict(l=100, r=50, t=50, b=50),
+        yaxis_title=""
+    )
 
     st.plotly_chart(fig)
