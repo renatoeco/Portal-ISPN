@@ -4,7 +4,6 @@ import streamlit_shadcn_ui as ui
 import ast
 import plotly.express as px
 from bson import ObjectId
-import math
 from funcoes_auxiliares import conectar_mongo_portal_ispn
 
 st.set_page_config(layout="wide")
@@ -115,6 +114,7 @@ def mostrar_detalhes(i):
     st.write(f"**Público:** {projeto.get('publico', '')}")
     st.write(f"**Bioma:** {projeto.get('bioma', '')}")
     st.write(f"**Situação:** {projeto.get('status', '')}")
+    st.write(f"**Objetivo geral:** {projeto.get('objetivo_geral', '')}")
 
     if "indicadores" in projeto:
         df_indicadores = pd.DataFrame(projeto["indicadores"])
@@ -349,24 +349,43 @@ with geral:
 
     st.divider()
 
-    # Converter valores para float
-    # df_projetos["Valor_float"] = pd.to_numeric(df_projetos["Valor"].str.replace(",", "").str.replace(".", "", regex=False), errors="coerce")
+    # Taxas de câmbio
+    TAXA_BRL_PARA_USD = 0.18   # Ex: 1 BRL = 0.18 USD
+    
+    contratos_brl = 0
+    contratos_usd = 0
+    contratos_eur = 0
 
-    # contratos_usd = df_projetos[df_projetos["Doador"].str.upper().str.contains("USAID")]["Valor_float"].sum()
-    # contratos_eur = df_projetos[df_projetos["Doador"].str.upper().str.contains("UE|EURO|EU ")]["Valor_float"].sum()
-    # contratos_brl = df_projetos[~df_projetos["Doador"].str.upper().str.contains("USAID|UE|EURO|EU ")]["Valor_float"].sum()
+    for projeto in todos_projetos:
+        valor = projeto.get("valor")
+        moeda = str(projeto.get("moeda", "")).strip().lower()
 
-    #total_convertido_usd = contratos_usd + contratos_eur + contratos_brl  # Aqui você pode aplicar conversão real se quiser
+        if not isinstance(valor, (int, float)):
+            continue
+
+        if moeda in ["real", "reais"]:
+            contratos_brl += valor
+        elif moeda in ["dólar", "dólares"]:
+            contratos_usd += valor
+        elif moeda in ["euro", "euros"]:
+            contratos_eur += valor
+
+    # Conversão para USD
+    brl_em_usd = contratos_brl * TAXA_BRL_PARA_USD
+
+    total_convertido_usd = contratos_usd + brl_em_usd
+
 
     # Apresentar
 
-    #col1, col2, col3 = st.columns(3)
+    col1, col2, col3 = st.columns(3)
 
-    # col1.metric("Contratos em US$", f"{contratos_usd:,.2f}")
-    # col2.metric("Contratos em EU$", f"{contratos_eur:,.2f}")
-    # col3.metric("Contratos em R$", f"{contratos_brl:,.2f}")
+    col1.metric("Contratos em US$", f"{contratos_usd:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+    #col2.metric("Contratos em EU$", f"€ {contratos_eur:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+    col2.metric("Contratos em R$", f"{contratos_brl:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
 
-    # col1.metric("Total convertido para US$", f"{total_convertido_usd:,.2f}")
+    col3.metric("Total dos contratos em US$", f"{total_convertido_usd:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+
 
 with lista:
 
@@ -436,28 +455,28 @@ with lista:
 
 with mapa:
 
+    st.subheader("Mapa de distribuição de projetos")
 
-    # Lista dos pontos (latitude, longitude)
-    dados = [
-        {"lat": -17.952479, "lon": -50.999368},
-        {"lat": -24.311754, "lon": -48.699713},
-        {"lat": -6.283198,  "lon": -55.983458},
-        {"lat": -3.903138,  "lon": -45.033963}
-    ]
+    url_municipios = "https://raw.githubusercontent.com/kelvins/Municipios-Brasileiros/master/csv/municipios.csv"
+    df_munis = pd.read_csv(url_municipios)
 
-    # Criar DataFrame
-    df = pd.DataFrame(dados)
+    # Coloca os nomes em lowercase para garantir o filtro
+    df_munis['nome'] = df_munis['nome'].str.lower()
+    df_projetos['Município(s)'] = df_projetos['Município(s)'].str.lower()
 
-    # Criar o mapa
+    munis_unicos = df_projetos['Município(s)'].unique()
+    df_munis_filtrados = df_munis[df_munis['nome'].isin(munis_unicos)]
+
+    # Agora capitaliza só para exibição no hover_name
+    df_munis_filtrados['nome'] = df_munis_filtrados['nome'].str.title()
+
     fig = px.scatter_map(
-        df,
-        lat="lat",
-        lon="lon",
-        zoom=3,
+        df_munis_filtrados,
+        lat='latitude',
+        lon='longitude',
+        hover_name='nome',
+        zoom=4,
         height=700,
-        # mapbox_style="carto-positron",
-        hover_data={"lat": True, "lon": True}
     )
 
-    # Mostrar
     st.plotly_chart(fig)
