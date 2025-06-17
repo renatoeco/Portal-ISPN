@@ -393,8 +393,9 @@ def main():
                     # Caso não haja PLs para excluir, exibe uma mensagem
                     st.write("Nenhum e-mail encontrado no banco de dados.")
 
-        
+        st.write('')
         st.button("Gerenciar e-mails", icon=":material/mail:", use_container_width=False, on_click=dial_gerenciar_pessoas)
+        st.write('')
 
         st.write('**Pessoas que recebem o e-mail de atualizações:**')
 
@@ -404,7 +405,11 @@ def main():
         df_emails = df_emails.reset_index(drop=True)
         df_emails.columns = df_emails.columns.str.strip()
 
-        st.dataframe(df_emails.sort_values(by="Nome"), hide_index=True)
+        st.dataframe(df_emails.sort_values(by="Nome"), hide_index=True, use_container_width=False, column_config={
+            # configurar a largura da coluna
+            "Nome": st.column_config.Column(width="medium"),
+            "E-mail": st.column_config.Column(width="medium")
+        })
 
 
 # ###################################################################################################

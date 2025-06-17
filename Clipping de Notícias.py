@@ -208,19 +208,21 @@ else:
                     placeholder="Escolha um veículo"
                 )
 
-            # Define o intervalo de datas padrão
-            data_min = df["Data_Convertida"].min().date()
-            data_max = df["Data_Convertida"].max().date()
+            # Define o intervalo de datas padrão para os últimos 30 dias.
+            # data_min = df["Data_Convertida"].min().date()
+            # data_max = df["Data_Convertida"].max().date()
             hoje = date.today()
-            inicio_padrao = max(data_min, hoje - timedelta(days=30))
-            fim_padrao = min(data_max, hoje)
+            # inicio_padrao = max(data_min, hoje - timedelta(days=30))
+            inicio_padrao = hoje - timedelta(days=31)
+            # fim_padrao = min(data_max, hoje)
+            fim_padrao = hoje - timedelta(days=1)
 
             with col3:
                 intervalo_datas = st.date_input(
                     "Período",
                     value=(inicio_padrao, fim_padrao),
-                    min_value=data_min,
-                    max_value=data_max,
+                    min_value=inicio_padrao,
+                    max_value=fim_padrao,
                     format="DD/MM/YYYY"
                 )
 
@@ -342,7 +344,7 @@ else:
         )
 
         # Formata datas do eixo X
-        ax.xaxis.set_major_formatter(mdates.DateFormatter('%d/%m/%Y'))
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%d/%m/%y'))
         ax.xaxis.set_major_locator(mdates.DayLocator())
 
         plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
