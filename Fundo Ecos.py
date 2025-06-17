@@ -1,10 +1,257 @@
 import streamlit as st
 import pandas as pd
 import streamlit_shadcn_ui as ui
+import ast
 import plotly.express as px
+from bson import ObjectId
+import math
+from funcoes_auxiliares import conectar_mongo_portal_ispn
 
 st.set_page_config(layout="wide")
 st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
+
+
+######################################################################################################
+# CONEXÃO COM O BANCO DE DADOS MONGODB
+######################################################################################################
+
+
+db = conectar_mongo_portal_ispn()
+estatistica = db["estatistica"]  # Coleção de estatísticas
+pj = list(db["projetos_pj"].find())
+pf = list(db["projetos_pf"].find())
+projetos_ispn = list(db["projetos_ispn"].find())
+ufs_municipios = db["ufs_municipios"]
+pessoas = db["pessoas"]
+
+
+######################################################################################################
+# FUNÇÕES
+######################################################################################################
+
+
+# Função para converter lista de códigos em lista de nomes
+def converter_codigos_para_nomes(valor):
+    if not valor:
+        return ""
+
+    try:
+        # Divide por vírgula, remove espaços e filtra vazios
+        partes = [v.strip() for v in valor.split(",") if v.strip()]
+        nomes = []
+
+        for parte in partes:
+            if parte.isdigit():
+                # Tenta mapear o código (int convertido para str)
+                nome = codigo_para_nome.get(parte, parte)
+                nomes.append(nome)
+            else:
+                # Já é nome (ex: 'Brasília')
+                nomes.append(parte)
+
+        return ", ".join(nomes)
+    except Exception as e:
+        return valor
+    
+def converter_uf_codigo_para_nome(valor):
+    """
+    Converte um ou mais códigos de UF para seus nomes correspondentes.
+    Exemplo de entrada: "12,27"
+    """
+    if not valor:
+        return ""
+
+    try:
+        partes = [v.strip() for v in valor.split(",") if v.strip()]
+        nomes = []
+
+        for parte in partes:
+            if parte.isdigit():
+                nome = uf_para_nome.get(parte, parte)
+                nomes.append(nome)
+            else:
+                nomes.append(parte)
+
+        return ", ".join(nomes)
+    except Exception as e:
+        return valor
+    
+
+@st.dialog("Detalhes do projeto", width="large")
+def mostrar_detalhes(i):
+    projeto_df = df_projetos.iloc[i]
+    projeto = todos_projetos[i]  # Supondo que todos_projetos e df_projetos estão na mesma ordem
+
+    # Pega o valor de ponto_focal diretamente
+    ponto_focal_obj = projeto.get("ponto_focal")
+
+    # Inicializa nome padrão
+    nome_ponto_focal = "Não informado"
+
+    # Se ponto_focal existir e for ObjectId, busca na coleção
+    if isinstance(ponto_focal_obj, ObjectId):
+        pessoa = db["pessoas"].find_one({"_id": ponto_focal_obj})
+        if pessoa:
+            nome_ponto_focal = pessoa.get("nome_completo", "Não encontrado")
+        else:
+            nome_ponto_focal = "Não encontrado"
+    
+
+    st.write(f"**Proponente:** {projeto.get('proponente', '')}")
+    st.write(f"**Nome do projeto:** {projeto.get('nome_do_projeto', '')}")
+    st.write(f"**Tipo:** {projeto.get('tipo', '')}")
+    st.write(f"**Edital:** {projeto_df['Edital']}")
+    st.write(f"**Doador:** {projeto_df['Doador']}")
+    st.write(f"**Moeda:** {projeto.get('moeda', '')}")
+    st.write(f"**Valor:** {projeto_df['Valor']}")
+    st.write(f"**Categoria:** {projeto.get('categoria', '')}")
+    st.write(f"**Ano de aprovação:** {projeto_df['Ano']}")
+    st.write(f"**Estado(s):** {converter_uf_codigo_para_nome(projeto.get('ufs', ''))}")
+    st.write(f"**Município(s):** {converter_codigos_para_nomes(projeto.get('municipios', ''))}")
+    st.write(f"**Data de início:** {projeto.get('data_inicio_do_contrato', '')}")
+    st.write(f"**Data de fim:** {projeto.get('data_final_do_contrato', '')}")
+    st.write(f"**Ponto Focal:** {nome_ponto_focal}")
+    st.write(f"**Temas:** {projeto.get('temas', '')}")
+    st.write(f"**Público:** {projeto.get('publico', '')}")
+    st.write(f"**Bioma:** {projeto.get('bioma', '')}")
+    st.write(f"**Situação:** {projeto.get('status', '')}")
+
+    if "indicadores" in projeto:
+        df_indicadores = pd.DataFrame(projeto["indicadores"])
+        st.write("**Indicadores:**")
+        st.dataframe(df_indicadores, hide_index=True)
+
+
+######################################################################################################
+# MAIN
+######################################################################################################
+
+
+# Combine os dados
+todos_projetos = pj + pf
+
+dados_municipios = list(ufs_municipios.find())
+
+mapa_doador = {str(proj["_id"]): proj.get("doador", "") for proj in projetos_ispn}
+
+# Criar dicionário código_uf -> nome_uf
+uf_para_nome = {}
+for doc in dados_municipios:
+    for uf in doc.get("ufs", []):
+        uf_para_nome[str(uf["codigo_uf"])] = uf["nome_uf"]
+
+# Criar dicionário de mapeamento código -> nome
+codigo_para_nome = {}
+for doc in dados_municipios:
+    for m in doc.get("municipios", []):
+        codigo_para_nome[str(m["codigo_municipio"])] = m["nome_municipio"]
+         
+for projeto in todos_projetos:
+    projeto_pai_id = projeto.get("codigo_projeto_pai")
+    if projeto_pai_id:
+        projeto["doador"] = mapa_doador.get(str(projeto_pai_id), "")
+    else:
+        projeto["doador"] = ""
+
+
+for projeto in todos_projetos:
+    valor_bruto = projeto.get("valor")
+
+    if isinstance(valor_bruto, str):
+        valor_limpo = valor_bruto.replace(".", "").replace(",", ".")
+        try:
+            projeto["valor"] = float(valor_limpo)
+        except:
+            projeto["valor"] = None
+    elif isinstance(valor_bruto, (int, float)):
+        projeto["valor"] = float(valor_bruto)
+    else:
+        projeto["valor"] = None
+
+
+# Transforme em DataFrame
+df_projetos = pd.DataFrame(todos_projetos)
+
+# Dicionário de símbolos por moeda
+simbolos = {
+    "reais": "R$",
+    "real": "R$",
+    "dólares": "US$",
+    "dólar": "US$",
+    "euros": "€",  # Incluído para futuro uso
+    "euro": "€"
+}
+
+# Lista base de colunas obrigatórias
+colunas = [
+    "codigo",
+    "sigla",
+    "edital",
+    "valor",
+    "categoria",
+    "ano_de_aprovacao",
+    "ufs",
+    "municipios"
+]
+
+# Adiciona "doador" se ela estiver presente no DataFrame
+if "doador" in df_projetos.columns:
+    colunas.insert(3, "doador")  # Mantém a ordem: após "proponente"
+
+# Seleciona apenas as colunas existentes
+df_projetos = df_projetos[colunas].rename(columns={
+    "codigo": "Código",
+    "sigla": "Sigla",
+    "edital": "Edital",
+    "doador": "Doador",
+    "valor": "Valor",
+    "categoria": "Categoria",
+    "ano_de_aprovacao": "Ano",
+    "ufs": "Estado(s)",
+    "municipios": "Município(s)",
+})
+
+
+# Garantir que todos os campos estão como string
+df_projetos = df_projetos.fillna("").astype(str)
+
+# Aplicar a função na coluna 'Municípios'
+df_projetos["Município(s)"] = df_projetos["Município(s)"].apply(converter_codigos_para_nomes)
+
+# Corrigir a coluna 'Ano' para remover ".0"
+df_projetos["Ano"] = df_projetos["Ano"].str.replace(".0", "", regex=False)
+
+df_projetos["Estado(s)"] = [
+    converter_uf_codigo_para_nome(proj.get("ufs", "")) for proj in todos_projetos
+]
+
+valores_formatados = []
+for i, projeto in enumerate(todos_projetos):
+    valor = df_projetos.at[i, "Valor"]
+    moeda = projeto.get("moeda", "reais").lower()
+
+    
+    simbolo = simbolos.get(moeda, "")
+
+    # Limpar o valor original antes da conversão
+    valor_limpo = valor.replace("R$", "").replace("US$", "").replace("€", "").replace(" ", "")
+
+    try:
+        # Detectar se está no formato brasileiro (vírgula como decimal)
+        if "," in valor_limpo and valor_limpo.count(",") == 1 and valor_limpo.count(".") >= 0:
+            # Substitui "." por "" (remove separadores de milhar) e "," por "." (converte decimal brasileiro)
+            valor_float = float(valor_limpo.replace(".", "").replace(",", "."))
+
+        else:
+            valor_float = float(valor_limpo.replace(",", ""))
+
+        valor_formatado = f"{simbolo} {valor_float:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    except:
+        valor_formatado = f"{simbolo} {valor}" if valor else ""
+
+    valores_formatados.append(valor_formatado)
+
+df_projetos["Valor"] = valores_formatados
 
 st.header("Fundo Ecos")
 
@@ -48,159 +295,122 @@ geral, lista, mapa = st.tabs(["Visão geral", "Projetos", "Mapa"])
 
 with geral:
 
+    # Contabilização única e limpa de UFs
+    ufs_unicos = set()
+
+    for projeto in todos_projetos:
+        ufs_str = projeto.get("ufs", "")
+        ufs_list = [uf.strip() for uf in ufs_str.split(",") if uf.strip()]
+        ufs_unicos.update(ufs_list)
+
+    # Contar apenas UFs válidas
+    total_ufs = len(ufs_unicos)
+
+    # Total de projetos apoiados
+    total_projetos = len(df_projetos)
+
+    # Total de editais únicos (remover vazios)
+    total_editais = df_projetos["Edital"].replace("", pd.NA).dropna().nunique()
+
+    # Total de doadores únicos (remover vazios)
+    total_doador = df_projetos["Doador"].replace("", pd.NA).dropna().nunique()
+
+    # Total de estados únicos a partir dos municípios (código do estado antes do traço)
+    estados_unicos = set()
+    for municipios in df_projetos["Município(s)"]:
+        for m in municipios.split(","):
+            m = m.strip()
+            if " - " in m:
+                estado = m.split(" - ")[0]  # Pega o que vem ANTES do traço (ex: "BA")
+                estados_unicos.add(estado)
+
+    total_estados = len(estados_unicos)
+
+    # Contabilização única e limpa de municípios
+    municipios_unicos = set()
+
+    for projeto in todos_projetos:
+        municipios_str = projeto.get("municipios", "")
+        codigos = [m.strip() for m in municipios_str.split(",") if m.strip()]
+        nomes = [codigo_para_nome.get(cod, cod) for cod in codigos]
+        municipios_unicos.update(nomes)
+
+    total_municipios = len(municipios_unicos)
+
+    # Apresentar em colunas organizadas
     col1, col2, col3 = st.columns(3)
 
-    col1.metric("Projetos apoiados", "1251")
+    col1.metric("Projetos apoiados", f"{total_projetos}")
+    col2.metric("Editais", f"{total_editais}")
+    col3.metric("Doadores", f"{total_doador}")
 
-    col2.metric("Editais", "53")
-
-    col3.metric("Doadores", "13")
-
-    col1.metric("Estados", "18")
-
-    col2.metric("Municípios", "294")
+    col1.metric("Estados", f"{total_ufs}")
+    col2.metric("Municípios", f"{total_municipios}")
 
     st.divider()
 
-    col1, col2, col3 = st.columns(3)
+    # Converter valores para float
+    # df_projetos["Valor_float"] = pd.to_numeric(df_projetos["Valor"].str.replace(",", "").str.replace(".", "", regex=False), errors="coerce")
 
-    col1.metric("Contratos em US$", "11.020.251")
+    # contratos_usd = df_projetos[df_projetos["Doador"].str.upper().str.contains("USAID")]["Valor_float"].sum()
+    # contratos_eur = df_projetos[df_projetos["Doador"].str.upper().str.contains("UE|EURO|EU ")]["Valor_float"].sum()
+    # contratos_brl = df_projetos[~df_projetos["Doador"].str.upper().str.contains("USAID|UE|EURO|EU ")]["Valor_float"].sum()
 
-    col2.metric("Contratos em EU$", "9.010.243")
+    #total_convertido_usd = contratos_usd + contratos_eur + contratos_brl  # Aqui você pode aplicar conversão real se quiser
 
-    col3.metric("Contratos em R$", "29.020.251")
+    # Apresentar
 
-    col1.metric("Total convertido para US$", "85.020.251")
+    #col1, col2, col3 = st.columns(3)
+
+    # col1.metric("Contratos em US$", f"{contratos_usd:,.2f}")
+    # col2.metric("Contratos em EU$", f"{contratos_eur:,.2f}")
+    # col3.metric("Contratos em R$", f"{contratos_brl:,.2f}")
+
+    # col1.metric("Total convertido para US$", f"{total_convertido_usd:,.2f}")
 
 with lista:
-
-    @st.dialog("Detalhes do projeto", width="large")
-    def mostrar_detalhes():
-        st.write("**Proponente:** Associação de moradores do Vale do Corda")
-        st.write("**Nome do projeto:** Recuperação de áreas degradadas na bacia do Rio Pajeú")
-        st.write("**Edital:** 38")
-        st.write("**Ponto focal:** Renato")
-        st.write("**Estado(s):** BA")
-        st.write("**Município(s):** João Pessoa")
-        st.write("**Contatos do projeto:**")
-        st.write('- Jorge Palma - jorge@gmail.com - (31) 99999-9999')
-        st.write("**Situação:** Em dia")
-        st.write("**Visitas:** 15/03/2024 - Renato - Participação do seminário de encerramento")
-        st.write("**Data de início:** 15/03/2024")
-        st.write("**Data de fim:** 15/03/2025")
-        st.write("**Indicadores:**")
-        df_indicadores = pd.DataFrame({
-            "Indicador": [
-                "Número de organizações apoiadas",
-                "Número de comunidades fortalecidas",
-                "Número de indígenas",
-                "Número de famílias"
-            ],
-            "Reporte": [
-                "Organizações do Cerrativismo",
-                "Projeto ADEL",
-                "Preparação pra COP do Clima",
-                "Apoio à Central do Cerrado"
-            ],
-            "Valor": [
-                25,
-                2,
-                8,
-                18,
-            ],
-            "Ano": [
-                2023,
-                2023,
-                2023,
-                2023,
-            ],
-            "Observações": [
-                "Contagem manual",
-                "Por conversa telefônica",
-                "Se refere ao seminário estadual",
-                "Contagem manual",
-            ],
-            "Autor": [
-                "João",
-                "Maria",
-                "José",
-                "Pedro",
-            ]
-        })
-        st.dataframe(df_indicadores, hide_index=True)
-
-
-
-
-    projetos = {
-        "Código": [
-            "BRA/25/01",
-            "BRA/25/02",
-            "BRA/25/03",
-            "BRA/25/04",
-            "BRA/25/05",
-        ],
-        "Edital": [
-            "001/2020",
-            "002/2020",
-            "003/2020",
-            "004/2020",
-            "005/2020",
-        ],
-        "Proponente": [
-            "Associação X",
-            "Associação Y",
-            "Associação Z",
-            "Associação W",
-            "Associação V",
-        ],
-        "Doador": [
-            "UE",
-            "GIZ",
-            "KFW",
-            "USAID",
-            "Citi Foundation",
-        ],
-        "Valor": [
-            "50000.0",
-            "120000.0",
-            "80000.0",
-            "150000.0",
-            "20000.0",
-        ],
-        "Ano": [
-            "2020",
-            "2020",
-            "2020",
-            "2020",
-            "2020",
-        ],
-        "Municípios": [
-            "Município A",
-            "Município B",
-            "Município C",
-            "Município D",
-            "Município E",
-        ],
-        "Tipo": [
-            "PJ",
-            "PJ",
-            "PF",
-            "PJ",
-            "PJ",
-        ],
-    }
-
-    df_projetos = pd.DataFrame(projetos)
-    # st.dataframe(df_projetos, height=200)
 
     # ui.table(data=df_projetos)
     # Cabeçalho da tabela
     headers = list(df_projetos.columns) + ["Detalhes"]
-    col_sizes = [1, 1, 2, 1, 1, 1, 2, 1, 1]  # Personalize os tamanhos das colunas
+    col_sizes = [2, 2, 1, 2, 2, 2, 1, 2, 3, 3]  # Personalize os tamanhos das colunas
 
-    st.markdown("### Projetos")
-    st.write('')
+
+    # Número de itens por página
+    itens_por_pagina = 50
+
+    # Total de linhas do DataFrame
+    total_linhas = len(df_projetos)
+
+    # Total de páginas
+    total_paginas = (total_linhas - 1) // itens_por_pagina + 1
+
+    col1, col2, col3 = st.columns([5, 2, 1])
+
+    # Seleciona página atual (com key para manter estado)
+    pagina_atual = col3.number_input(
+        "Página",
+        min_value=1,
+        max_value=total_paginas,
+        value=1,
+        step=1,
+        key="pagina_projetos"
+    )
+
+    # Calcula os índices da página atual
+    inicio = (pagina_atual - 1) * itens_por_pagina
+    fim = inicio + itens_por_pagina
+
+    # Fatiar DataFrame com os dados da página atual
+    df_paginado = df_projetos.iloc[inicio:fim]
+
+    # Exibir informação de paginação
+    with col2:
+        st.write("")
+        st.write("")
+        st.write(f"Mostrando {inicio + 1} a {min(fim, total_linhas)} de {total_linhas} resultados")
+
+    st.write("")
 
     # Cabeçalho visual
     header_cols = st.columns(col_sizes)
@@ -209,21 +419,18 @@ with lista:
 
     st.divider()
 
+    # Fatia do DataFrame
+    df_paginado = df_projetos.iloc[inicio:fim]
+
     # Linhas
-    for i, row in df_projetos.iterrows():
+    for i, row in df_paginado.iterrows():
         cols = st.columns(col_sizes)
         for j, key in enumerate(df_projetos.columns):
             cols[j].write(row[key])
-
-        # Última coluna com botão
-        cols[-1].button("Detalhes", key=f"ver_{i}", on_click=mostrar_detalhes)
+        idx_original = row.name
+        cols[-1].button("Detalhes", key=f"ver_{idx_original}", on_click=mostrar_detalhes, args=(idx_original,), icon=":material/menu:")
 
         st.divider()
-
-
-
-
-
 
 
 
