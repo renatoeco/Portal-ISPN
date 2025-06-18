@@ -192,7 +192,8 @@ colunas = [
     "ano_de_aprovacao",
     "ufs",
     "municipios",
-    "tipo"
+    "tipo",
+    "municipio_principal"
 ]
 
 # Adiciona "doador" se ela estiver presente no DataFrame
@@ -210,7 +211,8 @@ df_projetos = df_projetos[colunas].rename(columns={
     "ano_de_aprovacao": "Ano",
     "ufs": "Estado(s)",
     "municipios": "Município(s)",
-    "tipo": "Tipo"
+    "tipo": "Tipo",
+    "municipio_principal": "Município Principal"
 })
 
 
@@ -219,6 +221,7 @@ df_projetos = df_projetos.fillna("").astype(str)
 
 # Aplicar a função na coluna 'Municípios'
 df_projetos["Município(s)"] = df_projetos["Município(s)"].apply(converter_codigos_para_nomes)
+df_projetos["Município Principal"] = df_projetos["Município Principal"].apply(converter_codigos_para_nomes)
 
 # Corrigir a coluna 'Ano' para remover ".0"
 df_projetos["Ano"] = df_projetos["Ano"].str.replace(".0", "", regex=False)
@@ -263,6 +266,13 @@ st.write('')
 geral, lista, mapa = st.tabs(["Visão geral", "Projetos", "Mapa"])
 
 with geral:
+    
+    # Separar projetos PF e PJ
+    df_pf = df_projetos[df_projetos['Tipo'] == 'PF']
+    df_pj = df_projetos[df_projetos['Tipo'] == 'PJ']
+
+    total_projetos_pf = len(df_pf)
+    total_projetos_pj = len(df_pj)
 
     # Contabilização única e limpa de UFs
     ufs_unicos = set()
@@ -308,10 +318,17 @@ with geral:
 
     # Apresentar em colunas organizadas
     col1, col2, col3 = st.columns(3)
+    
+    col1.metric("Editais", f"{total_editais}")
+    col2.metric("Doadores", f"{total_doador}")
 
-    col1.metric("Projetos apoiados", f"{total_projetos}")
-    col2.metric("Editais", f"{total_editais}")
-    col3.metric("Doadores", f"{total_doador}")
+    col1, col2, col3= st.columns(3)
+    
+    col1.metric("Total de apoios", f"{total_projetos}")
+    col2.metric("Apoios a Pessoa Jurídica", f"{total_projetos_pj}")
+    col3.metric("Apoios a Pessoa Física", f"{total_projetos_pf}")
+    
+    col1, col2, col3 = st.columns(3)
 
     col1.metric("Estados", f"{total_ufs}")
     col2.metric("Municípios", f"{total_municipios}")
@@ -470,7 +487,7 @@ with lista:
 
     st.write("")
 
-    colunas_visiveis = [col for col in df_filtrado.columns if col != "Tipo"]
+    colunas_visiveis = [col for col in df_filtrado.columns if col not in ["Tipo", "Município Principal"]]
     headers = colunas_visiveis + ["Detalhes"]
 
     col_sizes = [2, 2, 1, 2, 2, 2, 1, 2, 3, 3]
@@ -495,42 +512,95 @@ with lista:
 
 with mapa:
     st.subheader("Mapa de distribuição de projetos")
+    
+    projeto = todos_projetos[i]
+    
+    # Pega o valor de ponto_focal diretamente
+    ponto_focal_obj = projeto.get("ponto_focal")
+
+    # Inicializa nome padrão
+    nome_ponto_focal = "Não informado"
+
+    # Se ponto_focal existir e for ObjectId, busca na coleção
+    if isinstance(ponto_focal_obj, ObjectId):
+        pessoa = db["pessoas"].find_one({"_id": ponto_focal_obj})
+        if pessoa:
+            nome_ponto_focal = pessoa.get("nome_completo", "Não encontrado")
+        else:
+            nome_ponto_focal = "Não encontrado"
 
     # Carregar CSV dos municípios com lat/lon
     url_municipios = "https://raw.githubusercontent.com/kelvins/Municipios-Brasileiros/master/csv/municipios.csv"
     df_munis = pd.read_csv(url_municipios)
 
-    # Padronizar os nomes
-    df_munis['nome'] = df_munis['nome'].str.lower()
-    df_projetos['Município(s)'] = df_projetos['Município(s)'].str.lower()
+    # Padronizar nomes dos municípios no CSV
+    df_munis['nome_normalizado'] = df_munis['nome'].str.strip().str.lower()
 
-    # Filtrar municípios que estão nos projetos
-    munis_unicos = df_projetos['Município(s)'].unique()
-    df_munis_filtrados = df_munis[df_munis['nome'].isin(munis_unicos)]
+    # Corrigir nomes manualmente nos projetos antes do merge (se precisar)
+    correcoes_municipios = {
+        'tabocão': 'fortaleza do tabocão',
+        # adicionar outras correções se quiser
+    }
 
-    # Capitalizar só para exibição
-    df_munis_filtrados['nome'] = df_munis_filtrados['nome'].str.title()
+    # Normalizar e corrigir nomes dos municípios nos projetos
+    df_projetos = df_projetos.copy()
+    df_projetos['Municipio_normalizado'] = (
+        df_projetos['Município Principal']
+        .str.lower()
+        .str.strip()
+        .replace(correcoes_municipios)
+    )
 
-    # Criar mapa base
-    m = folium.Map(location=[-15.78, -47.93], zoom_start=4, tiles="CartoDB positron", returned_objects=[])  # Centro aproximado do Brasil
+    # Fazer o merge para pegar lat/lon
+    df_coords_projetos = df_projetos.merge(
+        df_munis,
+        left_on='Municipio_normalizado',
+        right_on='nome_normalizado',
+        how='left'
+    )
 
-    # Criar cluster com spiderfy automático
+    # Filtrar só projetos que têm coordenadas conhecidas
+    df_coords_projetos = df_coords_projetos.dropna(subset=['latitude', 'longitude'])
+    
+    df_coords_projetos = df_coords_projetos.drop_duplicates(subset='Código')
+
+    # Criar o mapa
+    m = folium.Map(location=[-15.78, -47.93], zoom_start=4, tiles="CartoDB positron")
     cluster = MarkerCluster().add_to(m)
 
-    # Adicionar marcadores com popup
-    for _, row in df_munis_filtrados.iterrows():
-        nome_muni = row['nome']
+    # Criar um marcador POR PROJETO
+    for _, row in df_coords_projetos.iterrows():
+        
+        
+        
         lat = row['latitude']
         lon = row['longitude']
-        
-        # Aqui você pode buscar os projetos associados ao município
-        projetos_no_muni = df_projetos[df_projetos['Município(s)'] == nome_muni.lower()]
-        popup_html = f"<b>{nome_muni}</b><br>"
-        popup_html += "<br>".join(projetos_no_muni['Código'].values)  # ou outro campo desejado
+        nome_muni = row['nome'].title()
+        codigo = row['Código']
+        proponente = f"{projeto.get('proponente', '')}"
+        nome_proj = f"{projeto.get('nome_do_projeto', '')}"
+        edital = row['Edital']
+        ano_de_aprovacao = row['Ano']
+        ponto_focal = f"{nome_ponto_focal}" 
+
+        # Popup com divider (usando <hr>)
+        popup_html = f"""
+            <b>Município:</b> {nome_muni}<br>
+            <hr>
+            <b>Código:</b> {codigo}<br>
+            <b>Proponente:</b> {proponente}<br>
+            <b>Projeto:</b> {nome_proj}<br>
+            <b>Edital:</b> {edital}<br>
+            <b>Ano:</b> {ano_de_aprovacao}<br>
+            <b>Ponto Focal:</b> {nome_ponto_focal}
+        """
+
 
         folium.Marker(
             location=[lat, lon],
             popup=popup_html,
         ).add_to(cluster)
 
-    st_folium(m, width=700, height=450, returned_objects=[])
+    # Exibir o mapa no Streamlit
+    st_folium(m, width=None, height=800, returned_objects=[])
+
