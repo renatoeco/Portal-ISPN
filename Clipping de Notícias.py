@@ -251,7 +251,7 @@ else:
 
     # Notificação de triagem pendente
     if qtd_sem_status > 0:
-        st.warning(f"{qtd_sem_status} notícia(s) precisam ser triadas. Se já foram triadas, clique no botão 'Atualizar página'.", icon=":material/warning:")
+        st.warning(f"{qtd_sem_status} notícia(s) precisam ser triadas.", icon=":material/warning:")
 
     st.write("")
 
@@ -340,7 +340,7 @@ else:
         )
 
         # Formata datas do eixo X
-        ax.xaxis.set_major_formatter(mdates.DateFormatter('%d/%m/%Y'))
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%d/%m/%y'))
         ax.xaxis.set_major_locator(mdates.DayLocator())
 
         plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
