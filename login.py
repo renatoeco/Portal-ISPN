@@ -298,42 +298,13 @@ def login():
                 st.error("Senha inválida ou usuário não encontrado!")    
     
     
-    
-    
-    
-        # # Pede a senha
-        # password = st.text_input("Insira a senha", type="password")
-
-        # if st.form_submit_button("Entrar"):
-        #     # Busca o documento correspondente à senha
-        #     usuario_encontrado = None
-        #     tipo_usuario = "desconhecido"
-
-        #     for doc in colaboradores.find():
-        #         for chave, valor in doc.items():
-        #             if chave == "_id":
-        #                 continue  # Ignora o _id
-        #             if isinstance(valor, dict) and valor.get("senha") == password:
-        #                 usuario_encontrado = valor
-        #                 tipo_usuario_dict = valor.get("tipo de usuário", {})
-        #                 tipo_usuario = list(tipo_usuario_dict.values()) 
-        #                 break
-        #         if usuario_encontrado:
-        #             break
-
-        #     # Se encontrou, loga o usuário
-        #     if usuario_encontrado:
-        #         st.session_state["logged_in"] = True
-        #         st.session_state["tipo_usuario"] = tipo_usuario
-        #         st.rerun()
-        #     else:
-        #         st.error("Senha inválida ou usuário não encontrado!")
-
     # Botão para recuperar senha
+    col2.write('')
+    col2.write('')
     col2.button("Esqueci a senha", key="forgot_password", type="tertiary", on_click=recuperar_senha_dialog)
 
     # Informação adicional
-    col2.markdown("<div style='color: red;'><br>É o seu primeiro acesso?<br>Clique em \"Esqueci a senha\".</div>", unsafe_allow_html=True)
+    col2.markdown("<div style='color: #007ad3;'><br>É o seu primeiro acesso?<br>Clique em \"Esqueci a senha\".</div>", unsafe_allow_html=True)
 
 
 ##############################################################################################################
@@ -354,11 +325,11 @@ else:
         "Projetos.py", 
         "Fundo Ecos.py", 
         "Indicadores.py", 
+        "Monitor de PLs.py",
+        "Clipping de Notícias.py", 
         "Pessoas.py", 
         "Viagens.py",
         "Férias e recessos.py",
-        "Monitor de PLs.py",
-        "Monitor de Notícias.py", 
         "Manuais.py",
     ])
 
