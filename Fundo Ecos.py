@@ -1,8 +1,8 @@
 import streamlit as st
 import pandas as pd
-import streamlit_shadcn_ui as ui
-import ast
-import plotly.express as px
+import folium
+from folium.plugins import MarkerCluster
+from streamlit_folium import st_folium
 from bson import ObjectId
 from funcoes_auxiliares import conectar_mongo_portal_ispn
 
@@ -191,7 +191,8 @@ colunas = [
     "categoria",
     "ano_de_aprovacao",
     "ufs",
-    "municipios"
+    "municipios",
+    "tipo"
 ]
 
 # Adiciona "doador" se ela estiver presente no DataFrame
@@ -209,6 +210,7 @@ df_projetos = df_projetos[colunas].rename(columns={
     "ano_de_aprovacao": "Ano",
     "ufs": "Estado(s)",
     "municipios": "Município(s)",
+    "tipo": "Tipo"
 })
 
 
@@ -254,39 +256,6 @@ for i, projeto in enumerate(todos_projetos):
 df_projetos["Valor"] = valores_formatados
 
 st.header("Fundo Ecos")
-
-st.write('')
-
-with st.expander("Filtros"):
-
-    st.pills("Tipo de apoio", ["Projetos PJ", "Projetos PF"], selection_mode="multi", default=["Projetos PJ", "Projetos PF"] )
-
-    col1, col2, col3, col4 = st.columns(4)
-
-    col1.multiselect("Edital", ["Todos", "Edital 35", "Edital 36", "Edital 37", "Edital 38", "Edital 39", "Edital 40","Edital 41"], default="Todos")
-
-    col2.multiselect("Ano do edital", ["Todos", "2017", "2018", "2019", "2020", "2021", "2022","2023"], default="Todos")
-
-    col3.multiselect("Doador", ["Todos", "USAID", "GEF", "UE", "Laudes Foundation"], default="Todos")
-
-    col4.multiselect("Ponto focal", ["Todos", "Renato", "Lívia", "Matheus", "Vitória", "Terena"], default="Todos")
-
-    col1.multiselect("Estado", ["Todos", "BA", "CE", "MA", "TO", "PA"], default="Todos")
-
-    col2.multiselect("Município", ["Todos", "DF - Brasília", "CE - Crateús", "MA - Bacabal", "TO - Palmas", "PA - Belmonte"], default="Todos")
-
-    col3.multiselect("Situação", ["Todos", "Em dia", "Atrasados", "Concluídos", "Cancelados"], default="Todos")
-
-    col1, col2, col3, col4 = st.columns(4)
-
-
-    col1.text_input("Busca por proponente")
-
-    col2.text_input("Busca por CNPJ")
-
-    col3.text_input("Busca por sigla do projeto")
-
-    col4.text_input("Busca por código do projeto")
 
 st.write('')
 
@@ -389,41 +358,111 @@ with geral:
 
 with lista:
 
-    # ui.table(data=df_projetos)
-    # Cabeçalho da tabela
-    headers = list(df_projetos.columns) + ["Detalhes"]
-    col_sizes = [2, 2, 1, 2, 2, 2, 1, 2, 3, 3]  # Personalize os tamanhos das colunas
+    with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
+
+        # Divisão em colunas
+        col1, col2, col3, col4 = st.columns(4)
+
+        editais_disponiveis = sorted(df_projetos["Edital"].dropna().unique(), key=lambda x: float(x))
+        anos_disponiveis = sorted(df_projetos["Ano"].dropna().unique())
+        doadores_disponiveis = sorted(df_projetos["Doador"].dropna().unique())
+        codigos_disponiveis = sorted(df_projetos["Código"].dropna().unique())
+        tipos_disponiveis = ["Projetos PJ", "Projetos PF"]
+        
+        # Extrair todos os estados únicos, considerando que podem estar separados por vírgula
+        estados_unicos = sorted(
+            df_projetos["Estado(s)"]
+            .dropna()
+            .apply(lambda x: [m.strip() for m in x.split(",")])
+            .explode()
+            .unique()
+        )
+        
+        tipo_sel = col1.pills("Tipo", tipos_disponiveis, selection_mode="multi")
+
+        col1, col2, col3, col4 = st.columns(4)
+        
+        codigo_sel = col1.multiselect("Código", options=codigos_disponiveis, default=[], placeholder="Todos")
+        ano_sel = col2.multiselect("Ano", options=anos_disponiveis, default=[], placeholder="Todos")
+        edital_sel = col3.multiselect("Edital", options=editais_disponiveis, default=[], placeholder="Todos")
+        doador_sel = col4.multiselect("Doador", options=doadores_disponiveis, default=[], placeholder="Todos")
 
 
-    # Número de itens por página
+        col5, col6 = st.columns(2)
+
+        uf_sel = col5.multiselect(
+            "Estado(s)",
+            options=estados_unicos,
+            default=[],
+            placeholder="Todos"
+        )
+
+        municipio_sel = col6.multiselect(
+            "Município",
+            options=sorted(
+                df_projetos["Município(s)"]
+                .dropna()
+                .apply(lambda x: [m.strip() for m in x.split(",")])
+                .explode()
+                .unique()
+            ),
+            default=[],
+            placeholder="Todos"
+        )
+
+        # Filtro base (considera 'Todos' se nada for selecionado)
+        df_filtrado = df_projetos.copy()
+
+        if edital_sel:
+            df_filtrado = df_filtrado[df_filtrado["Edital"].isin(edital_sel)]
+
+        if ano_sel:
+            df_filtrado = df_filtrado[df_filtrado["Ano"].isin(ano_sel)]
+
+        if doador_sel:
+            df_filtrado = df_filtrado[df_filtrado["Doador"].isin(doador_sel)]
+            
+        # Código
+        if codigo_sel:
+            df_filtrado = df_filtrado[df_filtrado["Código"].isin(codigo_sel)]
+
+        # Tipo de apoio
+        if "Projetos PJ" in tipo_sel and "Projetos PF" not in tipo_sel:
+            df_filtrado = df_filtrado[df_filtrado["Tipo"] == "PJ"]
+        elif "Projetos PF" in tipo_sel and "Projetos PJ" not in tipo_sel:
+            df_filtrado = df_filtrado[df_filtrado["Tipo"] == "PF"]
+
+
+        # Filtro de estados
+        if uf_sel:
+            df_filtrado = df_filtrado[
+                df_filtrado["Estado(s)"].apply(
+                    lambda x: any(m.strip() in uf_sel for m in x.split(",")) if isinstance(x, str) else False
+                )
+            ]
+
+        # Município
+        if municipio_sel:
+            df_filtrado = df_filtrado[
+                df_filtrado["Município(s)"].apply(
+                    lambda x: any(m.strip() in municipio_sel for m in x.split(","))
+                )
+            ]
+
+    st.write("")
+
+    # Paginação
     itens_por_pagina = 50
-
-    # Total de linhas do DataFrame
-    total_linhas = len(df_projetos)
-
-    # Total de páginas
+    total_linhas = len(df_filtrado)
     total_paginas = (total_linhas - 1) // itens_por_pagina + 1
 
     col1, col2, col3 = st.columns([5, 2, 1])
+    pagina_atual = col3.number_input("Página", min_value=1, max_value=total_paginas, value=1, step=1, key="pagina_projetos")
 
-    # Seleciona página atual (com key para manter estado)
-    pagina_atual = col3.number_input(
-        "Página",
-        min_value=1,
-        max_value=total_paginas,
-        value=1,
-        step=1,
-        key="pagina_projetos"
-    )
-
-    # Calcula os índices da página atual
     inicio = (pagina_atual - 1) * itens_por_pagina
     fim = inicio + itens_por_pagina
+    df_paginado = df_filtrado.iloc[inicio:fim]
 
-    # Fatiar DataFrame com os dados da página atual
-    df_paginado = df_projetos.iloc[inicio:fim]
-
-    # Exibir informação de paginação
     with col2:
         st.write("")
         st.write("")
@@ -431,52 +470,67 @@ with lista:
 
     st.write("")
 
-    # Cabeçalho visual
+    colunas_visiveis = [col for col in df_filtrado.columns if col != "Tipo"]
+    headers = colunas_visiveis + ["Detalhes"]
+
+    col_sizes = [2, 2, 1, 2, 2, 2, 1, 2, 3, 3]
     header_cols = st.columns(col_sizes)
     for col, header in zip(header_cols, headers):
         col.markdown(f"**{header}**")
 
     st.divider()
 
-    # Fatia do DataFrame
-    df_paginado = df_projetos.iloc[inicio:fim]
-
-    # Linhas
     for i, row in df_paginado.iterrows():
         cols = st.columns(col_sizes)
-        for j, key in enumerate(df_projetos.columns):
+        for j, key in enumerate(colunas_visiveis):
             cols[j].write(row[key])
         idx_original = row.name
         cols[-1].button("Detalhes", key=f"ver_{idx_original}", on_click=mostrar_detalhes, args=(idx_original,), icon=":material/menu:")
-
+        
         st.divider()
 
 
 
-with mapa:
 
+
+with mapa:
     st.subheader("Mapa de distribuição de projetos")
 
+    # Carregar CSV dos municípios com lat/lon
     url_municipios = "https://raw.githubusercontent.com/kelvins/Municipios-Brasileiros/master/csv/municipios.csv"
     df_munis = pd.read_csv(url_municipios)
 
-    # Coloca os nomes em lowercase para garantir o filtro
+    # Padronizar os nomes
     df_munis['nome'] = df_munis['nome'].str.lower()
     df_projetos['Município(s)'] = df_projetos['Município(s)'].str.lower()
 
+    # Filtrar municípios que estão nos projetos
     munis_unicos = df_projetos['Município(s)'].unique()
     df_munis_filtrados = df_munis[df_munis['nome'].isin(munis_unicos)]
 
-    # Agora capitaliza só para exibição no hover_name
+    # Capitalizar só para exibição
     df_munis_filtrados['nome'] = df_munis_filtrados['nome'].str.title()
 
-    fig = px.scatter_map(
-        df_munis_filtrados,
-        lat='latitude',
-        lon='longitude',
-        hover_name='nome',
-        zoom=4,
-        height=700,
-    )
+    # Criar mapa base
+    m = folium.Map(location=[-15.78, -47.93], zoom_start=4, tiles="CartoDB positron", returned_objects=[])  # Centro aproximado do Brasil
 
-    st.plotly_chart(fig)
+    # Criar cluster com spiderfy automático
+    cluster = MarkerCluster().add_to(m)
+
+    # Adicionar marcadores com popup
+    for _, row in df_munis_filtrados.iterrows():
+        nome_muni = row['nome']
+        lat = row['latitude']
+        lon = row['longitude']
+        
+        # Aqui você pode buscar os projetos associados ao município
+        projetos_no_muni = df_projetos[df_projetos['Município(s)'] == nome_muni.lower()]
+        popup_html = f"<b>{nome_muni}</b><br>"
+        popup_html += "<br>".join(projetos_no_muni['Código'].values)  # ou outro campo desejado
+
+        folium.Marker(
+            location=[lat, lon],
+            popup=popup_html,
+        ).add_to(cluster)
+
+    st_folium(m, width=700, height=450, returned_objects=[])
