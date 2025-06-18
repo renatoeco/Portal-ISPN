@@ -225,9 +225,12 @@ def login():
     
     
     # Botão para recuperar senha
-    col2.write("")
-    col2.button("Esqueci a senha / Primeiro acesso", key="forgot_password", type="tertiary", on_click=recuperar_senha_dialog)
+    col2.write('')
+    col2.write('')
+    col2.button("Esqueci a senha", key="forgot_password", type="tertiary", on_click=recuperar_senha_dialog)
 
+    # Informação adicional
+    col2.markdown("<div style='color: #007ad3;'><br>É o seu primeiro acesso?<br>Clique em \"Esqueci a senha\".</div>", unsafe_allow_html=True)
 
 
 ##############################################################################################################
@@ -252,11 +255,11 @@ else:
         "Projetos.py", 
         "Fundo Ecos.py", 
         "Indicadores.py", 
+        "Monitor de PLs.py",
+        "Clipping de Notícias.py", 
         "Pessoas.py", 
         "Viagens.py",
         "Férias e recessos.py",
-        "Monitor de PLs.py",
-        "Clipping de Notícias.py", 
         "Manuais.py",
     ])
 
