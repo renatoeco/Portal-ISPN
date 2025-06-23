@@ -314,6 +314,8 @@ df_projetos = df_projetos[colunas].rename(columns={
     "cnpj": "CNPJ"
 })
 
+df_projetos_codigos = df_projetos
+
 
 # Garantir que todos os campos estão como string
 df_projetos = df_projetos.fillna("").astype(str)
@@ -617,28 +619,26 @@ with mapa:
 
     pontos_focais_dict = carregar_pontos_focais(todos_projetos)
 
-    # Carregar e normalizar CSV de municípios
+    # Carregar CSV de municípios
     url_municipios = "https://raw.githubusercontent.com/kelvins/Municipios-Brasileiros/master/csv/municipios.csv"
     df_munis = pd.read_csv(url_municipios)
-    df_munis['nome_normalizado'] = df_munis['nome'].str.strip().str.lower()
 
-    correcoes_municipios = {
-        'tabocão': 'fortaleza do tabocão',
-    }
+    # Renomear a coluna e ajustar tipo
+    df_munis.rename(columns={'codigo_ibge': 'codigo_municipio'}, inplace=True)
+    df_munis['codigo_municipio'] = df_munis['codigo_municipio'].astype(str)
 
-    df_projetos = df_projetos.copy()
-    df_projetos['Municipio_normalizado'] = (
-        df_projetos['Município Principal'].str.lower().str.strip().replace(correcoes_municipios)
-    )
+    # Garantir que os códigos no dataframe de projetos também sejam string
+    df_projetos_codigos['codigo_municipio'] = df_projetos_codigos['Município Principal'].astype(str)
 
-    df_coords_projetos = df_projetos.merge(
+    # Cruzamento via código
+    df_coords_projetos = df_projetos_codigos.merge(
         df_munis,
-        left_on='Municipio_normalizado',
-        right_on='nome_normalizado',
+        left_on='codigo_municipio',
+        right_on='codigo_municipio',
         how='left'
     ).dropna(subset=['latitude', 'longitude']).drop_duplicates(subset='Código')
 
-    # Criar o mapa e adicionar marcadores
+    # Criar o mapa
     m = folium.Map(location=[-15.78, -47.93], zoom_start=4, tiles="CartoDB positron")
     cluster = MarkerCluster().add_to(m)
 
@@ -671,7 +671,7 @@ with mapa:
 
         folium.Marker(location=[lat, lon], popup=popup_html).add_to(cluster)
 
-    st_folium(m, width=None, height=800, returned_objects=[])
+    st_folium(m, width=None, height=500, returned_objects=[])
 
     # 1. Expandir os códigos dos municípios
     todos_codigos_municipios = []
@@ -725,7 +725,7 @@ with mapa:
         key_on="feature.properties.id",
         fill_color="Blues",
         fill_opacity=0.7,
-        line_opacity=0.2,
+        line_opacity=0.0,
         legend_name="Número de projetos por município",
         nan_fill_color="white",
     ).add_to(m2)
@@ -737,7 +737,7 @@ with mapa:
         style_function=lambda feature: {
             'fillColor': 'transparent',
             'color': 'black',
-            'weight': 0.3
+            'weight': 0.0
         },
         tooltip=folium.GeoJsonTooltip(
             fields=["name", "count"],  # nome do município e quantidade de projetos
@@ -747,7 +747,7 @@ with mapa:
     ).add_to(m2)
 
     # 6. Mostrar o mapa no Streamlit
-    st.write("## Mapa coroplético por município (quantidade de projetos)")
+    st.subheader("Mapa coroplético por município (quantidade de projetos)")
     st_folium(m2, width=None, height=600, returned_objects=[])
 
 
