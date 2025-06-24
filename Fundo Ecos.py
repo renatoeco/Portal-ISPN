@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import folium
 import requests
+import numpy as np
 import json
 from folium.plugins import MarkerCluster
 from streamlit_folium import st_folium
@@ -615,6 +616,13 @@ with lista:
 
 
 with mapa:
+    
+    
+    ######################################################################################################
+    # MAPA SOMENTE DOS MUNICÍPIOS PRINCIPAIS 
+    ######################################################################################################
+    
+    
     st.subheader("Mapa de distribuição de projetos")
 
     pontos_focais_dict = carregar_pontos_focais(todos_projetos)
@@ -626,9 +634,14 @@ with mapa:
     # Renomear a coluna e ajustar tipo
     df_munis.rename(columns={'codigo_ibge': 'codigo_municipio'}, inplace=True)
     df_munis['codigo_municipio'] = df_munis['codigo_municipio'].astype(str)
+    
 
     # Garantir que os códigos no dataframe de projetos também sejam string
     df_projetos_codigos['codigo_municipio'] = df_projetos_codigos['Município Principal'].astype(str)
+    
+    df_projetos_codigos['Ano'] = df_projetos_codigos['Ano'].astype(str)
+    df_projetos_codigos["Ano"] = df_projetos_codigos["Ano"].str.replace(".0", "", regex=False)
+    
 
     # Cruzamento via código
     df_coords_projetos = df_projetos_codigos.merge(
@@ -639,7 +652,7 @@ with mapa:
     ).dropna(subset=['latitude', 'longitude']).drop_duplicates(subset='Código')
 
     # Criar o mapa
-    m = folium.Map(location=[-15.78, -47.93], zoom_start=4, tiles="CartoDB positron")
+    m = folium.Map(location=[-15.78, -47.93], zoom_start=4, tiles="CartoDB positron", height="800px")
     cluster = MarkerCluster().add_to(m)
 
     for _, row in df_coords_projetos.iterrows():
@@ -669,11 +682,17 @@ with mapa:
             <b>Ponto Focal:</b> {nome_ponto_focal}
         """
 
-        folium.Marker(location=[lat, lon], popup=popup_html).add_to(cluster)
+        folium.Marker(location=[lat, lon], popup=folium.Popup(popup_html, max_width=300)).add_to(cluster)
 
-    st_folium(m, width=None, height=500, returned_objects=[])
+    st_folium(m, width=None, height=800, returned_objects=[])
+    
 
-    # 1. Expandir os códigos dos municípios
+    ######################################################################################################
+    # MAPA COROPLÉTICO COM QUANTIDADE DE PROJETOS POR MUNICÍPIO
+    ######################################################################################################
+
+
+    # Expandir os códigos dos municípios
     todos_codigos_municipios = []
 
     for projeto in todos_projetos:
@@ -681,12 +700,12 @@ with mapa:
         codigos = [c.strip() for c in codigos_str.split(",") if c.strip()]
         todos_codigos_municipios.extend(codigos)
 
-    # 2. Criar DataFrame de contagem
+    # Criar DataFrame de contagem
     df_muni_count = pd.DataFrame(todos_codigos_municipios, columns=["codigo_municipio"])
     df_muni_count = df_muni_count.groupby("codigo_municipio").size().reset_index(name="count")
     df_muni_count["codigo_municipio"] = df_muni_count["codigo_municipio"].astype(str)
 
-    # 3. Carregar o GeoJSON dos municípios brasileiros
+    # Carregar o GeoJSON dos municípios brasileiros
     geojson_url = "https://raw.githubusercontent.com/tbrugz/geodata-br/refs/heads/master/geojson/geojs-100-mun.json"
 
     response = requests.get(geojson_url)
@@ -706,18 +725,22 @@ with mapa:
                 feature["properties"]["id"] = None  # ou outro valor padrão
 
 
-    # 1. Criar um dicionário para lookup das contagens por código do município
+    # Criar um dicionário para lookup das contagens por código do município
     count_dict = df_muni_count.set_index("codigo_municipio")["count"].to_dict()
 
-    # 2. Inserir o 'count' nas propriedades do GeoJSON para cada município
+    # Inserir o 'count' nas propriedades do GeoJSON para cada município
     for feature in geojson["features"]:
         cod_muni = feature["properties"]["id"]
         feature["properties"]["count"] = count_dict.get(cod_muni, 0)  # 0 se não tiver projetos
 
-    # 3. Criar o mapa
+    # Criar o mapa
     m2 = folium.Map(location=[-15.78, -47.93], zoom_start=4, tiles="CartoDB positron")
 
-    # 4. Adicionar o choropleth normalmente
+    # Definir quebras manuais para os bins (exemplo)
+    max_count = df_muni_count["count"].max()
+    scale = [0, 1, 3, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, max_count]
+    
+    # Choropleth com bins personalizados
     folium.Choropleth(
         geo_data=geojson,
         data=df_muni_count,
@@ -728,9 +751,11 @@ with mapa:
         line_opacity=0.0,
         legend_name="Número de projetos por município",
         nan_fill_color="white",
+        threshold_scale=scale,
+        reset=True
     ).add_to(m2)
 
-    # 5. Adicionar GeoJson com tooltip que mostra o nome e o count
+    # Adicionar GeoJson com tooltip que mostra o nome e o count
     folium.GeoJson(
         geojson,
         name="Municípios",
@@ -746,7 +771,7 @@ with mapa:
         )
     ).add_to(m2)
 
-    # 6. Mostrar o mapa no Streamlit
+    # Mostrar o mapa no Streamlit
     st.subheader("Mapa coroplético por município (quantidade de projetos)")
     st_folium(m2, width=None, height=600, returned_objects=[])
 
