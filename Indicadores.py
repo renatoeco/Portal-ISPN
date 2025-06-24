@@ -75,22 +75,22 @@ with col1.container(border=True):
 with col2.container(border=True):
     st.write('**Pessoas**')
     st.button(f"Número de famílias: **{somar_indicador('numero_de_familias')}**", on_click=handler(), type="tertiary")
-    st.button(f"Número de homens jovens (até 29): **{somar_indicador('numero_de_homens_jovens')}**", on_click=handler(), type="tertiary")
+    st.button(f"Número de homens jovens (até 29 anos): **{somar_indicador('numero_de_homens_jovens')}**", on_click=handler(), type="tertiary")
     st.button(f"Número de homens adultos: **{somar_indicador('numero_de_homens_adultos')}**", on_click=handler(), type="tertiary")
-    st.button(f"Número de mulheres jovens (até 29): **{somar_indicador('numero_de_mulheres_jovens')}**", on_click=handler(), type="tertiary")
+    st.button(f"Número de mulheres jovens (até 29 anos): **{somar_indicador('numero_de_mulheres_jovens')}**", on_click=handler(), type="tertiary")
     st.button(f"Número de mulheres adultas: **{somar_indicador('numero_de_mulheres_adultas')}**", on_click=handler(), type="tertiary")
     st.button(f"Número de Indígenas: **{somar_indicador('numero_de_indigenas')}**", on_click=handler(), type="tertiary")
     st.button(f"Número de lideranças comunitárias fortalecidas: **{somar_indicador('numero_de_lideranas_comunitarias_fortalecidas')}**", on_click=handler(), type="tertiary")
-    st.button(f"Número de fam. comercializando produtos da sociobio: **{somar_indicador('numero_de_familias_comercializando_produtos_da_sociobio_com_apoio_do_ppp_ecos')}**", on_click=handler(), type="tertiary")
+    st.button(f"Número de famílias comercializando produtos da sociobio: **{somar_indicador('numero_de_familias_comercializando_produtos_da_sociobio_com_apoio_do_ppp_ecos')}**", on_click=handler(), type="tertiary")
     st.button(f"Número de famílias acessando vendas institucionais: **{somar_indicador('numero_de_familias_acessando_vendas_institucionais_com_apoio_do_ppp_ecos')}**", on_click=handler(), type="tertiary")
     st.button(f"Número de estudantes recebendo bolsa: **{somar_indicador('numero_de_estudantes_recebendo_bolsa')}**", on_click=handler(), type="tertiary")
 
 with col1.container(border=True):
     st.write('**Capacitações**')
     st.button(f"Número de capacitações realizadas: **{somar_indicador('numero_de_capacitacoes_realizadas')}**", on_click=handler(), type="tertiary")
-    st.button(f"Número de homens jovens capacitados (até 29): **{somar_indicador('numero_de_homens_jovens_capacitados')}**", on_click=handler(), type="tertiary")
+    st.button(f"Número de homens jovens capacitados (até 29 anos): **{somar_indicador('numero_de_homens_jovens_capacitados')}**", on_click=handler(), type="tertiary")
     st.button(f"Número de homens adultos capacitados: **{somar_indicador('numero_de_homens_adultos_capacitados')}**", on_click=handler(), type="tertiary")
-    st.button(f"Número de mulheres jovens capacitadas (até 29): **{somar_indicador('numero_de_mulheres_jovens_capacitadas')}**", on_click=handler(), type="tertiary")
+    st.button(f"Número de mulheres jovens capacitadas (até 29 anos): **{somar_indicador('numero_de_mulheres_jovens_capacitadas')}**", on_click=handler(), type="tertiary")
     st.button(f"Número de mulheres adultas capacitadas: **{somar_indicador('numero_de_mulheres_adultas_capacitadas')}**", on_click=handler(), type="tertiary")
 
 with col1.container(border=True):
@@ -115,8 +115,9 @@ with col1.container(border=True):
 
 with col1.container(border=True):
     st.write('**Financeiro**')
-    st.button(f"Incremento médio do faturamento bruto das organizações apoiadas: **{somar_indicador('faturamento_bruto_anual_pos_projeto')}**", on_click=handler(), type="tertiary")
-    st.button(f"Volume financeiro de vendas institucionais das organizações apoiadas: **{somar_indicador('volume_financeiro_de_vendas_institucionais_com_apoio_do_ppp_ecos')}**", on_click=handler(), type="tertiary")
+    st.button(f"Faturamento bruto das organizações apoiadas pré projetos (R$): **{somar_indicador('faturamento_bruto_anual_pre_projeto')}**", on_click=handler(), type="tertiary")
+    st.button(f"Incremento médio do faturamento bruto das organizações apoiadas  (R$): **{somar_indicador('faturamento_bruto_anual_pos_projeto')}**", on_click=handler(), type="tertiary")
+    st.button(f"Volume financeiro de vendas institucionais com apoio do Fundo Ecos: **{somar_indicador('volume_financeiro_de_vendas_institucionais_com_apoio_do_ppp_ecos')}**", on_click=handler(), type="tertiary")
 
 with col2.container(border=True):
     st.write('**Comunicação**')
@@ -124,10 +125,10 @@ with col2.container(border=True):
     st.button(f"Número de aparições na mídia: **{somar_indicador('numero_de_aparicoes_na_midia')}**", on_click=handler(), type="tertiary")
     st.button(f"Número de publicações de caráter técnico: **{somar_indicador('numero_de_publicacoes_de_carater_tecnico')}**", on_click=handler(), type="tertiary")
     st.button(f"Número de artigos acadêmicos produzidos e publicados: **{somar_indicador('numero_de_artigos_academicos_produzidos_e_publicados')}**", on_click=handler(), type="tertiary")
-    st.button(f"Número de comunicadores comunitários contribuindo na execução das ações: **{somar_indicador('numero_de_comunicadores_comunitarios_contribuindo_na_execucao_das_acoes_do_ispn')}**", on_click=handler(), type="tertiary")
+    st.button(f"Número de comunicadores comunitários contribuindo na execução das ações do ISPN: **{somar_indicador('numero_de_comunicadores_comunitarios_contribuindo_na_execucao_das_acoes_do_ispn')}**", on_click=handler(), type="tertiary")
 
-with col1.container(border=True):
-    st.write('**Políticas Públicas**')
-    st.button(f"Número de políticas públicas monitoradas pelo Programa: **{somar_indicador('numero_de_politicas_publicas_monitoradas_pelo_ispn')}**", on_click=handler(), type="tertiary")
-    st.button(f"Número de Proposições Legislativas acompanhadas pelo Programa: **{somar_indicador('numero_de_proposicoes_legislativas_acompanhadas_pelo_ispn')}**", on_click=handler(), type="tertiary")
-    st.button(f"Número de contribuições que apoiam a construção e aprimoramento de pol. públicas: **{somar_indicador('numero_de_contribuicoes_notas_tecnicas_participacoes_e_ou_documentos_que_apoiam_a_construcao_e_aprimoramento_de_politicas_publicas')}**", on_click=handler(), type="tertiary")
+# with col1.container(border=True):
+#     st.write('**Políticas Públicas**')
+#     st.button(f"Número de políticas públicas monitoradas pelo Programa: **{somar_indicador('numero_de_politicas_publicas_monitoradas_pelo_ispn')}**", on_click=handler(), type="tertiary")
+#     st.button(f"Número de Proposições Legislativas acompanhadas pelo Programa: **{somar_indicador('numero_de_proposicoes_legislativas_acompanhadas_pelo_ispn')}**", on_click=handler(), type="tertiary")
+#     st.button(f"Número de contribuições que apoiam a construção e aprimoramento de pol. públicas: **{somar_indicador('numero_de_contribuicoes_notas_tecnicas_participacoes_e_ou_documentos_que_apoiam_a_construcao_e_aprimoramento_de_politicas_publicas')}**", on_click=handler(), type="tertiary")

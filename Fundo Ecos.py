@@ -659,7 +659,6 @@ with mapa:
         lat, lon = row['latitude'], row['longitude']
         nome_muni = row['nome'].title()
         codigo = row['Código']
-        edital = row['Edital']
         ano_de_aprovacao = row['Ano']
 
         projeto = next((p for p in todos_projetos if p.get("codigo") == codigo), None)
@@ -668,8 +667,6 @@ with mapa:
             nome_proj = projeto.get('nome_do_projeto', '')
             ponto_focal_obj = projeto.get("ponto_focal")
             nome_ponto_focal = pontos_focais_dict.get(ponto_focal_obj, "Não informado")
-        else:
-            proponente = nome_proj = nome_ponto_focal = "Não encontrado"
 
         popup_html = f"""
             <b>Município:</b> {nome_muni}<br>
@@ -677,7 +674,6 @@ with mapa:
             <b>Código:</b> {codigo}<br>
             <b>Proponente:</b> {proponente}<br>
             <b>Projeto:</b> {nome_proj}<br>
-            <b>Edital:</b> {edital}<br>
             <b>Ano:</b> {ano_de_aprovacao}<br>
             <b>Ponto Focal:</b> {nome_ponto_focal}
         """
@@ -693,86 +689,86 @@ with mapa:
 
 
     # Expandir os códigos dos municípios
-    todos_codigos_municipios = []
+    # todos_codigos_municipios = []
 
-    for projeto in todos_projetos:
-        codigos_str = projeto.get("municipios", "")
-        codigos = [c.strip() for c in codigos_str.split(",") if c.strip()]
-        todos_codigos_municipios.extend(codigos)
+    # for projeto in todos_projetos:
+    #     codigos_str = projeto.get("municipios", "")
+    #     codigos = [c.strip() for c in codigos_str.split(",") if c.strip()]
+    #     todos_codigos_municipios.extend(codigos)
 
-    # Criar DataFrame de contagem
-    df_muni_count = pd.DataFrame(todos_codigos_municipios, columns=["codigo_municipio"])
-    df_muni_count = df_muni_count.groupby("codigo_municipio").size().reset_index(name="count")
-    df_muni_count["codigo_municipio"] = df_muni_count["codigo_municipio"].astype(str)
+    # # Criar DataFrame de contagem
+    # df_muni_count = pd.DataFrame(todos_codigos_municipios, columns=["codigo_municipio"])
+    # df_muni_count = df_muni_count.groupby("codigo_municipio").size().reset_index(name="count")
+    # df_muni_count["codigo_municipio"] = df_muni_count["codigo_municipio"].astype(str)
 
-    # Carregar o GeoJSON dos municípios brasileiros
-    geojson_url = "https://raw.githubusercontent.com/tbrugz/geodata-br/refs/heads/master/geojson/geojs-100-mun.json"
+    # # Carregar o GeoJSON dos municípios brasileiros
+    # geojson_url = "https://raw.githubusercontent.com/tbrugz/geodata-br/refs/heads/master/geojson/geojs-100-mun.json"
 
-    response = requests.get(geojson_url)
+    # response = requests.get(geojson_url)
     
 
-    if response.status_code != 200:
-        st.error("Erro ao baixar GeoJSON")
-    else:
-        geojson_text = response.content.decode("utf-8-sig")
-        geojson = json.loads(geojson_text)
-        #st.write(geojson["features"][0])
+    # if response.status_code != 200:
+    #     st.error("Erro ao baixar GeoJSON")
+    # else:
+    #     geojson_text = response.content.decode("utf-8-sig")
+    #     geojson = json.loads(geojson_text)
+    #     #st.write(geojson["features"][0])
 
-        # Ajustar 'id' para dentro de 'properties' (se necessário)
-        for feature in geojson["features"]:
-            if "id" not in feature.get("properties", {}):
-                # Se não existir, pode criar com algum valor, ou ignorar
-                feature["properties"]["id"] = None  # ou outro valor padrão
+    #     # Ajustar 'id' para dentro de 'properties' (se necessário)
+    #     for feature in geojson["features"]:
+    #         if "id" not in feature.get("properties", {}):
+    #             # Se não existir, pode criar com algum valor, ou ignorar
+    #             feature["properties"]["id"] = None  # ou outro valor padrão
 
 
-    # Criar um dicionário para lookup das contagens por código do município
-    count_dict = df_muni_count.set_index("codigo_municipio")["count"].to_dict()
+    # # Criar um dicionário para lookup das contagens por código do município
+    # count_dict = df_muni_count.set_index("codigo_municipio")["count"].to_dict()
 
-    # Inserir o 'count' nas propriedades do GeoJSON para cada município
-    for feature in geojson["features"]:
-        cod_muni = feature["properties"]["id"]
-        feature["properties"]["count"] = count_dict.get(cod_muni, 0)  # 0 se não tiver projetos
+    # # Inserir o 'count' nas propriedades do GeoJSON para cada município
+    # for feature in geojson["features"]:
+    #     cod_muni = feature["properties"]["id"]
+    #     feature["properties"]["count"] = count_dict.get(cod_muni, 0)  # 0 se não tiver projetos
 
-    # Criar o mapa
-    m2 = folium.Map(location=[-15.78, -47.93], zoom_start=4, tiles="CartoDB positron")
+    # # Criar o mapa
+    # m2 = folium.Map(location=[-15.78, -47.93], zoom_start=4, tiles="CartoDB positron")
 
-    # Definir quebras manuais para os bins (exemplo)
-    max_count = df_muni_count["count"].max()
-    scale = [0, 1, 3, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, max_count]
+    # # Definir quebras manuais para os bins (exemplo)
+    # max_count = df_muni_count["count"].max()
+    # scale = [0, 1, 3, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, max_count]
     
-    # Choropleth com bins personalizados
-    folium.Choropleth(
-        geo_data=geojson,
-        data=df_muni_count,
-        columns=["codigo_municipio", "count"],
-        key_on="feature.properties.id",
-        fill_color="Blues",
-        fill_opacity=0.7,
-        line_opacity=0.0,
-        legend_name="Número de projetos por município",
-        nan_fill_color="white",
-        threshold_scale=scale,
-        reset=True
-    ).add_to(m2)
+    # # Choropleth com bins personalizados
+    # folium.Choropleth(
+    #     geo_data=geojson,
+    #     data=df_muni_count,
+    #     columns=["codigo_municipio", "count"],
+    #     key_on="feature.properties.id",
+    #     fill_color="Blues",
+    #     fill_opacity=0.7,
+    #     line_opacity=0.0,
+    #     legend_name="Número de projetos por município",
+    #     nan_fill_color="white",
+    #     threshold_scale=scale,
+    #     reset=True
+    # ).add_to(m2)
 
-    # Adicionar GeoJson com tooltip que mostra o nome e o count
-    folium.GeoJson(
-        geojson,
-        name="Municípios",
-        style_function=lambda feature: {
-            'fillColor': 'transparent',
-            'color': 'black',
-            'weight': 0.0
-        },
-        tooltip=folium.GeoJsonTooltip(
-            fields=["name", "count"],  # nome do município e quantidade de projetos
-            aliases=["Município:", "Qtd. de projetos:"],
-            localize=True
-        )
-    ).add_to(m2)
+    # # Adicionar GeoJson com tooltip que mostra o nome e o count
+    # folium.GeoJson(
+    #     geojson,
+    #     name="Municípios",
+    #     style_function=lambda feature: {
+    #         'fillColor': 'transparent',
+    #         'color': 'black',
+    #         'weight': 0.0
+    #     },
+    #     tooltip=folium.GeoJsonTooltip(
+    #         fields=["name", "count"],  # nome do município e quantidade de projetos
+    #         aliases=["Município:", "Qtd. de projetos:"],
+    #         localize=True
+    #     )
+    # ).add_to(m2)
 
-    # Mostrar o mapa no Streamlit
-    st.subheader("Mapa coroplético por município (quantidade de projetos)")
-    st_folium(m2, width=None, height=600, returned_objects=[])
+    # # Mostrar o mapa no Streamlit
+    # st.subheader("Mapa coroplético por município (quantidade de projetos)")
+    # st_folium(m2, width=None, height=600, returned_objects=[])
 
 

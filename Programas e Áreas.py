@@ -102,6 +102,9 @@ titulos_abas = [p['titulo'] for p in lista_programas if p.get('titulo')]
 lista_equipe = []
 
 for colab_doc in colaboradores_raw:
+    if colab_doc.get("status", "").lower() != "ativo":
+        continue  # Pula quem não for ativo
+
     nome = colab_doc.get("nome_completo", "Desconhecido")
 
     # Ignora coordenadores
@@ -110,25 +113,20 @@ for colab_doc in colaboradores_raw:
 
     genero = colab_doc.get("gênero", "Não informado")
     programa_area = colab_doc.get("programa_area", "Não informado")
-
-    if programa_area in ["Adm. Santa Inês", "Programa Maranhão"]:
-        programa_area_final = "Programa Maranhão"
-    elif programa_area == "Adm. Brasília":
-        programa_area_final = "Administrativo Financeiro"
-    else:
-        programa_area_final = programa_area
+    projeto_pagador = colab_doc.get("projeto_pagador", "Não informado")
 
     lista_equipe.append({
         "Nome": nome,
         "Gênero": genero,
-        "Programa": programa_area_final,
+        "Programa": programa_area,
+        "Projeto": projeto_pagador
     })
 
 df_equipe = pd.DataFrame(lista_equipe)
 
 # Cria o DataFrame para exibição com coluna "Projetos" vazia
-df_equipe_exibir = df_equipe[["Nome", "Gênero"]].copy()
-df_equipe_exibir["Projetos"] = ""
+df_equipe_exibir = df_equipe[["Nome", "Gênero", "Projeto"]].copy()
+
 
 st.header("Programas e Áreas")
 
