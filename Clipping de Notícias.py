@@ -351,7 +351,7 @@ else:
 
         plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
 
-        plt.xticks(fontsize=5.5)  # fonte das datas 
+        plt.xticks(fontsize=5.5, rotation=45)  # fonte das datas 
         plt.xlabel('')
 
         # Remove eixo Y

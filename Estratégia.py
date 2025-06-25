@@ -24,6 +24,7 @@ estrategia = db["estrategia"]
 # FUNÇÕES
 ###########################################################################################################
 
+# Editar Teoria da Mudança  
 @st.dialog("Editar Teoria da Mudança", width="large")
 def editar_info_teoria_mudanca_dialog():
     # Pega o documento da coleção estratégia com a teoria da mudança
@@ -78,7 +79,7 @@ def editar_info_teoria_mudanca_dialog():
         st.rerun()
 
 
-
+# Editar Estratégia
 @st.dialog("Editar Estratégia", width="large")
 def editar_estrategia_dialog():
     # Busca o documento da estratégia que possui a chave "estrategia"
@@ -198,21 +199,21 @@ def adicionar_anotacao(i, a_idx, at_idx):
     })
 
 # Função que adiciona uma nova meta vazia na aba correspondente
-def adicionar_meta(i):
-    st.session_state[f"metas_{i}"].append({"nome": "", "objetivo": ""})
+# def adicionar_meta(i):
+#     st.session_state[f"metas_{i}"].append({"nome": "", "objetivo": ""})
 
 # Função que adiciona uma nova ação estratégica vazia na aba correspondente
-def adicionar_acao(i):
-    st.session_state[f"acoes_{i}"].append({
-        "nome": "",
-        "responsavel": "",
-        "data_inicio": "",
-        "data_fim": "",
-        "status": "",
-        "atividades": []  # Inicializa atividades vazias
-    })
+# def adicionar_acao(i):
+#     st.session_state[f"acoes_{i}"].append({
+#         "nome": "",
+#         "responsavel": "",
+#         "data_inicio": "",
+#         "data_fim": "",
+#         "status": "",
+#         "atividades": []  # Inicializa atividades vazias
+#     })
 
-# Função principal do diálogo para editar ou adicionar resultados de médio prazo
+# Função do diálogo para editar ou adicionar resultados de médio prazo
 @st.dialog("Editar Título da Página", width="large")
 def editar_titulo_pagina_resultados_mp_dialog():
     # Recupera os dados atuais do banco
@@ -234,7 +235,7 @@ def editar_titulo_pagina_resultados_mp_dialog():
         st.rerun()
 
 
-# Função principal do diálogo para editar ou adicionar resultados de médio prazo
+# Função do diálogo para editar resultados de médio prazo
 @st.dialog("Editar Informações do Resultado", width="large")
 def editar_titulo_de_cada_resultado_mp_dialog(resultado_idx):
     # Recupera os dados do banco
@@ -425,7 +426,46 @@ def editar_titulo_de_cada_resultado_mp_dialog(resultado_idx):
                     st.rerun()
 
 
+# Função para pegar o índice da linha selecionada
 
+def on_select_linha():
+    for k in st.session_state.keys():
+        if k.startswith("tabela_metas_"):
+            selection = st.session_state[k]
+            selected_rows = selection.get("selection", {}).get("rows", [])
+            if selected_rows:
+                resultado_idx = int(k.replace("tabela_metas_", ""))
+                st.session_state["linha_selecionada"] = {
+                    "resultado_idx": resultado_idx,
+                    "linha_idx": selected_rows[0]
+                }
+                editar_meta_res_mp_dialog(st.session_state["linha_selecionada"])
+                break
+
+
+
+# Diálogo para editar a meta
+@st.dialog("Editar meta", width="large")
+def editar_meta_res_mp_dialog(linha_selecionada):
+    resultado_idx = linha_selecionada["resultado_idx"]
+    linha_idx = linha_selecionada["linha_idx"]
+
+    # Acessa a meta específica
+    meta = lista_resultados[resultado_idx]["metas"][linha_idx]
+
+    st.subheader("Editar Meta")
+
+    # Inputs para editar a meta
+    nome = st.text_input("Nome da Meta", value=meta.get("nome_meta_mp", ""), key="input_nome_meta")
+    objetivo = st.text_input("Objetivo", value=meta.get("objetivo", ""), key="input_objetivo_meta")
+    alcancado = st.text_input("Alcançado", value=meta.get("alcancado", ""), key="input_alcancado_meta")
+
+    # Botão para salvar alterações
+    if st.button("Salvar alterações", key="btn_salvar_meta"):
+        meta["nome_meta_mp"] = nome
+        meta["objetivo"] = objetivo
+        meta["alcancado"] = alcancado
+        st.success("Meta atualizada com sucesso!")
 
 
 ###########################################################################################################
@@ -439,7 +479,7 @@ st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
 st.header("Estratégia")
 
 
-aba_tm, aba_est, aba_res_2025, aba_res_2030, aba_ebj_est_ins = st.tabs(['Teoria da mudança', 'Estratégia', 'Resultados MP 2025', 'Resultados LP 2030', 'Objetivos Estratégicos Institucionais'])
+aba_tm, aba_est, aba_res_mp, aba_res_lp, aba_ebj_est_ins = st.tabs(['Teoria da mudança', 'Estratégia', 'Resultados MP 2025', 'Resultados LP 2030', 'Objetivos Estratégicos Institucionais'])
 
 # Aba Teoria da mudança
 with aba_tm:
@@ -530,7 +570,7 @@ with aba_est:
         with st.expander(f"**{estrategia_item.get('titulo', 'Título não definido')}**"):
 
             st.write('')
-            st.write('**AÇÕES PLANEJADAS / REALIZADAS:**')
+            st.write('**ENTREGAS PLANEJADAS / REALIZADAS:**')
 
             # Dados simulados - substituir futuramente se necessário
             st.write('**Programa 1**')
@@ -566,7 +606,7 @@ with aba_est:
 
 
 
-with aba_res_2025:
+with aba_res_mp:
     # Título da seção
     doc = estrategia.find_one({"resultados_medio_prazo": {"$exists": True}})
     resultados_data = doc.get("resultados_medio_prazo", {}) if doc else {}
@@ -574,8 +614,8 @@ with aba_res_2025:
     titulo_pagina = resultados_data.get("titulo_pagina_resultados_mp", "Resultados de Médio Prazo")
     lista_resultados = resultados_data.get("resultados_mp", [])
 
-    tipos_usuario = st.session_state.get("tipo_usuario", [])
-    if "adm" in tipos_usuario:
+    # Roteamento de tipo de usuário
+    if set(st.session_state.tipo_usuario) & {"admin"}:
         col1, col2 = st.columns([7, 1])  # Ajuste os pesos conforme necessário
         with col2:
             st.button("Editar página", icon=":material/edit:", key="editar_result_mp", on_click=editar_titulo_pagina_resultados_mp_dialog, use_container_width=True)
@@ -583,37 +623,63 @@ with aba_res_2025:
     st.subheader(titulo_pagina)
     st.write('')
 
-    for idx, resultado in enumerate(lista_resultados):
-        titulo_resultado = resultado.get("titulo", f"Resultado {idx + 1}")
-        with st.expander(f"**{titulo_resultado}**"):
-            # Botão de edição para ADM
-            tipos_usuario = st.session_state.get("tipo_usuario", [])
-            if "adm" in tipos_usuario:
-                col1, col2 = st.columns([7, 1]) 
-                with col2:
-                    st.button(
-                        "Editar",
-                        key=f"editar_{idx}",
-                        icon=":material/edit:",
-                        on_click=editar_titulo_de_cada_resultado_mp_dialog,
-                        kwargs={"resultado_idx": idx}
-                    )
+    # # Botão de adicionar novo resultado de médio prazo só para admin
+    # # Roteamento de tipo de usuário
+    # if set(st.session_state.tipo_usuario) & {"admin"}:
 
-            # Metas
-            st.write("**METAS:**")
+    #     col1, col2 = st.columns([1, 7])  
+
+    #     # Botão para adicionar novo resultado de médio prazo
+    #     with col1:
+    #         st.button(
+    #             "Adicionar",
+    #             key="adicionar_result_mp",
+    #             icon=":material/add:",
+    #             on_click=editar_titulo_de_cada_resultado_mp_dialog,
+    #             kwargs={"resultado_idx": None}
+    #         )
+
+
+
+
+
+
+
+
+
+
+
+
+    # Lista os resultados de médio prazo
+    for idx, resultado in enumerate(lista_resultados):
+        with st.expander(resultado["titulo"]):
             metas = resultado.get("metas", [])
             if metas:
                 df_metas = pd.DataFrame([
                     {
                         "Meta": m.get("nome_meta_mp", ""),
                         "Objetivo": m.get("objetivo", ""),
-                        "Alcançado": ""  # Adapte conforme necessidade
+                        "Alcançado": ""
                     }
                     for m in metas
                 ])
-                st.dataframe(df_metas, hide_index=True)
+
+                # Usa uma key única para cada tabela
+                st.dataframe(
+                    df_metas,
+                    selection_mode="single-row",
+                    hide_index=True,
+                    on_select=on_select_linha,
+                    key=f"tabela_metas_{idx}"
+                )
             else:
                 st.info("Nenhuma meta cadastrada.")
+
+
+
+
+
+
 
             # Ações estratégicas
             st.write("")
@@ -656,11 +722,12 @@ with aba_res_2025:
                             for atv in atividades
                         ])
                         st.dataframe(df_atividades, hide_index=True)
+                    
                     else:
                         st.info("Nenhuma atividade registrada.")
 
 
-with aba_res_2030:
+with aba_res_lp:
     st.write('')
     st.subheader('Resultados de Longo Prazo - 2030')
     st.write('')
