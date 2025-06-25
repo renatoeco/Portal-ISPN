@@ -24,6 +24,32 @@ estrategia = db["estrategia"]
 # FUNÇÕES
 ###########################################################################################################
 
+# Função para comparar dataframes e detectar se tem mudanças, para fazer a gravação automática ao editar o data_editor
+def df_tem_mudancas(df_novo: pd.DataFrame, df_antigo: pd.DataFrame) -> bool:
+    """
+    Compara dois DataFrames e retorna True se houver qualquer diferença.
+    Considera tanto os valores quanto a ordem das colunas e linhas.
+
+    Args:
+        df_novo (pd.DataFrame): DataFrame novo editado.
+        df_antigo (pd.DataFrame): DataFrame original para comparar.
+
+    Returns:
+        bool: True se os DataFrames forem diferentes, False se iguais.
+    """
+    if df_novo.shape != df_antigo.shape:
+        return True
+
+    # Compara índice e colunas
+    if not df_novo.index.equals(df_antigo.index):
+        return True
+    if not df_novo.columns.equals(df_antigo.columns):
+        return True
+
+    # Compara valores (elemento a elemento)
+    return not df_novo.equals(df_antigo)
+
+
 # Editar Teoria da Mudança  
 @st.dialog("Editar Teoria da Mudança", width="large")
 def editar_info_teoria_mudanca_dialog():
@@ -428,44 +454,44 @@ def editar_titulo_de_cada_resultado_mp_dialog(resultado_idx):
 
 # Função para pegar o índice da linha selecionada
 
-def on_select_linha():
-    for k in st.session_state.keys():
-        if k.startswith("tabela_metas_"):
-            selection = st.session_state[k]
-            selected_rows = selection.get("selection", {}).get("rows", [])
-            if selected_rows:
-                resultado_idx = int(k.replace("tabela_metas_", ""))
-                st.session_state["linha_selecionada"] = {
-                    "resultado_idx": resultado_idx,
-                    "linha_idx": selected_rows[0]
-                }
-                editar_meta_res_mp_dialog(st.session_state["linha_selecionada"])
-                break
+# def on_select_linha():
+#     for k in st.session_state.keys():
+#         if k.startswith("tabela_metas_"):
+#             selection = st.session_state[k]
+#             selected_rows = selection.get("selection", {}).get("rows", [])
+#             if selected_rows:
+#                 resultado_idx = int(k.replace("tabela_metas_", ""))
+#                 st.session_state["linha_selecionada"] = {
+#                     "resultado_idx": resultado_idx,
+#                     "linha_idx": selected_rows[0]
+#                 }
+#                 editar_meta_res_mp_dialog(st.session_state["linha_selecionada"])
+#                 break
 
 
 
 # Diálogo para editar a meta
-@st.dialog("Editar meta", width="large")
-def editar_meta_res_mp_dialog(linha_selecionada):
-    resultado_idx = linha_selecionada["resultado_idx"]
-    linha_idx = linha_selecionada["linha_idx"]
+# @st.dialog("Editar meta", width="large")
+# def editar_meta_res_mp_dialog(linha_selecionada):
+#     resultado_idx = linha_selecionada["resultado_idx"]
+#     linha_idx = linha_selecionada["linha_idx"]
 
-    # Acessa a meta específica
-    meta = lista_resultados[resultado_idx]["metas"][linha_idx]
+#     # Acessa a meta específica
+#     meta = lista_resultados[resultado_idx]["metas"][linha_idx]
 
-    st.subheader("Editar Meta")
+#     st.subheader("Editar Meta")
 
-    # Inputs para editar a meta
-    nome = st.text_input("Nome da Meta", value=meta.get("nome_meta_mp", ""), key="input_nome_meta")
-    objetivo = st.text_input("Objetivo", value=meta.get("objetivo", ""), key="input_objetivo_meta")
-    alcancado = st.text_input("Alcançado", value=meta.get("alcancado", ""), key="input_alcancado_meta")
+#     # Inputs para editar a meta
+#     nome = st.text_input("Nome da Meta", value=meta.get("nome_meta_mp", ""), key="input_nome_meta")
+#     objetivo = st.text_input("Objetivo", value=meta.get("objetivo", ""), key="input_objetivo_meta")
+#     alcancado = st.text_input("Alcançado", value=meta.get("alcancado", ""), key="input_alcancado_meta")
 
-    # Botão para salvar alterações
-    if st.button("Salvar alterações", key="btn_salvar_meta"):
-        meta["nome_meta_mp"] = nome
-        meta["objetivo"] = objetivo
-        meta["alcancado"] = alcancado
-        st.success("Meta atualizada com sucesso!")
+#     # Botão para salvar alterações
+#     if st.button("Salvar alterações", key="btn_salvar_meta"):
+#         meta["nome_meta_mp"] = nome
+#         meta["objetivo"] = objetivo
+#         meta["alcancado"] = alcancado
+#         st.success("Meta atualizada com sucesso!")
 
 
 ###########################################################################################################
@@ -617,11 +643,16 @@ with aba_res_mp:
     # Roteamento de tipo de usuário
     if set(st.session_state.tipo_usuario) & {"admin"}:
         col1, col2 = st.columns([7, 1])  # Ajuste os pesos conforme necessário
-        with col2:
-            st.button("Editar página", icon=":material/edit:", key="editar_result_mp", on_click=editar_titulo_pagina_resultados_mp_dialog, use_container_width=True)
+        col1.toggle('Modo de edição', value=False, key='modo_edicao')
+
+        if st.session_state.modo_edicao:
+            with col2:
+                st.button("Editar página", icon=":material/edit:", key="editar_result_mp", on_click=editar_titulo_pagina_resultados_mp_dialog, use_container_width=True)
 
     st.subheader(titulo_pagina)
     st.write('')
+
+
 
     # # Botão de adicionar novo resultado de médio prazo só para admin
     # # Roteamento de tipo de usuário
@@ -642,17 +673,11 @@ with aba_res_mp:
 
 
 
-
-
-
-
-
-
-
-
     # Lista os resultados de médio prazo
     for idx, resultado in enumerate(lista_resultados):
         with st.expander(resultado["titulo"]):
+            
+            # Metas
             metas = resultado.get("metas", [])
             if metas:
                 df_metas = pd.DataFrame([
@@ -664,14 +689,52 @@ with aba_res_mp:
                     for m in metas
                 ])
 
-                # Usa uma key única para cada tabela
-                st.dataframe(
-                    df_metas,
-                    selection_mode="single-row",
-                    hide_index=True,
-                    on_select=on_select_linha,
-                    key=f"tabela_metas_{idx}"
-                )
+                # Modo edição
+                if st.session_state.modo_edicao:
+                    
+                    # Guarda o original na sessão
+                    if "df_original" not in st.session_state:
+                        st.session_state.df_original = df_metas.copy()
+
+                    # Renderiza o data_editor
+                    df_metas_editado = st.data_editor(
+                        st.session_state.df_original,
+                        hide_index=True,
+                        key=f"tabela_metas_{idx}"
+                    )
+
+
+                    # Detecta mudanças usando a função reutilizável
+                    if df_tem_mudancas(df_metas_editado, st.session_state.df_original):
+                        st.session_state.df_original = df_metas_editado.copy()
+                        nova_lista = df_metas_editado.to_dict(orient="records")
+
+                        # Atualiza no MongoDB o campo específico no documento correto
+                        colecao.update_one(
+                            {"_id": documento["_id"]},
+                            {"$set": {"resultados_medio_prazo.resultados_mp": nova_lista}}
+                        )
+                        st.success("Alterações salvas automaticamente no MongoDB ✅")
+
+
+
+
+
+
+                # Modo leitura
+                else:
+
+                    # Renderiza o dataframe somente para leitura.
+                    st.dataframe(
+                        df_metas,
+                        # selection_mode="single-row",
+                        hide_index=True,
+                        # on_select=on_select_linha,
+                        key=f"tabela_metas_{idx}"
+                    )
+
+
+
             else:
                 st.info("Nenhuma meta cadastrada.")
 
@@ -683,7 +746,7 @@ with aba_res_mp:
 
             # Ações estratégicas
             st.write("")
-            st.write("**AÇÕES ESTRATÉGICAS:**")
+            st.write("**ENTREGAS:**")
             acoes = resultado.get("acoes_estrategicas", [])
             if not acoes:
                 st.info("Nenhuma ação estratégica cadastrada.")
