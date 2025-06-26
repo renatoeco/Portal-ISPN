@@ -1,9 +1,7 @@
 import streamlit as st
 import pandas as pd
 import folium
-import requests
-import numpy as np
-import json
+import plotly.express as px
 from folium.plugins import MarkerCluster
 from streamlit_folium import st_folium
 from bson import ObjectId
@@ -397,17 +395,6 @@ with geral:
     # Total de doadores únicos (remover vazios)
     total_doador = df_projetos["Doador"].replace("", pd.NA).dropna().nunique()
 
-    # Total de estados únicos a partir dos municípios (código do estado antes do traço)
-    estados_unicos = set()
-    for municipios in df_projetos["Município(s)"]:
-        for m in municipios.split(","):
-            m = m.strip()
-            if " - " in m:
-                estado = m.split(" - ")[0]  # Pega o que vem ANTES do traço (ex: "BA")
-                estados_unicos.add(estado)
-
-    total_estados = len(estados_unicos)
-
     # Contabilização única e limpa de municípios
     municipios_unicos = set()
 
@@ -479,6 +466,57 @@ with geral:
     col2.metric("Contratos em R$", f"{contratos_brl:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
 
     col3.metric("Total dos contratos em US$", f"{total_convertido_usd:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+
+    # Garantir campos como string
+    df_projetos["Ano"] = df_projetos["Ano"].astype(str)
+    df_projetos["Doador"] = df_projetos["Doador"].astype(str)
+
+    # Agrupamento
+    dados = (
+        df_projetos
+        .groupby(["Ano", "Doador"])
+        .size()
+        .reset_index(name="apoios")
+    )
+
+    # Criar intervalo dinâmico de anos
+    anos_min = int(df_projetos["Ano"].min())
+    anos_max = int(df_projetos["Ano"].max())
+
+    # Gerar todos os pares possíveis (Ano x Doador)
+    doadores_unicos = dados["Doador"].unique()
+    todos = pd.DataFrame([
+        (str(ano), doador) for ano in range(anos_min, anos_max + 1) for doador in doadores_unicos
+    ], columns=["Ano", "Doador"])
+
+    # Merge para garantir presença de todos os anos e doadores
+    dados_completos = pd.merge(todos, dados, on=["Ano", "Doador"], how="left").fillna(0)
+    dados_completos["apoios"] = dados_completos["apoios"].astype(int)
+
+    # Gráfico com Plotly
+    fig = px.bar(
+        dados_completos,
+        x="Ano",
+        y="apoios",
+        color="Doador",
+        barmode="group",
+        title="Número de apoios por doador e ano",
+        labels={"apoios": "Número de apoios", "Ano": "Ano"},
+        height=600
+    )
+
+    # Personalização estética
+    fig.update_layout(
+        xaxis_tickangle=-45,
+        xaxis=dict(type='category'),
+        legend_font_size=17,
+        bargap=0.00001,        # ↓ Menor = barras mais próximas entre os anos
+        bargroupgap=0.000001,   # ↓ Menor = barras mais largas dentro do mesmo ano
+        margin=dict(t=60, b=60, l=40, r=10)
+    )
+
+    # Mostrar no Streamlit
+    st.plotly_chart(fig, use_container_width=True)
 
 
 with lista:
@@ -581,17 +619,18 @@ with lista:
     total_linhas = len(df_filtrado)
     total_paginas = (total_linhas - 1) // itens_por_pagina + 1
 
-    col1, col2, col3 = st.columns([5, 2, 1])
+    col1, col2, col3 = st.columns([5, 1, 1])
     pagina_atual = col3.number_input("Página", min_value=1, max_value=total_paginas, value=1, step=1, key="pagina_projetos")
 
     inicio = (pagina_atual - 1) * itens_por_pagina
     fim = inicio + itens_por_pagina
     df_paginado = df_filtrado.iloc[inicio:fim]
 
-    with col2:
+    with col1:
+        st.write("")
+        st.subheader(f"Mostrando {inicio + 1} a {min(fim, total_linhas)} de {total_linhas} projetos")
         st.write("")
         st.write("")
-        st.write(f"Mostrando {inicio + 1} a {min(fim, total_linhas)} de {total_linhas} resultados")
 
     st.write("")
 
@@ -666,11 +705,15 @@ with mapa:
             proponente = projeto.get('proponente', '')
             nome_proj = projeto.get('nome_do_projeto', '')
             ponto_focal_obj = projeto.get("ponto_focal")
+            tipo_do_projeto = projeto.get("tipo")
+            categoria = projeto.get("categoria")
             nome_ponto_focal = pontos_focais_dict.get(ponto_focal_obj, "Não informado")
+            
 
         popup_html = f"""
             <b>Município:</b> {nome_muni}<br>
             <hr>
+            <b>{tipo_do_projeto} - {categoria}</b><br>
             <b>Código:</b> {codigo}<br>
             <b>Proponente:</b> {proponente}<br>
             <b>Projeto:</b> {nome_proj}<br>
@@ -682,93 +725,5 @@ with mapa:
 
     st_folium(m, width=None, height=800, returned_objects=[])
     
-
-    ######################################################################################################
-    # MAPA COROPLÉTICO COM QUANTIDADE DE PROJETOS POR MUNICÍPIO
-    ######################################################################################################
-
-
-    # Expandir os códigos dos municípios
-    # todos_codigos_municipios = []
-
-    # for projeto in todos_projetos:
-    #     codigos_str = projeto.get("municipios", "")
-    #     codigos = [c.strip() for c in codigos_str.split(",") if c.strip()]
-    #     todos_codigos_municipios.extend(codigos)
-
-    # # Criar DataFrame de contagem
-    # df_muni_count = pd.DataFrame(todos_codigos_municipios, columns=["codigo_municipio"])
-    # df_muni_count = df_muni_count.groupby("codigo_municipio").size().reset_index(name="count")
-    # df_muni_count["codigo_municipio"] = df_muni_count["codigo_municipio"].astype(str)
-
-    # # Carregar o GeoJSON dos municípios brasileiros
-    # geojson_url = "https://raw.githubusercontent.com/tbrugz/geodata-br/refs/heads/master/geojson/geojs-100-mun.json"
-
-    # response = requests.get(geojson_url)
-    
-
-    # if response.status_code != 200:
-    #     st.error("Erro ao baixar GeoJSON")
-    # else:
-    #     geojson_text = response.content.decode("utf-8-sig")
-    #     geojson = json.loads(geojson_text)
-    #     #st.write(geojson["features"][0])
-
-    #     # Ajustar 'id' para dentro de 'properties' (se necessário)
-    #     for feature in geojson["features"]:
-    #         if "id" not in feature.get("properties", {}):
-    #             # Se não existir, pode criar com algum valor, ou ignorar
-    #             feature["properties"]["id"] = None  # ou outro valor padrão
-
-
-    # # Criar um dicionário para lookup das contagens por código do município
-    # count_dict = df_muni_count.set_index("codigo_municipio")["count"].to_dict()
-
-    # # Inserir o 'count' nas propriedades do GeoJSON para cada município
-    # for feature in geojson["features"]:
-    #     cod_muni = feature["properties"]["id"]
-    #     feature["properties"]["count"] = count_dict.get(cod_muni, 0)  # 0 se não tiver projetos
-
-    # # Criar o mapa
-    # m2 = folium.Map(location=[-15.78, -47.93], zoom_start=4, tiles="CartoDB positron")
-
-    # # Definir quebras manuais para os bins (exemplo)
-    # max_count = df_muni_count["count"].max()
-    # scale = [0, 1, 3, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, max_count]
-    
-    # # Choropleth com bins personalizados
-    # folium.Choropleth(
-    #     geo_data=geojson,
-    #     data=df_muni_count,
-    #     columns=["codigo_municipio", "count"],
-    #     key_on="feature.properties.id",
-    #     fill_color="Blues",
-    #     fill_opacity=0.7,
-    #     line_opacity=0.0,
-    #     legend_name="Número de projetos por município",
-    #     nan_fill_color="white",
-    #     threshold_scale=scale,
-    #     reset=True
-    # ).add_to(m2)
-
-    # # Adicionar GeoJson com tooltip que mostra o nome e o count
-    # folium.GeoJson(
-    #     geojson,
-    #     name="Municípios",
-    #     style_function=lambda feature: {
-    #         'fillColor': 'transparent',
-    #         'color': 'black',
-    #         'weight': 0.0
-    #     },
-    #     tooltip=folium.GeoJsonTooltip(
-    #         fields=["name", "count"],  # nome do município e quantidade de projetos
-    #         aliases=["Município:", "Qtd. de projetos:"],
-    #         localize=True
-    #     )
-    # ).add_to(m2)
-
-    # # Mostrar o mapa no Streamlit
-    # st.subheader("Mapa coroplético por município (quantidade de projetos)")
-    # st_folium(m2, width=None, height=600, returned_objects=[])
 
 
