@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import folium
+import math
 import plotly.express as px
 from folium.plugins import MarkerCluster
 from streamlit_folium import st_folium
@@ -413,20 +414,17 @@ with geral:
     total_organizacoes = df_pj["CNPJ"].replace("", pd.NA).dropna().nunique()
 
     col1.metric("Editais", f"{total_editais}")
-    col2.metric("Doadores", f"{total_doador}")
-    col3.metric("Organizações apoiadas", f"{total_organizacoes}")
+    col1.metric("Doadores", f"{total_doador}")
+    col1.metric("Organizações apoiadas", f"{total_organizacoes}")
 
-
-    col1, col2, col3= st.columns(3)
     
-    col1.metric("Total de apoios", f"{total_projetos}")
+    col2.metric("Total de apoios", f"{total_projetos}")
     col2.metric("Apoios a Pessoa Jurídica", f"{total_projetos_pj}")
-    col3.metric("Apoios a Pessoa Física", f"{total_projetos_pf}")
+    col2.metric("Apoios a Pessoa Física", f"{total_projetos_pf}")
     
-    col1, col2, col3 = st.columns(3)
 
-    col1.metric("Estados", f"{total_ufs}")
-    col2.metric("Municípios", f"{total_municipios}")
+    col3.metric("Estados", f"{total_ufs}")
+    col3.metric("Municípios", f"{total_municipios}")
 
     st.divider()
 
@@ -467,6 +465,11 @@ with geral:
 
     col3.metric("Total dos contratos em US$", f"{total_convertido_usd:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
 
+    st.write("")
+    st.write("")
+ 
+    # Gráfico
+
     # Garantir campos como string
     df_projetos["Ano"] = df_projetos["Ano"].astype(str)
     df_projetos["Doador"] = df_projetos["Doador"].astype(str)
@@ -479,124 +482,111 @@ with geral:
         .reset_index(name="apoios")
     )
 
-    # Criar intervalo dinâmico de anos
-    anos_min = int(df_projetos["Ano"].min())
-    anos_max = int(df_projetos["Ano"].max())
+    # Garantir que os campos são string
+    df_projetos["Ano"] = df_projetos["Ano"].astype(str)
+    df_projetos["Doador"] = df_projetos["Doador"].astype(str)
 
-    # Gerar todos os pares possíveis (Ano x Doador)
-    doadores_unicos = dados["Doador"].unique()
-    todos = pd.DataFrame([
-        (str(ano), doador) for ano in range(anos_min, anos_max + 1) for doador in doadores_unicos
-    ], columns=["Ano", "Doador"])
+    # Agrupamento dos apoios existentes
+    dados = (
+        df_projetos
+        .groupby(["Ano", "Doador"])
+        .size()
+        .reset_index(name="apoios")
+    )
 
-    # Merge para garantir presença de todos os anos e doadores
-    dados_completos = pd.merge(todos, dados, on=["Ano", "Doador"], how="left").fillna(0)
-    dados_completos["apoios"] = dados_completos["apoios"].astype(int)
+    # Obter intervalo completo de anos
+    anos_todos = list(map(str, range(int(df_projetos["Ano"].min()), int(df_projetos["Ano"].max()) + 1)))
 
-    # Gráfico com Plotly
+    # Preencher com 0 onde não há apoio (para doadores já existentes)
+    doadores = dados["Doador"].unique()
+    todos_anos_doador = pd.MultiIndex.from_product([anos_todos, doadores], names=["Ano", "Doador"])
+    dados_completos = dados.set_index(["Ano", "Doador"]).reindex(todos_anos_doador, fill_value=0).reset_index()
+
+    # Paleta com mais cores distintas (exemplo: 'Plotly', 'Viridis', 'Turbo', ou personalizada)
+    paleta_cores = px.colors.qualitative.Light24
+    
+    # Criar gráfico
     fig = px.bar(
         dados_completos,
         x="Ano",
         y="apoios",
         color="Doador",
-        barmode="group",
+        color_discrete_sequence=paleta_cores,
+        barmode="stack",
         title="Número de apoios por doador e ano",
-        labels={"apoios": "Número de apoios", "Ano": "Ano"},
-        height=600
+        labels={"apoios": "Número de apoios", "Ano": ""},
+        height=600,
+        category_orders={"Ano": anos_todos}  # ordem cronológica
     )
 
-    # Personalização estética
+    # Estética
     fig.update_layout(
         xaxis_tickangle=-45,
         xaxis=dict(type='category'),
         legend_font_size=17,
-        bargap=0.00001,        # ↓ Menor = barras mais próximas entre os anos
-        bargroupgap=0.000001,   # ↓ Menor = barras mais largas dentro do mesmo ano
+        bargap=0.1,         # espaço entre anos
+        bargroupgap=0.05,   # barras mais grossas
         margin=dict(t=60, b=60, l=40, r=10)
     )
 
-    # Mostrar no Streamlit
+    # Mostrar
     st.plotly_chart(fig, use_container_width=True)
+
 
 
 with lista:
 
     with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
-
-        # Divisão em colunas
-        col1, col2, col3, col4 = st.columns(4)
-
-        editais_disponiveis = sorted(df_projetos["Edital"].dropna().unique(), key=lambda x: float(x))
-        anos_disponiveis = sorted(df_projetos["Ano"].dropna().unique())
-        doadores_disponiveis = sorted(df_projetos["Doador"].dropna().unique())
-        codigos_disponiveis = sorted(df_projetos["Código"].dropna().unique())
-        tipos_disponiveis = ["Projetos PJ", "Projetos PF"]
-        
-        # Extrair todos os estados únicos, considerando que podem estar separados por vírgula
-        estados_unicos = sorted(
-            df_projetos["Estado(s)"]
-            .dropna()
-            .apply(lambda x: [m.strip() for m in x.split(",")])
-            .explode()
-            .unique()
-        )
-        
-        tipo_sel = col1.pills("Tipo", tipos_disponiveis, selection_mode="multi")
-
-        col1, col2, col3, col4 = st.columns(4)
-        
-        codigo_sel = col1.multiselect("Código", options=codigos_disponiveis, default=[], placeholder="Todos")
-        ano_sel = col2.multiselect("Ano", options=anos_disponiveis, default=[], placeholder="Todos")
-        edital_sel = col3.multiselect("Edital", options=editais_disponiveis, default=[], placeholder="Todos")
-        doador_sel = col4.multiselect("Doador", options=doadores_disponiveis, default=[], placeholder="Todos")
-
-
-        col5, col6 = st.columns(2)
-
-        uf_sel = col5.multiselect(
-            "Estado(s)",
-            options=estados_unicos,
-            default=[],
-            placeholder="Todos"
-        )
-
-        municipio_sel = col6.multiselect(
-            "Município",
-            options=sorted(
-                df_projetos["Município(s)"]
-                .dropna()
-                .apply(lambda x: [m.strip() for m in x.split(",")])
-                .explode()
-                .unique()
-            ),
-            default=[],
-            placeholder="Todos"
-        )
-
-        # Filtro base (considera 'Todos' se nada for selecionado)
         df_filtrado = df_projetos.copy()
 
+        # ===== PRIMEIRA LINHA =====
+        
+        # Tipo
+        col1, col2 = st.columns(2)
+        tipos_disponiveis = ["Projetos PJ", "Projetos PF"]
+        tipo_sel = col1.pills("Tipo", tipos_disponiveis, selection_mode="multi")
+
+        if tipo_sel:
+            if "Projetos PJ" in tipo_sel and "Projetos PF" not in tipo_sel:
+                df_filtrado = df_filtrado[df_filtrado["Tipo"] == "PJ"]
+            elif "Projetos PF" in tipo_sel and "Projetos PJ" not in tipo_sel:
+                df_filtrado = df_filtrado[df_filtrado["Tipo"] == "PF"]
+
+        col1, col2, col3, col4 = st.columns(4)
+
+        # Edital
+        editais_disponiveis = sorted(df_filtrado["Edital"].dropna().unique(), key=lambda x: float(x))
+        edital_sel = col1.multiselect("Edital", options=editais_disponiveis, placeholder="Todos")
         if edital_sel:
             df_filtrado = df_filtrado[df_filtrado["Edital"].isin(edital_sel)]
 
+        # Ano
+        anos_disponiveis = sorted(df_filtrado["Ano"].dropna().unique())
+        ano_sel = col2.multiselect("Ano", options=anos_disponiveis, placeholder="Todos")
         if ano_sel:
             df_filtrado = df_filtrado[df_filtrado["Ano"].isin(ano_sel)]
 
+        # Doador
+        doadores_disponiveis = sorted(df_filtrado["Doador"].dropna().unique())
+        doador_sel = col3.multiselect("Doador", options=doadores_disponiveis, placeholder="Todos")
         if doador_sel:
             df_filtrado = df_filtrado[df_filtrado["Doador"].isin(doador_sel)]
-            
+
         # Código
+        codigos_disponiveis = sorted(df_filtrado["Código"].dropna().unique())
+        codigo_sel = col4.multiselect("Código", options=codigos_disponiveis, placeholder="Todos")
         if codigo_sel:
             df_filtrado = df_filtrado[df_filtrado["Código"].isin(codigo_sel)]
+        
 
-        # Tipo de apoio
-        if "Projetos PJ" in tipo_sel and "Projetos PF" not in tipo_sel:
-            df_filtrado = df_filtrado[df_filtrado["Tipo"] == "PJ"]
-        elif "Projetos PF" in tipo_sel and "Projetos PJ" not in tipo_sel:
-            df_filtrado = df_filtrado[df_filtrado["Tipo"] == "PF"]
-
-
-        # Filtro de estados
+        # ===== SEGUNDA LINHA =====
+        col5, col6= st.columns(2)
+        
+        # Estado
+        estados_unicos = sorted(
+            df_filtrado["Estado(s)"].dropna().apply(lambda x: [m.strip() for m in x.split(",")]).explode().unique()
+        )
+        uf_sel = col5.multiselect("Estado(s)", options=estados_unicos, placeholder="Todos")
         if uf_sel:
             df_filtrado = df_filtrado[
                 df_filtrado["Estado(s)"].apply(
@@ -605,19 +595,29 @@ with lista:
             ]
 
         # Município
+        municipios_unicos = sorted(
+            df_filtrado["Município(s)"].dropna().apply(lambda x: [m.strip() for m in x.split(",")]).explode().unique()
+        )
+        municipio_sel = col6.multiselect("Município", options=municipios_unicos, placeholder="Todos")
         if municipio_sel:
             df_filtrado = df_filtrado[
                 df_filtrado["Município(s)"].apply(
-                    lambda x: any(m.strip() in municipio_sel for m in x.split(","))
+                    lambda x: any(m.strip() in municipio_sel for m in x.split(",")) if isinstance(x, str) else False
                 )
             ]
+
+
+        # ===== AVISO =====
+        if df_filtrado.empty:
+            st.warning("Nenhum projeto encontrado")
 
     st.write("")
 
     # Paginação
     itens_por_pagina = 50
     total_linhas = len(df_filtrado)
-    total_paginas = (total_linhas - 1) // itens_por_pagina + 1
+    total_paginas = max(math.ceil(len(df_filtrado) / itens_por_pagina), 1)
+
 
     col1, col2, col3 = st.columns([5, 1, 1])
     pagina_atual = col3.number_input("Página", min_value=1, max_value=total_paginas, value=1, step=1, key="pagina_projetos")
@@ -724,6 +724,3 @@ with mapa:
         folium.Marker(location=[lat, lon], popup=folium.Popup(popup_html, max_width=300)).add_to(cluster)
 
     st_folium(m, width=None, height=800, returned_objects=[])
-    
-
-
