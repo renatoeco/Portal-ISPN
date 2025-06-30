@@ -210,10 +210,15 @@ else:
                     placeholder="Escolha um veículo"
                 )
 
-            # Define o intervalo de datas padrão para os últimos 30 dias.
-            # data_min = df["Data_Convertida"].min().date()
-            # data_max = df["Data_Convertida"].max().date()
+            # Filtro de datas
+
             hoje = date.today()
+
+            data_min = df["Data_Convertida"].min().date()
+            data_max = df["Data_Convertida"].max().date()
+
+            # Define o intervalo de datas padrão para os últimos 30 dias.
+
             # inicio_padrao = max(data_min, hoje - timedelta(days=30))
             inicio_padrao = hoje - timedelta(days=31)
             # fim_padrao = min(data_max, hoje)
@@ -223,12 +228,19 @@ else:
                 intervalo_datas = st.date_input(
                     "Período",
                     value=(inicio_padrao, fim_padrao),
-                    min_value=inicio_padrao,
-                    max_value=fim_padrao,
+                    min_value=data_min,
+                    max_value=data_max,
                     format="DD/MM/YYYY"
                 )
+            
+            # Garante valores padrão se o input estiver vazio ou malformado
+            if not intervalo_datas:
+                intervalo_datas = (inicio_padrao, fim_padrao)
 
             aplicar = st.form_submit_button("Aplicar filtros", icon=":material/check:", type="primary")
+
+    # Inicia o df_filtrado com data_min e data_max
+    # df_filtrado = df_relevantes[df_relevantes["Data_Convertida"].dt.date.between(data_min, data_max)]
 
     # Aplica os filtros selecionados
     if aplicar:
@@ -244,7 +256,9 @@ else:
             (df_relevantes["Data_Convertida"].dt.date <= intervalo_datas[1])
         ]
     else:
-        df_filtrado = df_relevantes
+        # df_filtrado = df_relevantes
+        df_filtrado = df_relevantes[df_relevantes["Data_Convertida"].dt.date.between(inicio_padrao, fim_padrao)]
+
 
     st.write("")
 
@@ -316,8 +330,9 @@ else:
     if num_noticias == 1:
         st.subheader("1 notícia relevante")
     else:
-        st.subheader(f"{num_noticias} notícias relevantes")
-        
+        # st.subheader(f"{num_noticias} notícias relevantes entre {intervalo_datas[0].strftime('%d/%m/%Y')} a {intervalo_datas[1].strftime('%d/%m/%Y')}")
+        st.write('')
+        st.markdown(f"<p style='font-size: 1.5em'><b>{num_noticias} notícias relevantes</b> entre {intervalo_datas[0].strftime('%d/%m/%Y')} e {intervalo_datas[1].strftime('%d/%m/%Y')}</p>", unsafe_allow_html=True)
 
 
     # Gráfico ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
