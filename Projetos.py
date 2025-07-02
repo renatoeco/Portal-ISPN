@@ -43,27 +43,6 @@ df_projetos_ispn["programa_nome"] = df_projetos_ispn["programa"].map(mapa_progra
 
 
 
-# # DOADORES
-# doadores = list(db["doadores"].find())
-# df_doadores = pd.DataFrame(doadores)
-
-# # PROGRAMAS
-# programas = list(db["programas_areas"].find()) 
-# df_programas = pd.DataFrame(programas)
-
-# # PROJETOS
-# projetos_ispn = list(db["projetos_ispn"].find())
-# df_projetos_ispn = pd.DataFrame(projetos_ispn)
-
-
-
-
-
-
-
-
-# st.write(projetos_ispn)
-
 ######################################################################################################
 # INTERFACE
 ######################################################################################################

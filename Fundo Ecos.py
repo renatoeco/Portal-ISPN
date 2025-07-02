@@ -27,6 +27,9 @@ ufs_municipios = db["ufs_municipios"]
 pessoas = db["pessoas"]
 
 
+
+
+
 ######################################################################################################
 # FUNÇÕES
 ######################################################################################################
@@ -219,9 +222,35 @@ def mostrar_detalhes(i):
             st.info("Nenhum indicador encontrado para este projeto.")
 
 
+
 ######################################################################################################
-# MAIN
+# TRATAMENTO DE DADOS
 ######################################################################################################
+
+
+# # Capturar os valores legíveis de doador e programa-----------------------------------
+# # --- 1. Converter listas de documentos em DataFrames ---
+# df_doadores = pd.DataFrame(list(db["doadores"].find()))
+# df_programas = pd.DataFrame(list(db["programas_areas"].find()))
+# df_projetos_ispn = pd.DataFrame(list(db["projetos_ispn"].find()))
+
+# # --- 2. Criar dicionários de mapeamento ---
+# mapa_doador = {d["_id"]: d["nome_doador"] for d in db["doadores"].find()}
+# mapa_programa = {p["_id"]: p["nome_programa_area"] for p in db["programas_areas"].find()}
+
+# # --- 3. Aplicar os mapeamentos ao df_projetos_ispn ---
+# df_projetos_ispn["doador_nome"] = df_projetos_ispn["doador"].map(mapa_doador)
+# df_projetos_ispn["programa_nome"] = df_projetos_ispn["programa"].map(mapa_programa)
+# # --------------------------------------------------------------------------------------
+# st.write(df_projetos_ispn.head(1))
+
+# # Renomear as colunas
+# df_projetos_ispn.rename(columns={"programa": "id_programa",
+#                                  "doador": "id_doador"}, inplace=True)
+# df_projetos_ispn.rename(columns={"programa_nome": "programa",
+#                                  "doador_nome": "doador"}, inplace=True)
+
+
 
 
 # Combine os dados
@@ -291,12 +320,14 @@ colunas = [
     "municipios",
     "tipo",
     "municipio_principal",
-    "cnpj"
+    "cnpj",
+    "programa"
 ]
 
 # Adiciona "doador" se ela estiver presente no DataFrame
 if "doador" in df_projetos.columns:
     colunas.insert(3, "doador")  # Mantém a ordem: após "proponente"
+
 
 # Seleciona apenas as colunas existentes
 df_projetos = df_projetos[colunas].rename(columns={
@@ -359,6 +390,43 @@ for i, projeto in enumerate(todos_projetos):
 
 df_projetos["Valor"] = valores_formatados
 
+
+
+
+# Capturar os valores legíveis de doador e programa-----------------------------------
+# --- 1. Converter listas de documentos em DataFrames ---
+df_doadores = pd.DataFrame(list(db["doadores"].find()))
+# df_programas = pd.DataFrame(list(db["programas_areas"].find()))
+# df_projetos = pd.DataFrame(list(db["projetos_ispn"].find()))
+
+# --- 2. Criar dicionários de mapeamento ---
+
+# Criar o dicionário com as chaves como strings
+mapa_doador = {str(d["_id"]): d["nome_doador"] for d in db["doadores"].find()}
+# Transformar os valores da coluna "Doador" em string antes de mapear
+df_projetos["doador_nome"] = df_projetos["Doador"].astype(str).map(mapa_doador)
+
+# mapa_doador = {d["_id"]: d["nome_doador"] for d in db["doadores"].find()}
+# mapa_programa = {p["_id"]: p["nome_programa_area"] for p in db["programas_areas"].find()}
+
+
+# --- 3. Aplicar os mapeamentos ao df_projetos ---
+df_projetos["doador_nome"] = df_projetos["Doador"].map(mapa_doador)
+# df_projetos["programa_nome"] = df_projetos["programa"].map(mapa_programa)
+# --------------------------------------------------------------------------------------
+
+
+# Renomear as colunas
+df_projetos.rename(columns={"Doador": "id_doador"}, inplace=True)
+df_projetos.rename(columns={"doador_nome": "Doador"}, inplace=True)
+
+
+# ########################################################################################
+# INTERFACE
+# ########################################################################################
+
+
+
 st.header("Fundo Ecos")
 
 st.write('')
@@ -366,6 +434,7 @@ st.write('')
 
 geral, lista, mapa = st.tabs(["Visão geral", "Projetos", "Mapa"])
 
+# VISÃO GERAL
 with geral:
     
     # Separar projetos PF e PJ
@@ -533,9 +602,10 @@ with geral:
     st.plotly_chart(fig, use_container_width=True)
 
 
-
+# LISTA DE PROJETOS
 with lista:
 
+    # Filtros
     with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
         df_filtrado = df_projetos.copy()
 
@@ -613,19 +683,31 @@ with lista:
 
     st.write("")
 
-    # Paginação
+    # Define o número de itens (linhas) por página
     itens_por_pagina = 50
+
+    # Calcula o total de linhas no DataFrame filtrado
     total_linhas = len(df_filtrado)
+
+    # Calcula o total de páginas, garantindo pelo menos uma
     total_paginas = max(math.ceil(len(df_filtrado) / itens_por_pagina), 1)
 
-
+    # Cria uma linha com 3 colunas para layout (a última será usada para selecionar a página)
     col1, col2, col3 = st.columns([5, 1, 1])
-    pagina_atual = col3.number_input("Página", min_value=1, max_value=total_paginas, value=1, step=1, key="pagina_projetos")
 
+    # Campo numérico para o usuário selecionar a página atual (na coluna 3)
+    pagina_atual = col3.number_input(
+        "Página", min_value=1, max_value=total_paginas, value=1, step=1, key="pagina_projetos"
+    )
+
+    # Calcula o índice inicial e final da página atual
     inicio = (pagina_atual - 1) * itens_por_pagina
     fim = inicio + itens_por_pagina
+
+    # Fatia o DataFrame para obter apenas os dados da página atual
     df_paginado = df_filtrado.iloc[inicio:fim]
 
+    # Exibe um resumo de quais itens estão sendo mostrados atualmente
     with col1:
         st.write("")
         st.subheader(f"Mostrando {inicio + 1} a {min(fim, total_linhas)} de {total_linhas} projetos")
@@ -634,26 +716,50 @@ with lista:
 
     st.write("")
 
-    colunas_visiveis = [col for col in df_filtrado.columns if col not in ["Tipo", "Município Principal", "CNPJ"]]
+    # Define as colunas que serão visíveis (remove algumas colunas sensíveis ou irrelevantes)
+    colunas_visiveis = [col for col in df_filtrado.columns if col not in ["Tipo", "Município Principal", "CNPJ", "id_doador"]]
+
+    # Define os cabeçalhos das colunas da tabela, adicionando uma coluna "Detalhes" ao final
     headers = colunas_visiveis + ["Detalhes"]
 
+    # Define o tamanho relativo de cada coluna no layout da tabela
     col_sizes = [2, 2, 1, 2, 2, 2, 1, 2, 3, 3]
+
+    # Cria colunas no layout da tabela para os cabeçalhos
     header_cols = st.columns(col_sizes)
+
+    # Escreve os cabeçalhos nas colunas
     for col, header in zip(header_cols, headers):
         col.markdown(f"**{header}**")
 
+    # Adiciona uma linha divisória visual após os cabeçalhos
     st.divider()
 
+    # Itera sobre cada linha da página atual do DataFrame
     for i, row in df_paginado.iterrows():
+        # Cria colunas para a linha atual de dados
         cols = st.columns(col_sizes)
+
+        # Preenche cada coluna com os valores da linha, exceto o botão "Detalhes"
         for j, key in enumerate(colunas_visiveis):
             cols[j].write(row[key])
+
+        # Obtém o índice original da linha no DataFrame
         idx_original = row.name
-        cols[-1].button("Detalhes", key=f"ver_{idx_original}", on_click=mostrar_detalhes, args=(idx_original,), icon=":material/menu:")
-        
+
+        # Cria um botão "Detalhes" para a linha atual, que chama a função mostrar_detalhes ao ser clicado
+        cols[-1].button(
+            "Detalhes",
+            key=f"ver_{idx_original}",
+            on_click=mostrar_detalhes,
+            args=(idx_original,),
+            icon=":material/menu:"
+        )
+
+        # Adiciona uma linha divisória entre cada item
         st.divider()
 
-
+# MAPA
 with mapa:
     
     
