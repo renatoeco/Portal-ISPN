@@ -1,10 +1,13 @@
 import streamlit as st
 import pandas as pd
 import folium
+import math
+import plotly.express as px
 from folium.plugins import MarkerCluster
 from streamlit_folium import st_folium
 from bson import ObjectId
 from funcoes_auxiliares import conectar_mongo_portal_ispn
+
 
 st.set_page_config(layout="wide")
 st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
@@ -76,6 +79,13 @@ def converter_uf_codigo_para_nome(valor):
         return valor
     
 
+@st.cache_data
+def carregar_pontos_focais(_todos_projetos):
+    ids = [p["ponto_focal"] for p in _todos_projetos if isinstance(p.get("ponto_focal"), ObjectId)]
+    pessoas = db["pessoas"].find({"_id": {"$in": ids}})
+    return {p["_id"]: p.get("nome_completo", "Não encontrado") for p in pessoas}
+    
+
 @st.dialog("Detalhes do projeto", width="large")
 def mostrar_detalhes(i):
     projeto_df = df_projetos.iloc[i]
@@ -116,10 +126,97 @@ def mostrar_detalhes(i):
     st.write(f"**Situação:** {projeto.get('status', '')}")
     st.write(f"**Objetivo geral:** {projeto.get('objetivo_geral', '')}")
 
-    if "indicadores" in projeto:
-        df_indicadores = pd.DataFrame(projeto["indicadores"])
-        st.write("**Indicadores:**")
-        st.dataframe(df_indicadores, hide_index=True)
+    # Buscar indicadores com base no código do projeto
+    codigo_projeto = projeto.get("codigo", "")
+
+    nomes_legiveis = {
+        "numero_de_organizacoes_apoiadas": "Número de organizações apoiadas",
+        "numero_de_comunidades_fortalecidas": "Número de comunidades fortalecidas",
+        "numero_de_familias": "Número de famílias beneficiadas",
+        "numero_de_homens_jovens": "Número de homens jovens",
+        "numero_de_homens_adultos": "Número de homens adultos",
+        "numero_de_mulheres_jovens": "Número de mulheres jovens",
+        "numero_de_mulheres_adultas": "Número de mulheres adultas",
+        "numero_de_indigenas": "Número de indígenas",
+        "numero_de_lideranas_comunitarias_fortalecidas": "Número de lideranças comunitárias fortalecidas",
+        "numero_de_familias_comercializando_produtos_da_sociobio_com_apoio_do_ppp_ecos": "Número de famílias comercializando produtos da sociobio com apoio do PPP-ECOS",
+        "numero_de_familias_acessando_vendas_institucionais_com_apoio_do_ppp_ecos": "Número de famílias acessando vendas institucionais com apoio do PPP-ECOS",
+        "numero_de_estudantes_recebendo_bolsa": "Número de estudantes recebendo bolsa",
+        "numero_de_capacitacoes_realizadas": "Número de capacitações realizadas",
+        "numero_de_homens_jovens_capacitados": "Número de homens jovens capacitados",
+        "numero_de_homens_adultos_capacitados": "Número de homens adultos capacitados",
+        "numero_de_mulheres_jovens_capacitadas": "Número de mulheres jovens capacitadas",
+        "numero_de_mulheres_adultas_capacitadas": "Número de mulheres adultas capacitadas",
+        "numero_de_intercambios_realizados": "Número de intercâmbios realizados",
+        "numero_de_homens_em_intercambios": "Número de homens em intercâmbios",
+        "numero_de_mulheres_em_intercambios": "Número de mulheres em intercâmbios",
+        "numero_de_iniciativas_de_gestao_territorial_implantadas": "Número de iniciativas de gestão territorial implantadas",
+        "area_com_manejo_ecologico_do_fogo_ha": "Área com manejo ecológico do fogo (ha)",
+        "area_com_manejo_agroecologico_ha": "Área com manejo agroecológico (ha)",
+        "area_com_manejo_para_restauracao_ha": "Área com manejo para restauração (ha)",
+        "area_com_manejo_para_extrativismo_ha": "Área com manejo para extrativismo (ha)",
+        "numero_de_agroindustiras_implementadas_ou_reformadas": "Número de agroindústrias implementadas ou reformadas",
+        "numero_de_tecnologias_instaladas": "Número de tecnologias instaladas",
+        "numero_de_pessoas_beneficiadas_com_tecnologias": "Número de pessoas beneficiadas com tecnologias",
+        "numero_de_videos_produzidos": "Número de vídeos produzidos",
+        "numero_de_aparicoes_na_midia": "Número de aparições na mídia",
+        "numero_de_publicacoes_de_carater_tecnico": "Número de publicações de caráter técnico",
+        "numero_de_artigos_academicos_produzidos_e_publicados": "Número de artigos acadêmicos produzidos e publicados",
+        "numero_de_comunicadores_comunitarios_contribuindo_na_execucao_das_acoes_do_ispn": "Número de comunicadores comunitários contribuindo na execução das ações do ISPN",
+        "faturamento_bruto_anual_pre_projeto": "Faturamento bruto anual pré-projeto",
+        "faturamento_bruto_anual_pos_projeto": "Faturamento bruto anual pós-projeto",
+        "volume_financeiro_de_vendas_institucionais_com_apoio_do_ppp_ecos": "Volume financeiro de vendas institucionais com apoio do PPP-ECOS",
+        "numero_de_visitas_de_monitoramento_realizadas_ao_projeto_apoiado": "Número de visitas de monitoramento realizadas ao projeto apoiado",
+        "valor_da_contrapartida_financeira_projetinhos": "Valor da contrapartida financeira (projetinhos)",
+        "valor_da_contrapartida_nao_financeira_projetinhos": "Valor da contrapartida não financeira (projetinhos)",
+        "especies": "Espécies",
+        "numero_de_organizacoes_apoiadas_que_alavancaram_recursos": "Número de organizações que alavancaram recursos",
+        "valor_mobilizado_de_novos_recursos": "Valor mobilizado de novos recursos",
+        "numero_de_politicas_publicas_monitoradas_pelo_ispn": "Número de políticas públicas monitoradas pelo ISPN",
+        "numero_de_proposicoes_legislativas_acompanhadas_pelo_ispn": "Número de proposições legislativas acompanhadas pelo ISPN",
+        "numero_de_contribuicoes_notas_tecnicas_participacoes_e_ou_documentos_que_apoiam_a_construcao_e_aprimoramento_de_politicas_publicas": "Número de contribuições (notas técnicas, participações e/ou documentos) que apoiam a construção e aprimoramento de políticas públicas",
+        "numero_de_imoveis_rurais_com_producao_sustentavel": "Número de imóveis rurais com produção sustentável",
+        "area_de_vegetacao_natural_diretamente_manejada": "Área de vegetação natural diretamente manejada (ha)",
+        "area_de_recuperacao_tecnica_saf": "Área de recuperação técnica (SAF) (ha)",
+        "area_de_recuperacao_tecnica_regeneracao": "Área de recuperação técnica (regeneração) (ha)",
+        "area_de_recuperacao_tecnica_plantio_adensamento": "Área de recuperação técnica (plantio/adensamento) (ha)",
+        "numero_de_unidades_demonstrativas_de_plantio": "Número de unidades demonstrativas de plantio",
+        "numero_de_infraestruturas_de_producao_implantadas": "Número de infraestruturas de produção implantadas",
+        "numero_de_transportes_adquiridos_para_plantio": "Número de transportes adquiridos para plantio",
+        "numero_de_transportes_adquiridos_para_beneficiamento": "Número de transportes adquiridos para beneficiamento",
+        "faturamento_bruto_produtos_in_natura": "Faturamento bruto de produtos in natura",
+        "faturamento_bruto_produtos_beneficiados": "Faturamento bruto de produtos beneficiados"
+    }
+
+
+    if codigo_projeto:
+        indicadores = db["indicadores"].find_one({"codigo": codigo_projeto})
+
+        if indicadores:
+            # Remove campos que não são indicadores
+            indicadores_filtrados = {
+                k: v for k, v in indicadores.items()
+                if k not in ["_id", "codigo", "sigla"] and str(v).strip() not in ["", "None", "nan"]
+            }
+
+            if indicadores_filtrados:
+                # Criar dataframe para exibição
+                df_indicadores = pd.DataFrame(
+                    list(indicadores_filtrados.items()),
+                    columns=["Indicador", "Valor"]
+                )
+
+                df_indicadores["Indicador"] = df_indicadores["Indicador"].map(
+                    lambda x: nomes_legiveis.get(x, x)  # Usa nome legível se existir, senão mantém original
+                )
+
+
+                st.write("**Indicadores do projeto:**")
+                st.dataframe(df_indicadores, hide_index=True, use_container_width=True)
+            else:
+                st.info("Este projeto não possui indicadores preenchidos.")
+        else:
+            st.info("Nenhum indicador encontrado para este projeto.")
 
 
 ######################################################################################################
@@ -192,7 +289,9 @@ colunas = [
     "ano_de_aprovacao",
     "ufs",
     "municipios",
-    "tipo"
+    "tipo",
+    "municipio_principal",
+    "cnpj"
 ]
 
 # Adiciona "doador" se ela estiver presente no DataFrame
@@ -210,8 +309,12 @@ df_projetos = df_projetos[colunas].rename(columns={
     "ano_de_aprovacao": "Ano",
     "ufs": "Estado(s)",
     "municipios": "Município(s)",
-    "tipo": "Tipo"
+    "tipo": "Tipo",
+    "municipio_principal": "Município Principal",
+    "cnpj": "CNPJ"
 })
+
+df_projetos_codigos = df_projetos
 
 
 # Garantir que todos os campos estão como string
@@ -219,6 +322,7 @@ df_projetos = df_projetos.fillna("").astype(str)
 
 # Aplicar a função na coluna 'Municípios'
 df_projetos["Município(s)"] = df_projetos["Município(s)"].apply(converter_codigos_para_nomes)
+df_projetos["Município Principal"] = df_projetos["Município Principal"].apply(converter_codigos_para_nomes)
 
 # Corrigir a coluna 'Ano' para remover ".0"
 df_projetos["Ano"] = df_projetos["Ano"].str.replace(".0", "", regex=False)
@@ -263,6 +367,14 @@ st.write('')
 geral, lista, mapa = st.tabs(["Visão geral", "Projetos", "Mapa"])
 
 with geral:
+    
+    # Separar projetos PF e PJ
+    df_pf = df_projetos[df_projetos['Tipo'] == 'PF']
+    df_pj = df_projetos[df_projetos['Tipo'] == 'PJ']
+
+
+    total_projetos_pf = len(df_pf)
+    total_projetos_pj = len(df_pj)
 
     # Contabilização única e limpa de UFs
     ufs_unicos = set()
@@ -284,17 +396,6 @@ with geral:
     # Total de doadores únicos (remover vazios)
     total_doador = df_projetos["Doador"].replace("", pd.NA).dropna().nunique()
 
-    # Total de estados únicos a partir dos municípios (código do estado antes do traço)
-    estados_unicos = set()
-    for municipios in df_projetos["Município(s)"]:
-        for m in municipios.split(","):
-            m = m.strip()
-            if " - " in m:
-                estado = m.split(" - ")[0]  # Pega o que vem ANTES do traço (ex: "BA")
-                estados_unicos.add(estado)
-
-    total_estados = len(estados_unicos)
-
     # Contabilização única e limpa de municípios
     municipios_unicos = set()
 
@@ -308,13 +409,22 @@ with geral:
 
     # Apresentar em colunas organizadas
     col1, col2, col3 = st.columns(3)
+    
+    # Contar CNPJs únicos (organizações apoiadas)
+    total_organizacoes = df_pj["CNPJ"].replace("", pd.NA).dropna().nunique()
 
-    col1.metric("Projetos apoiados", f"{total_projetos}")
-    col2.metric("Editais", f"{total_editais}")
-    col3.metric("Doadores", f"{total_doador}")
+    col1.metric("Editais", f"{total_editais}")
+    col1.metric("Doadores", f"{total_doador}")
+    col1.metric("Organizações apoiadas", f"{total_organizacoes}")
 
-    col1.metric("Estados", f"{total_ufs}")
-    col2.metric("Municípios", f"{total_municipios}")
+    
+    col2.metric("Total de apoios", f"{total_projetos}")
+    col2.metric("Apoios a Pessoa Jurídica", f"{total_projetos_pj}")
+    col2.metric("Apoios a Pessoa Física", f"{total_projetos_pf}")
+    
+
+    col3.metric("Estados", f"{total_ufs}")
+    col3.metric("Municípios", f"{total_municipios}")
 
     st.divider()
 
@@ -355,85 +465,128 @@ with geral:
 
     col3.metric("Total dos contratos em US$", f"{total_convertido_usd:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
 
+    st.write("")
+    st.write("")
+ 
+    # Gráfico
+
+    # Garantir campos como string
+    df_projetos["Ano"] = df_projetos["Ano"].astype(str)
+    df_projetos["Doador"] = df_projetos["Doador"].astype(str)
+
+    # Agrupamento
+    dados = (
+        df_projetos
+        .groupby(["Ano", "Doador"])
+        .size()
+        .reset_index(name="apoios")
+    )
+
+    # Garantir que os campos são string
+    df_projetos["Ano"] = df_projetos["Ano"].astype(str)
+    df_projetos["Doador"] = df_projetos["Doador"].astype(str)
+
+    # Agrupamento dos apoios existentes
+    dados = (
+        df_projetos
+        .groupby(["Ano", "Doador"])
+        .size()
+        .reset_index(name="apoios")
+    )
+
+    # Obter intervalo completo de anos
+    anos_todos = list(map(str, range(int(df_projetos["Ano"].min()), int(df_projetos["Ano"].max()) + 1)))
+
+    # Preencher com 0 onde não há apoio (para doadores já existentes)
+    doadores = dados["Doador"].unique()
+    todos_anos_doador = pd.MultiIndex.from_product([anos_todos, doadores], names=["Ano", "Doador"])
+    dados_completos = dados.set_index(["Ano", "Doador"]).reindex(todos_anos_doador, fill_value=0).reset_index()
+
+    # Paleta com mais cores distintas (exemplo: 'Plotly', 'Viridis', 'Turbo', ou personalizada)
+    paleta_cores = px.colors.qualitative.Light24
+    
+    # Criar gráfico
+    fig = px.bar(
+        dados_completos,
+        x="Ano",
+        y="apoios",
+        color="Doador",
+        color_discrete_sequence=paleta_cores,
+        barmode="stack",
+        title="Número de apoios por doador e ano",
+        labels={"apoios": "Número de apoios", "Ano": ""},
+        height=600,
+        category_orders={"Ano": anos_todos}  # ordem cronológica
+    )
+
+    # Estética
+    fig.update_layout(
+        xaxis_tickangle=-45,
+        xaxis=dict(type='category'),
+        legend_font_size=17,
+        bargap=0.1,         # espaço entre anos
+        bargroupgap=0.05,   # barras mais grossas
+        margin=dict(t=60, b=60, l=40, r=10)
+    )
+
+    # Mostrar
+    st.plotly_chart(fig, use_container_width=True)
+
+
 
 with lista:
 
     with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
-
-        # Divisão em colunas
-        col1, col2, col3, col4 = st.columns(4)
-
-        editais_disponiveis = sorted(df_projetos["Edital"].dropna().unique(), key=lambda x: float(x))
-        anos_disponiveis = sorted(df_projetos["Ano"].dropna().unique())
-        doadores_disponiveis = sorted(df_projetos["Doador"].dropna().unique())
-        codigos_disponiveis = sorted(df_projetos["Código"].dropna().unique())
-        tipos_disponiveis = ["Projetos PJ", "Projetos PF"]
-        
-        # Extrair todos os estados únicos, considerando que podem estar separados por vírgula
-        estados_unicos = sorted(
-            df_projetos["Estado(s)"]
-            .dropna()
-            .apply(lambda x: [m.strip() for m in x.split(",")])
-            .explode()
-            .unique()
-        )
-        
-        tipo_sel = col1.pills("Tipo", tipos_disponiveis, selection_mode="multi")
-
-        col1, col2, col3, col4 = st.columns(4)
-        
-        codigo_sel = col1.multiselect("Código", options=codigos_disponiveis, default=[], placeholder="Todos")
-        ano_sel = col2.multiselect("Ano", options=anos_disponiveis, default=[], placeholder="Todos")
-        edital_sel = col3.multiselect("Edital", options=editais_disponiveis, default=[], placeholder="Todos")
-        doador_sel = col4.multiselect("Doador", options=doadores_disponiveis, default=[], placeholder="Todos")
-
-
-        col5, col6 = st.columns(2)
-
-        uf_sel = col5.multiselect(
-            "Estado(s)",
-            options=estados_unicos,
-            default=[],
-            placeholder="Todos"
-        )
-
-        municipio_sel = col6.multiselect(
-            "Município",
-            options=sorted(
-                df_projetos["Município(s)"]
-                .dropna()
-                .apply(lambda x: [m.strip() for m in x.split(",")])
-                .explode()
-                .unique()
-            ),
-            default=[],
-            placeholder="Todos"
-        )
-
-        # Filtro base (considera 'Todos' se nada for selecionado)
         df_filtrado = df_projetos.copy()
 
+        # ===== PRIMEIRA LINHA =====
+        
+        # Tipo
+        col1, col2 = st.columns(2)
+        tipos_disponiveis = ["Projetos PJ", "Projetos PF"]
+        tipo_sel = col1.pills("Tipo", tipos_disponiveis, selection_mode="multi")
+
+        if tipo_sel:
+            if "Projetos PJ" in tipo_sel and "Projetos PF" not in tipo_sel:
+                df_filtrado = df_filtrado[df_filtrado["Tipo"] == "PJ"]
+            elif "Projetos PF" in tipo_sel and "Projetos PJ" not in tipo_sel:
+                df_filtrado = df_filtrado[df_filtrado["Tipo"] == "PF"]
+
+        col1, col2, col3, col4 = st.columns(4)
+
+        # Edital
+        editais_disponiveis = sorted(df_filtrado["Edital"].dropna().unique(), key=lambda x: float(x))
+        edital_sel = col1.multiselect("Edital", options=editais_disponiveis, placeholder="Todos")
         if edital_sel:
             df_filtrado = df_filtrado[df_filtrado["Edital"].isin(edital_sel)]
 
+        # Ano
+        anos_disponiveis = sorted(df_filtrado["Ano"].dropna().unique())
+        ano_sel = col2.multiselect("Ano", options=anos_disponiveis, placeholder="Todos")
         if ano_sel:
             df_filtrado = df_filtrado[df_filtrado["Ano"].isin(ano_sel)]
 
+        # Doador
+        doadores_disponiveis = sorted(df_filtrado["Doador"].dropna().unique())
+        doador_sel = col3.multiselect("Doador", options=doadores_disponiveis, placeholder="Todos")
         if doador_sel:
             df_filtrado = df_filtrado[df_filtrado["Doador"].isin(doador_sel)]
-            
+
         # Código
+        codigos_disponiveis = sorted(df_filtrado["Código"].dropna().unique())
+        codigo_sel = col4.multiselect("Código", options=codigos_disponiveis, placeholder="Todos")
         if codigo_sel:
             df_filtrado = df_filtrado[df_filtrado["Código"].isin(codigo_sel)]
+        
 
-        # Tipo de apoio
-        if "Projetos PJ" in tipo_sel and "Projetos PF" not in tipo_sel:
-            df_filtrado = df_filtrado[df_filtrado["Tipo"] == "PJ"]
-        elif "Projetos PF" in tipo_sel and "Projetos PJ" not in tipo_sel:
-            df_filtrado = df_filtrado[df_filtrado["Tipo"] == "PF"]
-
-
-        # Filtro de estados
+        # ===== SEGUNDA LINHA =====
+        col5, col6= st.columns(2)
+        
+        # Estado
+        estados_unicos = sorted(
+            df_filtrado["Estado(s)"].dropna().apply(lambda x: [m.strip() for m in x.split(",")]).explode().unique()
+        )
+        uf_sel = col5.multiselect("Estado(s)", options=estados_unicos, placeholder="Todos")
         if uf_sel:
             df_filtrado = df_filtrado[
                 df_filtrado["Estado(s)"].apply(
@@ -442,35 +595,46 @@ with lista:
             ]
 
         # Município
+        municipios_unicos = sorted(
+            df_filtrado["Município(s)"].dropna().apply(lambda x: [m.strip() for m in x.split(",")]).explode().unique()
+        )
+        municipio_sel = col6.multiselect("Município", options=municipios_unicos, placeholder="Todos")
         if municipio_sel:
             df_filtrado = df_filtrado[
                 df_filtrado["Município(s)"].apply(
-                    lambda x: any(m.strip() in municipio_sel for m in x.split(","))
+                    lambda x: any(m.strip() in municipio_sel for m in x.split(",")) if isinstance(x, str) else False
                 )
             ]
+
+
+        # ===== AVISO =====
+        if df_filtrado.empty:
+            st.warning("Nenhum projeto encontrado")
 
     st.write("")
 
     # Paginação
     itens_por_pagina = 50
     total_linhas = len(df_filtrado)
-    total_paginas = (total_linhas - 1) // itens_por_pagina + 1
+    total_paginas = max(math.ceil(len(df_filtrado) / itens_por_pagina), 1)
 
-    col1, col2, col3 = st.columns([5, 2, 1])
+
+    col1, col2, col3 = st.columns([5, 1, 1])
     pagina_atual = col3.number_input("Página", min_value=1, max_value=total_paginas, value=1, step=1, key="pagina_projetos")
 
     inicio = (pagina_atual - 1) * itens_por_pagina
     fim = inicio + itens_por_pagina
     df_paginado = df_filtrado.iloc[inicio:fim]
 
-    with col2:
+    with col1:
+        st.write("")
+        st.subheader(f"Mostrando {inicio + 1} a {min(fim, total_linhas)} de {total_linhas} projetos")
         st.write("")
         st.write("")
-        st.write(f"Mostrando {inicio + 1} a {min(fim, total_linhas)} de {total_linhas} resultados")
 
     st.write("")
 
-    colunas_visiveis = [col for col in df_filtrado.columns if col != "Tipo"]
+    colunas_visiveis = [col for col in df_filtrado.columns if col not in ["Tipo", "Município Principal", "CNPJ"]]
     headers = colunas_visiveis + ["Detalhes"]
 
     col_sizes = [2, 2, 1, 2, 2, 2, 1, 2, 3, 3]
@@ -490,47 +654,73 @@ with lista:
         st.divider()
 
 
-
-
-
 with mapa:
+    
+    
+    ######################################################################################################
+    # MAPA SOMENTE DOS MUNICÍPIOS PRINCIPAIS 
+    ######################################################################################################
+    
+    
     st.subheader("Mapa de distribuição de projetos")
 
-    # Carregar CSV dos municípios com lat/lon
+    pontos_focais_dict = carregar_pontos_focais(todos_projetos)
+
+    # Carregar CSV de municípios
     url_municipios = "https://raw.githubusercontent.com/kelvins/Municipios-Brasileiros/master/csv/municipios.csv"
     df_munis = pd.read_csv(url_municipios)
 
-    # Padronizar os nomes
-    df_munis['nome'] = df_munis['nome'].str.lower()
-    df_projetos['Município(s)'] = df_projetos['Município(s)'].str.lower()
+    # Renomear a coluna e ajustar tipo
+    df_munis.rename(columns={'codigo_ibge': 'codigo_municipio'}, inplace=True)
+    df_munis['codigo_municipio'] = df_munis['codigo_municipio'].astype(str)
+    
 
-    # Filtrar municípios que estão nos projetos
-    munis_unicos = df_projetos['Município(s)'].unique()
-    df_munis_filtrados = df_munis[df_munis['nome'].isin(munis_unicos)]
+    # Garantir que os códigos no dataframe de projetos também sejam string
+    df_projetos_codigos['codigo_municipio'] = df_projetos_codigos['Município Principal'].astype(str)
+    
+    df_projetos_codigos['Ano'] = df_projetos_codigos['Ano'].astype(str)
+    df_projetos_codigos["Ano"] = df_projetos_codigos["Ano"].str.replace(".0", "", regex=False)
+    
 
-    # Capitalizar só para exibição
-    df_munis_filtrados['nome'] = df_munis_filtrados['nome'].str.title()
+    # Cruzamento via código
+    df_coords_projetos = df_projetos_codigos.merge(
+        df_munis,
+        left_on='codigo_municipio',
+        right_on='codigo_municipio',
+        how='left'
+    ).dropna(subset=['latitude', 'longitude']).drop_duplicates(subset='Código')
 
-    # Criar mapa base
-    m = folium.Map(location=[-15.78, -47.93], zoom_start=4, tiles="CartoDB positron", returned_objects=[])  # Centro aproximado do Brasil
-
-    # Criar cluster com spiderfy automático
+    # Criar o mapa
+    m = folium.Map(location=[-15.78, -47.93], zoom_start=4, tiles="CartoDB positron", height="800px")
     cluster = MarkerCluster().add_to(m)
 
-    # Adicionar marcadores com popup
-    for _, row in df_munis_filtrados.iterrows():
-        nome_muni = row['nome']
-        lat = row['latitude']
-        lon = row['longitude']
-        
-        # Aqui você pode buscar os projetos associados ao município
-        projetos_no_muni = df_projetos[df_projetos['Município(s)'] == nome_muni.lower()]
-        popup_html = f"<b>{nome_muni}</b><br>"
-        popup_html += "<br>".join(projetos_no_muni['Código'].values)  # ou outro campo desejado
+    for _, row in df_coords_projetos.iterrows():
+        lat, lon = row['latitude'], row['longitude']
+        nome_muni = row['nome'].title()
+        codigo = row['Código']
+        ano_de_aprovacao = row['Ano']
 
-        folium.Marker(
-            location=[lat, lon],
-            popup=popup_html,
-        ).add_to(cluster)
+        projeto = next((p for p in todos_projetos if p.get("codigo") == codigo), None)
+        if projeto:
+            proponente = projeto.get('proponente', '')
+            nome_proj = projeto.get('nome_do_projeto', '')
+            ponto_focal_obj = projeto.get("ponto_focal")
+            tipo_do_projeto = projeto.get("tipo")
+            categoria = projeto.get("categoria")
+            nome_ponto_focal = pontos_focais_dict.get(ponto_focal_obj, "Não informado")
+            
 
-    st_folium(m, width=700, height=450, returned_objects=[])
+        popup_html = f"""
+            <b>Município:</b> {nome_muni}<br>
+            <hr>
+            <b>{tipo_do_projeto} - {categoria}</b><br>
+            <b>Código:</b> {codigo}<br>
+            <b>Proponente:</b> {proponente}<br>
+            <b>Projeto:</b> {nome_proj}<br>
+            <b>Ano:</b> {ano_de_aprovacao}<br>
+            <b>Ponto Focal:</b> {nome_ponto_focal}
+        """
+
+        folium.Marker(location=[lat, lon], popup=folium.Popup(popup_html, max_width=300)).add_to(cluster)
+
+    st_folium(m, width=None, height=800, returned_objects=[])

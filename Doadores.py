@@ -206,8 +206,10 @@ with tab2:
     df_doador["Situação"] = df_doador["status"].fillna("Desconhecido")
 
     # Mostrar métrica total
-    valor_total = df_doador['valor'].sum()
-    st.metric('Valor total dos apoios', df_doador['valor_brl'].sum())
+    valor_total = df_doador['valor_brl'].sum()
+    valor_total_formatado = f"R$ {valor_total:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    st.metric('Valor total dos apoios', valor_total_formatado)
+
 
 
     st.write('')
@@ -223,7 +225,7 @@ with tab2:
         })
         .sort_values(by="Início")
         .style.format({
-        "Valor (R$)": lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        "Valor (R$)": lambda x: f"{x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
         }),
         hide_index=True
         )

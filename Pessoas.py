@@ -195,7 +195,7 @@ def gerenciar_pessoas():
     # Aba para editar colaborador existente
     with aba_editar:
         # Lista com nomes dos colaboradores para seleção
-        nomes_existentes = [p["nome_completo"] for p in dados_pessoas]
+        nomes_existentes = sorted([p["nome_completo"] for p in dados_pessoas if p.get("coordenador")])
         nome_selecionado = st.selectbox("Selecione o(a) colaborador(a) para editar:", nomes_existentes, index=None, placeholder="")
 
         if nome_selecionado:
@@ -230,7 +230,7 @@ def gerenciar_pessoas():
                     
                     # Busca coordenador associado para selecionar valor padrão
                     coordenador_encontrado = next(
-                        (c for c in coordenadores_possiveis if c["id"] == pessoa.get("e_mail_coordenador", "")),
+                        (c for c in coordenadores_possiveis if c["id"] == pessoa.get("coordenador", "")),
                         None
                     )
                     nome_coordenador_default = coordenador_encontrado["nome"] if coordenador_encontrado else None
@@ -258,7 +258,7 @@ def gerenciar_pessoas():
                     
                     # Opções possíveis para o campo "tipo de usuário"
                     opcoes_tipo_usuario = [
-                        "admin", "gestao_pessoas", "gestao_ferias", "supervisao_ferias", 
+                        "gestao_pessoas", "gestao_ferias", "supervisao_ferias", 
                         "gestao_noticias", "gestao_pls", "gestao_projetos_doadores", 
                         "gestao_fundo_ecos", "gestao_viagens", "gestao_manuais", "coordenador"
                     ]
