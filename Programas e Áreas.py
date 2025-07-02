@@ -215,7 +215,7 @@ for i, aba in enumerate(abas):
         col1, col2, col3 = st.columns(3)
         situacao_filtro = col1.selectbox(
             "Situação",
-            ["Todos", "Em andamento", "Finalizado", "Cancelado"],
+            ["Todos", "Em andamento", "Finalizado", ""],
             key=f"situacao_{i}"
         )
 
