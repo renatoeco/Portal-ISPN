@@ -163,6 +163,14 @@ def formatar_nome_legivel(nome):
     return NOMES_INDICADORES_LEGIVEIS.get(nome, nome.replace("_", " ").capitalize())
 
 
+# Função para aplicar filtros progressivamente
+def atualizar_opcoes(df, campo, campos_restritivos):
+    df_filtrado = df.copy()
+    for outro_campo, valores in campos_restritivos.items():
+        if outro_campo != campo and valores:
+            df_filtrado = df_filtrado[df_filtrado[outro_campo].isin(valores)]
+    return sorted(df_filtrado[campo].dropna().unique().tolist())
+
 
 ######################################################################################################
 # MAIN
@@ -176,36 +184,62 @@ st.write('')
 # ===== FILTROS =====
 
 
+# Carrega dados
 todos_lancamentos = list(lancamentos.find())
-df_lancamentos = pd.DataFrame(todos_lancamentos)
+# Base inicial
+df_base = pd.DataFrame(todos_lancamentos)
 
-projetos_disponiveis = sorted(df_lancamentos["projeto"].dropna().unique().tolist())
-anos_disponiveis = sorted(df_lancamentos["ano"].dropna().unique().tolist())
-autores_disponiveis = sorted(df_lancamentos["autor_anotacao"].dropna().unique().tolist())
+# Inicialização com todas as opções possíveis
+projetos_unicos = sorted(df_base["projeto"].dropna().unique().tolist())
+anos_unicos = sorted(df_base["ano"].dropna().unique().tolist())
+autores_unicos = sorted(df_base["autor_anotacao"].dropna().unique().tolist())
 
+# Colunas dos filtros
 col1, col2, col3 = st.columns(3)
 
-with col1:
-    projetos_filtrados = st.multiselect("Filtrar por projeto", projetos_disponiveis, default=[], placeholder="")
-
-with col2:
-    anos_filtrados = st.multiselect("Filtrar por ano", anos_disponiveis, default=[], placeholder="")
-    
+# Filtro de autor primeiro
 with col3:
-    autores_filtrados = st.multiselect("Filtrar por autor", autores_disponiveis, default=[], placeholder="")
+    filtro_autor = st.multiselect("Filtrar por autor", autores_unicos, placeholder="")
 
-# Se não houver filtros, considerar todos
-if not projetos_filtrados:
-    projetos_filtrados = projetos_disponiveis
-if not anos_filtrados:
-    anos_filtrados = anos_disponiveis
-if not autores_filtrados:
-    autores_filtrados = autores_disponiveis
+# Filtrar base por autor (se houver)
+df_filtrada_autor = df_base.copy()
+if filtro_autor:
+    df_filtrada_autor = df_base[df_base["autor_anotacao"].isin(filtro_autor)]
 
-col1, col2 = st.columns(2)
+# Filtro de projeto com base nos autores
+with col1:
+    projetos_filtrados = sorted(df_filtrada_autor["projeto"].dropna().unique().tolist())
+    filtro_projeto = st.multiselect("Filtrar por projeto", projetos_filtrados, placeholder="")
+
+# Filtrar base por autor + projeto (se houver)
+df_filtrada_projeto = df_filtrada_autor.copy()
+if filtro_projeto:
+    df_filtrada_projeto = df_filtrada_autor[df_filtrada_autor["projeto"].isin(filtro_projeto)]
+
+# Filtro de ano com base nos filtros anteriores
+with col2:
+    anos_filtrados = sorted(df_filtrada_projeto["ano"].dropna().unique().tolist())
+    filtro_ano = st.multiselect("Filtrar por ano", anos_filtrados, placeholder="")
+
+# Base final com todos os filtros aplicados
+df_filtrado_final = df_base.copy()
+if filtro_autor:
+    df_filtrado_final = df_filtrado_final[df_filtrado_final["autor_anotacao"].isin(filtro_autor)]
+if filtro_projeto:
+    df_filtrado_final = df_filtrado_final[df_filtrado_final["projeto"].isin(filtro_projeto)]
+if filtro_ano:
+    df_filtrado_final = df_filtrado_final[df_filtrado_final["ano"].isin(filtro_ano)]
+
+# Extrai listas finais
+projetos_filtrados = df_filtrado_final["projeto"].dropna().unique().tolist()
+anos_filtrados = df_filtrado_final["ano"].dropna().unique().tolist()
+autores_filtrados = df_filtrado_final["autor_anotacao"].dropna().unique().tolist()
 
 
 # ---------------------- ORGANIZAÇÕES E COMUNIDADES ----------------------
+
+
+col1, col2 = st.columns(2)
 
 with col1.container(border=True):
     st.write('**Organizações e Comunidades**')
