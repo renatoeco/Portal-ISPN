@@ -17,12 +17,12 @@ st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
 
 db = conectar_mongo_portal_ispn()
 estatistica = db["estatistica"]  # Coleção de estatísticas
-doadores = db["projetos_ispn"] 
+projetos = db["projetos_ispn"] 
 
-# Busca documentos com valor preenchido
-cursor = doadores.find({
-    "valor": {"$exists": True, "$ne": ""}
-})
+# # Busca documentos com valor preenchido
+# cursor = projetos.find({
+#     "valor": {"$exists": True, "$ne": ""}
+# })
 
 
 ######################################################################################################
@@ -32,8 +32,31 @@ cursor = doadores.find({
 
 st.header("Doadores")
 
-dados = list(cursor)
-df = pd.DataFrame(dados)
+
+# Conversão dos ids de Doador e Programa
+
+
+# --- 1. Converter listas de documentos em DataFrames ---
+df_doadores = pd.DataFrame(list(db["doadores"].find()))
+df_programas = pd.DataFrame(list(db["programas_areas"].find()))
+df = pd.DataFrame(list(db["projetos_ispn"].find()))
+
+# --- 2. Criar dicionários de mapeamento ---
+mapa_doador = {d["_id"]: d["nome_doador"] for d in db["doadores"].find()}
+mapa_programa = {p["_id"]: p["nome_programa_area"] for p in db["programas_areas"].find()}
+
+# --- 3. Aplicar os mapeamentos ao df ---
+df["doador_nome"] = df["doador"].map(mapa_doador)
+df["programa_nome"] = df["programa"].map(mapa_programa)
+
+
+
+
+
+
+
+# dados = list(cursor)
+# df = pd.DataFrame(dados)
 
 # Cotações
 cotacoes = {
@@ -87,8 +110,23 @@ with tab1:
     df["doador"] = df["doador"].fillna("Desconhecido")
     df["tipo_de_doador"] = df["tipo_de_doador"].fillna("Outro")
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     # Agrupar por doador
-    resumo = df.groupby(["doador", "tipo_de_doador"], as_index=False).agg({
+    resumo = df.groupby(["doador_nome", "tipo_de_doador"], as_index=False).agg({
         "valor_brl": "sum",
         "_id": "count"
     }).rename(columns={
@@ -109,6 +147,7 @@ with tab1:
         lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
     )
 
+    st.write(resumo)
 
     chart = alt.Chart(resumo).mark_circle(size=150).encode(
         x=alt.X(
@@ -123,9 +162,9 @@ with tab1:
             axis=alt.Axis(format=",.2f")
         ),
         size=alt.Size('Valor', legend=None),
-        color=alt.Color('Doadores:N', scale=alt.Scale(domain=resumo['Doadores'], range=resumo['Cor'])),
+        color=alt.Color('doador_nome:N', scale=alt.Scale(domain=resumo['doador_nome'], range=resumo['Cor'])),
         tooltip=[
-            'Doadores',
+            'doador_nome',
             alt.Tooltip('Valor_br', type='nominal', title='Valor'),
             'Numero de projetos'
         ]
