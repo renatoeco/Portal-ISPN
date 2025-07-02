@@ -1,5 +1,12 @@
 import streamlit as st
 import pandas as pd
+import datetime
+
+# import folium
+# from folium.plugins import MarkerCluster
+# from streamlit_folium import st_folium
+# from bson import ObjectId
+from funcoes_auxiliares import conectar_mongo_portal_ispn, ajustar_altura_dataframe
 import streamlit_shadcn_ui as ui
 import plotly.express as px
 
@@ -8,141 +15,270 @@ import plotly.express as px
 st.set_page_config(layout="wide")
 st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
 
-st.header("Projetos Institucionais")
+
+
+######################################################################################################
+# CONEXÃO COM O BANCO DE DADOS MONGODB
+######################################################################################################
+
+
+db = conectar_mongo_portal_ispn()
+estatistica = db["estatistica"]  # Coleção de estatísticas
+
+
+# --- 1. Converter listas de documentos em DataFrames ---
+df_doadores = pd.DataFrame(list(db["doadores"].find()))
+df_programas = pd.DataFrame(list(db["programas_areas"].find()))
+df_projetos_ispn = pd.DataFrame(list(db["projetos_ispn"].find()))
+
+# --- 2. Criar dicionários de mapeamento ---
+mapa_doador = {d["_id"]: d["nome_doador"] for d in db["doadores"].find()}
+mapa_programa = {p["_id"]: p["nome_programa_area"] for p in db["programas_areas"].find()}
+
+# --- 3. Aplicar os mapeamentos ao df_projetos_ispn ---
+df_projetos_ispn["doador_nome"] = df_projetos_ispn["doador"].map(mapa_doador)
+df_projetos_ispn["programa_nome"] = df_projetos_ispn["programa"].map(mapa_programa)
+
+
+
+
+
+# # DOADORES
+# doadores = list(db["doadores"].find())
+# df_doadores = pd.DataFrame(doadores)
+
+# # PROGRAMAS
+# programas = list(db["programas_areas"].find()) 
+# df_programas = pd.DataFrame(programas)
+
+# # PROJETOS
+# projetos_ispn = list(db["projetos_ispn"].find())
+# df_projetos_ispn = pd.DataFrame(projetos_ispn)
+
+
+
+
+
+
+
+
+# st.write(projetos_ispn)
+
+######################################################################################################
+# INTERFACE
+######################################################################################################
+
+
+st.header("Projetos do ISPN")
 
 st.write('')
 
 
 tab1, tab2, tab3 = st.tabs(["Visão geral", "Projeto", "Entregas"])
 
-
+# VISÃO GERAL
 with tab1:
 
     st.write('')
 
-    col1, col2, col3 = st.columns(3)
 
-    doador_selecionado = col1.selectbox("Doador", ["Todos os doadores", "KFW", "GIZ", "UE", "USAID", "Fundo Socioambiental Casa", "Instituto Humanitas360", "Brazil Fund", "Citi Foundation", "Cargill", "Mitsubishi Corporation"])
+    # FILTROS ---------------------------------------------------------------
 
-    programa_selecionado = col2.selectbox("Programa", ["Todos os programas", "Cerrado", "Maranhão", "Povos Indígenas", "Sociobiodiversidade", "Iniciativas Comunitárias", "Administrativo"])
+    col1, col2, col3, col4, col5 = st.columns([1, 1, 1, 1, 1])
 
-    situacao = col3.selectbox("Situação", ["Todos os projetos", "Em andamento", "Concluídos", "Cancelados"])
+    # Filtro doadores
+    doadores_disponiveis = sorted(df_projetos_ispn['doador_nome'].unique())
+    doador_selecionado = col1.selectbox("Doador", options=["Todos"] + doadores_disponiveis, index=0, key="doador")
 
-    col1.selectbox("Projetos vigentes entre", ["2023", "2024", "2025"], key="doador1")
-    col2.selectbox("até", ["2023", "2024", "2025"], key="doador2")
+    # Filtro programas
+    programas_disponiveis = sorted(df_projetos_ispn['programa_nome'].unique())
+    programa_selecionado = col2.selectbox("Programa", options=["Todos"] + programas_disponiveis, index=0, key='programa_aba1')
+
+    # Filtro situação
+    situacoes_disponiveis = sorted(df_projetos_ispn['status'].unique())
+    # Inclui Todas como primeira opção
+    situacoes_disponiveis = ["Todas"] + situacoes_disponiveis
+    # Define índice padrão como "Em andamento", se existir
+    index_padrao = situacoes_disponiveis.index("Em andamento") if "Em andamento" in situacoes_disponiveis else 0
+    # Selectbox com valor padrão
+    status_selecionado = col3.selectbox("Situação", options=situacoes_disponiveis, index=index_padrao, key='situacao')
+    # status_selecionado = col3.selectbox("Situação", options=["Todas"] + situacoes_disponiveis, index=situacoes_disponiveis.index("Em andamento"), key='situacao')
+
+    # Filtro de ano de início
+    # Converter para datetime
+    df_projetos_ispn['data_inicio_contrato'] = pd.to_datetime(df_projetos_ispn['data_inicio_contrato'])
+    # Pegar o menor e maior anos
+    anos_disponiveis_inicio = sorted(df_projetos_ispn['data_inicio_contrato'].dt.year.unique())        
+    anos_disponiveis_inicio = [ano for ano in anos_disponiveis_inicio if not pd.isna(ano)]        # Remove anos vazios
+    menor_ano_inicio = int(anos_disponiveis_inicio[0])
+    maior_ano_inicio = int(anos_disponiveis_inicio[-1])
+    # Faz um range de anos entre o menor e o maior
+    anos_disponiveis_inicio = [str(ano) for ano in range(menor_ano_inicio, maior_ano_inicio + 1)]
+    # Input de ano de início
+    ano_inicio_selecionado = col4.selectbox("Vigentes entre", options=anos_disponiveis_inicio, index=0, key="ano_inicio")
+
+    # Filtro de ano de fim
+    # Converter para datetime
+    df_projetos_ispn['data_fim_contrato'] = pd.to_datetime(df_projetos_ispn['data_fim_contrato'])
+    # Pegar o menor e maior anos
+    anos_disponiveis_fim = sorted(df_projetos_ispn['data_fim_contrato'].dt.year.unique())        
+    anos_disponiveis_fim = [ano for ano in anos_disponiveis_fim if not pd.isna(ano)]        # Remove anos vazios
+    menor_ano_fim = anos_disponiveis_fim[0].astype(int)
+    maior_ano_fim = anos_disponiveis_fim[-1].astype(int)
+    # Faz um range de anos entre o menor e o maior
+    anos_disponiveis_fim = [str(ano) for ano in range(menor_ano_fim, maior_ano_fim + 1)]
+    # Input de ano de fim
+    ano_fim_selecionado = col5.selectbox("e", options=anos_disponiveis_fim, index=len(anos_disponiveis_fim) - 1, key="ano_fim")
+
+    # Filtrando
+    df_projetos_ispn_filtrado = df_projetos_ispn.copy()
+
+    if doador_selecionado != "Todos":
+        df_projetos_ispn_filtrado = df_projetos_ispn_filtrado[df_projetos_ispn_filtrado['doador_nome'] == doador_selecionado]
+
+    if programa_selecionado != "Todos":
+        df_projetos_ispn_filtrado = df_projetos_ispn_filtrado[df_projetos_ispn_filtrado['programa_nome'] == programa_selecionado]
+
+    if status_selecionado != "Todas":
+        st.write(status_selecionado)
+        df_projetos_ispn_filtrado = df_projetos_ispn_filtrado[df_projetos_ispn_filtrado['status'] == status_selecionado]
+
+
+    # Fim dos filtros -----------------------------------
 
 
 
+    # Contagem de projetos -------------------------------
     st.write('')
-    st.subheader('3 projetos')
+    st.subheader(f'{len(df_projetos_ispn_filtrado)} projetos')
     st.write('')
 
+    with st.expander('Cronograma'):
+        # Gráfico de gantt cronograma ------------------------
 
-    st.write('**Cronograma**')
+        # Organizando o df por ordem de data_fim_contrato
+        df_projetos_ispn_filtrado = df_projetos_ispn_filtrado.sort_values(by='data_fim_contrato', ascending=False)
 
-    df_projeto = pd.DataFrame({
-        "Projeto": ["CEPF", "PACT", "Educação Verde", "Fortalecimento Comunitário"],
-        "Valor": [50000.00, 120000.00, 80000.00, 150000.00],
-        "Início": ["março/2024", "abril/2024", "janeiro/2025", "fevereiro/2025"],
-        "Fim": ["fevereiro/2025", "dezembro/2024", "dezembro/2025", "junho/2025"],
-        "Situação": ["Em andamento", "Em andamento", "Em andamento", "Concluído"]
-    })
+        # Mapeamento de meses em português para número
+        meses = {
+            "janeiro": "01", "fevereiro": "02", "março": "03", "abril": "04",
+            "maio": "05", "junho": "06", "julho": "07", "agosto": "08",
+            "setembro": "09", "outubro": "10", "novembro": "11", "dezembro": "12"
+        }
 
-    # Mapeamento de meses em português para número
-    meses = {
-        "janeiro": "01", "fevereiro": "02", "março": "03", "abril": "04",
-        "maio": "05", "junho": "06", "julho": "07", "agosto": "08",
-        "setembro": "09", "outubro": "10", "novembro": "11", "dezembro": "12"
-    }
+        # Tentando calcular a altura do gráfico dinamicamente
+        altura_base = 400  # altura mínima
+        altura_extra = sum([10 / (1 + i * 0.01) for i in range(len(df_projetos_ispn_filtrado))])
+        altura = int(altura_base + altura_extra)
 
-    # Função para converter "mês/ano" para datetime
-    def converter_data(data_str):
-        mes, ano = data_str.split('/')
-        mes_num = meses[mes.lower()]
-        return pd.to_datetime(f"{ano}-{mes_num}-01")
+        fig = px.timeline(
+            df_projetos_ispn_filtrado,
+            x_start='data_inicio_contrato',
+            x_end='data_fim_contrato',
+            y='sigla',
+            color='status',
+            color_discrete_map={
+                'Em andamento': '#007ad3',
+                'Finalizado':"#83C9FF",
+                '': 'red',
+            },
+            # hover_data=['Valor'],
+            height=altura,  
+            labels={
+                'sigla': 'Projeto',
+                'status': 'Situação',
+                'data_inicio_contrato': 'Início',
+                'data_fim_contrato': 'Fim'
+            },
+        )
 
-    # Aplicando a conversão
-    df_projeto['Início'] = df_projeto['Início'].apply(converter_data)
-    df_projeto['Fim'] = df_projeto['Fim'].apply(converter_data)
+        # Adiciona a linha vertical para o dia de hoje
+        fig.add_vline(
+            x=datetime.datetime.today(),
+            line_width=2,
+            line_dash="dash",
+            line_color="black",
+        )
 
-    # Criando gráfico de Gantt com Plotly Express
-    fig = px.timeline(
-        df_projeto,
-        x_start='Início',
-        x_end='Fim',
-        y='Projeto',
-        color='Situação',
-        hover_data=['Valor'],
-        height=250  # Diminuindo a altura do gráfico
-    )
+        # Movendo a legenda para baixo
+        fig.update_layout(
+            legend=dict(
+                orientation="h",       # horizontal
+                yanchor="top",
+                y=10.15,                # valor positivo posiciona acima do gráfico
+                xanchor="center",
+                x=1
+            ),
+            yaxis_title=None,
+            xaxis=dict(
+                showgrid=True,       # grade no eixo X
+                gridcolor='lightgray',  # cor da linha da grade
+                tickmode='linear',
+                dtick="M12",  # Mostra 1 tick por ano (12 meses)
+                tickformat="%Y"  # Formata como ano, ex: 2021
+            )
+        )
 
-    fig.update_yaxes(categoryorder='total ascending')
-
-    # Movendo a legenda para baixo
-    fig.update_layout(
-        legend=dict(
-            orientation="h",       # horizontal
-            yanchor="bottom",
-            y=-1,                # valor negativo posiciona abaixo do gráfico
-            xanchor="center",
-            x=0
-        ),
-        yaxis_title=None
-    )
-
-    st.plotly_chart(fig)
+        st.plotly_chart(fig)
 
 
+    # Lista de projetos --------------------------
     st.write('')
     st.write('**Projetos**')
 
+    # Selecionando colunas pra mostrar
+    df_projetos_ispn_filtrado_show = df_projetos_ispn_filtrado[['codigo', 'nome_do_projeto', 'programa_nome', 'doador_nome', 'moeda','valor', 'data_inicio_contrato', 'data_fim_contrato', 'status']]
+
+    
+    # Formatando as datas
+    df_projetos_ispn_filtrado_show['data_inicio_contrato'] = df_projetos_ispn_filtrado_show['data_inicio_contrato'].dt.strftime('%d/%m/%Y')
+    df_projetos_ispn_filtrado_show['data_fim_contrato'] = df_projetos_ispn_filtrado_show['data_fim_contrato'].dt.strftime('%d/%m/%Y')
 
 
-    dados_projetos = {
-        "Nome do projeto": [
-            "Projeto Água Viva",
-            "Educação Verde",
-            "Fortalecimento Comunitário"
-        ],
-        "Programa": [
-            "Cerrado",
-            "Maranhão",
-            "Povos Indígenas"
-        ],
-        "Doador": [
-            "Fundação X",
-            "Instituto Y",
-            "ONG Z"
-        ],
-        "Valor": [
-            50000.00,
-            120000.00,
-            80000.00
-        ],
-        "início": [
-            "março/2024",
-            "abril/2024",
-            "janeiro/2025"
-        ],
-        "Fim": [
-            "fevereiro/2025",
-            "dezembro/2024",
-            "dezembro/2025"
-        ],
-        "Situação": [
-            "Em andamento",
-            "Em andamento",
-            "Concluído"
-        ]
+    # Formatando as moedas nos valores
+    # Dicionário de símbolos por moeda
+    moedas = {
+        "reais": "R$",
+        "real": "R$",
+        "dólares": "US$",
+        "dólar": "US$",
+        "euros": "€",  # Incluído para futuro uso
+        "euro": "€"
     }
+    # Função para limpar e formatar o valor
+    def formatar_valor(row):
+        moeda = moedas.get(row['moeda'].lower(), '')
+        try:
+            valor = row['valor'] if row['valor'] else 0
+            valor_num = float(str(valor).replace('.', '').replace(',', '.'))
+            valor_formatado = f"{valor_num:,.0f}".replace(",", ".")
+            return f"{moeda} {valor_formatado}"
+        except:
+            return f"{moeda} 0"
+    # Aplicar a função
+    df_projetos_ispn_filtrado_show['valor_com_moeda'] = df_projetos_ispn_filtrado_show.apply(formatar_valor, axis=1)
 
-    # Criando o DataFrame
-    df_projetos = pd.DataFrame(dados_projetos)
-    df_projetos.index += 1
+
+    # Renomeando as colunas
+    df_projetos_ispn_filtrado_show = df_projetos_ispn_filtrado_show.rename(columns={
+        'codigo': 'Código',
+        'programa_nome': 'Programa',
+        'doador_nome': 'Doador',
+        'data_inicio_contrato': 'Início do contrato',
+        'data_fim_contrato': 'Fim do contrato',
+        'status': 'Situação',
+        'valor_com_moeda': 'Valor',
+        'nome_do_projeto': 'Nome do projeto'
+    })
+
+    # Drop das colunas moeda e valor
+    df_projetos_ispn_filtrado_show = df_projetos_ispn_filtrado_show.drop(columns=['moeda', 'valor'])
+
+    # Reorganizar a ordem das colunas
+    df_projetos_ispn_filtrado_show = df_projetos_ispn_filtrado_show[['Código', 'Nome do projeto', 'Programa', 'Doador', 'Valor', 'Início do contrato', 'Fim do contrato', 'Situação']]
 
     # Exibindo o DataFrame
-    # st.write('')
-    st.dataframe(df_projetos)
+    ajustar_altura_dataframe(df_projetos_ispn_filtrado_show, 1)
 
 
 with tab2:
