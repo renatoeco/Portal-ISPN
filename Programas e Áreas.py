@@ -19,6 +19,7 @@ estatistica = db["estatistica"]  # Coleção de estatísticas
 programas_areas = db["programas_areas"] 
 colaboradores_raw = list(db["pessoas"].find())
 
+
 # Buscando todos os documentos da coleção programas_areas
 dados_programas = list(programas_areas.find())
 
@@ -111,9 +112,9 @@ for colab_doc in colaboradores_raw:
     if nome in nomes_coordenadores:
         continue
 
-    genero = colab_doc.get("gênero", "Não informado")
-    programa_area = colab_doc.get("programa_area", "Não informado")
-    projeto_pagador = colab_doc.get("projeto_pagador", "Não informado")
+    genero = colab_doc.get("gênero", "")
+    programa_area = colab_doc.get("programa_area", "")
+    projeto_pagador = colab_doc.get("projeto_pagador", "")
 
     lista_equipe.append({
         "Nome": nome,
