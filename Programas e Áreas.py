@@ -16,12 +16,36 @@ st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
 
 db = conectar_mongo_portal_ispn()
 estatistica = db["estatistica"]  # Coleção de estatísticas
-programas_areas = db["programas_areas"] 
+programas_areas = db["programas_areas"]
+projetos_ispn = db["projetos_ispn"] 
+doadores = db["doadores"]
+# projetos_pj = db["projetos_pj"] 
+# projetos_pf = db["projetos_pf"]  
 colaboradores_raw = list(db["pessoas"].find())
 
 
 # Buscando todos os documentos da coleção programas_areas
 dados_programas = list(programas_areas.find())
+
+
+######################################################################################################
+# FUNÇÕES
+######################################################################################################
+
+
+# Função para limpar e formatar o valor
+def formatar_valor(valor_bruto, moeda_bruta):
+    moeda = moedas.get(str(moeda_bruta).lower(), "R$")
+    try:
+        if valor_bruto is None:
+            valor_num = 0
+        else:
+            valor_str = str(valor_bruto).replace(".", "").replace(",", ".")
+            valor_num = float(valor_str)
+        valor_formatado = f"{valor_num:,.0f}".replace(",", ".")
+        return f"{moeda} {valor_formatado}"
+    except Exception:
+        return f"{moeda} 0"
 
 
 ######################################################################################################
@@ -135,10 +159,32 @@ st.write("")
 
 abas = st.tabs(titulos_abas)
 
+# Carrega todos os projetos ISPN
+dados_projetos_ispn = list(projetos_ispn.find())
+
+# Carrega todos os doadores
+dados_doadores = list(doadores.find())
+mapa_doador_id_para_nome = {
+    str(d["_id"]): d.get("nome_doador", "Não informado")
+    for d in dados_doadores
+}
+
+# Dicionário de símbolos por moeda
+moedas = {
+    "reais": "R$",
+    "real": "R$",
+    "dólares": "US$",
+    "dólar": "US$",
+    "euros": "€",
+    "euro": "€"
+}
+
 for i, aba in enumerate(abas):
     with aba:
         programa = lista_programas[i]
         titulo_programa = programa['titulo']
+        id_programa = dados_programas[i].get("_id") 
+
 
         # Filtra no df original (que tem a coluna 'Programa')
         df_equipe_filtrado = df_equipe[df_equipe['Programa'] == titulo_programa].copy()
@@ -167,57 +213,77 @@ for i, aba in enumerate(abas):
         st.write('**Projetos:**')
 
         col1, col2, col3 = st.columns(3)
-        col1.selectbox(
+        situacao_filtro = col1.selectbox(
             "Situação",
-            ["Todos", "Em andamento", "Concluído", "Cancelado"],
+            ["Todos", "Em andamento", "Finalizado", ""],
             key=f"situacao_{i}"
         )
 
+        # Filtra os projetos ligados ao programa atual pelo ID do programa
+        projetos_do_programa = [
+            p for p in dados_projetos_ispn
+            if p.get("programa") == id_programa
+        ]
 
-        st.write('3 projetos:')
-        # ui.table(dat"a=df_equipe)
+        # Ordena por código
+        projetos_do_programa_ordenados = sorted(
+            projetos_do_programa,
+            key=lambda p: p.get("codigo", "")
+        )
 
-        # Dados de exemplo
-        dados_projetos = {
-            "Nome do projeto": [
-                "Projeto Água Viva",
-                "Educação Verde",
-                "Fortalecimento Comunitário"
-            ],
-            "início": [
-                "março/2024",
-                "abril/2024",
-                "janeiro/2025"
-            ],
-            "Fim": [
-                "fevereiro/2025",
-                "dezembro/2024",
-                "dezembro/2025"
-            ],
-            "Valor": [
-                50000.00,
-                120000.00,
-                80000.00
-            ],
-            "Doador": [
-                "Fundação X",
-                "Instituto Y",
-                "ONG Z"
-            ],
-            "Situação": [
-                "Em andamento",
-                "Em andamento",
-                "Concluído"
+        # Aplica o filtro de situação
+        if situacao_filtro != "Todos":
+            projetos_do_programa_ordenados = [
+                p for p in projetos_do_programa_ordenados
+                if p.get("status", "Não informado") == situacao_filtro
             ]
-        }
 
-        # Criando o DataFrame
-        df_projetos = pd.DataFrame(dados_projetos)
-        df_projetos.index += 1
+        if projetos_do_programa_ordenados:
+            dados_projetos = {
+                "Código": [],
+                "Nome do projeto": [],
+                "Início": [],
+                "Fim": [],
+                "Valor": [],
+                "Doador": [],
+                "Situação": []
+            }
 
-        # Exibindo o DataFrame
-        # st.write('')
-        st.dataframe(df_projetos)
+            for projeto in projetos_do_programa_ordenados:
+                dados_projetos["Código"].append(projeto.get("codigo", ""))
+                dados_projetos["Nome do projeto"].append(projeto.get("nome_do_projeto", "Sem nome"))
+                dados_projetos["Início"].append(projeto.get("data_inicio_contrato", "Não informado"))
+                dados_projetos["Fim"].append(projeto.get("data_fim_contrato", "Não informado"))
+
+                valor_bruto = projeto.get("valor", 0) or 0
+                moeda_bruta = projeto.get("moeda", "reais")  # padrão "reais" caso não exista
+                valor_formatado = formatar_valor(valor_bruto, moeda_bruta)
+                dados_projetos["Valor"].append(valor_formatado)
+
+                id_doador = projeto.get("doador")
+                nome_doador = mapa_doador_id_para_nome.get(str(id_doador), "Não informado")
+                dados_projetos["Doador"].append(nome_doador)
+
+                dados_projetos["Situação"].append(projeto.get("status", "Não informado"))
+
+            df_projetos = pd.DataFrame(dados_projetos)
+            df_projetos.index += 1
+            quantidade = len(df_projetos)
+            plural = "projetos vinculados" if quantidade != 1 else "projeto vinculado"
+
+            areas = ["Comunicação", "ADM Brasília", "ADM Santa Inês", "Advocacy", "Coordenação"]
+
+            if titulo_programa in areas:
+                st.write(f"{quantidade} {plural} à área **{titulo_programa}**:")
+            else:
+                st.write(f"{quantidade} {plural} ao programa **{titulo_programa}**:")
+
+
+            st.dataframe(df_projetos, hide_index=True)
+        else:
+            st.info("Nenhum projeto vinculado a este programa/área.")
+
+
 
         st.divider()
 
