@@ -11,6 +11,7 @@ from funcoes_auxiliares import conectar_mongo_portal_ispn  # Função personaliz
 # CONEXÃO COM O BANCO DE DADOS (MONGODB)
 ###############################################################################################################
 
+
 # Conecta ao banco de dados MongoDB usando função importada (com cache para otimizar desempenho)
 db = conectar_mongo_portal_ispn()
 
@@ -18,26 +19,26 @@ db = conectar_mongo_portal_ispn()
 colaboradores = db["pessoas"]
 
 
-
 ##############################################################################################################
 # FUNÇÕES AUXILIARES
 ##############################################################################################################
 
+
 def encontrar_usuario_por_email(colaboradores, email_busca):
-    usuario = colaboradores.find_one({"e‑mail": email_busca})
+    usuario = colaboradores.find_one({"e_mail": email_busca})
     if usuario:
         return usuario.get("nome_completo"), usuario  # Retorna o nome e os dados do usuário
     return None, None  # Caso não encontre
 
 
 
-# Função para enviar um e-mail com código de verificação
+# Função para enviar um e_mail com código de verificação
 def enviar_email(destinatario, codigo):
     # Dados de autenticação, retirados do arquivo secrets.toml
     remetente = st.secrets["senhas"]["endereco_email"]
     senha = st.secrets["senhas"]["senha_email"]
 
-    # Conteúdo do e-mail
+    # Conteúdo do e_mail
     assunto = "Código Para Redefinição de Senha - Portal ISPN"
     corpo = f"""
     <html>
@@ -49,13 +50,13 @@ def enviar_email(destinatario, codigo):
     </html>
     """
 
-    # Cria o e-mail formatado com HTML
+    # Cria o e_mail formatado com HTML
     msg = MIMEText(corpo, "html", "utf-8")
     msg["Subject"] = assunto
     msg["From"] = remetente
     msg["To"] = destinatario
 
-    # Tenta enviar o e-mail via SMTP seguro (SSL)
+    # Tenta enviar o e_mail via SMTP seguro (SSL)
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
             server.login(remetente, senha)
@@ -69,6 +70,7 @@ def enviar_email(destinatario, codigo):
 ##############################################################################################################
 # CAIXA DE DIÁLOGO PARA RECUPERAÇÃO DE SENHA
 ##############################################################################################################
+
 
 @st.dialog("Recuperação de Senha")
 def recuperar_senha_dialog():
@@ -88,6 +90,11 @@ def recuperar_senha_dialog():
                 if email:
                     nome, verificar_colaboradores = encontrar_usuario_por_email(colaboradores, email)
                     if verificar_colaboradores:
+
+                        if verificar_colaboradores.get("status", "").lower() != "ativo":
+                            st.error("Usuário inativo. Entre em contato com o renato@ispn.org.br.")
+                            return
+                        
                         codigo = str(random.randint(100, 999))  # Gera um código aleatório
                         if enviar_email(email, codigo):  # Envia o código por e-mail
                             st.session_state.codigo_verificacao = codigo
@@ -111,12 +118,12 @@ def recuperar_senha_dialog():
             codigo_input = st.text_input("Informe o código recebido por e-mail", placeholder="000")
             if st.form_submit_button("Verificar"):
                 if codigo_input == st.session_state.codigo_verificacao:
-                    sucesso = st.success("✅ Código verificado com sucesso!")
+                    sucesso = st.success("Código verificado com sucesso!")
                     time.sleep(2)
                     sucesso.empty()
                     st.session_state.codigo_validado = True
                 else:
-                    st.error("❌ Código inválido. Tente novamente.")
+                    st.error("Código inválido. Tente novamente.")
 
     # --- Etapa 3: Definição da nova senha ---
 
@@ -131,14 +138,14 @@ def recuperar_senha_dialog():
                 if nova_senha == confirmar_senha and nova_senha.strip():
                     email = st.session_state.email_verificado
 
-                    # Localiza o usuário pelo e-mail
-                    usuario = colaboradores.find_one({"e‑mail": email})
+                    # Localiza o usuário pelo e_mail
+                    usuario = colaboradores.find_one({"e_mail": email})
 
                     if usuario:
                         try:
                             # Atualiza a senha no banco de dados
                             result = colaboradores.update_one(
-                                {"e‑mail": email},
+                                {"e_mail": email},
                                 {"$set": {"senha": nova_senha}}
                             )
 
@@ -205,9 +212,12 @@ def login():
 
             for doc in colaboradores.find():
                 if doc.get("senha") == password:
+                    if doc.get("status", "").lower() != "ativo":
+                        st.error("Usuário inativo. Entre em contato com o renato@ispn.org.br.")
+                        return
                     usuario_encontrado = doc
-                    # tipo_usuario = doc.get("tipo de usuário", "desconhecido")
-                    # 🔥 Transforma string em lista removendo espaços extras
+
+                    # Transforma string em lista removendo espaços extras
                     tipo_usuario = [x.strip() for x in doc.get("tipo de usuário", "").split(",")]
 
                     break
@@ -238,7 +248,6 @@ def login():
 ##############################################################################################################
 
 
-
 # Se o usuário ainda não estiver logado
 if "logged_in" not in st.session_state or not st.session_state["logged_in"]:
     login()  # Mostra tela de login
@@ -250,11 +259,11 @@ else:
     pg = st.navigation([
         "Institucional.py", 
         "Estratégia.py", 
+        "Indicadores.py",
         "Programas e Áreas.py", 
         "Doadores.py", 
         "Projetos.py", 
         "Fundo Ecos.py", 
-        "Indicadores.py", 
         "Monitor de PLs.py",
         "Clipping de Notícias.py", 
         "Pessoas.py", 
