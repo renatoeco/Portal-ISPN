@@ -122,16 +122,18 @@ with tab1:
         st.write(status_selecionado)
         df_projetos_ispn_filtrado = df_projetos_ispn_filtrado[df_projetos_ispn_filtrado['status'] == status_selecionado]
 
-    # Filtro dos anos
-    # Converter anos selecionados em datas reais (01/01 e 31/12)
-    data_inicio_periodo = pd.to_datetime(f"{ano_inicio_selecionado}-01-01")
-    data_fim_periodo = pd.to_datetime(f"{ano_fim_selecionado}-12-31")
 
-    # Filtrar projetos que possuem qualquer interseção com esse período
-    df_projetos_ispn_filtrado = df_projetos_ispn_filtrado[
-        (df_projetos_ispn_filtrado['data_fim_contrato'] >= data_inicio_periodo) &
-        (df_projetos_ispn_filtrado['data_inicio_contrato'] <= data_fim_periodo)
-    ]
+
+    # # Filtro dos anos
+    # # Converter anos selecionados em datas reais (01/01 e 31/12)
+    # data_inicio_periodo = pd.to_datetime(f"{ano_inicio_selecionado}-01-01")
+    # data_fim_periodo = pd.to_datetime(f"{ano_fim_selecionado}-12-31")
+
+    # # Filtrar projetos que possuem qualquer interseção com esse período
+    # df_projetos_ispn_filtrado = df_projetos_ispn_filtrado[
+    #     (df_projetos_ispn_filtrado['data_fim_contrato'] >= data_inicio_periodo) &
+    #     (df_projetos_ispn_filtrado['data_inicio_contrato'] <= data_fim_periodo)
+    # ]
 
 
     # Fim dos filtros -----------------------------------
