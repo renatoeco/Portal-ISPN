@@ -231,9 +231,8 @@ st.write('')
 
 tipo_selecionado = st.pills(
     label="Tipo de projeto",
-    options=["fundo_ecos", "ispn"],
-    format_func=lambda x: "Fundo Ecos" if x == "fundo_ecos" else "ISPN",
-    
+    options=["PJ", "PF", "ispn"],
+    format_func=lambda x: {"PJ": "PJ", "PF": "PF", "ispn": "ISPN"}.get(x, x),
 )
 
 
@@ -414,7 +413,7 @@ with col2.container(border=True):
 # ---------------------- PROJETOS FUNDO ECOS ----------------------
 
 
-if tipo_selecionado in ["fundo_ecos", None]:
+if tipo_selecionado in ["PJ", "PF", None]:
     with col1.container(border=True):
         st.write('**Projetos Fundo Ecos**')
         botao_indicador_legivel("Número de visitas de monitoramento realizadas ao projeto apoiado", "numero_de_visitas_de_monitoramento_realizadas_ao_projeto_apoiado", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
