@@ -25,16 +25,25 @@ db = conectar_mongo_portal_ispn()
 # Define variáveis para as coleções usadas
 estatistica = db["estatistica"] 
 pessoas = db["pessoas"]  
+programas_areas = db["programas_areas"]
 
 # Busca todos os documentos da coleção "pessoas"
 dados_pessoas = list(pessoas.find())
 
+dados_programas = list(programas_areas.find())
+
 # Converte documentos MongoDB em lista de dicionários para facilitar manipulação
 pessoas_lista = []
 for pessoa in dados_pessoas:
+    id_programa_area = pessoa.get("programa_area")
+    nome_programa_area = next(
+        (p.get("nome_programa_area", "") for p in dados_programas if p["_id"] == id_programa_area),
+        "Não informado"
+    )
+
     pessoas_lista.append({
         "Nome": pessoa.get("nome_completo", ""),
-        "Programa/Área": pessoa.get("programa_area", ""),
+        "Programa/Área": nome_programa_area,
         "Projeto": pessoa.get("projeto", ""),
         "Cargo": pessoa.get("cargo", ""),
         "Escolaridade": pessoa.get("escolaridade", ""),
@@ -52,9 +61,17 @@ for pessoa in dados_pessoas:
 ######################################################################################################
 
 
+
+
 # Define um diálogo (modal) para gerenciar colaboradores com abas de cadastro e edição
 @st.dialog("Gerenciar colaboradores", width='large')
 def gerenciar_pessoas():
+    
+    # Mapeia nomes de programa <-> ObjectId
+    nome_para_id_programa = {p["nome_programa_area"]: p["_id"] for p in dados_programas}
+    id_para_nome_programa = {p["_id"]: p["nome_programa_area"] for p in dados_programas}
+
+    
     # Cria duas abas: cadastro e edição
     aba_cadastrar, aba_editar = st.tabs([":material/person_add: Cadastrar novo(a)", ":material/edit: Editar"])
 
@@ -101,8 +118,9 @@ def gerenciar_pessoas():
             nome_coordenador = col1.selectbox("Nome do(a) coordenador(a):", nomes_coordenadores, index=None, placeholder="")
 
             # Lista ordenada dos programas/áreas para seleção
-            lista_programas_areas = sorted({pessoa["Programa/Área"] for pessoa in pessoas_lista if pessoa["Programa/Área"]})
-            programa_area = col2.selectbox("Programa / Área:", lista_programas_areas, index=None, placeholder="")
+            lista_programas_areas = sorted(nome_para_id_programa.keys())
+            programa_area_nome = col2.selectbox("Programa / Área:", lista_programas_areas, index=None, placeholder="")
+            programa_area = nome_para_id_programa.get(programa_area_nome)
 
             st.markdown("---")
             st.markdown("#### Dados bancários")
@@ -195,7 +213,11 @@ def gerenciar_pessoas():
     # Aba para editar colaborador existente
     with aba_editar:
         # Lista com nomes dos colaboradores para seleção
-        nomes_existentes = sorted([p["nome_completo"] for p in dados_pessoas if p.get("coordenador")])
+        nomes_existentes = sorted([
+            p["nome_completo"]
+            for p in dados_pessoas
+            if "coordenador" in p  # só inclui quem tem o campo 'coordenador'
+        ])
         nome_selecionado = st.selectbox("Selecione o(a) colaborador(a) para editar:", nomes_existentes, index=None, placeholder="")
 
         if nome_selecionado:
@@ -243,16 +265,22 @@ def gerenciar_pessoas():
                         key="editar_nome_coordenador"
                     )
 
-                    # Seleção do programa/área com valor padrão
-                    programa_area = col2.selectbox(
+                    # Pega o ObjectId atual salvo no banco
+                    programa_area_atual = pessoa.get("programa_area")
+                    # Converte o ObjectId para nome legível
+                    programa_area_nome_atual = id_para_nome_programa.get(programa_area_atual, "")
+
+                    # Selectbox mostra nomes dos programas
+                    programa_area_nome = col2.selectbox(
                         "Programa / Área:",
                         lista_programas_areas,
-                        index=next(
-                            (i for i, p in enumerate(lista_programas_areas) if p == pessoa.get("programa_area", "")),
-                            0  # fallback caso não encontre
-                        ),
+                        index=lista_programas_areas.index(programa_area_nome_atual) if programa_area_nome_atual in lista_programas_areas else 0,
                         key="editar_programa"
                     )
+
+                    # Após seleção, pega o ObjectId correspondente ao nome
+                    programa_area = nome_para_id_programa.get(programa_area_nome)
+
                     
                     col1, col2 = st.columns([1, 1])
                     

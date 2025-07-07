@@ -74,19 +74,21 @@ def enviar_email(destinatario, codigo):
 
 @st.dialog("Recuperação de Senha")
 def recuperar_senha_dialog():
-    # Inicializa variáveis de sessão usadas no fluxo
     st.session_state.setdefault("codigo_enviado", False)
     st.session_state.setdefault("codigo_verificacao", "")
     st.session_state.setdefault("email_verificado", "")
     st.session_state.setdefault("codigo_validado", False)
 
-    conteudo_dialogo = st.empty()  # Container que será atualizado conforme a etapa
+    conteudo_dialogo = st.empty()
 
-    # --- Etapa 1: Solicitação do e-mail ---
+    # Etapa 1: Entrada do e-mail
     if not st.session_state.codigo_enviado:
         with conteudo_dialogo.form(key="recover_password_form", border=False):
-            email = st.text_input("Digite seu e-mail:")
-            if st.form_submit_button("Confirmar"):
+            # Preenche automaticamente com email da sessão (se houver)
+            email_default = st.session_state.get("email_para_recuperar", "")
+            email = st.text_input("Digite seu e-mail:", value=email_default)
+
+            if st.form_submit_button("Enviar código de verificação"):
                 if email:
                     nome, verificar_colaboradores = encontrar_usuario_por_email(colaboradores, email)
                     if verificar_colaboradores:
@@ -201,29 +203,29 @@ def login():
     col1, col2, col3 = st.columns([2, 3, 2])
 
     with col2.form("login_form", border=False):
-    
-        # Pede a senha
+        # Novo campo de e-mail
+        email_input = st.text_input("Insira seu e-mail")
+
+        # Campo de senha
         password = st.text_input("Insira a senha", type="password")
 
         if st.form_submit_button("Entrar"):
-            # Busca o documento correspondente à senha
-            usuario_encontrado = None
-            # tipo_usuario = "desconhecido"
+            usuario_encontrado = colaboradores.find_one({
+                "e_mail": {"$regex": f"^{email_input.strip()}$", "$options": "i"},
+                "senha": password
+            })
 
-            for doc in colaboradores.find():
-                if doc.get("senha") == password:
-                    if doc.get("status", "").lower() != "ativo":
-                        st.error("Usuário inativo. Entre em contato com o renato@ispn.org.br.")
-                        return
-                    usuario_encontrado = doc
+            # Salva o email para possível recuperação de senha
+            st.session_state["email_para_recuperar"] = email_input.strip()
 
-                    # Transforma string em lista removendo espaços extras
-                    tipo_usuario = [x.strip() for x in doc.get("tipo de usuário", "").split(",")]
-
-                    break
-
-            # Se encontrou, loga o usuário
             if usuario_encontrado:
+                if usuario_encontrado.get("status", "").lower() != "ativo":
+                    st.error("Usuário inativo. Entre em contato com o renato@ispn.org.br.")
+                    return
+
+                tipo_usuario = [x.strip() for x in usuario_encontrado.get("tipo de usuário", "").split(",")]
+
+                # Autentica
                 st.session_state["logged_in"] = True
                 st.session_state["tipo_usuario"] = tipo_usuario
                 st.session_state["nome"] = usuario_encontrado.get("nome_completo")
@@ -231,7 +233,8 @@ def login():
                 st.session_state["id_usuario"] = usuario_encontrado.get("_id")
                 st.rerun()
             else:
-                st.error("Senha inválida ou usuário não encontrado!")    
+                st.error("E-mail ou senha inválidos!")
+
     
     
     # Botão para recuperar senha
@@ -261,12 +264,12 @@ else:
         "Estratégia.py", 
         "Indicadores.py",
         "Programas e Áreas.py", 
+        "Pessoas.py",
         "Doadores.py", 
         "Projetos.py", 
         "Fundo Ecos.py", 
         "Monitor de PLs.py",
         "Clipping de Notícias.py", 
-        "Pessoas.py", 
         "Viagens.py",
         "Férias e recessos.py",
         "Manuais.py",

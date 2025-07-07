@@ -19,13 +19,15 @@ st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
 
 
 db = conectar_mongo_portal_ispn()
-estatistica = db["estatistica"]  # Coleção de estatísticas
+
 pj = list(db["projetos_pj"].find())
 pf = list(db["projetos_pf"].find())
 projetos_ispn = list(db["projetos_ispn"].find())
+
+colecao_doadores = db["doadores"]
 ufs_municipios = db["ufs_municipios"]
 pessoas = db["pessoas"]
-
+estatistica = db["estatistica"]  # Coleção de estatísticas
 
 ######################################################################################################
 # FUNÇÕES
@@ -229,7 +231,22 @@ todos_projetos = pj + pf
 
 dados_municipios = list(ufs_municipios.find())
 
-mapa_doador = {str(proj["_id"]): proj.get("doador", "") for proj in projetos_ispn}
+mapa_nome_doador = {
+    str(d["_id"]): d.get("nome_doador", "") for d in colecao_doadores.find()
+}
+
+mapa_doador = {}
+for proj in projetos_ispn:
+    id_proj = str(proj["_id"])
+    id_doador = proj.get("doador")
+    
+    if isinstance(id_doador, ObjectId):
+        nome_doador = mapa_nome_doador.get(str(id_doador), "")
+        mapa_doador[id_proj] = nome_doador
+    else:
+        mapa_doador[id_proj] = ""
+
+
 
 # Criar dicionário código_uf -> nome_uf
 uf_para_nome = {}

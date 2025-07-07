@@ -22,6 +22,24 @@ lancamentos = db["lancamentos_indicadores"]
 
 
 ######################################################################################################
+# CSS PARA DIALOGO MAIOR
+######################################################################################################
+
+
+st.markdown(
+    """
+<style>
+div[data-testid="stDialog"] div[role="dialog"]:has(.big-dialog) {
+    width: 70vw;
+    height: 80vh;
+}
+</style>
+""",
+    unsafe_allow_html=True,
+)
+
+
+######################################################################################################
 # FUNÇÕES
 ######################################################################################################
 
@@ -67,6 +85,7 @@ def somar_indicador_por_nome(nome_indicador, tipo_selecionado=None, projetos_fil
 
 @st.dialog("Lançamentos", width="large")
 def mostrar_detalhes(nome_indicador, tipo_selecionado=None, projetos_filtrados=None, anos_filtrados=None, autores_filtrados=None):
+    
     indicador_doc = indicadores.find_one({"nome_indicador": nome_indicador})
     if not indicador_doc:
         st.warning("Indicador não encontrado.")
@@ -118,6 +137,8 @@ def mostrar_detalhes(nome_indicador, tipo_selecionado=None, projetos_filtrados=N
     df = df[list(colunas_mapeadas.values())].sort_values("Projeto")
 
     st.dataframe(df[list(colunas_mapeadas.values())], hide_index=True, use_container_width=True)
+    
+    st.html("<span class='big-dialog'></span>")
 
 
 def handler(nome_indicador, projetos_filtrados=None, anos_filtrados=None):
@@ -179,6 +200,14 @@ def formatar_nome_legivel(nome):
     return NOMES_INDICADORES_LEGIVEIS.get(nome, nome.replace("_", " ").capitalize())
 
 
+def botao_indicador_legivel(titulo, nome_indicador, tipo, projetos, anos, autores):
+    valor = somar_indicador_por_nome(nome_indicador, tipo, projetos, anos, autores)
+    if valor != "0":
+        st.button(f"{titulo}: **{valor}**", 
+                  on_click=lambda: mostrar_detalhes(nome_indicador, tipo, projetos, anos, autores),
+                  type="tertiary")
+
+
 # Função para aplicar filtros progressivamente
 def atualizar_opcoes(df, campo, campos_restritivos):
     df_filtrado = df.copy()
@@ -204,7 +233,7 @@ tipo_selecionado = st.pills(
     label="Tipo de projeto",
     options=["fundo_ecos", "ispn"],
     format_func=lambda x: "Fundo Ecos" if x == "fundo_ecos" else "ISPN",
-    default="fundo_ecos"
+    
 )
 
 
@@ -295,137 +324,103 @@ col1, col2 = st.columns(2)
 
 with col1.container(border=True):
     st.write('**Organizações e Comunidades**')
-    st.button(f"Número de organizações apoiadas: **{somar_indicador_por_nome('numero_de_organizacoes_apoiadas', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)}**",
-              on_click=lambda: mostrar_detalhes('numero_de_organizacoes_apoiadas', tipo_selecionado, projetos_filtrados, anos_filtrados), type="tertiary")
-    st.button(f"Número de comunidades fortalecidas: **{somar_indicador_por_nome('numero_de_comunidades_fortalecidas', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)}**",
-              on_click=lambda: mostrar_detalhes('numero_de_comunidades_fortalecidas', tipo_selecionado, projetos_filtrados, anos_filtrados), type="tertiary")
+    botao_indicador_legivel("Número de organizações apoiadas", "numero_de_organizacoes_apoiadas", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+    botao_indicador_legivel("Número de comunidades fortalecidas", "numero_de_comunidades_fortalecidas", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
 
 
 # ---------------------- PESSOAS ----------------------
 
+
 with col2.container(border=True):
     st.write('**Pessoas**')
-    st.button(f"Número de famílias: **{somar_indicador_por_nome('numero_de_familias', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)}**",
-              on_click=lambda: mostrar_detalhes('numero_de_familias', tipo_selecionado, projetos_filtrados, anos_filtrados), type="tertiary")
-    st.button(f"Número de homens jovens (até 29 anos): **{somar_indicador_por_nome('numero_de_homens_jovens', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)}**",
-              on_click=lambda: mostrar_detalhes('numero_de_homens_jovens', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados), type="tertiary")
-    st.button(f"Número de homens adultos: **{somar_indicador_por_nome('numero_de_homens_adultos', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)}**",
-              on_click=lambda: mostrar_detalhes('numero_de_homens_adultos', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados), type="tertiary")
-    st.button(f"Número de mulheres jovens (até 29 anos): **{somar_indicador_por_nome('numero_de_mulheres_jovens', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)}**",
-              on_click=lambda: mostrar_detalhes('numero_de_mulheres_jovens', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados), type="tertiary")
-    st.button(f"Número de mulheres adultas: **{somar_indicador_por_nome('numero_de_mulheres_adultas', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)}**",
-              on_click=lambda: mostrar_detalhes('numero_de_mulheres_adultas', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados), type="tertiary")
-    st.button(f"Número de Indígenas: **{somar_indicador_por_nome('numero_de_indigenas', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)}**",
-              on_click=lambda: mostrar_detalhes('numero_de_indigenas', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados), type="tertiary")
-    st.button(f"Número de lideranças comunitárias fortalecidas: **{somar_indicador_por_nome('numero_de_liderancas_comunitarias_fortalecidas', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)}**",
-              on_click=lambda: mostrar_detalhes('numero_de_liderancas_comunitarias_fortalecidas', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados), type="tertiary")
-    st.button(f"Número de famílias comercializando produtos da sociobio: **{somar_indicador_por_nome('numero_de_familias_comercializando_produtos_da_sociobio_com_apoio_do_fundo_ecos', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)}**",
-              on_click=lambda: mostrar_detalhes('numero_de_familias_comercializando_produtos_da_sociobio_com_apoio_do_fundo_ecos', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados), type="tertiary")
-    st.button(f"Número de famílias acessando vendas institucionais: **{somar_indicador_por_nome('numero_de_familias_acessando_vendas_institucionais_com_apoio_do_fundo_ecos', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)}**",
-              on_click=lambda: mostrar_detalhes('numero_de_familias_acessando_vendas_institucionais_com_apoio_do_fundo_ecos', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados), type="tertiary")
-    st.button(f"Número de estudantes recebendo bolsa: **{somar_indicador_por_nome('numero_de_estudantes_recebendo_bolsa', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)}**",
-              on_click=lambda: mostrar_detalhes('numero_de_estudantes_recebendo_bolsa', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados), type="tertiary")
+    botao_indicador_legivel("Número de famílias", "numero_de_familias", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+    botao_indicador_legivel("Número de homens jovens (até 29 anos)", "numero_de_homens_jovens", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+    botao_indicador_legivel("Número de homens adultos", "numero_de_homens_adultos", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+    botao_indicador_legivel("Número de mulheres jovens (até 29 anos)", "numero_de_mulheres_jovens", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+    botao_indicador_legivel("Número de mulheres adultas", "numero_de_mulheres_adultas", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+    botao_indicador_legivel("Número de Indígenas", "numero_de_indigenas", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+    botao_indicador_legivel("Número de lideranças comunitárias fortalecidas", "numero_de_liderancas_comunitarias_fortalecidas", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+    botao_indicador_legivel("Número de famílias comercializando produtos da sociobio", "numero_de_familias_comercializando_produtos_da_sociobio_com_apoio_do_fundo_ecos", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+    botao_indicador_legivel("Número de famílias acessando vendas institucionais", "numero_de_familias_acessando_vendas_institucionais_com_apoio_do_fundo_ecos", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+    botao_indicador_legivel("Número de estudantes recebendo bolsa", "numero_de_estudantes_recebendo_bolsa", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
 
 
 # ---------------------- CAPACITAÇÕES ----------------------
 
+
 with col1.container(border=True):
     st.write('**Capacitações**')
-    st.button(f"Número de capacitações realizadas: **{somar_indicador_por_nome('numero_de_capacitacoes_realizadas', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)}**",
-              on_click=lambda: mostrar_detalhes('numero_de_capacitacoes_realizadas', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados), type="tertiary")
-    st.button(f"Número de homens jovens capacitados (até 29 anos): **{somar_indicador_por_nome('numero_de_homens_jovens_capacitados', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)}**",
-              on_click=lambda: mostrar_detalhes('numero_de_homens_jovens_capacitados', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados), type="tertiary")
-    st.button(f"Número de homens adultos capacitados: **{somar_indicador_por_nome('numero_de_homens_adultos_capacitados', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)}**",
-              on_click=lambda: mostrar_detalhes('numero_de_homens_adultos_capacitados', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados), type="tertiary")
-    st.button(f"Número de mulheres jovens capacitadas (até 29 anos): **{somar_indicador_por_nome('numero_de_mulheres_jovens_capacitadas', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)}**",
-              on_click=lambda: mostrar_detalhes('numero_de_mulheres_jovens_capacitadas', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados), type="tertiary")
-    st.button(f"Número de mulheres adultas capacitadas: **{somar_indicador_por_nome('numero_de_mulheres_adultas_capacitadas', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)}**",
-              on_click=lambda: mostrar_detalhes('numero_de_mulheres_adultas_capacitadas', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados), type="tertiary")
+    botao_indicador_legivel("Número de capacitações realizadas", "numero_de_capacitacoes_realizadas", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+    botao_indicador_legivel("Número de homens jovens capacitados (até 29 anos)", "numero_de_homens_jovens_capacitados", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+    botao_indicador_legivel("Número de homens adultos capacitados", "numero_de_homens_adultos_capacitados", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+    botao_indicador_legivel("Número de mulheres jovens capacitadas (até 29 anos)", "numero_de_mulheres_jovens_capacitadas", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+    botao_indicador_legivel("Número de mulheres adultas capacitadas", "numero_de_mulheres_adultas_capacitadas", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
 
 
 # ---------------------- INTERCÂMBIOS ----------------------
 
+
 with col1.container(border=True):
     st.write('**Intercâmbios**')
-    st.button(f"Número de intercâmbios realizados: **{somar_indicador_por_nome('numero_de_intercambios_realizados', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)}**",
-              on_click=lambda: mostrar_detalhes('numero_de_intercambios_realizados', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados), type="tertiary")
-    st.button(f"Número de homens em intercâmbios: **{somar_indicador_por_nome('numero_de_homens_em_intercambios', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)}**",
-              on_click=lambda: mostrar_detalhes('numero_de_homens_em_intercambios', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados), type="tertiary")
-    st.button(f"Número de mulheres em intercâmbios: **{somar_indicador_por_nome('numero_de_mulheres_em_intercambios', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)}**",
-              on_click=lambda: mostrar_detalhes('numero_de_mulheres_em_intercambios', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados), type="tertiary")
+    botao_indicador_legivel("Número de intercâmbios realizados", "numero_de_intercambios_realizados", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+    botao_indicador_legivel("Número de homens em intercâmbios", "numero_de_homens_em_intercambios", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+    botao_indicador_legivel("Número de mulheres em intercâmbios", "numero_de_mulheres_em_intercambios", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
 
 
 # ---------------------- TERRITÓRIO ----------------------
 
+
 with col2.container(border=True):
     st.write('**Território**')
-    st.button(f"Número de iniciativas de Gestão Territorial implantadas: **{somar_indicador_por_nome('numero_de_iniciativas_de_gestao_territorial_implantadas', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)}**",
-              on_click=lambda: mostrar_detalhes('numero_de_iniciativas_de_gestao_territorial_implantadas', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados), type="tertiary")
-    st.button(f"Área com manejo ecológico do fogo (ha): **{somar_indicador_por_nome('area_com_manejo_ecologico_do_fogo_ha', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)}**",
-              on_click=lambda: mostrar_detalhes('area_com_manejo_ecologico_do_fogo_ha', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados), type="tertiary")
-    st.button(f"Área com manejo agroecológico (ha): **{somar_indicador_por_nome('area_com_manejo_agroecologico_ha', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)}**",
-              on_click=lambda: mostrar_detalhes('area_com_manejo_agroecologico_ha', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados), type="tertiary")
-    st.button(f"Área com manejo para restauração (ha): **{somar_indicador_por_nome('area_com_manejo_para_restauracao_ha', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)}**",
-              on_click=lambda: mostrar_detalhes('area_com_manejo_para_restauracao_ha', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados), type="tertiary")
-    st.button(f"Área com manejo para extrativismo (ha): **{somar_indicador_por_nome('area_com_manejo_para_extrativismo_ha', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)}**",
-              on_click=lambda: mostrar_detalhes('area_com_manejo_para_extrativismo_ha', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados), type="tertiary")
+    botao_indicador_legivel("Número de iniciativas de Gestão Territorial implantadas", "numero_de_iniciativas_de_gestao_territorial_implantadas", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+    botao_indicador_legivel("Área com manejo ecológico do fogo (ha)", "area_com_manejo_ecologico_do_fogo_ha", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+    botao_indicador_legivel("Área com manejo agroecológico (ha)", "area_com_manejo_agroecologico_ha", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+    botao_indicador_legivel("Área com manejo para restauração (ha)", "area_com_manejo_para_restauracao_ha", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+    botao_indicador_legivel("Área com manejo para extrativismo (ha)", "area_com_manejo_para_extrativismo_ha", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
 
 
 # ---------------------- TECNOLOGIA E INFRA ----------------------
 
+
 with col1.container(border=True):
     st.write('**Tecnologia e Infra-estrutura**')
-    st.button(f"Número de agroindústrias implementadas/reformadas: **{somar_indicador_por_nome('numero_de_agroindustiras_implementadas_ou_reformadas', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)}**",
-              on_click=lambda: mostrar_detalhes('numero_de_agroindustiras_implementadas_ou_reformadas', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados), type="tertiary")
-    st.button(f"Número de tecnologias instaladas: **{somar_indicador_por_nome('numero_de_tecnologias_instaladas', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)}**",
-              on_click=lambda: mostrar_detalhes('numero_de_tecnologias_instaladas', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados), type="tertiary")
-    st.button(f"Número de pessoas beneficiadas com tecnologias: **{somar_indicador_por_nome('numero_de_pessoas_beneficiadas_com_tecnologias', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)}**",
-              on_click=lambda: mostrar_detalhes('numero_de_pessoas_beneficiadas_com_tecnologias', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados), type="tertiary")
+    botao_indicador_legivel("Número de agroindústrias implementadas/reformadas", "numero_de_agroindustiras_implementadas_ou_reformadas", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+    botao_indicador_legivel("Número de tecnologias instaladas", "numero_de_tecnologias_instaladas", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+    botao_indicador_legivel("Número de pessoas beneficiadas com tecnologias", "numero_de_pessoas_beneficiadas_com_tecnologias", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
 
 
 # ---------------------- FINANCEIRO ----------------------
 
+
 with col1.container(border=True):
     st.write('**Financeiro**')
-    st.button(f"Faturamento bruto anual pré-projeto (R$): **{somar_indicador_por_nome('faturamento_bruto_anual_pre_projeto', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)}**",
-              on_click=lambda: mostrar_detalhes('faturamento_bruto_anual_pre_projeto', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados), type="tertiary")
-    st.button(f"Faturamento bruto anual pós-projeto (R$): **{somar_indicador_por_nome('faturamento_bruto_anual_pos_projeto', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)}**",
-              on_click=lambda: mostrar_detalhes('faturamento_bruto_anual_pos_projeto', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados), type="tertiary")
-    st.button(f"Volume financeiro de vendas institucionais com apoio do Fundo Ecos: **{somar_indicador_por_nome('volume_financeiro_de_vendas_institucionais_com_apoio_do_fundo_ecos', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)}**",
-              on_click=lambda: mostrar_detalhes('volume_financeiro_de_vendas_institucionais_com_apoio_do_fundo_ecos', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados), type="tertiary")
+    botao_indicador_legivel("Faturamento bruto anual pré-projeto (R$)", "faturamento_bruto_anual_pre_projeto", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+    botao_indicador_legivel("Faturamento bruto anual pós-projeto (R$)", "faturamento_bruto_anual_pos_projeto", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+    botao_indicador_legivel("Volume financeiro de vendas institucionais com apoio do Fundo Ecos", "volume_financeiro_de_vendas_institucionais_com_apoio_do_fundo_ecos", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
 
 
 # ---------------------- COMUNICAÇÃO ----------------------
 
+
 with col2.container(border=True):
     st.write('**Comunicação**')
-    st.button(f"Número de vídeos produzidos: **{somar_indicador_por_nome('numero_de_videos_produzidos', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)}**",
-              on_click=lambda: mostrar_detalhes('numero_de_videos_produzidos', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados), type="tertiary")
-    st.button(f"Número de aparições na mídia: **{somar_indicador_por_nome('numero_de_aparicoes_na_midia', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)}**",
-              on_click=lambda: mostrar_detalhes('numero_de_aparicoes_na_midia', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados), type="tertiary")
-    st.button(f"Número de publicações de caráter técnico: **{somar_indicador_por_nome('numero_de_publicacoes_de_carater_tecnico', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)}**",
-              on_click=lambda: mostrar_detalhes('numero_de_publicacoes_de_carater_tecnico', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados), type="tertiary")
-    st.button(f"Número de artigos acadêmicos produzidos e publicados: **{somar_indicador_por_nome('numero_de_artigos_academicos_produzidos_e_publicados', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)}**",
-              on_click=lambda: mostrar_detalhes('numero_de_artigos_academicos_produzidos_e_publicados', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados), type="tertiary")
-    st.button(f"Número de comunicadores comunitários contribuindo na execução das ações do ISPN: **{somar_indicador_por_nome('numero_de_comunicadores_comunitarios_contribuindo_na_execucao_das_acoes_do_ispn', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)}**",
-              on_click=lambda: mostrar_detalhes('numero_de_comunicadores_comunitarios_contribuindo_na_execucao_das_acoes_do_ispn', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados), type="tertiary")
+    botao_indicador_legivel("Número de vídeos produzidos", "numero_de_videos_produzidos", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+    botao_indicador_legivel("Número de aparições na mídia", "numero_de_aparicoes_na_midia", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+    botao_indicador_legivel("Número de publicações de caráter técnico", "numero_de_publicacoes_de_carater_tecnico", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+    botao_indicador_legivel("Número de artigos acadêmicos produzidos e publicados", "numero_de_artigos_academicos_produzidos_e_publicados", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+    botao_indicador_legivel("Número de comunicadores comunitários contribuindo na execução das ações do ISPN", "numero_de_comunicadores_comunitarios_contribuindo_na_execucao_das_acoes_do_ispn", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
 
 
 # ---------------------- PROJETOS FUNDO ECOS ----------------------
 
-if tipo_selecionado == "fundo_ecos":
+
+if tipo_selecionado in ["fundo_ecos", None]:
     with col1.container(border=True):
         st.write('**Projetos Fundo Ecos**')
-        st.button(f"Número de visitas de monitoramento realizadas ao projeto apoiado: **{somar_indicador_por_nome('numero_de_visitas_de_monitoramento_realizadas_ao_projeto_apoiado', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)}**",
-                  on_click=lambda: mostrar_detalhes('numero_de_visitas_de_monitoramento_realizadas_ao_projeto_apoiado', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados), type="tertiary")
-        st.button(f"Valor da Contrapartidas Financeira (R$): **{somar_indicador_por_nome('valor_da_contrapartida_financeira_projetinhos', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)}**",
-                  on_click=lambda: mostrar_detalhes('valor_da_contrapartida_financeira_projetinhos', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados), type="tertiary")
-        st.button(f"Valor da Contrapartida Não-Financeira (R$): **{somar_indicador_por_nome('valor_da_contrapartida_nao_financeira_projetinhos', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)}**",
-                  on_click=lambda: mostrar_detalhes('valor_da_contrapartida_nao_financeira_projetinhos', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados), type="tertiary")
-        st.button(f"Espécies: **clique para mais informações**",
-                  on_click=lambda: mostrar_detalhes('especies', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados), type="tertiary")
-        st.button(f"Número de organizações apoiadas que alavancaram recursos: **{somar_indicador_por_nome('numero_de_organizacoes_apoiadas_que_alavancaram_recursos', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)}**",
-                  on_click=lambda: mostrar_detalhes('numero_de_organizacoes_apoiadas_que_alavancaram_recursos', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados), type="tertiary")
-        st.button(f"Valor mobilizado de novos recursos (R$): **{somar_indicador_por_nome('valor_mobilizado_de_novos_recursos', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)}**",
-                  on_click=lambda: mostrar_detalhes('valor_mobilizado_de_novos_recursos', tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados), type="tertiary")
+        botao_indicador_legivel("Número de visitas de monitoramento realizadas ao projeto apoiado", "numero_de_visitas_de_monitoramento_realizadas_ao_projeto_apoiado", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+        botao_indicador_legivel("Valor da Contrapartidas Financeira (R$)", "valor_da_contrapartida_financeira_projetinhos", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+        botao_indicador_legivel("Valor da Contrapartida Não-Financeira (R$)", "valor_da_contrapartida_nao_financeira_projetinhos", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+        botao_indicador_legivel("Espécies: clique para mais informações", "especies", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+        botao_indicador_legivel("Número de organizações apoiadas que alavancaram recursos", "numero_de_organizacoes_apoiadas_que_alavancaram_recursos", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+        botao_indicador_legivel("Valor mobilizado de novos recursos (R$)", "valor_mobilizado_de_novos_recursos", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
 
