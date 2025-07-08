@@ -59,7 +59,7 @@ def somar_indicador_por_nome(nome_indicador, tipo_selecionado=None, projetos_fil
 
     filtro = {"id_do_indicador": indicador_id}
     if tipo_selecionado:
-        filtro["tipo"] = tipo_selecionado
+        filtro["tipo"] = {"$in": tipo_selecionado}
     if projetos_filtrados:
         filtro["projeto"] = {"$in": projetos_filtrados}
     if anos_filtrados:
@@ -97,7 +97,7 @@ def mostrar_detalhes(nome_indicador, tipo_selecionado=None, projetos_filtrados=N
 
     filtro = {"id_do_indicador": indicador_id}
     if tipo_selecionado:
-        filtro["tipo"] = tipo_selecionado
+        filtro["tipo"] = {"$in": tipo_selecionado}
     if projetos_filtrados:
         filtro["projeto"] = {"$in": projetos_filtrados}
     if anos_filtrados:
@@ -233,7 +233,11 @@ tipo_selecionado = st.pills(
     label="Tipo de projeto",
     options=["PJ", "PF", "ispn"],
     format_func=lambda x: {"PJ": "PJ", "PF": "PF", "ispn": "ISPN"}.get(x, x),
+    selection_mode="multi",
+    default=None,
 )
+
+
 
 
 # Cria dicionário id_string ➔ codigo
@@ -256,7 +260,8 @@ todos_lancamentos = list(lancamentos.find())
 df_base = pd.DataFrame(todos_lancamentos)
 
 if tipo_selecionado:
-    df_base = df_base[df_base["tipo"] == tipo_selecionado]
+    df_base = df_base[df_base["tipo"].isin(tipo_selecionado)]
+
 
 # Criar coluna 'codigo' baseada no mapeamento
 df_base["codigo"] = df_base["projeto"].astype(str).map(id_para_codigo)
@@ -413,7 +418,7 @@ with col2.container(border=True):
 # ---------------------- PROJETOS FUNDO ECOS ----------------------
 
 
-if tipo_selecionado in ["PJ", "PF", None]:
+if any(tipo in ["PJ", "PF"] for tipo in tipo_selecionado):
     with col1.container(border=True):
         st.write('**Projetos Fundo Ecos**')
         botao_indicador_legivel("Número de visitas de monitoramento realizadas ao projeto apoiado", "numero_de_visitas_de_monitoramento_realizadas_ao_projeto_apoiado", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
