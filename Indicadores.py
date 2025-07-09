@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import time
 from bson import ObjectId
 from funcoes_auxiliares import conectar_mongo_portal_ispn
 
@@ -212,9 +213,25 @@ def botao_indicador_legivel(titulo, nome_indicador, tipo, projetos, anos, autore
 def atualizar_opcoes(df, campo, campos_restritivos):
     df_filtrado = df.copy()
     for outro_campo, valores in campos_restritivos.items():
+
         if outro_campo != campo and valores:
             df_filtrado = df_filtrado[df_filtrado[outro_campo].isin(valores)]
     return sorted(df_filtrado[campo].dropna().unique().tolist())
+
+
+def atualizar_filtro_interativo(campo, opcoes, label):
+    selecao_antiga = st.session_state.filtros_indicadores[campo]
+    selecao_nova = st.multiselect(
+        label,
+        opcoes,
+        default=selecao_antiga,
+        key=f"multiselect_{campo}",
+        placeholder=""
+    )
+    if set(selecao_nova) != set(selecao_antiga):
+        st.session_state.filtros_indicadores[campo] = selecao_nova
+        st.rerun()
+
 
 
 ######################################################################################################
@@ -222,11 +239,33 @@ def atualizar_opcoes(df, campo, campos_restritivos):
 ######################################################################################################
 
 
+# with st.sidebar:
+#     if st.button("Atualizar (R)", icon=":material/refresh:", use_container_width=True):
+#         st.rerun()
+
 st.header("Indicadores")
 st.write('')
 
-
 # ===== FILTROS =====
+
+# 1. Carrega todos os projetos das 3 coleções
+projetos_todos = []
+for coll in [projetos_ispn, projetos_pf, projetos_pj]:
+    projetos_todos.extend(list(coll.find({}, {"_id": 1, "bioma": 1, "sigla": 1, "programa": 1})))
+
+df_proj_info = pd.DataFrame(projetos_todos).rename(columns={"_id": "projeto"})
+
+# Se a coluna "programa" não existe, cria com valores vazios
+if "programa" not in df_proj_info.columns:
+    df_proj_info["programa"] = ""
+
+# Carrega nomes dos programas
+programas = list(db["programas_areas"].find({}, {"_id": 1, "nome_programa_area": 1}))
+map_programa_nome = {p["_id"]: p["nome_programa_area"] for p in programas}
+
+# Converte programa (ObjectId) em nome
+df_proj_info["programa"] = df_proj_info["programa"].map(map_programa_nome).fillna("")
+
 
 
 tipo_selecionado = st.pills(
@@ -237,88 +276,128 @@ tipo_selecionado = st.pills(
     default=None,
 )
 
-
-
-
 # Cria dicionário id_string ➔ codigo
 id_para_codigo = {}
 
-# Adiciona projetos ISPN
-for proj in projetos_ispn.find({}, {"_id": 1, "codigo": 1}):
-    id_para_codigo[str(proj["_id"])] = proj.get("codigo", "Sem código")
-
-# Adiciona projetos PF
-for proj in projetos_pf.find({}, {"_id": 1, "codigo": 1}):
-    id_para_codigo[str(proj["_id"])] = proj.get("codigo", "Sem código")
-
-# Adiciona projetos PJ
-for proj in projetos_pj.find({}, {"_id": 1, "codigo": 1}):
-    id_para_codigo[str(proj["_id"])] = proj.get("codigo", "Sem código")
+for coll in [projetos_ispn, projetos_pf, projetos_pj]:
+    for proj in coll.find({}, {"_id": 1, "codigo": 1}):
+        id_para_codigo[str(proj["_id"])] = proj.get("codigo", "Sem código")
 
 # Carregar lançamentos
 todos_lancamentos = list(lancamentos.find())
 df_base = pd.DataFrame(todos_lancamentos)
 
+# Filtra por tipo
 if tipo_selecionado:
     df_base = df_base[df_base["tipo"].isin(tipo_selecionado)]
-
 
 # Criar coluna 'codigo' baseada no mapeamento
 df_base["codigo"] = df_base["projeto"].astype(str).map(id_para_codigo)
 
+# Preencher campos vazios
+df_base["autor_anotacao"] = df_base["autor_anotacao"].fillna("")
+df_base["ano"] = df_base["ano"].fillna("")
+df_base["codigo"] = df_base["codigo"].fillna("")
 
-# Inicialização com todas as opções possíveis
-projetos_unicos = sorted(df_base["codigo"].dropna().unique().tolist())
+# Concatena os campos bioma, sigla e programa ao df_base com merge pelo campo "projeto"
+df_base = df_base.merge(df_proj_info, on="projeto", how="left")
 
-anos_unicos = sorted(df_base["ano"].dropna().unique().tolist())
-autores_unicos = sorted(df_base["autor_anotacao"].dropna().unique().tolist())
+# Preencher campos nulos
+df_base["bioma"] = df_base["bioma"].fillna("")
+df_base["sigla"] = df_base["sigla"].fillna("")
+df_base["programa"] = df_base["programa"].fillna("")
 
-# Colunas dos filtros
+# Inicializa session_state
+if "filtros_indicadores" not in st.session_state:
+    st.session_state.filtros_indicadores = {
+        "autor_anotacao": [],
+        "codigo": [],
+        "ano": [],
+        "bioma": [],
+        "sigla": [],
+        "programa": []
+    }
+
+# Iteração até estabilização para recalcular opções
+for _ in range(2):  # Duas iterações normalmente são suficientes
+    df_filtrado_tmp = df_base.copy()
+    for campo, selecao in st.session_state.filtros_indicadores.items():
+        if selecao:
+            df_filtrado_tmp = df_filtrado_tmp[df_filtrado_tmp[campo].isin(selecao)]
+    
+    opcoes_autor = sorted(df_filtrado_tmp["autor_anotacao"].dropna().unique())
+    opcoes_projeto = sorted(df_filtrado_tmp["codigo"].dropna().unique())
+    opcoes_ano = sorted(df_filtrado_tmp["ano"].dropna().unique())
+    opcoes_bioma = sorted(df_filtrado_tmp["bioma"].dropna().unique())
+    opcoes_sigla = sorted(df_filtrado_tmp["sigla"].dropna().unique())
+    opcoes_programa = sorted(df_filtrado_tmp["programa"].dropna().unique())
+
+    # Remover seleções inválidas automaticamente
+    st.session_state.filtros_indicadores["autor_anotacao"] = [x for x in st.session_state.filtros_indicadores["autor_anotacao"] if x in opcoes_autor]
+    st.session_state.filtros_indicadores["codigo"] = [x for x in st.session_state.filtros_indicadores["codigo"] if x in opcoes_projeto]
+    st.session_state.filtros_indicadores["ano"] = [x for x in st.session_state.filtros_indicadores["ano"] if x in opcoes_ano]
+    st.session_state.filtros_indicadores["bioma"] = [x for x in st.session_state.filtros_indicadores["bioma"] if x in opcoes_bioma]
+    st.session_state.filtros_indicadores["sigla"] = [x for x in st.session_state.filtros_indicadores["sigla"] if x in opcoes_sigla]
+    st.session_state.filtros_indicadores["programa"] = [x for x in st.session_state.filtros_indicadores["programa"] if x in opcoes_programa]
+
+
 col1, col2, col3 = st.columns(3)
 
-# Filtro de autor primeiro
-with col3:
-    filtro_autor = st.multiselect("Filtrar por autor", autores_unicos, placeholder="")
+# Interface de seleção dinâmica
 
-# Filtrar base por autor (se houver)
-df_filtrada_autor = df_base.copy()
-if filtro_autor:
-    df_filtrada_autor = df_base[df_base["autor_anotacao"].isin(filtro_autor)]
-
-# Filtro de projeto com base nos autores
 with col1:
-    projetos_filtrados = sorted([str(x) for x in df_filtrada_autor["codigo"].dropna().unique().tolist()])
-
-    filtro_projeto = st.multiselect("Filtrar por projeto", projetos_unicos, placeholder="")
-
-# Filtrar base por autor + projeto (se houver)
-df_filtrada_projeto = df_filtrada_autor.copy()
-if filtro_projeto:
-    df_filtrada_projeto = df_filtrada_autor[df_filtrada_autor["codigo"].isin(filtro_projeto)]
-
-# Filtro de ano com base nos filtros anteriores
+    atualizar_filtro_interativo("sigla", opcoes_sigla, "Filtrar por sigla")
 with col2:
-    anos_filtrados = sorted(df_filtrada_projeto["ano"].dropna().unique().tolist())
-    filtro_ano = st.multiselect("Filtrar por ano", anos_filtrados, placeholder="")
+    atualizar_filtro_interativo("codigo", opcoes_projeto, "Filtrar por código")
+with col3:
+    atualizar_filtro_interativo("autor_anotacao", opcoes_autor, "Filtrar por autor")
 
-# Base final com todos os filtros aplicados
-df_filtrado_final = df_base.copy()
-if filtro_autor:
-    df_filtrado_final = df_filtrado_final[df_filtrado_final["autor_anotacao"].isin(filtro_autor)]
+col4, col5, col6 = st.columns(3)
 
-# Converter códigos selecionados para _id utilizados no MongoDB
-if filtro_projeto:
-    projetos_filtrados_ids = [ObjectId(k) for k, v in id_para_codigo.items() if v in filtro_projeto]
+with col4:
+    atualizar_filtro_interativo("programa", opcoes_programa, "Filtrar por programa")
+with col5:
+    atualizar_filtro_interativo("bioma", opcoes_bioma, "Filtrar por bioma")
+with col6:
+    atualizar_filtro_interativo("ano", opcoes_ano, "Filtrar por ano")
+    
+
+
+# Aplicar filtros finais
+df_filtrado = df_base.copy()
+for campo, selecao in st.session_state.filtros_indicadores.items():
+    if selecao:
+        df_filtrado = df_filtrado[df_filtrado[campo].isin(selecao)]
+    
+
+# Aplica os filtros finais
+# df_filtrado_final = df_base.copy()
+# if filtro_autor:
+#     df_filtrado_final = df_filtrado_final[df_filtrado_final["autor_anotacao"].isin(filtro_autor)]
+# if filtro_projeto:
+#     df_filtrado_final = df_filtrado_final[df_filtrado_final["codigo"].isin(filtro_projeto)]
+# if filtro_ano:
+#     df_filtrado_final = df_filtrado_final[df_filtrado_final["ano"].isin(filtro_ano)]
+# if filtro_bioma:
+#     df_filtrado_final = df_filtrado_final[df_filtrado_final["bioma"].isin(filtro_bioma)]
+# if filtro_programa:
+#     df_filtrado_final = df_filtrado_final[df_filtrado_final["programa"].isin(filtro_programa)]
+# if filtro_sigla:
+#     df_filtrado_final = df_filtrado_final[df_filtrado_final["sigla"].isin(filtro_sigla)]
+
+# Extrai listas para passar aos botões
+autores_filtrados = df_filtrado["autor_anotacao"].dropna().unique().tolist()
+anos_filtrados = df_filtrado["ano"].dropna().unique().tolist()
+
+# Projetos filtrados como ObjectId
+if st.session_state.filtros_indicadores["codigo"]:
+    projetos_filtrados = [
+        ObjectId(k) for k, v in id_para_codigo.items() 
+        if v in st.session_state.filtros_indicadores["codigo"]
+    ]
 else:
-    projetos_filtrados_ids = None
+    projetos_filtrados = df_filtrado["projeto"].dropna().unique().tolist()
 
-if filtro_ano:
-    df_filtrado_final = df_filtrado_final[df_filtrado_final["ano"].isin(filtro_ano)]
-
-# Extrai listas finais
-projetos_filtrados = projetos_filtrados_ids
-anos_filtrados = df_filtrado_final["ano"].dropna().unique().tolist()
-autores_filtrados = df_filtrado_final["autor_anotacao"].dropna().unique().tolist()
 
 
 # ---------------------- ORGANIZAÇÕES E COMUNIDADES ----------------------
@@ -418,7 +497,7 @@ with col2.container(border=True):
 # ---------------------- PROJETOS FUNDO ECOS ----------------------
 
 
-if any(tipo in ["PJ", "PF"] for tipo in tipo_selecionado):
+if not tipo_selecionado or any(tipo in ["PJ", "PF"] for tipo in tipo_selecionado):
     with col1.container(border=True):
         st.write('**Projetos Fundo Ecos**')
         botao_indicador_legivel("Número de visitas de monitoramento realizadas ao projeto apoiado", "numero_de_visitas_de_monitoramento_realizadas_ao_projeto_apoiado", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)

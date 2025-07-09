@@ -39,7 +39,7 @@ def enviar_email(destinatario, codigo):
     senha = st.secrets["senhas"]["senha_email"]
 
     # Conteúdo do e_mail
-    assunto = "Código Para Redefinição de Senha - Portal ISPN"
+    assunto = f"Código de Verificação - Portal ISPN: {codigo}"
     corpo = f"""
     <html>
         <body>
@@ -115,7 +115,7 @@ def recuperar_senha_dialog():
         with conteudo_dialogo.form(key="codigo_verificacao_form", border=False):
             st.subheader("Código de verificação")
             email_mask = st.session_state.email_verificado.replace("@", "​@")  # Máscara leve no e-mail
-            st.info(f"Um código foi enviado para: **{email_mask}**")
+            st.write(f"Um código foi enviado para: **{email_mask}**")
 
             codigo_input = st.text_input("Informe o código recebido por e-mail", placeholder="000")
             if st.form_submit_button("Verificar"):

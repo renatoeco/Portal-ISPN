@@ -90,7 +90,7 @@ def carregar_pontos_focais(_todos_projetos):
 
 @st.dialog("Detalhes do projeto", width="large")
 def mostrar_detalhes(i):
-    projeto_df = df_projetos.iloc[i]
+    projeto_df = df_filtrado.iloc[i]
     projeto = todos_projetos[i]  # Supondo que todos_projetos e df_projetos estão na mesma ordem
 
     # Pega o valor de ponto_focal diretamente
@@ -380,14 +380,88 @@ st.header("Fundo Ecos")
 
 st.write('')
 
+with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
+        df_filtrado = df_projetos.copy()
+
+        # ===== PRIMEIRA LINHA =====
+        
+        # Tipo
+        col1, col2 = st.columns(2)
+        tipos_disponiveis = ["Projetos PJ", "Projetos PF"]
+        tipo_sel = col1.pills("Tipo", tipos_disponiveis, selection_mode="multi")
+
+        if tipo_sel:
+            if "Projetos PJ" in tipo_sel and "Projetos PF" not in tipo_sel:
+                df_filtrado = df_filtrado[df_filtrado["Tipo"] == "PJ"]
+            elif "Projetos PF" in tipo_sel and "Projetos PJ" not in tipo_sel:
+                df_filtrado = df_filtrado[df_filtrado["Tipo"] == "PF"]
+
+        col1, col2, col3, col4 = st.columns(4)
+
+        # Edital
+        editais_disponiveis = sorted(df_filtrado["Edital"].dropna().unique(), key=lambda x: float(x))
+        edital_sel = col1.multiselect("Edital", options=editais_disponiveis, placeholder="Todos")
+        if edital_sel:
+            df_filtrado = df_filtrado[df_filtrado["Edital"].isin(edital_sel)]
+
+        # Ano
+        anos_disponiveis = sorted(df_filtrado["Ano"].dropna().unique())
+        ano_sel = col2.multiselect("Ano", options=anos_disponiveis, placeholder="Todos")
+        if ano_sel:
+            df_filtrado = df_filtrado[df_filtrado["Ano"].isin(ano_sel)]
+
+        # Doador
+        doadores_disponiveis = sorted(df_filtrado["Doador"].dropna().unique())
+        doador_sel = col3.multiselect("Doador", options=doadores_disponiveis, placeholder="Todos")
+        if doador_sel:
+            df_filtrado = df_filtrado[df_filtrado["Doador"].isin(doador_sel)]
+
+        # Código
+        codigos_disponiveis = sorted(df_filtrado["Código"].dropna().unique())
+        codigo_sel = col4.multiselect("Código", options=codigos_disponiveis, placeholder="Todos")
+        if codigo_sel:
+            df_filtrado = df_filtrado[df_filtrado["Código"].isin(codigo_sel)]
+        
+
+        # ===== SEGUNDA LINHA =====
+        col5, col6= st.columns(2)
+        
+        # Estado
+        estados_unicos = sorted(
+            df_filtrado["Estado(s)"].dropna().apply(lambda x: [m.strip() for m in x.split(",")]).explode().unique()
+        )
+        uf_sel = col5.multiselect("Estado(s)", options=estados_unicos, placeholder="Todos")
+        if uf_sel:
+            df_filtrado = df_filtrado[
+                df_filtrado["Estado(s)"].apply(
+                    lambda x: any(m.strip() in uf_sel for m in x.split(",")) if isinstance(x, str) else False
+                )
+            ]
+
+        # Município
+        municipios_unicos = sorted(
+            df_filtrado["Município(s)"].dropna().apply(lambda x: [m.strip() for m in x.split(",")]).explode().unique()
+        )
+        municipio_sel = col6.multiselect("Município", options=municipios_unicos, placeholder="Todos")
+        if municipio_sel:
+            df_filtrado = df_filtrado[
+                df_filtrado["Município(s)"].apply(
+                    lambda x: any(m.strip() in municipio_sel for m in x.split(",")) if isinstance(x, str) else False
+                )
+            ]
+
+
+        # ===== AVISO =====
+        if df_filtrado.empty:
+            st.warning("Nenhum projeto encontrado")
 
 geral, lista, mapa = st.tabs(["Visão geral", "Projetos", "Mapa"])
 
 with geral:
     
     # Separar projetos PF e PJ
-    df_pf = df_projetos[df_projetos['Tipo'] == 'PF']
-    df_pj = df_projetos[df_projetos['Tipo'] == 'PJ']
+    df_pf = df_filtrado[df_filtrado['Tipo'] == 'PF']
+    df_pj = df_filtrado[df_filtrado['Tipo'] == 'PJ']
 
 
     total_projetos_pf = len(df_pf)
@@ -405,13 +479,13 @@ with geral:
     total_ufs = len(ufs_unicos)
 
     # Total de projetos apoiados
-    total_projetos = len(df_projetos)
+    total_projetos = len(df_filtrado)
 
     # Total de editais únicos (remover vazios)
-    total_editais = df_projetos["Edital"].replace("", pd.NA).dropna().nunique()
+    total_editais = df_filtrado["Edital"].replace("", pd.NA).dropna().nunique()
 
     # Total de doadores únicos (remover vazios)
-    total_doador = df_projetos["Doador"].replace("", pd.NA).dropna().nunique()
+    total_doador = df_filtrado["Doador"].replace("", pd.NA).dropna().nunique()
 
     # Contabilização única e limpa de municípios
     municipios_unicos = set()
@@ -488,31 +562,31 @@ with geral:
     # Gráfico
 
     # Garantir campos como string
-    df_projetos["Ano"] = df_projetos["Ano"].astype(str)
-    df_projetos["Doador"] = df_projetos["Doador"].astype(str)
+    df_filtrado["Ano"] = df_filtrado["Ano"].astype(str)
+    df_filtrado["Doador"] = df_filtrado["Doador"].astype(str)
 
     # Agrupamento
     dados = (
-        df_projetos
+        df_filtrado
         .groupby(["Ano", "Doador"])
         .size()
         .reset_index(name="apoios")
     )
 
     # Garantir que os campos são string
-    df_projetos["Ano"] = df_projetos["Ano"].astype(str)
-    df_projetos["Doador"] = df_projetos["Doador"].astype(str)
+    df_filtrado["Ano"] = df_filtrado["Ano"].astype(str)
+    df_filtrado["Doador"] = df_filtrado["Doador"].astype(str)
 
     # Agrupamento dos apoios existentes
     dados = (
-        df_projetos
+        df_filtrado
         .groupby(["Ano", "Doador"])
         .size()
         .reset_index(name="apoios")
     )
 
     # Obter intervalo completo de anos
-    anos_todos = list(map(str, range(int(df_projetos["Ano"].min()), int(df_projetos["Ano"].max()) + 1)))
+    anos_todos = list(map(str, range(int(df_filtrado["Ano"].min()), int(df_filtrado["Ano"].max()) + 1)))
 
     # Preencher com 0 onde não há apoio (para doadores já existentes)
     doadores = dados["Doador"].unique()
@@ -550,83 +624,9 @@ with geral:
     st.plotly_chart(fig, use_container_width=True)
 
 
-
 with lista:
 
-    with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
-        df_filtrado = df_projetos.copy()
-
-        # ===== PRIMEIRA LINHA =====
-        
-        # Tipo
-        col1, col2 = st.columns(2)
-        tipos_disponiveis = ["Projetos PJ", "Projetos PF"]
-        tipo_sel = col1.pills("Tipo", tipos_disponiveis, selection_mode="multi")
-
-        if tipo_sel:
-            if "Projetos PJ" in tipo_sel and "Projetos PF" not in tipo_sel:
-                df_filtrado = df_filtrado[df_filtrado["Tipo"] == "PJ"]
-            elif "Projetos PF" in tipo_sel and "Projetos PJ" not in tipo_sel:
-                df_filtrado = df_filtrado[df_filtrado["Tipo"] == "PF"]
-
-        col1, col2, col3, col4 = st.columns(4)
-
-        # Edital
-        editais_disponiveis = sorted(df_filtrado["Edital"].dropna().unique(), key=lambda x: float(x))
-        edital_sel = col1.multiselect("Edital", options=editais_disponiveis, placeholder="Todos")
-        if edital_sel:
-            df_filtrado = df_filtrado[df_filtrado["Edital"].isin(edital_sel)]
-
-        # Ano
-        anos_disponiveis = sorted(df_filtrado["Ano"].dropna().unique())
-        ano_sel = col2.multiselect("Ano", options=anos_disponiveis, placeholder="Todos")
-        if ano_sel:
-            df_filtrado = df_filtrado[df_filtrado["Ano"].isin(ano_sel)]
-
-        # Doador
-        doadores_disponiveis = sorted(df_filtrado["Doador"].dropna().unique())
-        doador_sel = col3.multiselect("Doador", options=doadores_disponiveis, placeholder="Todos")
-        if doador_sel:
-            df_filtrado = df_filtrado[df_filtrado["Doador"].isin(doador_sel)]
-
-        # Código
-        codigos_disponiveis = sorted(df_filtrado["Código"].dropna().unique())
-        codigo_sel = col4.multiselect("Código", options=codigos_disponiveis, placeholder="Todos")
-        if codigo_sel:
-            df_filtrado = df_filtrado[df_filtrado["Código"].isin(codigo_sel)]
-        
-
-        # ===== SEGUNDA LINHA =====
-        col5, col6= st.columns(2)
-        
-        # Estado
-        estados_unicos = sorted(
-            df_filtrado["Estado(s)"].dropna().apply(lambda x: [m.strip() for m in x.split(",")]).explode().unique()
-        )
-        uf_sel = col5.multiselect("Estado(s)", options=estados_unicos, placeholder="Todos")
-        if uf_sel:
-            df_filtrado = df_filtrado[
-                df_filtrado["Estado(s)"].apply(
-                    lambda x: any(m.strip() in uf_sel for m in x.split(",")) if isinstance(x, str) else False
-                )
-            ]
-
-        # Município
-        municipios_unicos = sorted(
-            df_filtrado["Município(s)"].dropna().apply(lambda x: [m.strip() for m in x.split(",")]).explode().unique()
-        )
-        municipio_sel = col6.multiselect("Município", options=municipios_unicos, placeholder="Todos")
-        if municipio_sel:
-            df_filtrado = df_filtrado[
-                df_filtrado["Município(s)"].apply(
-                    lambda x: any(m.strip() in municipio_sel for m in x.split(",")) if isinstance(x, str) else False
-                )
-            ]
-
-
-        # ===== AVISO =====
-        if df_filtrado.empty:
-            st.warning("Nenhum projeto encontrado")
+    
 
     st.write("")
 
@@ -669,6 +669,7 @@ with lista:
         cols[-1].button("Detalhes", key=f"ver_{idx_original}", on_click=mostrar_detalhes, args=(idx_original,), icon=":material/menu:")
         
         st.divider()
+
 
 
 with mapa:
