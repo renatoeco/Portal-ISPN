@@ -672,6 +672,7 @@ with lista:
 
 
 
+
 with mapa:
     
     
@@ -691,22 +692,26 @@ with mapa:
     # Renomear a coluna e ajustar tipo
     df_munis.rename(columns={'codigo_ibge': 'codigo_municipio'}, inplace=True)
     df_munis['codigo_municipio'] = df_munis['codigo_municipio'].astype(str)
-    
 
-    # Garantir que os códigos no dataframe de projetos também sejam string
-    df_projetos_codigos['codigo_municipio'] = df_projetos_codigos['Município Principal'].astype(str)
+    # Filtra df_projetos_codigos para conter apenas os projetos filtrados atualmente
+    df_projetos_codigos_filtrado = df_projetos_codigos[df_projetos_codigos["Código"].isin(df_filtrado["Código"])]
     
-    df_projetos_codigos['Ano'] = df_projetos_codigos['Ano'].astype(str)
-    df_projetos_codigos["Ano"] = df_projetos_codigos["Ano"].str.replace(".0", "", regex=False)
+    #st.write(df_projetos_codigos)
+    # Garantir que os códigos no dataframe de projetos também sejam string
+    df_projetos_codigos_filtrado['codigo_municipio'] = df_projetos_codigos_filtrado['Município Principal'].astype(str)
+    
+    df_projetos_codigos_filtrado['Ano'] = df_projetos_codigos_filtrado['Ano'].astype(str)
+    df_projetos_codigos_filtrado["Ano"] = df_projetos_codigos_filtrado["Ano"].str.replace(".0", "", regex=False)
     
 
     # Cruzamento via código
-    df_coords_projetos = df_projetos_codigos.merge(
+    df_coords_projetos = df_projetos_codigos_filtrado.merge(
         df_munis,
         left_on='codigo_municipio',
         right_on='codigo_municipio',
         how='left'
     ).dropna(subset=['latitude', 'longitude']).drop_duplicates(subset='Código')
+
 
     # Criar o mapa
     m = folium.Map(location=[-15.78, -47.93], zoom_start=4, tiles="CartoDB positron", height="800px")
