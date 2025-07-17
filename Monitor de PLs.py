@@ -283,7 +283,7 @@ def main():
                                 colecao_2.insert_one({"Nome": nome, "E-mail": email})
                                 st.success("E-mail cadastrado com sucesso!")
                                 
-                                time.sleep(6)  
+                                time.sleep(2)  
                                 st.rerun()
                                 
                         except Exception as e:

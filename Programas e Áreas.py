@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import streamlit_shadcn_ui as ui
 from funcoes_auxiliares import conectar_mongo_portal_ispn
 from pymongo import UpdateOne
 
@@ -22,10 +21,6 @@ doadores = db["doadores"]
 # projetos_pj = db["projetos_pj"] 
 # projetos_pf = db["projetos_pf"]  
 colaboradores_raw = list(db["pessoas"].find())
-
-
-# Buscando todos os documentos da coleção programas_areas
-dados_programas = list(programas_areas.find())
 
 
 ######################################################################################################
@@ -52,6 +47,14 @@ def formatar_valor(valor_bruto, moeda_bruta):
 # MAIN
 ######################################################################################################
 
+
+# Buscando todos os documentos da coleção programas_areas
+dados_programas = list(programas_areas.find())
+
+mapa_id_para_nome_programa = {
+    str(p["_id"]): p.get("nome_programa_area", "Não informado")
+    for p in dados_programas
+}
 
 # Verifica se há programas sem coordenador
 programas_sem_coordenador = [
@@ -137,7 +140,10 @@ for colab_doc in colaboradores_raw:
         continue
 
     genero = colab_doc.get("gênero", "")
-    programa_area = colab_doc.get("programa_area", "")
+    
+    programa_area_id = colab_doc.get("programa_area")
+    programa_area = mapa_id_para_nome_programa.get(str(programa_area_id), "Não informado")
+
     projeto_pagador = colab_doc.get("projeto_pagador", "")
 
     lista_equipe.append({

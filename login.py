@@ -11,6 +11,7 @@ from funcoes_auxiliares import conectar_mongo_portal_ispn  # Função personaliz
 # CONEXÃO COM O BANCO DE DADOS (MONGODB)
 ###############################################################################################################
 
+
 # Conecta ao banco de dados MongoDB usando função importada (com cache para otimizar desempenho)
 db = conectar_mongo_portal_ispn()
 
@@ -18,27 +19,27 @@ db = conectar_mongo_portal_ispn()
 colaboradores = db["pessoas"]
 
 
-
 ##############################################################################################################
 # FUNÇÕES AUXILIARES
 ##############################################################################################################
 
+
 def encontrar_usuario_por_email(colaboradores, email_busca):
-    usuario = colaboradores.find_one({"e‑mail": email_busca})
+    usuario = colaboradores.find_one({"e_mail": email_busca})
     if usuario:
         return usuario.get("nome_completo"), usuario  # Retorna o nome e os dados do usuário
     return None, None  # Caso não encontre
 
 
 
-# Função para enviar um e-mail com código de verificação
+# Função para enviar um e_mail com código de verificação
 def enviar_email(destinatario, codigo):
     # Dados de autenticação, retirados do arquivo secrets.toml
     remetente = st.secrets["senhas"]["endereco_email"]
     senha = st.secrets["senhas"]["senha_email"]
 
-    # Conteúdo do e-mail
-    assunto = "Código Para Redefinição de Senha - Portal ISPN"
+    # Conteúdo do e_mail
+    assunto = f"Código de Verificação - Portal ISPN: {codigo}"
     corpo = f"""
     <html>
         <body>
@@ -49,13 +50,13 @@ def enviar_email(destinatario, codigo):
     </html>
     """
 
-    # Cria o e-mail formatado com HTML
+    # Cria o e_mail formatado com HTML
     msg = MIMEText(corpo, "html", "utf-8")
     msg["Subject"] = assunto
     msg["From"] = remetente
     msg["To"] = destinatario
 
-    # Tenta enviar o e-mail via SMTP seguro (SSL)
+    # Tenta enviar o e_mail via SMTP seguro (SSL)
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
             server.login(remetente, senha)
@@ -70,24 +71,32 @@ def enviar_email(destinatario, codigo):
 # CAIXA DE DIÁLOGO PARA RECUPERAÇÃO DE SENHA
 ##############################################################################################################
 
+
 @st.dialog("Recuperação de Senha")
 def recuperar_senha_dialog():
-    # Inicializa variáveis de sessão usadas no fluxo
     st.session_state.setdefault("codigo_enviado", False)
     st.session_state.setdefault("codigo_verificacao", "")
     st.session_state.setdefault("email_verificado", "")
     st.session_state.setdefault("codigo_validado", False)
 
-    conteudo_dialogo = st.empty()  # Container que será atualizado conforme a etapa
+    conteudo_dialogo = st.empty()
 
-    # --- Etapa 1: Solicitação do e-mail ---
+    # Etapa 1: Entrada do e-mail
     if not st.session_state.codigo_enviado:
         with conteudo_dialogo.form(key="recover_password_form", border=False):
-            email = st.text_input("Digite seu e-mail:")
-            if st.form_submit_button("Confirmar"):
+            # Preenche automaticamente com email da sessão (se houver)
+            email_default = st.session_state.get("email_para_recuperar", "")
+            email = st.text_input("Digite seu e-mail:", value=email_default)
+
+            if st.form_submit_button("Enviar código de verificação"):
                 if email:
                     nome, verificar_colaboradores = encontrar_usuario_por_email(colaboradores, email)
                     if verificar_colaboradores:
+
+                        if verificar_colaboradores.get("status", "").lower() != "ativo":
+                            st.error("Usuário inativo. Entre em contato com o renato@ispn.org.br.")
+                            return
+                        
                         codigo = str(random.randint(100, 999))  # Gera um código aleatório
                         if enviar_email(email, codigo):  # Envia o código por e-mail
                             st.session_state.codigo_verificacao = codigo
@@ -106,17 +115,17 @@ def recuperar_senha_dialog():
         with conteudo_dialogo.form(key="codigo_verificacao_form", border=False):
             st.subheader("Código de verificação")
             email_mask = st.session_state.email_verificado.replace("@", "​@")  # Máscara leve no e-mail
-            st.info(f"Um código foi enviado para: **{email_mask}**")
+            st.write(f"Um código foi enviado para: **{email_mask}**")
 
             codigo_input = st.text_input("Informe o código recebido por e-mail", placeholder="000")
             if st.form_submit_button("Verificar"):
                 if codigo_input == st.session_state.codigo_verificacao:
-                    sucesso = st.success("✅ Código verificado com sucesso!")
+                    sucesso = st.success("Código verificado com sucesso!")
                     time.sleep(2)
                     sucesso.empty()
                     st.session_state.codigo_validado = True
                 else:
-                    st.error("❌ Código inválido. Tente novamente.")
+                    st.error("Código inválido. Tente novamente.")
 
     # --- Etapa 3: Definição da nova senha ---
 
@@ -131,14 +140,14 @@ def recuperar_senha_dialog():
                 if nova_senha == confirmar_senha and nova_senha.strip():
                     email = st.session_state.email_verificado
 
-                    # Localiza o usuário pelo e-mail
-                    usuario = colaboradores.find_one({"e‑mail": email})
+                    # Localiza o usuário pelo e_mail
+                    usuario = colaboradores.find_one({"e_mail": email})
 
                     if usuario:
                         try:
                             # Atualiza a senha no banco de dados
                             result = colaboradores.update_one(
-                                {"e‑mail": email},
+                                {"e_mail": email},
                                 {"$set": {"senha": nova_senha}}
                             )
 
@@ -194,26 +203,29 @@ def login():
     col1, col2, col3 = st.columns([2, 3, 2])
 
     with col2.form("login_form", border=False):
-    
-        # Pede a senha
+        # Novo campo de e-mail
+        email_input = st.text_input("Insira seu e-mail")
+
+        # Campo de senha
         password = st.text_input("Insira a senha", type="password")
 
         if st.form_submit_button("Entrar"):
-            # Busca o documento correspondente à senha
-            usuario_encontrado = None
-            # tipo_usuario = "desconhecido"
+            usuario_encontrado = colaboradores.find_one({
+                "e_mail": {"$regex": f"^{email_input.strip()}$", "$options": "i"},
+                "senha": password
+            })
 
-            for doc in colaboradores.find():
-                if doc.get("senha") == password:
-                    usuario_encontrado = doc
-                    # tipo_usuario = doc.get("tipo de usuário", "desconhecido")
-                    # 🔥 Transforma string em lista removendo espaços extras
-                    tipo_usuario = [x.strip() for x in doc.get("tipo de usuário", "").split(",")]
+            # Salva o email para possível recuperação de senha
+            st.session_state["email_para_recuperar"] = email_input.strip()
 
-                    break
-
-            # Se encontrou, loga o usuário
             if usuario_encontrado:
+                if usuario_encontrado.get("status", "").lower() != "ativo":
+                    st.error("Usuário inativo. Entre em contato com o renato@ispn.org.br.")
+                    return
+
+                tipo_usuario = [x.strip() for x in usuario_encontrado.get("tipo de usuário", "").split(",")]
+
+                # Autentica
                 st.session_state["logged_in"] = True
                 st.session_state["tipo_usuario"] = tipo_usuario
                 st.session_state["nome"] = usuario_encontrado.get("nome_completo")
@@ -221,7 +233,8 @@ def login():
                 st.session_state["id_usuario"] = usuario_encontrado.get("_id")
                 st.rerun()
             else:
-                st.error("Senha inválida ou usuário não encontrado!")    
+                st.error("E-mail ou senha inválidos!")
+
     
     
     # Botão para recuperar senha
@@ -238,7 +251,6 @@ def login():
 ##############################################################################################################
 
 
-
 # Se o usuário ainda não estiver logado
 if "logged_in" not in st.session_state or not st.session_state["logged_in"]:
     login()  # Mostra tela de login
@@ -250,14 +262,14 @@ else:
     pg = st.navigation([
         "Institucional.py", 
         "Estratégia.py", 
+        "Indicadores.py",
         "Programas e Áreas.py", 
+        "Pessoas.py",
         "Doadores.py", 
         "Projetos.py", 
         "Fundo Ecos.py", 
-        "Indicadores.py", 
         "Monitor de PLs.py",
         "Clipping de Notícias.py", 
-        "Pessoas.py", 
         "Viagens.py",
         "Férias e recessos.py",
         "Manuais.py",
