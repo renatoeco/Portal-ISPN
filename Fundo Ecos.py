@@ -692,6 +692,12 @@ with mapa:
     # Renomear a coluna e ajustar tipo
     df_munis.rename(columns={'codigo_ibge': 'codigo_municipio'}, inplace=True)
     df_munis['codigo_municipio'] = df_munis['codigo_municipio'].astype(str)
+    
+    df_projetos_codigos['codigo_municipio'] = [
+        m.split(",")[0].strip() if m else "" 
+        for m in df_projetos_codigos['Município Principal']
+    ]
+
 
     # Filtra df_projetos_codigos para conter apenas os projetos filtrados atualmente
     df_projetos_codigos_filtrado = df_projetos_codigos[df_projetos_codigos["Código"].isin(df_filtrado["Código"])]
@@ -711,7 +717,15 @@ with mapa:
         right_on='codigo_municipio',
         how='left'
     ).dropna(subset=['latitude', 'longitude']).drop_duplicates(subset='Código')
-
+    
+    # Criar dicionário código_uf -> sigla
+    codigo_uf_para_sigla = {
+        '11': 'RO', '12': 'AC', '13': 'AM', '14': 'RR', '15': 'PA', '16': 'AP', '17': 'TO',
+        '21': 'MA', '22': 'PI', '23': 'CE', '24': 'RN', '25': 'PB', '26': 'PE', '27': 'AL', '28': 'SE', '29': 'BA',
+        '31': 'MG', '32': 'ES', '33': 'RJ', '35': 'SP',
+        '41': 'PR', '42': 'SC', '43': 'RS',
+        '50': 'MS', '51': 'MT', '52': 'GO', '53': 'DF'
+    }
 
     # Criar o mapa
     m = folium.Map(location=[-15.78, -47.93], zoom_start=4, tiles="CartoDB positron", height="800px")
@@ -720,6 +734,9 @@ with mapa:
     for _, row in df_coords_projetos.iterrows():
         lat, lon = row['latitude'], row['longitude']
         nome_muni = row['nome'].title()
+        
+        codigo_uf = row['codigo_uf']
+        uf_sigla = codigo_uf_para_sigla.get(str(int(codigo_uf)), "")
         codigo = row['Código']
         ano_de_aprovacao = row['Ano']
 
@@ -730,18 +747,24 @@ with mapa:
             ponto_focal_obj = projeto.get("ponto_focal")
             tipo_do_projeto = projeto.get("tipo")
             categoria = projeto.get("categoria")
+            sigla = projeto.get("sigla")
+            edital = projeto.get("edital")
             nome_ponto_focal = pontos_focais_dict.get(ponto_focal_obj, "Não informado")
             
 
         popup_html = f"""
+            <b>Sigla:</b> {sigla}<hr>
+            
             <b>Município:</b> {nome_muni}<br>
-            <hr>
-            <b>{tipo_do_projeto} - {categoria}</b><br>
+            <b>Estado:</b> {uf_sigla}<hr>
+            
             <b>Código:</b> {codigo}<br>
             <b>Proponente:</b> {proponente}<br>
             <b>Projeto:</b> {nome_proj}<br>
             <b>Ano:</b> {ano_de_aprovacao}<br>
-            <b>Ponto Focal:</b> {nome_ponto_focal}
+            <b>Edital:</b> {edital}<br>
+            <b>Ponto Focal:</b> {nome_ponto_focal}<br>
+            <b>{tipo_do_projeto} - {categoria}</b>
         """
 
         folium.Marker(location=[lat, lon], popup=folium.Popup(popup_html, max_width=300)).add_to(cluster)
