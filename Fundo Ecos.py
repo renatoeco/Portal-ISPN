@@ -816,7 +816,7 @@ with mapa:
 
 
     # Filtra df_projetos_codigos para conter apenas os projetos filtrados atualmente
-    df_projetos_codigos_filtrado = df_projetos_codigos[df_projetos_codigos["Código"].isin(df_filtrado["Código"])]
+    df_projetos_codigos_filtrado = df_projetos_codigos[df_projetos_codigos["Código"].isin(df_filtrado["Código"])].copy()
     
     #st.write(df_projetos_codigos)
     # Garantir que os códigos no dataframe de projetos também sejam string
