@@ -28,7 +28,7 @@ st.write('')
 
 db = conectar_mongo_portal_ispn()
 estatistica = db["estatistica"]  # Coleção de estatísticas (inalterada)
-monitor_noticias = db["teste"]  # Coleção de notícias (AGORA FLAT)
+monitor_noticias = db["monitor_noticias"]  # Coleção de notícias 
 
 # Obtém todos os documentos da coleção (cada doc = 1 notícia)
 documentos = list(monitor_noticias.find())
