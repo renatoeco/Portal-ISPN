@@ -836,7 +836,7 @@ with mapa:
     
     num_proj_mapa = len(df_coords_projetos)
     
-    st.info(f"{num_proj_mapa} projetos exibidos no mapa")
+    st.write(f"{num_proj_mapa} projetos no mapa")
     
     # Criar dicionário código_uf -> sigla
     codigo_uf_para_sigla = {
@@ -898,16 +898,20 @@ with mapa:
         demais_municipios_html = "<br>".join(demais_municipios) if demais_municipios else "Nenhum"
 
         popup_html = f"""
-            <b>Sigla:</b> {sigla}<hr>
-            <b>Município principal:</b> {muni_principal_str}<br>
-            <b>Outros municípios:</b> {demais_municipios_html}<hr>
-            <b>Código:</b> {codigo}<br>
             <b>Proponente:</b> {proponente}<br>
-            <b>Projeto:</b> {nome_proj}<br>
+            <b>Projeto:</b> {nome_proj}<br><br>
+
+            <b>Código:</b> {codigo}<br>
+            <b>Sigla:</b> {sigla}<br>
             <b>Ano:</b> {ano_de_aprovacao}<br>
             <b>Edital:</b> {edital}<br>
             <b>Ponto Focal:</b> {nome_ponto_focal}<br>
-            <b>{tipo_do_projeto} - {categoria}</b>
+            <b>{tipo_do_projeto} - {categoria}</b><br><br>
+
+            <b>Município principal:</b> {muni_principal_str}<br>
+            <b>Outros municípios:</b><br>
+            {demais_municipios_html}
+            
         """
 
         folium.Marker(
