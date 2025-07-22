@@ -315,33 +315,8 @@ def parse_valor(valor):
 
 
 ######################################################################################################
-# TRATAMENTO DE DADOS
+# MAIN
 ######################################################################################################
-
-
-# # Capturar os valores legíveis de doador e programa-----------------------------------
-# # --- 1. Converter listas de documentos em DataFrames ---
-# df_doadores = pd.DataFrame(list(db["doadores"].find()))
-# df_programas = pd.DataFrame(list(db["programas_areas"].find()))
-# df_projetos_ispn = pd.DataFrame(list(db["projetos_ispn"].find()))
-
-# # --- 2. Criar dicionários de mapeamento ---
-# mapa_doador = {d["_id"]: d["nome_doador"] for d in db["doadores"].find()}
-# mapa_programa = {p["_id"]: p["nome_programa_area"] for p in db["programas_areas"].find()}
-
-# # --- 3. Aplicar os mapeamentos ao df_projetos_ispn ---
-# df_projetos_ispn["doador_nome"] = df_projetos_ispn["doador"].map(mapa_doador)
-# df_projetos_ispn["programa_nome"] = df_projetos_ispn["programa"].map(mapa_programa)
-# # --------------------------------------------------------------------------------------
-# st.write(df_projetos_ispn.head(1))
-
-# # Renomear as colunas
-# df_projetos_ispn.rename(columns={"programa": "id_programa",
-#                                  "doador": "id_doador"}, inplace=True)
-# df_projetos_ispn.rename(columns={"programa_nome": "programa",
-#                                  "doador_nome": "doador"}, inplace=True)
-
-
 
 
 # Combine os dados
@@ -426,14 +401,12 @@ colunas = [
     "municipios",
     "tipo",
     "municipio_principal",
-    "cnpj",
-    "programa"
+    "cnpj"
 ]
 
 # Adiciona "doador" se ela estiver presente no DataFrame
 if "doador" in df_projetos.columns:
     colunas.insert(3, "doador")  # Mantém a ordem: após "proponente"
-
 
 # Seleciona apenas as colunas existentes
 df_projetos = df_projetos[colunas].rename(columns={
@@ -496,43 +469,6 @@ for i, projeto in enumerate(todos_projetos):
     valores_formatados.append(valor_formatado)
 
 df_projetos["Valor"] = valores_formatados
-
-
-
-
-# Capturar os valores legíveis de doador e programa-----------------------------------
-# --- 1. Converter listas de documentos em DataFrames ---
-df_doadores = pd.DataFrame(list(db["doadores"].find()))
-# df_programas = pd.DataFrame(list(db["programas_areas"].find()))
-# df_projetos = pd.DataFrame(list(db["projetos_ispn"].find()))
-
-# --- 2. Criar dicionários de mapeamento ---
-
-# Criar o dicionário com as chaves como strings
-mapa_doador = {str(d["_id"]): d["nome_doador"] for d in db["doadores"].find()}
-# Transformar os valores da coluna "Doador" em string antes de mapear
-df_projetos["doador_nome"] = df_projetos["Doador"].astype(str).map(mapa_doador)
-
-# mapa_doador = {d["_id"]: d["nome_doador"] for d in db["doadores"].find()}
-# mapa_programa = {p["_id"]: p["nome_programa_area"] for p in db["programas_areas"].find()}
-
-
-# --- 3. Aplicar os mapeamentos ao df_projetos ---
-df_projetos["doador_nome"] = df_projetos["Doador"].map(mapa_doador)
-# df_projetos["programa_nome"] = df_projetos["programa"].map(mapa_programa)
-# --------------------------------------------------------------------------------------
-
-
-# Renomear as colunas
-df_projetos.rename(columns={"Doador": "id_doador"}, inplace=True)
-df_projetos.rename(columns={"doador_nome": "Doador"}, inplace=True)
-
-
-# ########################################################################################
-# INTERFACE
-# ########################################################################################
-
-
 
 st.header("Fundo Ecos")
 
@@ -615,7 +551,6 @@ st.session_state["df_filtrado"] = df_filtrado
 
 geral, lista, mapa = st.tabs(["Visão geral", "Projetos", "Mapa"])
 
-# VISÃO GERAL
 with geral:
     
     # Separar projetos PF e PJ
@@ -808,12 +743,10 @@ with lista:
         key="pagina_projetos"
     )
 
-    # Calcula o índice inicial e final da página atual
     inicio = (pagina_atual - 1) * itens_por_pagina
     fim = inicio + itens_por_pagina
     df_paginado = df_exibir.iloc[inicio:fim]
 
-    # Exibe um resumo de quais itens estão sendo mostrados atualmente
     with col1:
         st.write("")
         st.subheader(f"Mostrando {inicio + 1} a {min(fim, total_linhas)} de {total_linhas} projetos")
@@ -827,18 +760,13 @@ with lista:
 
     col_sizes = [2, 2, 1, 2, 2, 2, 1, 2, 3, 3]  # ajuste se necessário
     header_cols = st.columns(col_sizes)
-
-    # Escreve os cabeçalhos nas colunas
     for col, header in zip(header_cols, headers):
         col.markdown(f"**{header}**")
 
-    # Adiciona uma linha divisória visual após os cabeçalhos
     st.divider()
 
     for _, row in df_paginado.iterrows():
         cols = st.columns(col_sizes)
-
-        # Preenche cada coluna com os valores da linha, exceto o botão "Detalhes"
         for j, key in enumerate(colunas_visiveis):
             cols[j].write(row[key])
 
