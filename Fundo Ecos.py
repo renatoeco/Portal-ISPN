@@ -48,7 +48,6 @@ div[data-testid="stDialog"] div[role="dialog"]:has(.big-dialog) {
     unsafe_allow_html=True,
 )
 
-
 ######################################################################################################
 # FUNÇÕES
 ######################################################################################################
@@ -276,8 +275,8 @@ def mostrar_detalhes(codigo_proj: str):
         )
 
     #st.html("<span class='big-dialog'></span>")
-        
-
+    
+    
 def extrair_itens_distintos(series: pd.Series) -> pd.Series:
         """
         Recebe uma Series de strings (ex: 'Acre, Rondônia') e retorna uma Series
@@ -296,8 +295,8 @@ def extrair_itens_distintos(series: pd.Series) -> pd.Series:
         # remove vazios e nans textuais
         s = s[(s != "") & (s.str.lower() != "nan")]
         return s
-
-
+        
+                   
 def parse_valor(valor):
     """Converte valor string para float, retornando 0.0 se não for possível."""
     if isinstance(valor, (int, float)):
@@ -341,8 +340,6 @@ for proj in projetos_ispn:
         mapa_doador[id_proj] = nome_doador
     else:
         mapa_doador[id_proj] = ""
-
-
 
 # Criar dicionário código_uf -> nome_uf
 uf_para_nome = {}
@@ -427,7 +424,8 @@ df_projetos = df_projetos[colunas].rename(columns={
     "cnpj": "CNPJ"
 })
 
-df_projetos_codigos = df_projetos
+
+df_projetos_codigos = df_projetos.copy()
 
 
 # Garantir que todos os campos estão como string
@@ -602,7 +600,18 @@ with geral:
     valor_nominal_dolar = 0.0
     valor_nominal_real = 0.0
 
-    for projeto in todos_projetos:
+    # Criar set de códigos filtrados
+    codigos_filtrados = set(df_filtrado["Código"].astype(str).str.strip())
+
+    # Filtrar apenas os projetos que estão em df_filtrado
+    projetos_filtrados = [p for p in todos_projetos if str(p.get("codigo", "")).strip() in codigos_filtrados]
+
+    # Inicializar acumuladores
+    valor_total_dolar_corrigido = 0.0
+    valor_nominal_dolar = 0.0
+    valor_nominal_real = 0.0
+
+    for projeto in projetos_filtrados:
         moeda = str(projeto.get("moeda", "")).strip().lower()
 
         # Valor nominal em US$ (sem correção)
@@ -621,6 +630,7 @@ with geral:
         # Valor nominal em R$ (somente para projetos em real)
         if moeda in ("real"):
             valor_nominal_real += parse_valor(projeto.get("valor", 0))
+
 
 
     # Exibição das métricas
@@ -770,6 +780,12 @@ with lista:
         )
         st.divider()
 
+    # col1, col2, col3 = st.columns([5, 1, 1])
+    # pagina_atual = col3.number_input(
+    #     "Página",
+    #     min_value=1, max_value=total_paginas, value=1, step=1,
+    #     key="pagina_projetos_embaixo"
+    # )
 
 
 with mapa:
@@ -798,6 +814,7 @@ with mapa:
     ]
 
 
+
     # Filtra df_projetos_codigos para conter apenas os projetos filtrados atualmente
     df_projetos_codigos_filtrado = df_projetos_codigos[df_projetos_codigos["Código"].isin(df_filtrado["Código"])]
     
@@ -817,6 +834,10 @@ with mapa:
         how='left'
     ).dropna(subset=['latitude', 'longitude']).drop_duplicates(subset='Código')
     
+    num_proj_mapa = len(df_coords_projetos)
+    
+    st.info(f"{num_proj_mapa} projetos exibidos no mapa")
+    
     # Criar dicionário código_uf -> sigla
     codigo_uf_para_sigla = {
         '11': 'RO', '12': 'AC', '13': 'AM', '14': 'RR', '15': 'PA', '16': 'AP', '17': 'TO',
@@ -832,14 +853,11 @@ with mapa:
 
     for _, row in df_coords_projetos.iterrows():
         lat, lon = row['latitude'], row['longitude']
-        nome_muni = row['nome'].title()
-        
-        codigo_uf = row['codigo_uf']
-        uf_sigla = codigo_uf_para_sigla.get(str(int(codigo_uf)), "")
         codigo = row['Código']
         ano_de_aprovacao = row['Ano']
 
         projeto = next((p for p in todos_projetos if p.get("codigo") == codigo), None)
+        
         if projeto:
             proponente = projeto.get('proponente', '')
             nome_proj = projeto.get('nome_do_projeto', '')
@@ -850,13 +868,39 @@ with mapa:
             edital = projeto.get("edital")
             nome_ponto_focal = pontos_focais_dict.get(ponto_focal_obj, "Não informado")
             
+        else:
+            continue
+
+        # Municípios principais e todos os municípios do projeto
+        muni_principal_codigo = str(row.get('codigo_municipio', '')).strip()  # ou 'Município Principal' se for o código
+        codigos_municipios_projeto = [c.strip() for c in str(row.get('Município(s)', '')).split(',') if c.strip()]
+
+        # Formatando município principal
+        muni_principal_info = df_munis[df_munis['codigo_municipio'] == muni_principal_codigo]
+        if not muni_principal_info.empty:
+            nome_muni_principal = muni_principal_info.iloc[0]['nome'].title()
+            uf_sigla_principal = codigo_uf_para_sigla.get(str(int(muni_principal_info.iloc[0]['codigo_uf'])), "")
+            muni_principal_str = f"{nome_muni_principal} - {uf_sigla_principal}"
+        else:
+            muni_principal_str = "Não informado"
+
+        # Formatando demais municípios (excluindo o principal)
+        demais_municipios = []
+        for cod in codigos_municipios_projeto:
+            if cod == muni_principal_codigo:
+                continue
+            muni_info = df_munis[df_munis['codigo_municipio'] == cod]
+            if not muni_info.empty:
+                nome_muni = muni_info.iloc[0]['nome'].title()
+                uf_sigla = codigo_uf_para_sigla.get(str(int(muni_info.iloc[0]['codigo_uf'])), "")
+                demais_municipios.append(f"{nome_muni} - {uf_sigla}")
+
+        demais_municipios_html = "<br>".join(demais_municipios) if demais_municipios else "Nenhum"
 
         popup_html = f"""
             <b>Sigla:</b> {sigla}<hr>
-            
-            <b>Município:</b> {nome_muni}<br>
-            <b>Estado:</b> {uf_sigla}<hr>
-            
+            <b>Município principal:</b> {muni_principal_str}<br>
+            <b>Outros municípios:</b> {demais_municipios_html}<hr>
             <b>Código:</b> {codigo}<br>
             <b>Proponente:</b> {proponente}<br>
             <b>Projeto:</b> {nome_proj}<br>
@@ -866,6 +910,9 @@ with mapa:
             <b>{tipo_do_projeto} - {categoria}</b>
         """
 
-        folium.Marker(location=[lat, lon], popup=folium.Popup(popup_html, max_width=300)).add_to(cluster)
+        folium.Marker(
+            location=[lat, lon],
+            popup=folium.Popup(popup_html, max_width=400)
+        ).add_to(cluster)
 
     st_folium(m, width=None, height=800, returned_objects=[])
