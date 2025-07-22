@@ -690,7 +690,10 @@ with geral:
     dados_completos = dados.set_index(["Ano", "Doador"]).reindex(todos_anos_doador, fill_value=0).reset_index()
 
     # Paleta com mais cores distintas (exemplo: 'Plotly', 'Viridis', 'Turbo', ou personalizada)
-    paleta_cores = px.colors.qualitative.Light24
+    # paleta_cores = px.colors.diverging.Spectral
+    from plotly.colors import diverging, sequential
+    paleta_cores = diverging.Spectral_r[::2] + diverging.curl[::2]
+    paleta_cores = paleta_cores[:15]  # garante 15 cores únicas
     
     # Criar gráfico
     fig = px.bar(
