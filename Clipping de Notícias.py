@@ -63,9 +63,9 @@ def renderizar_noticias_fragment(mostrar_irrelevantes=False):
     })
 
     if qtd_sem_status > 0:
-        st.warning(f"{qtd_sem_status} notícia(s) precisam ser triadas.", icon=":material/warning:")
+        st.warning(f"{qtd_sem_status} notícia(s) aguardando triagem.")
     else:
-        st.success("Nenhuma notícia pendente de triagem.", icon=":material/check_circle:")
+        st.success("Todas as notícias foram triadas.", icon=":material/check_circle:")
 
     # Busca todas as notícias relevantes ou irrelevantes
     if mostrar_irrelevantes:
