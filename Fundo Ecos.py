@@ -500,7 +500,7 @@ with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
         mask &= df_base["Edital"].isin(edital_sel)
 
     # Ano
-    anos_disponiveis = sorted(df_base["Ano"].dropna().unique())
+    anos_disponiveis = sorted(df_base["Ano"].dropna().unique(), key=lambda x: float(x) if str(x).replace('.', '', 1).isdigit() else float('inf'))
     ano_sel = col2.multiselect("Ano", options=anos_disponiveis, placeholder="Todos")
     if ano_sel:
         mask &= df_base["Ano"].isin(ano_sel)
@@ -681,8 +681,25 @@ with geral:
         .reset_index(name="apoios")
     )
 
+    if df_filtrado.empty:
+        #st.warning("Nenhum projeto encontrado")
+        anos_todos = []  # garante variável existente
+    else:
+        try:
+            anos_min = pd.to_numeric(df_filtrado["Ano"], errors="coerce").min()
+            anos_max = pd.to_numeric(df_filtrado["Ano"], errors="coerce").max()
+
+            if pd.notna(anos_min) and pd.notna(anos_max):
+                anos_todos = list(map(str, range(int(anos_min), int(anos_max) + 1)))
+            else:
+                anos_todos = []
+        except Exception as e:
+            st.error(f"Erro ao calcular anos disponíveis: {e}")
+            anos_todos = []
+
+
     # Obter intervalo completo de anos
-    anos_todos = list(map(str, range(int(df_filtrado["Ano"].min()), int(df_filtrado["Ano"].max()) + 1)))
+    #anos_todos = list(map(str, range(int(df_filtrado["Ano"].min()), int(df_filtrado["Ano"].max()) + 1)))
 
     # Preencher com 0 onde não há apoio (para doadores já existentes)
     doadores = dados["Doador"].unique()
