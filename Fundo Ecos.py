@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import folium
 import math
+import unicodedata
 from bson import ObjectId
 import plotly.express as px
 from folium.plugins import MarkerCluster
@@ -314,6 +315,10 @@ def parse_valor(valor):
     return 0.0
 
 
+def normalizar(s):
+    return ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn').lower()
+
+
 ######################################################################################################
 # MAIN
 ######################################################################################################
@@ -401,7 +406,15 @@ colunas = [
     "municipios",
     "tipo",
     "municipio_principal",
-    "cnpj"
+    "cnpj",
+    "programa",
+    "temas",
+    "bioma",
+    "publico",
+    "genero",
+    "status",
+    "cpf",
+    "proponente"
 ]
 
 # Adiciona "doador" se ela estiver presente no DataFrame
@@ -421,7 +434,15 @@ df_projetos = df_projetos[colunas].rename(columns={
     "municipios": "Município(s)",
     "tipo": "Tipo",
     "municipio_principal": "Município Principal",
-    "cnpj": "CNPJ"
+    "cnpj": "CNPJ",
+    "cpf": "CPF",
+    "proponente": "Proponente",
+    "programa": "Programa",
+    "temas": "Temas",
+    "publico": "Público",
+    "bioma": "Bioma",
+    "genero": "Gênero",
+    "status": "Status"
 })
 
 
@@ -481,7 +502,9 @@ with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
     mask = pd.Series(True, index=df_base.index)
 
     # ===== PRIMEIRA LINHA =====
-    col1, col2 = st.columns(2)
+
+    col1, col2 = st.columns([1, 5])
+
     tipos_disponiveis = ["Projetos PJ", "Projetos PF"]
     tipo_sel = col1.pills("Tipo", tipos_disponiveis, selection_mode="multi")
 
@@ -490,6 +513,40 @@ with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
             mask &= (df_base["Tipo"] == "PJ")
         elif "Projetos PF" in tipo_sel and "Projetos PJ" not in tipo_sel:
             mask &= (df_base["Tipo"] == "PF")
+
+    # Campo de busca geral
+    busca_geral = col2.text_input("Buscar por Sigla, Proponente, CNPJ ou CPF").strip()
+
+    if busca_geral:
+        termo = normalizar(busca_geral)
+        
+        def corresponde(row):
+            return (
+                termo in normalizar(row["Sigla"]) or
+                termo in normalizar(row["Proponente"]) or
+                termo in normalizar(row["CNPJ"]) or
+                termo in normalizar(row["CPF"])
+            )
+
+        mask &= df_base.apply(corresponde, axis=1)
+    
+
+    # ===== Segunda Linha =====
+
+    col1, col2, col3 = st.columns(3)
+
+    categoria_disponiveis = sorted(df_base["Categoria"].dropna().unique())
+    categoria_sel = col1.multiselect("Categoria", options=categoria_disponiveis, placeholder="Todos")
+    if categoria_sel:
+        mask &= df_base["Categoria"].isin(categoria_sel)
+
+    genero_disponiveis = sorted(df_base["Gênero"].dropna().unique())
+    genero_sel = col3.multiselect("Gênero", options=genero_disponiveis, placeholder="Todos")
+    if genero_sel:
+        mask &= df_base["Gênero"].isin(genero_sel)
+
+    
+    # ===== TerceiraLinha =====
 
     col1, col2, col3, col4 = st.columns(4)
 
@@ -517,7 +574,64 @@ with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
     if codigo_sel:
         mask &= df_base["Código"].isin(codigo_sel)
 
-    # ===== SEGUNDA LINHA =====
+
+    # ===== Quarta Linha =====
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    temas_disponiveis = sorted(
+        df_base["Temas"]
+        .dropna()
+        .apply(lambda x: [m.strip() for m in x.split(",")])
+        .explode()
+        .unique(),
+        key=normalizar
+    )
+
+    temas_sel = col1.multiselect("Temas", options=temas_disponiveis, placeholder="Todos")
+    if temas_sel:
+        mask &= df_base["Temas"].apply(
+            lambda x: any(m.strip() in temas_sel for m in x.split(",")) if isinstance(x, str) else False
+        )
+
+    publicos_disponiveis = sorted(
+        df_base["Público"]
+        .dropna()
+        .apply(lambda x: [m.strip() for m in x.split(",")])
+        .explode()
+        .unique(),
+        key=normalizar
+    )
+
+    publicos_sel = col2.multiselect("Público", options=publicos_disponiveis, placeholder="Todos")
+    if publicos_sel:
+        mask &= df_base["Público"].apply(
+            lambda x: any(m.strip() in publicos_sel for m in x.split(",")) if isinstance(x, str) else False
+        )
+
+    biomas_disponiveis = sorted(
+        df_base["Bioma"]
+        .dropna()
+        .apply(lambda x: [m.strip() for m in x.split(",")])
+        .explode()
+        .unique(),
+        key=normalizar
+    )
+
+    biomas_sel = col3.multiselect("Bioma", options=biomas_disponiveis, placeholder="Todos")
+    if biomas_sel:
+        mask &= df_base["Bioma"].apply(
+            lambda x: any(m.strip() in biomas_sel for m in x.split(",")) if isinstance(x, str) else False
+        )
+
+    status_disponiveis = sorted(df_base["Status"].dropna().unique())
+    status_sel = col4.multiselect("Status", options=status_disponiveis, placeholder="Todos")
+    if status_sel:
+        mask &= df_base["Status"].isin(status_sel)
+
+
+    # ===== Quinta Linha =====
+
     col5, col6 = st.columns(2)
 
     # Estado
@@ -749,6 +863,7 @@ with lista:
         .copy()
         .sort_values(by=["Ano", "Código"], ascending=[True, True])
         .reset_index(drop=True)
+        .drop(columns=["CPF", "Proponente", "Programa", "Temas", "Público", "Bioma", "Gênero", "Status"])
     )
 
     # Paginação
