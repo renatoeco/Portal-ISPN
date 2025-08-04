@@ -28,6 +28,7 @@ projetos_ispn = list(db["projetos_ispn"].find())
 
 colecao_doadores = db["doadores"]
 ufs_municipios = db["ufs_municipios"]
+programas = db["programas_areas"]
 pessoas = db["pessoas"]
 estatistica = db["estatistica"]  # Coleção de estatísticas
 
@@ -414,7 +415,8 @@ colunas = [
     "genero",
     "status",
     "cpf",
-    "proponente"
+    "proponente",
+    "ponto_focal"
 ]
 
 # Adiciona "doador" se ela estiver presente no DataFrame
@@ -442,7 +444,8 @@ df_projetos = df_projetos[colunas].rename(columns={
     "publico": "Público",
     "bioma": "Bioma",
     "genero": "Gênero",
-    "status": "Status"
+    "status": "Status",
+    "ponto_focal": "Ponto Focal"
 })
 
 
@@ -533,17 +536,41 @@ with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
 
     # ===== Segunda Linha =====
 
-    col1, col2, col3 = st.columns(3)
+    # Dicionários de ID -> Nome
+    pessoas_dict = {str(p["_id"]): p["nome_completo"] for p in pessoas.find()}
+    programas_dict = {str(p["_id"]): p["nome_programa_area"] for p in programas.find()}
 
+    #st.write(df_base)
+
+    df_base["Ponto Focal"] = df_base["Ponto Focal"].apply(lambda x: pessoas_dict.get(str(x), "Não informado") if pd.notna(x) else "Não informado")
+    df_base["Programa"] = df_base["Programa"].apply(lambda x: programas_dict.get(str(x), "Não informado") if pd.notna(x) else "Não informado")
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    # Filtro Categoria
     categoria_disponiveis = sorted(df_base["Categoria"].dropna().unique())
     categoria_sel = col1.multiselect("Categoria", options=categoria_disponiveis, placeholder="Todos")
     if categoria_sel:
         mask &= df_base["Categoria"].isin(categoria_sel)
 
+    # Filtro Ponto Focal
+    ponto_focal_disponiveis = sorted(df_base["Ponto Focal"].dropna().unique())
+    ponto_focal_sel = col2.multiselect("Ponto Focal", options=ponto_focal_disponiveis, placeholder="Todos")
+    if ponto_focal_sel:
+        mask &= df_base["Ponto Focal"].isin(ponto_focal_sel)
+
+    # Filtro Programa
+    programa_disponiveis = sorted(df_base["Programa"].dropna().unique())
+    programa_sel = col3.multiselect("Programa", options=programa_disponiveis, placeholder="Todos")
+    if programa_sel:
+        mask &= df_base["Programa"].isin(programa_sel)
+
+    # Filtro Gênero
     genero_disponiveis = sorted(df_base["Gênero"].dropna().unique())
-    genero_sel = col3.multiselect("Gênero", options=genero_disponiveis, placeholder="Todos")
+    genero_sel = col4.multiselect("Gênero", options=genero_disponiveis, placeholder="Todos")
     if genero_sel:
         mask &= df_base["Gênero"].isin(genero_sel)
+
 
     
     # ===== TerceiraLinha =====
@@ -863,7 +890,7 @@ with lista:
         .copy()
         .sort_values(by=["Ano", "Código"], ascending=[True, True])
         .reset_index(drop=True)
-        .drop(columns=["CPF", "Proponente", "Programa", "Temas", "Público", "Bioma", "Gênero", "Status"])
+        .drop(columns=["CPF", "Proponente", "Programa", "Temas", "Público", "Bioma", "Gênero", "Status", "Ponto Focal"])
     )
 
     # Paginação

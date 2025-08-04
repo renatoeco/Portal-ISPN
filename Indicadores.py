@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import time
+#import time
 from bson import ObjectId
 from funcoes_auxiliares import conectar_mongo_portal_ispn
 
@@ -368,22 +368,6 @@ df_filtrado = df_base.copy()
 for campo, selecao in st.session_state.filtros_indicadores.items():
     if selecao:
         df_filtrado = df_filtrado[df_filtrado[campo].isin(selecao)]
-    
-
-# Aplica os filtros finais
-# df_filtrado_final = df_base.copy()
-# if filtro_autor:
-#     df_filtrado_final = df_filtrado_final[df_filtrado_final["autor_anotacao"].isin(filtro_autor)]
-# if filtro_projeto:
-#     df_filtrado_final = df_filtrado_final[df_filtrado_final["codigo"].isin(filtro_projeto)]
-# if filtro_ano:
-#     df_filtrado_final = df_filtrado_final[df_filtrado_final["ano"].isin(filtro_ano)]
-# if filtro_bioma:
-#     df_filtrado_final = df_filtrado_final[df_filtrado_final["bioma"].isin(filtro_bioma)]
-# if filtro_programa:
-#     df_filtrado_final = df_filtrado_final[df_filtrado_final["programa"].isin(filtro_programa)]
-# if filtro_sigla:
-#     df_filtrado_final = df_filtrado_final[df_filtrado_final["sigla"].isin(filtro_sigla)]
 
 # Extrai listas para passar aos botões
 autores_filtrados = df_filtrado["autor_anotacao"].dropna().unique().tolist()
