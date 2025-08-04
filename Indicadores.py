@@ -52,7 +52,8 @@ def formatar_brasileiro(valor):
         return valor
 
 
-def somar_indicador_por_nome(nome_indicador, tipo_selecionado=None, projetos_filtrados=None, anos_filtrados=None, autores_filtrados=None):
+@st.cache_data(ttl=300)
+def somar_indicador_por_nome(nome_indicador, tipo_selecionado=None, _projetos_filtrados=None, anos_filtrados=None, autores_filtrados=None):
     indicador_doc = indicadores.find_one({"nome_indicador": nome_indicador})
     if not indicador_doc:
         return "0"
@@ -233,15 +234,28 @@ def atualizar_filtro_interativo(campo, opcoes, label):
         st.rerun()
 
 
+@st.cache_data(ttl=600)
+def carregar_projetos():
+    projetos_todos = []
+    for coll in [projetos_ispn, projetos_pf, projetos_pj]:
+        projetos_todos.extend(list(coll.find({}, {"_id": 1, "bioma": 1, "sigla": 1, "programa": 1})))
+    return projetos_todos
+
+
+@st.cache_data(ttl=600)
+def carregar_lancamentos():
+    return list(lancamentos.find())
+
+
+@st.cache_data(ttl=600)
+def carregar_programas():
+    return list(db["programas_areas"].find({}, {"_id": 1, "nome_programa_area": 1}))
+
 
 ######################################################################################################
 # MAIN
 ######################################################################################################
 
-
-# with st.sidebar:
-#     if st.button("Atualizar (R)", icon=":material/refresh:", use_container_width=True):
-#         st.rerun()
 
 st.header("Indicadores")
 st.write('')
@@ -249,9 +263,11 @@ st.write('')
 # ===== FILTROS =====
 
 # 1. Carrega todos os projetos das 3 coleções
-projetos_todos = []
-for coll in [projetos_ispn, projetos_pf, projetos_pj]:
-    projetos_todos.extend(list(coll.find({}, {"_id": 1, "bioma": 1, "sigla": 1, "programa": 1})))
+
+projetos_todos = carregar_projetos()
+todos_lancamentos = carregar_lancamentos()
+programas = carregar_programas()
+
 
 df_proj_info = pd.DataFrame(projetos_todos).rename(columns={"_id": "projeto"})
 
@@ -260,7 +276,6 @@ if "programa" not in df_proj_info.columns:
     df_proj_info["programa"] = ""
 
 # Carrega nomes dos programas
-programas = list(db["programas_areas"].find({}, {"_id": 1, "nome_programa_area": 1}))
 map_programa_nome = {p["_id"]: p["nome_programa_area"] for p in programas}
 
 # Converte programa (ObjectId) em nome
@@ -284,7 +299,6 @@ for coll in [projetos_ispn, projetos_pf, projetos_pj]:
         id_para_codigo[str(proj["_id"])] = proj.get("codigo", "Sem código")
 
 # Carregar lançamentos
-todos_lancamentos = list(lancamentos.find())
 df_base = pd.DataFrame(todos_lancamentos)
 
 # Filtra por tipo
@@ -403,107 +417,111 @@ else:
 # ---------------------- ORGANIZAÇÕES E COMUNIDADES ----------------------
 
 
-col1, col2 = st.columns(2)
+@st.fragment
+def fragmento_botoes():
+    col1, col2 = st.columns(2)
 
-with col1.container(border=True):
-    st.write('**Organizações e Comunidades**')
-    botao_indicador_legivel("Número de organizações apoiadas", "numero_de_organizacoes_apoiadas", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
-    botao_indicador_legivel("Número de comunidades fortalecidas", "numero_de_comunidades_fortalecidas", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+    with col1.container(border=True):
+        st.write('**Organizações e Comunidades**')
+        botao_indicador_legivel("Número de organizações apoiadas", "numero_de_organizacoes_apoiadas", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+        botao_indicador_legivel("Número de comunidades fortalecidas", "numero_de_comunidades_fortalecidas", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+
 
 
 # ---------------------- PESSOAS ----------------------
 
-
-with col2.container(border=True):
-    st.write('**Pessoas**')
-    botao_indicador_legivel("Número de famílias", "numero_de_familias", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
-    botao_indicador_legivel("Número de homens jovens (até 29 anos)", "numero_de_homens_jovens", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
-    botao_indicador_legivel("Número de homens adultos", "numero_de_homens_adultos", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
-    botao_indicador_legivel("Número de mulheres jovens (até 29 anos)", "numero_de_mulheres_jovens", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
-    botao_indicador_legivel("Número de mulheres adultas", "numero_de_mulheres_adultas", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
-    botao_indicador_legivel("Número de Indígenas", "numero_de_indigenas", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
-    botao_indicador_legivel("Número de lideranças comunitárias fortalecidas", "numero_de_liderancas_comunitarias_fortalecidas", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
-    botao_indicador_legivel("Número de famílias comercializando produtos da sociobio", "numero_de_familias_comercializando_produtos_da_sociobio_com_apoio_do_fundo_ecos", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
-    botao_indicador_legivel("Número de famílias acessando vendas institucionais", "numero_de_familias_acessando_vendas_institucionais_com_apoio_do_fundo_ecos", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
-    botao_indicador_legivel("Número de estudantes recebendo bolsa", "numero_de_estudantes_recebendo_bolsa", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+  
+    with col2.container(border=True):
+        st.write('**Pessoas**')
+        botao_indicador_legivel("Número de famílias", "numero_de_familias", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+        botao_indicador_legivel("Número de homens jovens (até 29 anos)", "numero_de_homens_jovens", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+        botao_indicador_legivel("Número de homens adultos", "numero_de_homens_adultos", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+        botao_indicador_legivel("Número de mulheres jovens (até 29 anos)", "numero_de_mulheres_jovens", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+        botao_indicador_legivel("Número de mulheres adultas", "numero_de_mulheres_adultas", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+        botao_indicador_legivel("Número de Indígenas", "numero_de_indigenas", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+        botao_indicador_legivel("Número de lideranças comunitárias fortalecidas", "numero_de_liderancas_comunitarias_fortalecidas", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+        botao_indicador_legivel("Número de famílias comercializando produtos da sociobio", "numero_de_familias_comercializando_produtos_da_sociobio_com_apoio_do_fundo_ecos", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+        botao_indicador_legivel("Número de famílias acessando vendas institucionais", "numero_de_familias_acessando_vendas_institucionais_com_apoio_do_fundo_ecos", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+        botao_indicador_legivel("Número de estudantes recebendo bolsa", "numero_de_estudantes_recebendo_bolsa", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
 
 
 # ---------------------- CAPACITAÇÕES ----------------------
 
-
-with col1.container(border=True):
-    st.write('**Capacitações**')
-    botao_indicador_legivel("Número de capacitações realizadas", "numero_de_capacitacoes_realizadas", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
-    botao_indicador_legivel("Número de homens jovens capacitados (até 29 anos)", "numero_de_homens_jovens_capacitados", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
-    botao_indicador_legivel("Número de homens adultos capacitados", "numero_de_homens_adultos_capacitados", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
-    botao_indicador_legivel("Número de mulheres jovens capacitadas (até 29 anos)", "numero_de_mulheres_jovens_capacitadas", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
-    botao_indicador_legivel("Número de mulheres adultas capacitadas", "numero_de_mulheres_adultas_capacitadas", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+  
+    with col1.container(border=True):
+        st.write('**Capacitações**')
+        botao_indicador_legivel("Número de capacitações realizadas", "numero_de_capacitacoes_realizadas", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+        botao_indicador_legivel("Número de homens jovens capacitados (até 29 anos)", "numero_de_homens_jovens_capacitados", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+        botao_indicador_legivel("Número de homens adultos capacitados", "numero_de_homens_adultos_capacitados", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+        botao_indicador_legivel("Número de mulheres jovens capacitadas (até 29 anos)", "numero_de_mulheres_jovens_capacitadas", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+        botao_indicador_legivel("Número de mulheres adultas capacitadas", "numero_de_mulheres_adultas_capacitadas", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
 
 
 # ---------------------- INTERCÂMBIOS ----------------------
 
 
-with col1.container(border=True):
-    st.write('**Intercâmbios**')
-    botao_indicador_legivel("Número de intercâmbios realizados", "numero_de_intercambios_realizados", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
-    botao_indicador_legivel("Número de homens em intercâmbios", "numero_de_homens_em_intercambios", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
-    botao_indicador_legivel("Número de mulheres em intercâmbios", "numero_de_mulheres_em_intercambios", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+    with col1.container(border=True):
+        st.write('**Intercâmbios**')
+        botao_indicador_legivel("Número de intercâmbios realizados", "numero_de_intercambios_realizados", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+        botao_indicador_legivel("Número de homens em intercâmbios", "numero_de_homens_em_intercambios", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+        botao_indicador_legivel("Número de mulheres em intercâmbios", "numero_de_mulheres_em_intercambios", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
 
 
 # ---------------------- TERRITÓRIO ----------------------
 
 
-with col2.container(border=True):
-    st.write('**Território**')
-    botao_indicador_legivel("Número de iniciativas de Gestão Territorial implantadas", "numero_de_iniciativas_de_gestao_territorial_implantadas", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
-    botao_indicador_legivel("Área com manejo ecológico do fogo (ha)", "area_com_manejo_ecologico_do_fogo_ha", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
-    botao_indicador_legivel("Área com manejo agroecológico (ha)", "area_com_manejo_agroecologico_ha", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
-    botao_indicador_legivel("Área com manejo para restauração (ha)", "area_com_manejo_para_restauracao_ha", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
-    botao_indicador_legivel("Área com manejo para extrativismo (ha)", "area_com_manejo_para_extrativismo_ha", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+    with col2.container(border=True):
+        st.write('**Território**')
+        botao_indicador_legivel("Número de iniciativas de Gestão Territorial implantadas", "numero_de_iniciativas_de_gestao_territorial_implantadas", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+        botao_indicador_legivel("Área com manejo ecológico do fogo (ha)", "area_com_manejo_ecologico_do_fogo_ha", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+        botao_indicador_legivel("Área com manejo agroecológico (ha)", "area_com_manejo_agroecologico_ha", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+        botao_indicador_legivel("Área com manejo para restauração (ha)", "area_com_manejo_para_restauracao_ha", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+        botao_indicador_legivel("Área com manejo para extrativismo (ha)", "area_com_manejo_para_extrativismo_ha", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
 
 
 # ---------------------- TECNOLOGIA E INFRA ----------------------
 
 
-with col1.container(border=True):
-    st.write('**Tecnologia e Infra-estrutura**')
-    botao_indicador_legivel("Número de agroindústrias implementadas/reformadas", "numero_de_agroindustiras_implementadas_ou_reformadas", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
-    botao_indicador_legivel("Número de tecnologias instaladas", "numero_de_tecnologias_instaladas", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
-    botao_indicador_legivel("Número de pessoas beneficiadas com tecnologias", "numero_de_pessoas_beneficiadas_com_tecnologias", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+    with col1.container(border=True):
+        st.write('**Tecnologia e Infra-estrutura**')
+        botao_indicador_legivel("Número de agroindústrias implementadas/reformadas", "numero_de_agroindustiras_implementadas_ou_reformadas", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+        botao_indicador_legivel("Número de tecnologias instaladas", "numero_de_tecnologias_instaladas", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+        botao_indicador_legivel("Número de pessoas beneficiadas com tecnologias", "numero_de_pessoas_beneficiadas_com_tecnologias", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
 
 
 # ---------------------- FINANCEIRO ----------------------
 
 
-with col1.container(border=True):
-    st.write('**Financeiro**')
-    botao_indicador_legivel("Faturamento bruto anual pré-projeto (R$)", "faturamento_bruto_anual_pre_projeto", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
-    botao_indicador_legivel("Faturamento bruto anual pós-projeto (R$)", "faturamento_bruto_anual_pos_projeto", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
-    botao_indicador_legivel("Volume financeiro de vendas institucionais com apoio do Fundo Ecos", "volume_financeiro_de_vendas_institucionais_com_apoio_do_fundo_ecos", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+    with col1.container(border=True):
+        st.write('**Financeiro**')
+        botao_indicador_legivel("Faturamento bruto anual pré-projeto (R$)", "faturamento_bruto_anual_pre_projeto", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+        botao_indicador_legivel("Faturamento bruto anual pós-projeto (R$)", "faturamento_bruto_anual_pos_projeto", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+        botao_indicador_legivel("Volume financeiro de vendas institucionais com apoio do Fundo Ecos", "volume_financeiro_de_vendas_institucionais_com_apoio_do_fundo_ecos", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
 
 
 # ---------------------- COMUNICAÇÃO ----------------------
 
 
-with col2.container(border=True):
-    st.write('**Comunicação**')
-    botao_indicador_legivel("Número de vídeos produzidos", "numero_de_videos_produzidos", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
-    botao_indicador_legivel("Número de aparições na mídia", "numero_de_aparicoes_na_midia", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
-    botao_indicador_legivel("Número de publicações de caráter técnico", "numero_de_publicacoes_de_carater_tecnico", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
-    botao_indicador_legivel("Número de artigos acadêmicos produzidos e publicados", "numero_de_artigos_academicos_produzidos_e_publicados", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
-    botao_indicador_legivel("Número de comunicadores comunitários contribuindo na execução das ações do ISPN", "numero_de_comunicadores_comunitarios_contribuindo_na_execucao_das_acoes_do_ispn", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+    with col2.container(border=True):
+        st.write('**Comunicação**')
+        botao_indicador_legivel("Número de vídeos produzidos", "numero_de_videos_produzidos", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+        botao_indicador_legivel("Número de aparições na mídia", "numero_de_aparicoes_na_midia", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+        botao_indicador_legivel("Número de publicações de caráter técnico", "numero_de_publicacoes_de_carater_tecnico", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+        botao_indicador_legivel("Número de artigos acadêmicos produzidos e publicados", "numero_de_artigos_academicos_produzidos_e_publicados", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+        botao_indicador_legivel("Número de comunicadores comunitários contribuindo na execução das ações do ISPN", "numero_de_comunicadores_comunitarios_contribuindo_na_execucao_das_acoes_do_ispn", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
 
 
 # ---------------------- PROJETOS FUNDO ECOS ----------------------
 
 
-if not tipo_selecionado or any(tipo in ["PJ", "PF"] for tipo in tipo_selecionado):
-    with col1.container(border=True):
-        st.write('**Projetos Fundo Ecos**')
-        botao_indicador_legivel("Número de visitas de monitoramento realizadas ao projeto apoiado", "numero_de_visitas_de_monitoramento_realizadas_ao_projeto_apoiado", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
-        botao_indicador_legivel("Valor da Contrapartidas Financeira (R$)", "valor_da_contrapartida_financeira_projetinhos", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
-        botao_indicador_legivel("Valor da Contrapartida Não-Financeira (R$)", "valor_da_contrapartida_nao_financeira_projetinhos", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
-        botao_indicador_legivel("Espécies: clique para mais informações", "especies", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
-        botao_indicador_legivel("Número de organizações apoiadas que alavancaram recursos", "numero_de_organizacoes_apoiadas_que_alavancaram_recursos", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
-        botao_indicador_legivel("Valor mobilizado de novos recursos (R$)", "valor_mobilizado_de_novos_recursos", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+    if not tipo_selecionado or any(tipo in ["PJ", "PF"] for tipo in tipo_selecionado):
+        with col1.container(border=True):
+            st.write('**Projetos Fundo Ecos**')
+            botao_indicador_legivel("Número de visitas de monitoramento realizadas ao projeto apoiado", "numero_de_visitas_de_monitoramento_realizadas_ao_projeto_apoiado", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+            botao_indicador_legivel("Valor da Contrapartidas Financeira (R$)", "valor_da_contrapartida_financeira_projetinhos", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+            botao_indicador_legivel("Valor da Contrapartida Não-Financeira (R$)", "valor_da_contrapartida_nao_financeira_projetinhos", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+            botao_indicador_legivel("Espécies: clique para mais informações", "especies", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+            botao_indicador_legivel("Número de organizações apoiadas que alavancaram recursos", "numero_de_organizacoes_apoiadas_que_alavancaram_recursos", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+            botao_indicador_legivel("Valor mobilizado de novos recursos (R$)", "valor_mobilizado_de_novos_recursos", tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
 
+fragmento_botoes()
