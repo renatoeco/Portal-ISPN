@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import folium
 import math
-import unicodedata
+import time
 from bson import ObjectId
 import plotly.express as px
 from folium.plugins import MarkerCluster
@@ -28,7 +28,6 @@ projetos_ispn = list(db["projetos_ispn"].find())
 
 colecao_doadores = db["doadores"]
 ufs_municipios = db["ufs_municipios"]
-programas = db["programas_areas"]
 pessoas = db["pessoas"]
 estatistica = db["estatistica"]  # Coleção de estatísticas
 
@@ -43,7 +42,7 @@ st.markdown(
 <style>
 div[data-testid="stDialog"] div[role="dialog"]:has(.big-dialog) {
     width: 70vw;
-    height: 80vh;
+    
 }
 </style>
 """,
@@ -276,7 +275,297 @@ def mostrar_detalhes(codigo_proj: str):
             use_container_width=True
         )
 
-    #st.html("<span class='big-dialog'></span>")
+    st.html("<span class='big-dialog'></span>")
+
+
+def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_ispn_dict):
+    form_key = f"form_projeto_{str(projeto.get('_id', 'novo'))}"
+    with st.form(key=form_key):
+
+        # Obtemos categorias e moedas únicas a partir das duas coleções
+        colecoes_projetos = [db["projetos_pf"], db["projetos_pj"]]
+
+        categorias_set = set()
+        moedas_set = set()
+        for colecao in colecoes_projetos:
+            categorias_set.update(filter(None, [p.get("categoria", "").strip() for p in colecao.find()]))
+            moedas_set.update(filter(None, [p.get("moeda", "").strip() for p in colecao.find()]))
+
+        opcoes_categoria = sorted(categorias_set)
+        opcoes_moeda = sorted(moedas_set)
+
+
+        col1, col2, col3 = st.columns(3)
+
+        # Campos comuns
+        codigo = col1.text_input("Código", projeto.get("codigo", ""))
+        sigla = col2.text_input("Sigla", projeto.get("sigla", ""))
+        proponente = col3.text_input("Proponente", projeto.get("proponente", ""))
+
+        col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
+
+        nome_do_projeto = col1.text_input("Nome do projeto", projeto.get("nome_do_projeto", ""))
+
+        categoria_valor = projeto.get("categoria", "")
+        categoria = col2.selectbox(
+            "Categoria",
+            options=opcoes_categoria,
+            index=opcoes_categoria.index(categoria_valor) if categoria_valor in opcoes_categoria else 0,
+            placeholder=""
+        )
+
+        edital = col3.text_input("Edital", projeto.get("edital", ""))
+        ano_aprovacao = col4.number_input("Ano de aprovação", value=projeto.get("ano_de_aprovacao", 2025), step=1)
+
+        col1, col2, col3 = st.columns(3)
+
+        ufs = col1.text_input("Estado(s)", projeto.get("ufs", ""))
+        municipio_principal = col2.text_input("Município principal", projeto.get("municipio_principal", ""))
+        municipios = col3.text_input("Municípios de atuação", projeto.get("municipios", ""))
+
+        col1, col2 = st.columns([1, 4])
+
+        latlong = col1.text_input("Latitude e longitude principais", projeto.get("lat_long_principal", ""))
+        local_obs = col2.text_area("Observações sobre o local", projeto.get("observacoes_sobre_o_local", ""))
+
+        col1, col2, col3, col4 = st.columns(4)
+
+        duracao = col1.text_input("Duração original (meses)", projeto.get("duracao_original_meses", ""))
+        data_inicio = col2.text_input("Data início do contrato", projeto.get("data_inicio_do_contrato", ""))
+        data_fim = col3.text_input("Data fim do contrato", projeto.get("data_final_do_contrato", ""))
+        data_relatorio = col4.text_input("Data relatório final", projeto.get("data_relatorio_monitoramento_final", ""))
+
+        col1, col2 = st.columns(2)
+
+        moeda_valor = projeto.get("moeda", "")
+        moeda = col1.selectbox(
+            "Moeda",
+            options=opcoes_moeda,
+            index=opcoes_moeda.index(moeda_valor) if moeda_valor in opcoes_moeda else 0,
+            placeholder=""
+        )
+
+        valor = col2.text_input("Valor", projeto.get("valor", ""))
+
+        col1, col2, col3, col4 = st.columns(4)
+
+        # Lista manual de opções disponíveis
+        opcoes_temas = ["Agroecologia", "Agroextrativismo - Beneficiamento e Comercialização", "Água", "Apicultura e meliponicultura",
+            "Artesanato", "Articulação", "Capacitação", "Certificação", "Conservação da biodiversidade", "Criação de animais", "Cultura",
+            "Educação Ambiental", "Energia Renovável", "Fauna", "Fogo", "Gestão Territoriral", "Manejo da biodiversidade", "Pesquisa",
+            "Plantas medicinais", "Política Pública", "Recuperação de áreas degradadas", "Sistemas Agroflorestais - SAFs", "Turismo"
+        ]
+
+        opcoes_publico = ["Agricultores Familiares", "Assentados da Reforma Agrária", "Comunidade Tradicional", "Garimpeiros", 
+                          "Idosos", "Indígenas", "Jovens", "Mulheres", "Pescador Artesanal", "Quilombola", "Urbano", "Outro" ]
+        
+        opcoes_bioma = ["Amazônia", "Caatinga", "Cerrado", "Mata Atlântica", "Pampas", "Pantanal"]
+
+        opcoes_status = ["Em andamento", "Finalizado", "Cancelado"]
+
+        #Filtra apenas os valores válidos
+        temas_valor = [p.strip() for p in projeto.get("temas", "").split(",") if p.strip()]
+
+
+        publico_valor = [p.strip() for p in projeto.get("publico", "").split(",") if p.strip()]
+        bioma_valor = [b.strip() for b in projeto.get("bioma", "").split(",") if b.strip()]
+        status_valor = projeto.get("status", opcoes_status[0])
+
+        # Campos multiselect
+        temas = col1.multiselect("Temas", options=opcoes_temas, default=temas_valor)
+        publico = col2.multiselect("Público", options=opcoes_publico, default=publico_valor)
+        bioma = col3.multiselect("Bioma", options=opcoes_bioma, default=bioma_valor)
+
+        # Campo selectbox
+        status = col4.selectbox("Status", options=opcoes_status, index=opcoes_status.index(status_valor) if status_valor in opcoes_status else 0)
+
+
+        objetivo_geral = st.text_area("Objetivo geral", projeto.get("objetivo_geral", ""))
+        #valor_dolar = st.text_input("Valor em dólar atualizado", projeto.get("valor_dolar_atualizado", ""))
+
+        col1, col2, col3 = st.columns(3)
+
+        # Ponto Focal
+        pessoas_options = {str(k): v for k, v in sorted(pessoas_dict.items(), key=lambda item: item[1].lower())}
+        ponto_focal_default = str(projeto.get("ponto_focal", ""))
+        ponto_focal_keys = list(pessoas_options.keys())
+        ponto_focal = col1.selectbox(
+            "Ponto focal",
+            options=ponto_focal_keys,
+            format_func=lambda x: pessoas_options.get(x, ""),
+            index=ponto_focal_keys.index(ponto_focal_default) if ponto_focal_default in ponto_focal_keys else 0,
+            placeholder=""  # Placeholder vazio
+        )
+
+        # Lista de programas que devem ser removidos
+        programas_excluidos = {"ADM Brasília", "ADM Santa Inês", "Comunicação", "Advocacy", "Coordenação"}
+
+        # Filtrar programas, excluindo os indesejados
+        programas_filtrados = {
+            str(k): v for k, v in programas_dict.items()
+            if v not in programas_excluidos and v.strip()
+        }
+
+        # Ordenar alfabeticamente pelo nome do programa
+        programas_options = {
+            str(k): v for k, v in sorted(programas_filtrados.items(), key=lambda item: item[1].lower())
+        }
+
+        programa_default = str(projeto.get("programa", ""))
+        programa_keys = list(programas_options.keys())
+
+        programa = col2.selectbox(
+            "Programa",
+            options=programa_keys,
+            format_func=lambda x: programas_options.get(x, ""),
+            index=programa_keys.index(programa_default) if programa_default in programa_keys else 0,
+            placeholder=""
+        )
+
+
+        # Projeto pai (sem opções em branco e ordenado alfabeticamente)
+        projetos_pai_options = {
+            str(k): v for k, v in projetos_ispn_dict.items() if v.strip()
+        }
+        # Ordenar alfabeticamente pelos nomes dos projetos
+        sorted_keys = sorted(projetos_pai_options, key=lambda x: projetos_pai_options[x].lower())
+
+        codigo_pai_default = str(projeto.get("codigo_projeto_pai", ""))
+
+        codigo_pai = col3.selectbox(
+            "Projeto pai",
+            options=sorted_keys,
+            format_func=lambda x: projetos_pai_options.get(x, "Desconhecido"),
+            index=sorted_keys.index(codigo_pai_default) if codigo_pai_default in sorted_keys else 0,
+            placeholder=""
+        )
+
+        col1, col2 = st.columns(2)
+
+        # Campos específicos
+        if tipo_projeto == "PF":
+            cpf = col1.text_input("CPF", projeto.get("cpf", ""))
+            genero = col2.selectbox("Gênero", ["Masculino", "Feminino", "Outro"], index=["Masculino", "Feminino", "Outro"].index(projeto.get("genero", "Masculino")))
+        else:
+            cnpj = st.text_input("CNPJ", projeto.get("cnpj", ""))
+
+        submitted = st.form_submit_button("Salvar alterações")
+
+        if submitted:
+            doc = {
+                "codigo": codigo,
+                "sigla": sigla,
+                "proponente": proponente,
+                "nome_do_projeto": nome_do_projeto,
+                "edital": edital,
+                "categoria": categoria,
+                "ano_de_aprovacao": ano_aprovacao,
+                "ufs": ufs,
+                "municipios": municipios,
+                "municipio_principal": municipio_principal,
+                "lat_long_principal": latlong,
+                "observacoes_sobre_o_local": local_obs,
+                "duracao_original_meses": duracao,
+                "data_inicio_do_contrato": data_inicio,
+                "data_final_do_contrato": data_fim,
+                "data_relatorio_monitoramento_final": data_relatorio,
+                "moeda": moeda,
+                "valor": valor,
+                "bioma": bioma,
+                "status": status,
+                "temas": temas,
+                "publico": publico,
+                "objetivo_geral": objetivo_geral,
+                "valor_dolar_original": "",
+                "valor_dolar_atualizado": "",
+                "tipo": tipo_projeto,
+                "ponto_focal": ObjectId(ponto_focal) if ponto_focal and ObjectId.is_valid(ponto_focal) else None,
+                "programa": ObjectId(programa) if programa and ObjectId.is_valid(programa) else None,
+                "codigo_projeto_pai": ObjectId(codigo_pai) if codigo_pai and ObjectId.is_valid(codigo_pai) else None,
+            }
+
+            if tipo_projeto == "PF":
+                doc["cpf"] = cpf
+                doc["genero"] = genero
+            else:
+                doc["cnpj"] = cnpj
+
+            return doc
+    return None
+
+
+@st.dialog("Gerenciar projetos", width="large")
+def gerenciar_projetos():
+
+    st.html("<span class='big-dialog'></span>")
+
+    abas = st.tabs(["Adicionar", "Editar", "Excluir"])
+
+    # Dicionários auxiliares
+    pessoas_dict = {p["_id"]: p.get("nome_completo", "") for p in pessoas.find()}
+    programas_dict = {p["_id"]: p.get("nome_programa_area", "") for p in db["programas_areas"].find()}
+    projetos_ispn_dict = {p["_id"]: p.get("codigo", "") for p in db["projetos_ispn"].find()}
+
+    # ---------------------- Adicionar ----------------------
+    with abas[0]:
+        tipo_projeto = st.pills("Tipo de projeto", ["PF", "PJ"], selection_mode="single", default="PJ")
+        colecao = db["projetos_pf"] if tipo_projeto == "PF" else db["projetos_pj"]
+        novo = form_projeto({}, tipo_projeto, pessoas_dict, programas_dict, projetos_ispn_dict)
+        if novo:
+            colecao.insert_one(novo)
+            st.success("Projeto adicionado com sucesso.")
+            time.sleep(2)
+            st.rerun()
+
+    # ---------------------- Editar ----------------------
+    with abas[1]:
+        projetos_pf = list(db["projetos_pf"].find())
+        projetos_pj = list(db["projetos_pj"].find())
+        todos_projetos = [(p, "PF") for p in projetos_pf] + [(p, "PJ") for p in projetos_pj]
+
+        opcoes = {
+            str(proj["_id"]): f"{proj.get('codigo', '')} ({proj.get('sigla', '')})"
+            for proj, tipo in todos_projetos
+        }
+
+        if not opcoes:
+            st.info("Nenhum projeto encontrado para editar.")
+        else:
+            selecionado_id = st.selectbox("Selecione o projeto", list(opcoes.keys()), format_func=lambda x: opcoes[x])
+            tipo = "PF" if selecionado_id in [str(p["_id"]) for p, t in todos_projetos if t == "PF"] else "PJ"
+            colecao = db["projetos_pf"] if tipo == "PF" else db["projetos_pj"]
+            projeto = colecao.find_one({"_id": ObjectId(selecionado_id)})
+            atualizado = form_projeto(projeto, tipo, pessoas_dict, programas_dict, projetos_ispn_dict)
+            if atualizado:
+                colecao.update_one({"_id": ObjectId(selecionado_id)}, {"$set": atualizado})
+                st.success("Projeto atualizado com sucesso.")
+                time.sleep(2)
+                st.rerun()
+
+    # ---------------------- Excluir ----------------------
+    with abas[2]:
+        projetos_pf = list(db["projetos_pf"].find())
+        projetos_pj = list(db["projetos_pj"].find())
+        todos_projetos = [(p, "PF") for p in projetos_pf] + [(p, "PJ") for p in projetos_pj]
+
+        opcoes = {
+            str(proj["_id"]): f"{proj.get('codigo', '')} ({proj.get('sigla', '')})"
+            for proj, tipo in todos_projetos
+        }
+
+        if not opcoes:
+            st.info("Nenhum projeto encontrado para excluir.")
+        else:
+            selecionado_id = st.selectbox("Selecione o projeto para excluir", list(opcoes.keys()), format_func=lambda x: opcoes[x])
+            tipo = "PF" if selecionado_id in [str(p["_id"]) for p, t in todos_projetos if t == "PF"] else "PJ"
+            colecao = db["projetos_pf"] if tipo == "PF" else db["projetos_pj"]
+            projeto = colecao.find_one({"_id": ObjectId(selecionado_id)})
+            nome_proj = projeto.get("nome_do_projeto", "sem nome")
+            if st.button(f"Excluir o projeto: {nome_proj}"):
+                colecao.delete_one({"_id": ObjectId(selecionado_id)})
+                st.warning("Projeto excluído.")
+                time.sleep(2)
+                st.rerun()
     
     
 def extrair_itens_distintos(series: pd.Series) -> pd.Series:
@@ -314,10 +603,6 @@ def parse_valor(valor):
         except ValueError:
             return 0.0
     return 0.0
-
-
-def normalizar(s):
-    return ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn').lower()
 
 
 ######################################################################################################
@@ -407,16 +692,7 @@ colunas = [
     "municipios",
     "tipo",
     "municipio_principal",
-    "cnpj",
-    "programa",
-    "temas",
-    "bioma",
-    "publico",
-    "genero",
-    "status",
-    "cpf",
-    "proponente",
-    "ponto_focal"
+    "cnpj"
 ]
 
 # Adiciona "doador" se ela estiver presente no DataFrame
@@ -436,16 +712,7 @@ df_projetos = df_projetos[colunas].rename(columns={
     "municipios": "Município(s)",
     "tipo": "Tipo",
     "municipio_principal": "Município Principal",
-    "cnpj": "CNPJ",
-    "cpf": "CPF",
-    "proponente": "Proponente",
-    "programa": "Programa",
-    "temas": "Temas",
-    "publico": "Público",
-    "bioma": "Bioma",
-    "genero": "Gênero",
-    "status": "Status",
-    "ponto_focal": "Ponto Focal"
+    "cnpj": "CNPJ"
 })
 
 
@@ -505,9 +772,7 @@ with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
     mask = pd.Series(True, index=df_base.index)
 
     # ===== PRIMEIRA LINHA =====
-
-    col1, col2 = st.columns([1, 5])
-
+    col1, col2 = st.columns(2)
     tipos_disponiveis = ["Projetos PJ", "Projetos PF"]
     tipo_sel = col1.pills("Tipo", tipos_disponiveis, selection_mode="multi")
 
@@ -516,64 +781,6 @@ with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
             mask &= (df_base["Tipo"] == "PJ")
         elif "Projetos PF" in tipo_sel and "Projetos PJ" not in tipo_sel:
             mask &= (df_base["Tipo"] == "PF")
-
-    # Campo de busca geral
-    busca_geral = col2.text_input("Buscar por Sigla, Proponente, CNPJ ou CPF").strip()
-
-    if busca_geral:
-        termo = normalizar(busca_geral)
-        
-        def corresponde(row):
-            return (
-                termo in normalizar(row["Sigla"]) or
-                termo in normalizar(row["Proponente"]) or
-                termo in normalizar(row["CNPJ"]) or
-                termo in normalizar(row["CPF"])
-            )
-
-        mask &= df_base.apply(corresponde, axis=1)
-    
-
-    # ===== Segunda Linha =====
-
-    # Dicionários de ID -> Nome
-    pessoas_dict = {str(p["_id"]): p["nome_completo"] for p in pessoas.find()}
-    programas_dict = {str(p["_id"]): p["nome_programa_area"] for p in programas.find()}
-
-    #st.write(df_base)
-
-    df_base["Ponto Focal"] = df_base["Ponto Focal"].apply(lambda x: pessoas_dict.get(str(x), "Não informado") if pd.notna(x) else "Não informado")
-    df_base["Programa"] = df_base["Programa"].apply(lambda x: programas_dict.get(str(x), "Não informado") if pd.notna(x) else "Não informado")
-
-    col1, col2, col3, col4 = st.columns(4)
-
-    # Filtro Categoria
-    categoria_disponiveis = sorted(df_base["Categoria"].dropna().unique())
-    categoria_sel = col1.multiselect("Categoria", options=categoria_disponiveis, placeholder="Todos")
-    if categoria_sel:
-        mask &= df_base["Categoria"].isin(categoria_sel)
-
-    # Filtro Ponto Focal
-    ponto_focal_disponiveis = sorted(df_base["Ponto Focal"].dropna().unique())
-    ponto_focal_sel = col2.multiselect("Ponto Focal", options=ponto_focal_disponiveis, placeholder="Todos")
-    if ponto_focal_sel:
-        mask &= df_base["Ponto Focal"].isin(ponto_focal_sel)
-
-    # Filtro Programa
-    programa_disponiveis = sorted(df_base["Programa"].dropna().unique())
-    programa_sel = col3.multiselect("Programa", options=programa_disponiveis, placeholder="Todos")
-    if programa_sel:
-        mask &= df_base["Programa"].isin(programa_sel)
-
-    # Filtro Gênero
-    genero_disponiveis = sorted(df_base["Gênero"].dropna().unique())
-    genero_sel = col4.multiselect("Gênero", options=genero_disponiveis, placeholder="Todos")
-    if genero_sel:
-        mask &= df_base["Gênero"].isin(genero_sel)
-
-
-    
-    # ===== TerceiraLinha =====
 
     col1, col2, col3, col4 = st.columns(4)
 
@@ -584,7 +791,7 @@ with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
         mask &= df_base["Edital"].isin(edital_sel)
 
     # Ano
-    anos_disponiveis = sorted(df_base["Ano"].dropna().unique(), key=lambda x: float(x) if str(x).replace('.', '', 1).isdigit() else float('inf'))
+    anos_disponiveis = sorted(df_base["Ano"].dropna().unique())
     ano_sel = col2.multiselect("Ano", options=anos_disponiveis, placeholder="Todos")
     if ano_sel:
         mask &= df_base["Ano"].isin(ano_sel)
@@ -601,64 +808,7 @@ with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
     if codigo_sel:
         mask &= df_base["Código"].isin(codigo_sel)
 
-
-    # ===== Quarta Linha =====
-
-    col1, col2, col3, col4 = st.columns(4)
-
-    temas_disponiveis = sorted(
-        df_base["Temas"]
-        .dropna()
-        .apply(lambda x: [m.strip() for m in x.split(",")])
-        .explode()
-        .unique(),
-        key=normalizar
-    )
-
-    temas_sel = col1.multiselect("Temas", options=temas_disponiveis, placeholder="Todos")
-    if temas_sel:
-        mask &= df_base["Temas"].apply(
-            lambda x: any(m.strip() in temas_sel for m in x.split(",")) if isinstance(x, str) else False
-        )
-
-    publicos_disponiveis = sorted(
-        df_base["Público"]
-        .dropna()
-        .apply(lambda x: [m.strip() for m in x.split(",")])
-        .explode()
-        .unique(),
-        key=normalizar
-    )
-
-    publicos_sel = col2.multiselect("Público", options=publicos_disponiveis, placeholder="Todos")
-    if publicos_sel:
-        mask &= df_base["Público"].apply(
-            lambda x: any(m.strip() in publicos_sel for m in x.split(",")) if isinstance(x, str) else False
-        )
-
-    biomas_disponiveis = sorted(
-        df_base["Bioma"]
-        .dropna()
-        .apply(lambda x: [m.strip() for m in x.split(",")])
-        .explode()
-        .unique(),
-        key=normalizar
-    )
-
-    biomas_sel = col3.multiselect("Bioma", options=biomas_disponiveis, placeholder="Todos")
-    if biomas_sel:
-        mask &= df_base["Bioma"].apply(
-            lambda x: any(m.strip() in biomas_sel for m in x.split(",")) if isinstance(x, str) else False
-        )
-
-    status_disponiveis = sorted(df_base["Status"].dropna().unique())
-    status_sel = col4.multiselect("Status", options=status_disponiveis, placeholder="Todos")
-    if status_sel:
-        mask &= df_base["Status"].isin(status_sel)
-
-
-    # ===== Quinta Linha =====
-
+    # ===== SEGUNDA LINHA =====
     col5, col6 = st.columns(2)
 
     # Estado
@@ -822,25 +972,8 @@ with geral:
         .reset_index(name="apoios")
     )
 
-    if df_filtrado.empty:
-        #st.warning("Nenhum projeto encontrado")
-        anos_todos = []  # garante variável existente
-    else:
-        try:
-            anos_min = pd.to_numeric(df_filtrado["Ano"], errors="coerce").min()
-            anos_max = pd.to_numeric(df_filtrado["Ano"], errors="coerce").max()
-
-            if pd.notna(anos_min) and pd.notna(anos_max):
-                anos_todos = list(map(str, range(int(anos_min), int(anos_max) + 1)))
-            else:
-                anos_todos = []
-        except Exception as e:
-            st.error(f"Erro ao calcular anos disponíveis: {e}")
-            anos_todos = []
-
-
     # Obter intervalo completo de anos
-    #anos_todos = list(map(str, range(int(df_filtrado["Ano"].min()), int(df_filtrado["Ano"].max()) + 1)))
+    anos_todos = list(map(str, range(int(df_filtrado["Ano"].min()), int(df_filtrado["Ano"].max()) + 1)))
 
     # Preencher com 0 onde não há apoio (para doadores já existentes)
     doadores = dados["Doador"].unique()
@@ -884,13 +1017,17 @@ with geral:
 with lista:
     st.write("")
 
+    col1, col2, col3 = st.columns([2, 2, 1])
+
+    col3.button("Gerenciar projetos", on_click=gerenciar_projetos, use_container_width=True, icon=":material/contract_edit:")
+
+
     # Ordenar Ano desc, Código asc
     df_exibir = (
         st.session_state["df_filtrado"]
         .copy()
         .sort_values(by=["Ano", "Código"], ascending=[True, True])
         .reset_index(drop=True)
-        .drop(columns=["CPF", "Proponente", "Programa", "Temas", "Público", "Bioma", "Gênero", "Status", "Ponto Focal"])
     )
 
     # Paginação
