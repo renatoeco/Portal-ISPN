@@ -3,6 +3,8 @@ import pandas as pd
 import altair as alt
 import plotly.express as px
 import random
+import time
+from bson import ObjectId
 from funcoes_auxiliares import conectar_mongo_portal_ispn
 
 
@@ -17,12 +19,91 @@ st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
 
 db = conectar_mongo_portal_ispn()
 estatistica = db["estatistica"]  # Coleção de estatísticas
-projetos = db["projetos_ispn"] 
 
-# # Busca documentos com valor preenchido
-# cursor = projetos.find({
-#     "valor": {"$exists": True, "$ne": ""}
-# })
+df_doadores = pd.DataFrame(list(db["doadores"].find()))
+doadores_dict = {str(d["_id"]): d["nome_doador"] for d in db["doadores"].find()}
+df_programas = pd.DataFrame(list(db["programas_areas"].find()))
+df = pd.DataFrame(list(db["projetos_ispn"].find()))
+
+
+######################################################################################################
+# FUNÇÕES
+######################################################################################################
+
+
+@st.dialog("Gerenciar doadores", width="large")
+def gerenciar_doadores():
+    tab_adicionar, tab_editar, tab_excluir = st.tabs([":material/add: Adicionar", ":material/edit: Editar", ":material/delete: Excluir"])
+    
+    with tab_adicionar:
+        with st.form("form_adicionar_doador", border=False):
+            nome_novo = st.text_input("Nome do doador")
+            sigla_nova = st.text_input("Sigla")
+            submitted = st.form_submit_button("Adicionar")
+
+            if submitted:
+                nome_limpo = nome_novo.strip()
+                if nome_limpo:
+                    # Verifica se já existe um doador com esse nome (case insensitive)
+                    doador_existente = db["doadores"].find_one({
+                        "nome_doador": {"$regex": f"^{nome_limpo}$", "$options": "i"}
+                    })
+
+                    if doador_existente:
+                        st.warning(f"Já existe um doador com o nome '{doador_existente['nome_doador']}'.")
+                    else:
+                        db["doadores"].insert_one({
+                            "nome_doador": nome_limpo,
+                            "sigla_doador": sigla_nova.strip()
+                        })
+                        st.success(f"Doador '{nome_limpo}' adicionado com sucesso!")
+                        time.sleep(2)
+                        st.rerun()
+                else:
+                    st.warning("O nome do doador é obrigatório.")
+
+
+    with tab_editar:
+        # Seleção do doador fora do formulário para capturar dinamicamente
+        doador_id = st.selectbox(
+            "Selecione o doador para editar",
+            list(doadores_dict.keys()),
+            format_func=lambda x: doadores_dict[x],
+            key="editar_doador_select"
+        )
+        
+        # Buscar os dados atualizados do doador selecionado
+        doador = db["doadores"].find_one({"_id": ObjectId(doador_id)})
+
+        # Formulário para edição
+        with st.form("form_editar_doador"):
+            novo_nome = st.text_input("Editar nome", value=doador.get("nome_doador", ""), key="novo_nome")
+            nova_sigla = st.text_input("Editar sigla", value=doador.get("sigla_doador", ""), key="nova_sigla")
+
+            submitted = st.form_submit_button("Salvar alterações")
+            if submitted:
+                db["doadores"].update_one(
+                    {"_id": ObjectId(doador_id)},
+                    {"$set": {
+                        "nome_doador": novo_nome.strip(),
+                        "sigla_doador": nova_sigla.strip()
+                    }}
+                )
+                st.success("Doador atualizado com sucesso!")
+                time.sleep(2)
+                st.rerun()
+
+    with tab_excluir:
+        with st.form("form_excluir_doador", border=False):
+            doador_id = st.selectbox("Selecione o doador para excluir", list(doadores_dict.keys()), format_func=lambda x: doadores_dict[x])
+            nome_exclusao = doadores_dict[doador_id]
+
+            submitted = st.form_submit_button(f"Excluir doador")
+            if submitted:
+                db["doadores"].delete_one({"_id": ObjectId(doador_id)})
+                st.success(f"Doador '{nome_exclusao}' excluído com sucesso!")
+                time.sleep(2)
+                st.rerun()
 
 
 ######################################################################################################
@@ -37,9 +118,8 @@ st.header("Doadores")
 
 
 # --- 1. Converter listas de documentos em DataFrames ---
-df_doadores = pd.DataFrame(list(db["doadores"].find()))
-df_programas = pd.DataFrame(list(db["programas_areas"].find()))
-df = pd.DataFrame(list(db["projetos_ispn"].find()))
+
+
 
 # --- 2. Criar dicionários de mapeamento ---
 mapa_doador = {d["_id"]: d["nome_doador"] for d in db["doadores"].find()}
@@ -48,11 +128,6 @@ mapa_programa = {p["_id"]: p["nome_programa_area"] for p in db["programas_areas"
 # --- 3. Aplicar os mapeamentos ao df ---
 df["doador_nome"] = df["doador"].map(mapa_doador)
 df["programa_nome"] = df["programa"].map(mapa_programa)
-
-
-
-
-
 
 
 # dados = list(cursor)
@@ -109,21 +184,6 @@ with tab1:
     df = df.dropna(subset=["valor"])
     df["doador"] = df["doador"].fillna("Desconhecido")
     df["tipo_de_doador"] = df["tipo_de_doador"].fillna("Outro")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     # Agrupar por doador
     resumo = df.groupby(["doador_nome", "tipo_de_doador"], as_index=False).agg({
@@ -210,6 +270,10 @@ with tab1:
 
 with tab2:
     st.write('')
+    
+    if set(st.session_state.tipo_usuario) & {"admin", "gestao_projetos_doadores"}:
+        col1, col2, col3 = st.columns([2, 2, 1])
+        col3.button("Gerenciar doadores", on_click=gerenciar_doadores, use_container_width=True, icon=":material/wallet:")
 
     df = df.dropna(subset=["valor"])
     df["doador"] = df["doador"].fillna("Desconhecido")
