@@ -377,8 +377,7 @@ def gerenciar_pessoas():
 
 
 # Botão de cadastro de novos colaboradores só para alguns tipos de usuário
-tipos_usuario = st.session_state.get("tipo_usuario", [])
-if "admin" in tipos_usuario:
+if set(st.session_state.tipo_usuario) & {"admin", "gestao_pessoas"}:
 
     # Botão para abrir o modal de cadastro
     st.button("Gerenciar colaboradores", on_click=gerenciar_pessoas, use_container_width=True, icon=":material/person_add:")

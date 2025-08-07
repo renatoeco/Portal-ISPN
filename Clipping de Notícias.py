@@ -257,8 +257,7 @@ else:
     st.write("")
 
     # Botão de triagem só para alguns tipos de usuário
-    tipos_usuario = st.session_state.get("tipo_usuario", [])
-    if "admin" in tipos_usuario:
+    if set(st.session_state.tipo_usuario) & {"admin", "gestao_noticias"}:
         col1, col2, col3, col4, col5 = st.columns([1, 1, 1, 1, 1])
 
         with col1:

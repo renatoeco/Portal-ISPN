@@ -248,7 +248,10 @@ def main():
 
     contagem_pls = col1.container()
 
-    col2.button("Gerenciar PLs", icon=":material/settings:", use_container_width=True, on_click=dial_gerenciar_pls)
+    if set(st.session_state.tipo_usuario) & {"admin", "gestao_pls"}:
+        col2.button("Gerenciar PLs", icon=":material/settings:", use_container_width=True, on_click=dial_gerenciar_pls)
+
+    
 
 
 # Aba 2 - Pessoas ////////////////////////////////////////////////////////////////
@@ -359,7 +362,10 @@ def main():
                     st.write("Nenhum e-mail encontrado no banco de dados.")
 
         st.write('')
-        st.button("Gerenciar e-mails", icon=":material/mail:", use_container_width=False, on_click=dial_gerenciar_pessoas)
+
+        if set(st.session_state.tipo_usuario) & {"admin", "gestao_pls"}:
+            st.button("Gerenciar e-mails", icon=":material/mail:", use_container_width=False, on_click=dial_gerenciar_pessoas)
+
         st.write('')
 
         st.write('**Pessoas que recebem o e-mail de atualizações:**')

@@ -284,7 +284,6 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
 
         # Obtemos categorias e moedas únicas a partir das duas coleções
         colecoes_projetos = [db["projetos_pf"], db["projetos_pj"]]
-
         categorias_set = set()
         moedas_set = set()
         for colecao in colecoes_projetos:
@@ -294,6 +293,35 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         opcoes_categoria = sorted(categorias_set)
         opcoes_moeda = sorted(moedas_set)
 
+        # --- Carrega estados e municípios da coleção 'ufs_projetos' ---
+        doc_ufs = ufs_municipios.find_one({"ufs": {"$exists": True}})
+        doc_municipios = ufs_municipios.find_one({"municipios": {"$exists": True}})
+
+        dados_ufs = doc_ufs.get("ufs", []) if doc_ufs else []
+        dados_municipios = doc_municipios.get("municipios", []) if doc_municipios else []
+
+        ufs_dict = {uf["nome_uf"]: uf["codigo_uf"] for uf in dados_ufs}
+        #ufs_nome_para_sigla = {uf["nome_uf"]: uf["sigla_uf"] for uf in dados_ufs}
+        municipios_dict = {m["nome_municipio"]: m["codigo_municipio"] for m in dados_municipios}
+
+
+        # Inverte os dicionários para facilitar buscas reversas (edição de projetos)
+        ufs_codigo_para_nome = {int(v): k for k, v in ufs_dict.items()}
+        municipios_codigo_para_nome = {v: k for k, v in municipios_dict.items()}
+
+        # Recupera códigos salvos e transforma em nomes para edição
+        ufs_valor_codigo = [int(c) for c in projeto.get("ufs", []) if str(c).isdigit()]
+        ufs_valor_nome = [ufs_codigo_para_nome.get(cod) for cod in ufs_valor_codigo if cod in ufs_codigo_para_nome]
+        ufs_valor_nome = [n for n in ufs_valor_nome if n]
+
+
+        municipios_valor_codigo = projeto.get("municipios", [])
+        municipios_valor_nome = [municipios_codigo_para_nome[cod] for cod in municipios_valor_codigo if cod in municipios_codigo_para_nome]
+
+        municipio_principal_codigo = projeto.get("municipio_principal", "")
+        municipio_principal_nome = municipios_codigo_para_nome.get(municipio_principal_codigo, "")
+
+        # --------------------------------------------
 
         col1, col2, col3 = st.columns(3)
 
@@ -317,11 +345,28 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         edital = col3.text_input("Edital", projeto.get("edital", ""))
         ano_aprovacao = col4.number_input("Ano de aprovação", value=projeto.get("ano_de_aprovacao", 2025), step=1)
 
+        # Interface
         col1, col2, col3 = st.columns(3)
 
-        ufs = col1.text_input("Estado(s)", projeto.get("ufs", ""))
-        municipio_principal = col2.text_input("Município principal", projeto.get("municipio_principal", ""))
-        municipios = col3.text_input("Municípios de atuação", projeto.get("municipios", ""))
+        ufs_selecionados = col1.multiselect("Estado(s)", options=sorted(ufs_dict.keys()), default=ufs_valor_nome)
+
+        # Filtra municípios que pertencem aos estados selecionados (pelo código IBGE)
+        ufs_codigos_selecionados = [ufs_dict[nome] for nome in ufs_selecionados]
+        
+        municipios_filtrados = [m for m in dados_municipios if str(m["codigo_municipio"]).startswith(tuple(str(c) for c in ufs_codigos_selecionados))]
+
+        # Garante que todos os municípios salvos estejam na lista, mesmo que o estado não esteja selecionado
+        municipios_nomes_filtrados = sorted(set(
+            [m["nome_municipio"] for m in municipios_filtrados] +
+            municipios_valor_nome +
+            ([municipio_principal_nome] if municipio_principal_nome else [])
+        ))
+
+        municipios_dict_filtrados = {m["nome_municipio"]: m["codigo_municipio"] for m in municipios_filtrados}
+
+        # Interface
+        municipio_principal_nome = col2.selectbox("Município principal", options=municipios_nomes_filtrados, index=municipios_nomes_filtrados.index(municipio_principal_nome) if municipio_principal_nome in municipios_nomes_filtrados else 0)
+        municipios_nomes = col3.multiselect("Municípios de atuação", options=municipios_nomes_filtrados, default=municipios_valor_nome)
 
         col1, col2 = st.columns([1, 4])
 
@@ -372,9 +417,9 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         status_valor = projeto.get("status", opcoes_status[0])
 
         # Campos multiselect
-        temas = col1.multiselect("Temas", options=opcoes_temas, default=temas_valor)
-        publico = col2.multiselect("Público", options=opcoes_publico, default=publico_valor)
-        bioma = col3.multiselect("Bioma", options=opcoes_bioma, default=bioma_valor)
+        temas = col1.multiselect("Temas", options=opcoes_temas, default=temas_valor, placeholder="")
+        publico = col2.multiselect("Público", options=opcoes_publico, default=publico_valor, placeholder="")
+        bioma = col3.multiselect("Bioma", options=opcoes_bioma, default=bioma_valor, placeholder="")
 
         # Campo selectbox
         status = col4.selectbox("Status", options=opcoes_status, index=opcoes_status.index(status_valor) if status_valor in opcoes_status else 0)
@@ -460,9 +505,6 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
                 "edital": edital,
                 "categoria": categoria,
                 "ano_de_aprovacao": ano_aprovacao,
-                "ufs": ufs,
-                "municipios": municipios,
-                "municipio_principal": municipio_principal,
                 "lat_long_principal": latlong,
                 "observacoes_sobre_o_local": local_obs,
                 "duracao_original_meses": duracao,
@@ -483,6 +525,11 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
                 "programa": ObjectId(programa) if programa and ObjectId.is_valid(programa) else None,
                 "codigo_projeto_pai": ObjectId(codigo_pai) if codigo_pai and ObjectId.is_valid(codigo_pai) else None,
             }
+
+            # Atribuições fora do dict
+            doc["ufs"] = [ufs_dict[nome] for nome in ufs_selecionados]
+            doc["municipio_principal"] = municipios_dict_filtrados.get(municipio_principal_nome, None)
+            doc["municipios"] = [municipios_dict_filtrados[nome] for nome in municipios_nomes]
 
             if tipo_projeto == "PF":
                 doc["cpf"] = cpf
@@ -1017,9 +1064,10 @@ with geral:
 with lista:
     st.write("")
 
-    col1, col2, col3 = st.columns([2, 2, 1])
+    if set(st.session_state.tipo_usuario) & {"admin", "gestao_fundo_ecos"}:
+        col1, col2, col3 = st.columns([2, 2, 1])
 
-    col3.button("Gerenciar projetos", on_click=gerenciar_projetos, use_container_width=True, icon=":material/contract_edit:")
+        col3.button("Gerenciar projetos", on_click=gerenciar_projetos, use_container_width=True, icon=":material/contract_edit:")
 
 
     # Ordenar Ano desc, Código asc
@@ -1100,8 +1148,13 @@ with mapa:
     pontos_focais_dict = carregar_pontos_focais(todos_projetos)
 
     # Carregar CSV de municípios
-    url_municipios = "https://raw.githubusercontent.com/kelvins/Municipios-Brasileiros/master/csv/municipios.csv"
-    df_munis = pd.read_csv(url_municipios)
+    @st.cache_data
+    def carregar_municipios():
+        url = "https://raw.githubusercontent.com/kelvins/Municipios-Brasileiros/master/csv/municipios.csv"
+        return pd.read_csv(url)
+
+    df_munis = carregar_municipios()
+
 
     # Renomear a coluna e ajustar tipo
     df_munis.rename(columns={'codigo_ibge': 'codigo_municipio'}, inplace=True)
