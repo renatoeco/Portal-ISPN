@@ -233,134 +233,432 @@ def atualizar_filtro_interativo(campo, opcoes, label):
     if set(selecao_nova) != set(selecao_antiga):
         st.session_state.filtros_indicadores[campo] = selecao_nova
         st.rerun()
-        
-        
-@st.dialog("Registrar lançamentos", width="large")
-def registrar_lancamentos():
-    st.subheader("Novo lançamento de indicador")
 
-    tipo_projeto = st.selectbox(
-        "Tipo de projeto",
-        ["", "Fundo Ecos", "Projeto do ISPN"],
-        key="tipo_projeto_lanc"
-    )
 
-    subtipo = None
-    if tipo_projeto == "Fundo Ecos":
-        subtipo = st.selectbox(
-            "Subtipo",
-            ["", "PJ", "PF"],
-            key="subtipo_projeto_lanc"
+@st.dialog("Gerenciar lançamentos", width="large")   
+def gerenciar_lancamentos():
+    tab_add, tab_edit, tab_delete = st.tabs([":material/add: Adicionar", ":material/edit: Editar", ":material/delete: Excluir"])
+
+    # ------------------------- ABA ADICIONAR -------------------------
+    with tab_add:
+        st.subheader("Novo lançamento de indicador")
+
+        tipo_projeto = st.selectbox(
+            "Tipo de projeto",
+            ["", "Fundo Ecos", "Projetos ISPN"],
+            key="tipo_projeto_lanc"
         )
 
-    if (tipo_projeto == "Projeto do ISPN") or (tipo_projeto == "Fundo Ecos" and subtipo in ["PJ", "PF"]):
-
-        if tipo_projeto == "Projeto do ISPN":
-            colecao = projetos_ispn
-            tipo_salvar = "ispn"
-        elif subtipo == "PJ":
-            colecao = projetos_pj
-            tipo_salvar = "PJ"
-        elif subtipo == "PF":
-            colecao = projetos_pf
-            tipo_salvar = "PF"
-        else:
-            st.warning("Selecione o subtipo para continuar.")
-            st.stop()
-
-        projetos_lista = list(colecao.find({}, {"_id": 1, "codigo": 1, "nome_do_projeto": 1}))
-        if not projetos_lista:
-            st.warning("Nenhum projeto encontrado.")
-            st.stop()
-
-        projetos_opcoes = {
-            f"{p.get('codigo', 'Sem código')} - {p.get('nome_do_projeto', '')}": p["_id"]
-            for p in projetos_lista
-        }
-
-        projeto_selecionado = st.selectbox(
-            "Projeto",
-            [""] + list(projetos_opcoes.keys())
-        )
-
-        if projeto_selecionado != "":
-            projeto_oid = projetos_opcoes[projeto_selecionado]
-
-            indicadores_lista = list(indicadores.find({}, {"_id": 1, "nome_indicador": 1}))
-            indicadores_opcoes = {
-                formatar_nome_legivel(i["nome_indicador"]): i
-                for i in indicadores_lista
-            }
-
-            indicador_legivel = st.selectbox(
-                "Indicador",
-                [""] + list(indicadores_opcoes.keys())
+        subtipo = None
+        if tipo_projeto == "Fundo Ecos":
+            subtipo = st.selectbox(
+                "Subtipo",
+                ["", "PJ", "PF"],
+                key="subtipo_projeto_lanc"
             )
 
-            if indicador_legivel != "":
-                indicador_doc = indicadores_opcoes[indicador_legivel]
-                indicador_oid = indicador_doc["_id"]
+        if (tipo_projeto == "Projetos ISPN") or (tipo_projeto == "Fundo Ecos" and subtipo in ["PJ", "PF"]):
 
-                with st.form(key="form_lancamento_indicador"):
-                    col1, col2 = st.columns(2)
+            if tipo_projeto == "Projetos ISPN":
+                colecao = projetos_ispn
+                tipo_salvar = "ispn"
+            elif subtipo == "PJ":
+                colecao = projetos_pj
+                tipo_salvar = "PJ"
+            elif subtipo == "PF":
+                colecao = projetos_pf
+                tipo_salvar = "PF"
+            else:
+                st.warning("Selecione o subtipo para continuar.")
+                st.stop()
 
-                    # Lógica de campo de valor
-                    if "espécies" in indicador_legivel.lower():
-                        valor = col1.text_input("Espécies")  # texto livre
-                    else:
-                        valor = col1.number_input("Valor", step=1.0, format="%.2f")
+            projetos_lista = list(colecao.find({}, {"_id": 1, "codigo": 1, "sigla": 1}))
+            if not projetos_lista:
+                st.warning("Nenhum projeto encontrado.")
+                st.stop()
 
-                    # Campo de ano como number_input a partir de 2025
-                    ano = col2.number_input("Ano", min_value=2025, step=1)
+            projetos_opcoes = {
+                f"{p.get('codigo', 'Sem código')} - {p.get('sigla', '')}": p["_id"]
+                for p in projetos_lista
+            }
 
-                    # Lista de pessoas da coleção
-                    #pessoas_lista = list(pessoas.find({}, {"_id": 1, "nome_completo": 1}))
-                    # opcoes_autores = {
-                    #     pessoa["nome_completo"]: pessoa["_id"]
-                    #     for pessoa in pessoas_lista if "nome_completo" in pessoa
-                    # }
+            projeto_selecionado = st.selectbox(
+                "Projeto",
+                [""] + list(projetos_opcoes.keys())
+            )
 
-                    #autor_nome = col1.selectbox("Autor do lançamento", [""] + sorted(opcoes_autores.keys()))
-                    
-                    # Lista de pessoas da coleção
-                    pessoas_lista = list(pessoas.find({}, {"_id": 1, "nome_completo": 1}))
-                    opcoes_autores = sorted([
-                        pessoa["nome_completo"]
-                        for pessoa in pessoas_lista if "nome_completo" in pessoa
-                    ])
+            if projeto_selecionado != "":
+                projeto_oid = projetos_opcoes[projeto_selecionado]
 
-                    autor_nome = col1.selectbox("Autor do lançamento", [""] + opcoes_autores)
+                indicadores_lista = list(indicadores.find({}, {"_id": 1, "nome_indicador": 1}))
+                indicadores_opcoes = {
+                    formatar_nome_legivel(i["nome_indicador"]): i
+                    for i in indicadores_lista
+                }
 
-                    
-                    observacoes = col2.text_area("Observações", height=100)
+                indicador_legivel = st.selectbox(
+                    "Indicador",
+                    [""] + list(indicadores_opcoes.keys())
+                )
 
-                    submit = st.form_submit_button("Salvar lançamento")
+                if indicador_legivel != "":
+                    indicador_doc = indicadores_opcoes[indicador_legivel]
+                    indicador_oid = indicador_doc["_id"]
+
+                    with st.form(key="form_lancamento_indicador"):
+                        col1, col2 = st.columns(2)
+
+                        # Lógica de campo de valor
+                        if "espécies" in indicador_legivel.lower():
+                            valor = col1.text_input("Espécies")  # texto livre
+                        else:
+                            valor = col1.number_input("Valor", step=1.0, format="%.2f")
+
+                        # Campo de ano como number_input a partir de 2025
+                        ano = col2.number_input("Ano", min_value=2025, step=1)
+
+                        # Lista de pessoas da coleção
+                        #pessoas_lista = list(pessoas.find({}, {"_id": 1, "nome_completo": 1}))
+                        # opcoes_autores = {
+                        #     pessoa["nome_completo"]: pessoa["_id"]
+                        #     for pessoa in pessoas_lista if "nome_completo" in pessoa
+                        # }
+
+                        #autor_nome = col1.selectbox("Autor do lançamento", [""] + sorted(opcoes_autores.keys()))
+                        
+                        # Lista de pessoas da coleção
+                        pessoas_lista = list(pessoas.find({}, {"_id": 1, "nome_completo": 1}))
+                        opcoes_autores = sorted([
+                            pessoa["nome_completo"]
+                            for pessoa in pessoas_lista if "nome_completo" in pessoa
+                        ])
+
+                        autor_nome = col1.selectbox("Autor do lançamento", [""] + opcoes_autores)
+
+                        
+                        observacoes = col2.text_area("Observações", height=100)
+
+                        submit = st.form_submit_button("Salvar lançamento")
 
 
-                if submit:
-                    if autor_nome == "":
-                        st.warning("Selecione um autor.")
-                        st.stop()
+                    if submit:
+                        if autor_nome == "":
+                            st.warning("Selecione um autor.")
+                            st.stop()
 
-                    novo_lancamento = {
-                        "id_do_indicador": indicador_oid,
-                        "projeto": projeto_oid,
-                        "data_anotacao": datetime.datetime.now(),
-                        #"autor_anotacao": opcoes_autores[autor_nome],  # salva o _id da pessoa
-                        "autor_anotacao": autor_nome,  # salva o nome completo
-                        "valor": valor,
-                        "ano": str(ano),
-                        "observacoes": observacoes,
-                        "tipo": tipo_salvar
+                        novo_lancamento = {
+                            "id_do_indicador": indicador_oid,
+                            "projeto": projeto_oid,
+                            "data_anotacao": datetime.datetime.now(),
+                            #"autor_anotacao": opcoes_autores[autor_nome],  # salva o _id da pessoa
+                            "autor_anotacao": autor_nome,  # salva o nome completo
+                            "valor": valor,
+                            "ano": str(ano),
+                            "observacoes": observacoes,
+                            "tipo": tipo_salvar
+                        }
+
+                        lancamentos.insert_one(novo_lancamento)
+                        st.success("Lançamento salvo com sucesso.")
+                        time.sleep(2)
+                        st.rerun()
+
+                else:
+                    st.info("Por favor, selecione as opções acima para prosseguir.")
+
+    # ------------------------- ABA EDITAR -------------------------
+    with tab_edit:
+        st.subheader("Editar lançamento")
+
+        tipo_projeto_edit = st.selectbox(
+            "Tipo de projeto",
+            ["", "Fundo Ecos", "Projetos ISPN"],
+            key="tipo_projeto_edit"
+        )
+
+        subtipo_edit = None
+        if tipo_projeto_edit == "Fundo Ecos":
+            subtipo_edit = st.selectbox(
+                "Subtipo",
+                ["", "PJ", "PF"],
+                key="subtipo_projeto_edit"
+            )
+
+        if (tipo_projeto_edit == "Projetos ISPN") or (tipo_projeto_edit == "Fundo Ecos" and subtipo_edit in ["PJ", "PF"]):
+
+            if tipo_projeto_edit == "Projetos ISPN":
+                colecao = projetos_ispn
+                tipo_salvar = "ispn"
+            elif subtipo_edit == "PJ":
+                colecao = projetos_pj
+                tipo_salvar = "PJ"
+            elif subtipo_edit == "PF":
+                colecao = projetos_pf
+                tipo_salvar = "PF"
+
+            projetos_lista_edit = list(colecao.find({}, {"_id": 1, "codigo": 1, "sigla": 1}))
+            projetos_opcoes_edit = {
+                f"{p.get('codigo', 'Sem código')} - {p.get('sigla', '')}": p["_id"]
+                for p in projetos_lista_edit
+            }
+
+            projeto_sel_edit = st.selectbox(
+                "Projeto",
+                [""] + list(projetos_opcoes_edit.keys()),
+                key="projeto_edit"
+            )
+
+            if projeto_sel_edit != "":
+                projeto_oid_edit = projetos_opcoes_edit[projeto_sel_edit]
+
+                lancamentos_proj = [
+                    l for l in lancamentos.find({"projeto": projeto_oid_edit, "tipo": tipo_salvar})
+                    if l.get("ano") != "até 2024"
+                ]
+
+                if not lancamentos_proj:
+                    st.info("Nenhum lançamento encontrado para este projeto.")
+                else:
+                    lanc_opcoes_edit = {
+                        f"{l['data_anotacao'].strftime('%d/%m/%Y')} - {l['autor_anotacao']}": l["_id"]
+                        for l in lancamentos_proj
                     }
 
-                    lancamentos.insert_one(novo_lancamento)
-                    st.success("Lançamento salvo com sucesso.")
-                    time.sleep(2)
-                    st.rerun()
+                    lanc_sel_edit = st.selectbox(
+                        "Selecione o lançamento",
+                        [""] + list(lanc_opcoes_edit.keys()),
+                        key="lanc_sel_edit"
+                    )
 
-            else:
-                st.info("Por favor, selecione as opções acima para prosseguir.")
+                    if lanc_sel_edit != "":
+                        lanc_id_edit = lanc_opcoes_edit[lanc_sel_edit]
+                        doc = lancamentos.find_one({"_id": lanc_id_edit})
+                        
+                        col1, col2 = st.columns(2)
+                        
+                        novo_valor = col1.number_input("Valor", value=float(doc["valor"]), step=1.0)
+
+                        ano_str = doc.get("ano", "2025")
+                        try:
+                            ano_int = int(ano_str)
+                        except ValueError:
+                            ano_int = 2025
+
+                        novo_ano = col2.number_input("Ano", value=ano_int, min_value=2025, step=1)
+
+                        novas_obs = st.text_area("Observações", value=doc.get("observacoes", ""))
+
+                        if st.button("Salvar alterações", key="salvar_edit"):
+                            lancamentos.update_one(
+                                {"_id": lanc_id_edit},
+                                {"$set": {
+                                    "valor": novo_valor,
+                                    "ano": str(novo_ano),
+                                    "observacoes": novas_obs
+                                }}
+                            )
+                            st.success("Lançamento atualizado com sucesso!")
+                            st.rerun()
+
+
+
+    # ------------------------- ABA EXCLUIR -------------------------
+    with tab_delete:
+        st.subheader("Excluir lançamento")
+
+        tipo_projeto_del = st.selectbox(
+            "Tipo de projeto",
+            ["", "Fundo Ecos", "Projetos ISPN"],
+            key="tipo_projeto_del"
+        )
+
+        subtipo_del = None
+        if tipo_projeto_del == "Fundo Ecos":
+            subtipo_del = st.selectbox(
+                "Subtipo",
+                ["", "PJ", "PF"],
+                key="subtipo_projeto_del"
+            )
+
+        if (tipo_projeto_del == "Projetos ISPN") or (tipo_projeto_del == "Fundo Ecos" and subtipo_del in ["PJ", "PF"]):
+
+            if tipo_projeto_del == "Projetos ISPN":
+                colecao = projetos_ispn
+            elif subtipo_del == "PJ":
+                colecao = projetos_pj
+            elif subtipo_del == "PF":
+                colecao = projetos_pf
+
+            projetos_lista_del = list(colecao.find({}, {"_id": 1, "codigo": 1, "sigla": 1}))
+            projetos_opcoes_del = {
+                f"{p.get('codigo', 'Sem código')} - {p.get('sigla', '')}": p["_id"]
+                for p in projetos_lista_del
+            }
+
+            projeto_sel_del = st.selectbox(
+                "Projeto",
+                [""] + list(projetos_opcoes_del.keys()),
+                key="projeto_del"
+            )
+
+            if projeto_sel_del != "":
+                projeto_oid_del = projetos_opcoes_del[projeto_sel_del]
+
+                lancamentos_proj_del = list(
+                    lancamentos.find({"projeto": projeto_oid_del}).sort("data_anotacao", -1)
+                )
+
+                if not lancamentos_proj_del:
+                    st.info("Nenhum lançamento encontrado para este projeto.")
+                else:
+                    lanc_opcoes_del = {
+                        f"{l['data_anotacao'].strftime('%d/%m/%Y')} - {l['autor_anotacao']}": l["_id"]
+                        for l in lancamentos_proj_del
+                    }
+
+                    lanc_sel_del = st.selectbox(
+                        "Selecione o lançamento",
+                        [""] + list(lanc_opcoes_del.keys()),
+                        key="lanc_sel_del"
+                    )
+
+                    if lanc_sel_del != "":
+                        lanc_id_del = lanc_opcoes_del[lanc_sel_del]
+                        doc = lancamentos.find_one({"_id": lanc_id_del})
+
+                        st.warning(f"Tem certeza que deseja excluir o lançamento de {doc['data_anotacao'].strftime('%d/%m/%Y')} - {doc['autor_anotacao']}?")
+
+                        if st.button("Excluir", key="excluir_lanc"):
+                            lancamentos.delete_one({"_id": lanc_id_del})
+                            st.success("Lançamento excluído com sucesso!")
+                            st.rerun()
+                    
+
+# def registrar_lancamentos():
+#     st.subheader("Novo lançamento de indicador")
+
+#     tipo_projeto = st.selectbox(
+#         "Tipo de projeto",
+#         ["", "Fundo Ecos", "Projetos ISPN"],
+#         key="tipo_projeto_lanc"
+#     )
+
+#     subtipo = None
+#     if tipo_projeto == "Fundo Ecos":
+#         subtipo = st.selectbox(
+#             "Subtipo",
+#             ["", "PJ", "PF"],
+#             key="subtipo_projeto_lanc"
+#         )
+
+#     if (tipo_projeto == "Projetos ISPN") or (tipo_projeto == "Fundo Ecos" and subtipo in ["PJ", "PF"]):
+
+#         if tipo_projeto == "Projetos ISPN":
+#             colecao = projetos_ispn
+#             tipo_salvar = "ispn"
+#         elif subtipo == "PJ":
+#             colecao = projetos_pj
+#             tipo_salvar = "PJ"
+#         elif subtipo == "PF":
+#             colecao = projetos_pf
+#             tipo_salvar = "PF"
+#         else:
+#             st.warning("Selecione o subtipo para continuar.")
+#             st.stop()
+
+#         projetos_lista = list(colecao.find({}, {"_id": 1, "codigo": 1, "sigla": 1}))
+#         if not projetos_lista:
+#             st.warning("Nenhum projeto encontrado.")
+#             st.stop()
+
+#         projetos_opcoes = {
+#             f"{p.get('codigo', 'Sem código')} - {p.get('sigla', '')}": p["_id"]
+#             for p in projetos_lista
+#         }
+
+#         projeto_selecionado = st.selectbox(
+#             "Projeto",
+#             [""] + list(projetos_opcoes.keys())
+#         )
+
+#         if projeto_selecionado != "":
+#             projeto_oid = projetos_opcoes[projeto_selecionado]
+
+#             indicadores_lista = list(indicadores.find({}, {"_id": 1, "nome_indicador": 1}))
+#             indicadores_opcoes = {
+#                 formatar_nome_legivel(i["nome_indicador"]): i
+#                 for i in indicadores_lista
+#             }
+
+#             indicador_legivel = st.selectbox(
+#                 "Indicador",
+#                 [""] + list(indicadores_opcoes.keys())
+#             )
+
+#             if indicador_legivel != "":
+#                 indicador_doc = indicadores_opcoes[indicador_legivel]
+#                 indicador_oid = indicador_doc["_id"]
+
+#                 with st.form(key="form_lancamento_indicador"):
+#                     col1, col2 = st.columns(2)
+
+#                     # Lógica de campo de valor
+#                     if "espécies" in indicador_legivel.lower():
+#                         valor = col1.text_input("Espécies")  # texto livre
+#                     else:
+#                         valor = col1.number_input("Valor", step=1.0, format="%.2f")
+
+#                     # Campo de ano como number_input a partir de 2025
+#                     ano = col2.number_input("Ano", min_value=2025, step=1)
+
+#                     # Lista de pessoas da coleção
+#                     #pessoas_lista = list(pessoas.find({}, {"_id": 1, "nome_completo": 1}))
+#                     # opcoes_autores = {
+#                     #     pessoa["nome_completo"]: pessoa["_id"]
+#                     #     for pessoa in pessoas_lista if "nome_completo" in pessoa
+#                     # }
+
+#                     #autor_nome = col1.selectbox("Autor do lançamento", [""] + sorted(opcoes_autores.keys()))
+                    
+#                     # Lista de pessoas da coleção
+#                     pessoas_lista = list(pessoas.find({}, {"_id": 1, "nome_completo": 1}))
+#                     opcoes_autores = sorted([
+#                         pessoa["nome_completo"]
+#                         for pessoa in pessoas_lista if "nome_completo" in pessoa
+#                     ])
+
+#                     autor_nome = col1.selectbox("Autor do lançamento", [""] + opcoes_autores)
+
+                    
+#                     observacoes = col2.text_area("Observações", height=100)
+
+#                     submit = st.form_submit_button("Salvar lançamento")
+
+
+            #     if submit:
+            #         if autor_nome == "":
+            #             st.warning("Selecione um autor.")
+            #             st.stop()
+
+            #         novo_lancamento = {
+            #             "id_do_indicador": indicador_oid,
+            #             "projeto": projeto_oid,
+            #             "data_anotacao": datetime.datetime.now(),
+            #             #"autor_anotacao": opcoes_autores[autor_nome],  # salva o _id da pessoa
+            #             "autor_anotacao": autor_nome,  # salva o nome completo
+            #             "valor": valor,
+            #             "ano": str(ano),
+            #             "observacoes": observacoes,
+            #             "tipo": tipo_salvar
+            #         }
+
+            #         lancamentos.insert_one(novo_lancamento)
+            #         st.success("Lançamento salvo com sucesso.")
+            #         time.sleep(2)
+            #         st.rerun()
+
+            # else:
+            #     st.info("Por favor, selecione as opções acima para prosseguir.")
 
 
 
@@ -372,9 +670,9 @@ def registrar_lancamentos():
 st.header("Indicadores")
 st.write('')
 
-if set(st.session_state.tipo_usuario) & {"admin",}:
+if set(st.session_state.tipo_usuario) & {"admin", "gestao_fundo_ecos"}:
     col1, col2, col3 = st.columns([2, 2, 1])
-    col3.button("Registrar lançamentos", on_click=registrar_lancamentos, use_container_width=True, icon=":material/stylus_note:")
+    col3.button("Gerenciar lançamentos", on_click=gerenciar_lancamentos, use_container_width=True, icon=":material/stylus_note:")
 
 
 # ===== FILTROS =====
