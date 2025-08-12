@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import folium
+import uuid
 import math
 import time
 from bson import ObjectId
@@ -101,13 +102,6 @@ def converter_uf_codigo_para_nome(valor):
         return valor
     
 
-@st.cache_data
-def carregar_pontos_focais(_todos_projetos):
-    ids = [p["ponto_focal"] for p in _todos_projetos if isinstance(p.get("ponto_focal"), ObjectId)]
-    pessoas = db["pessoas"].find({"_id": {"$in": ids}})
-    return {p["_id"]: p.get("nome_completo", "Não encontrado") for p in pessoas}
-    
-
 @st.dialog("Detalhes do projeto", width="large")
 def mostrar_detalhes(codigo_proj: str):
     codigo_proj = str(codigo_proj).strip()
@@ -128,7 +122,10 @@ def mostrar_detalhes(codigo_proj: str):
     nome_ponto_focal = "Não informado"
     ponto_focal_obj = projeto.get("ponto_focal")
     if isinstance(ponto_focal_obj, ObjectId):
-        pessoa = db["pessoas"].find_one({"_id": ponto_focal_obj})
+        pessoa = db["pessoas"].find_one(
+            {"_id": ponto_focal_obj},
+            {"nome_completo": 1, "_id": 0}  # Projeta apenas o campo necessário → mais rápido
+        )
         if pessoa:
             nome_ponto_focal = pessoa.get("nome_completo", "Não encontrado")
 
@@ -280,7 +277,11 @@ def mostrar_detalhes(codigo_proj: str):
 
 def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_ispn_dict):
     form_key = f"form_projeto_{str(projeto.get('_id', 'novo'))}"
+    
     with st.form(key=form_key):
+
+        # --- Detecta se é adicionar ou editar ---
+        modo = st.session_state.get("modo_formulario", "adicionar")  # valor padrão
 
         # Obtemos categorias e moedas únicas a partir das duas coleções
         colecoes_projetos = [db["projetos_pf"], db["projetos_pj"]]
@@ -293,37 +294,55 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         opcoes_categoria = sorted(categorias_set)
         opcoes_moeda = sorted(moedas_set)
 
-        # --- Carrega estados e municípios da coleção 'ufs_projetos' ---
+        # --- Carrega dados do Mongo ---
         doc_ufs = ufs_municipios.find_one({"ufs": {"$exists": True}})
         doc_municipios = ufs_municipios.find_one({"municipios": {"$exists": True}})
 
         dados_ufs = doc_ufs.get("ufs", []) if doc_ufs else []
         dados_municipios = doc_municipios.get("municipios", []) if doc_municipios else []
 
-        ufs_dict = {uf["nome_uf"]: uf["codigo_uf"] for uf in dados_ufs}
-        #ufs_nome_para_sigla = {uf["nome_uf"]: uf["sigla_uf"] for uf in dados_ufs}
-        municipios_dict = {m["nome_municipio"]: m["codigo_municipio"] for m in dados_municipios}
+        # Mapas para nome <-> código
+        ufs_dict = {uf["nome_uf"].strip(): int(uf["codigo_uf"]) for uf in dados_ufs}
+        ufs_codigo_para_nome = {int(uf["codigo_uf"]): uf["nome_uf"].strip() for uf in dados_ufs}
+
+        # Criar mapeamento código -> "Município - UF"
+        municipios_codigo_para_label = {
+            int(m["codigo_municipio"]): f'{m["nome_municipio"].strip()} - {codigo_uf_para_sigla[str(m["codigo_municipio"])[:2]]}'
+            for m in dados_municipios
+        }
+
+       # Converte ufs do projeto, que estão salvos como string separada por vírgula, para lista de códigos (int)
+        ufs_codigos = []
+        ufs_str = projeto.get("ufs", "")
+        if isinstance(ufs_str, str):
+            ufs_codigos = [int(c.strip()) for c in ufs_str.split(",") if c.strip()]
+
+        ufs_valor_nome = [ufs_codigo_para_nome.get(c) for c in ufs_codigos if c in ufs_codigo_para_nome]
+
+        # municipio_principal do projeto (string), converte para int para buscar label
+        municipio_principal_codigo = projeto.get("municipio_principal", None)
+        if municipio_principal_codigo is not None:
+            try:
+                municipio_principal_codigo = int(municipio_principal_codigo)
+            except:
+                municipio_principal_codigo = None
+
+        # municipios de atuação (string separada por vírgula)
+        municipios_codigos = []
+        municipios_str = projeto.get("municipios", "")
+        if isinstance(municipios_str, str):
+            municipios_codigos = [int(c.strip()) for c in municipios_str.split(",") if c.strip()]
 
 
-        # Inverte os dicionários para facilitar buscas reversas (edição de projetos)
-        ufs_codigo_para_nome = {int(v): k for k, v in ufs_dict.items()}
-        municipios_codigo_para_nome = {v: k for k, v in municipios_dict.items()}
-
-        # Recupera códigos salvos e transforma em nomes para edição
-        ufs_valor_codigo = [int(c) for c in projeto.get("ufs", []) if str(c).isdigit()]
-        ufs_valor_nome = [ufs_codigo_para_nome.get(cod) for cod in ufs_valor_codigo if cod in ufs_codigo_para_nome]
-        ufs_valor_nome = [n for n in ufs_valor_nome if n]
-
-
-        municipios_valor_codigo = projeto.get("municipios", [])
-        municipios_valor_nome = [municipios_codigo_para_nome[cod] for cod in municipios_valor_codigo if cod in municipios_codigo_para_nome]
-
-        municipio_principal_codigo = projeto.get("municipio_principal", "")
-        municipio_principal_nome = municipios_codigo_para_nome.get(municipio_principal_codigo, "")
-
-        # --------------------------------------------
-
-        col1, col2, col3 = st.columns(3)
+        # Campos específicos
+        if tipo_projeto == "PF":
+            col1, col2, col3, col4, col5 = st.columns(5)
+            cpf = col4.text_input("CPF", projeto.get("cpf", ""))
+            genero = col5.selectbox("Gênero", ["Masculino", "Feminino", "Outro"], 
+                                    index=["Masculino", "Feminino", "Outro"].index(projeto.get("genero", "Masculino")))
+        else:
+            col1, col2, col3, col4 = st.columns(4)
+            cnpj = col4.text_input("CNPJ", projeto.get("cnpj", ""))
 
         # Campos comuns
         codigo = col1.text_input("Código", projeto.get("codigo", ""))
@@ -331,7 +350,6 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         proponente = col3.text_input("Proponente", projeto.get("proponente", ""))
 
         col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
-
         nome_do_projeto = col1.text_input("Nome do projeto", projeto.get("nome_do_projeto", ""))
 
         categoria_valor = projeto.get("categoria", "")
@@ -345,43 +363,61 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         edital = col3.text_input("Edital", projeto.get("edital", ""))
         ano_aprovacao = col4.number_input("Ano de aprovação", value=projeto.get("ano_de_aprovacao", 2025), step=1)
 
-        # Interface
         col1, col2, col3 = st.columns(3)
 
-        ufs_selecionados = col1.multiselect("Estado(s)", options=sorted(ufs_dict.keys()), default=ufs_valor_nome)
+        # --- Seleção de estados (não afeta municípios) ---
+        ufs_selecionados = col1.multiselect(
+            "Estado(s)",
+            options=sorted(ufs_dict.keys()),
+            default=ufs_valor_nome,
+            key=f"ufs_{form_key}",
+            placeholder=""
+        )
 
-        # Filtra municípios que pertencem aos estados selecionados (pelo código IBGE)
-        ufs_codigos_selecionados = [ufs_dict[nome] for nome in ufs_selecionados]
-        
-        municipios_filtrados = [m for m in dados_municipios if str(m["codigo_municipio"]).startswith(tuple(str(c) for c in ufs_codigos_selecionados))]
+        # --- Município principal (todos os municípios) ---
+        municipio_principal = col2.selectbox(
+            "Município principal",
+            options=sorted(municipios_codigo_para_label.keys()),
+            format_func=lambda codigo: municipios_codigo_para_label.get(codigo, ""),
+            index=sorted(municipios_codigo_para_label.keys()).index(municipio_principal_codigo)
+                if municipio_principal_codigo in municipios_codigo_para_label else 0,
+            key=f"municipio_principal_{form_key}", 
+            placeholder=""
+        )
 
-        # Garante que todos os municípios salvos estejam na lista, mesmo que o estado não esteja selecionado
-        municipios_nomes_filtrados = sorted(set(
-            [m["nome_municipio"] for m in municipios_filtrados] +
-            municipios_valor_nome +
-            ([municipio_principal_nome] if municipio_principal_nome else [])
-        ))
-
-        municipios_dict_filtrados = {m["nome_municipio"]: m["codigo_municipio"] for m in municipios_filtrados}
-
-        # Interface
-        municipio_principal_nome = col2.selectbox("Município principal", options=municipios_nomes_filtrados, index=municipios_nomes_filtrados.index(municipio_principal_nome) if municipio_principal_nome in municipios_nomes_filtrados else 0)
-        municipios_nomes = col3.multiselect("Municípios de atuação", options=municipios_nomes_filtrados, default=municipios_valor_nome)
+        # --- Municípios de atuação (todos os municípios) ---
+        municipios_atuacao = col3.multiselect(
+            "Municípios de atuação",
+            options=sorted(municipios_codigo_para_label.keys()),
+            format_func=lambda codigo: municipios_codigo_para_label.get(codigo, ""),
+            default=municipios_codigos,
+            key=f"municipios_{form_key}",
+            placeholder=""
+        )
 
         col1, col2 = st.columns([1, 4])
-
         latlong = col1.text_input("Latitude e longitude principais", projeto.get("lat_long_principal", ""))
         local_obs = col2.text_area("Observações sobre o local", projeto.get("observacoes_sobre_o_local", ""))
 
-        col1, col2, col3, col4 = st.columns(4)
+        
 
-        duracao = col1.text_input("Duração original (meses)", projeto.get("duracao_original_meses", ""))
-        data_inicio = col2.text_input("Data início do contrato", projeto.get("data_inicio_do_contrato", ""))
-        data_fim = col3.text_input("Data fim do contrato", projeto.get("data_final_do_contrato", ""))
-        data_relatorio = col4.text_input("Data relatório final", projeto.get("data_relatorio_monitoramento_final", ""))
+        if modo == "editar":
+            col1, col2, col3, col4 = st.columns(4)
+            duracao = col1.text_input("Duração original (meses)", projeto.get("duracao_original_meses", ""))
+            data_inicio = col2.text_input("Data início do contrato", projeto.get("data_inicio_do_contrato", ""))
+            data_fim = col3.text_input("Data fim do contrato", projeto.get("data_final_do_contrato", ""))
+            data_relatorio = col4.text_input(
+                "Data relatório final",
+                projeto.get("data_relatorio_monitoramento_final", "")
+            )
+        else:
+            col1, col2, col3 = st.columns(3)
+            duracao = col1.text_input("Duração original (meses)", projeto.get("duracao_original_meses", ""))
+            data_inicio = col2.text_input("Data início do contrato", projeto.get("data_inicio_do_contrato", ""))
+            data_fim = col3.text_input("Data fim do contrato", projeto.get("data_final_do_contrato", ""))
+            data_relatorio = ""
 
         col1, col2 = st.columns(2)
-
         moeda_valor = projeto.get("moeda", "")
         moeda = col1.selectbox(
             "Moeda",
@@ -389,48 +425,37 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
             index=opcoes_moeda.index(moeda_valor) if moeda_valor in opcoes_moeda else 0,
             placeholder=""
         )
-
         valor = col2.text_input("Valor", projeto.get("valor", ""))
 
         col1, col2, col3, col4 = st.columns(4)
-
-        # Lista manual de opções disponíveis
         opcoes_temas = ["Agroecologia", "Agroextrativismo - Beneficiamento e Comercialização", "Água", "Apicultura e meliponicultura",
             "Artesanato", "Articulação", "Capacitação", "Certificação", "Conservação da biodiversidade", "Criação de animais", "Cultura",
-            "Educação Ambiental", "Energia Renovável", "Fauna", "Fogo", "Gestão Territoriral", "Manejo da biodiversidade", "Pesquisa",
+            "Educação Ambiental", "Energia Renovável", "Fauna", "Fogo", "Gestão Territorial", "Manejo da biodiversidade", "Pesquisa",
             "Plantas medicinais", "Política Pública", "Recuperação de áreas degradadas", "Sistemas Agroflorestais - SAFs", "Turismo"
         ]
-
         opcoes_publico = ["Agricultores Familiares", "Assentados da Reforma Agrária", "Comunidade Tradicional", "Garimpeiros", 
                           "Idosos", "Indígenas", "Jovens", "Mulheres", "Pescador Artesanal", "Quilombola", "Urbano", "Outro" ]
-        
         opcoes_bioma = ["Amazônia", "Caatinga", "Cerrado", "Mata Atlântica", "Pampas", "Pantanal"]
-
         opcoes_status = ["Em andamento", "Finalizado", "Cancelado"]
 
-        #Filtra apenas os valores válidos
-        temas_valor = [p.strip() for p in projeto.get("temas", "").split(",") if p.strip()]
-
+        temas_valor = [
+            p.strip()
+            for p in projeto.get("temas", "").split(",")
+            if p.strip() in opcoes_temas
+        ]
 
         publico_valor = [p.strip() for p in projeto.get("publico", "").split(",") if p.strip()]
         bioma_valor = [b.strip() for b in projeto.get("bioma", "").split(",") if b.strip()]
         status_valor = projeto.get("status", opcoes_status[0])
 
-        # Campos multiselect
         temas = col1.multiselect("Temas", options=opcoes_temas, default=temas_valor, placeholder="")
         publico = col2.multiselect("Público", options=opcoes_publico, default=publico_valor, placeholder="")
         bioma = col3.multiselect("Bioma", options=opcoes_bioma, default=bioma_valor, placeholder="")
-
-        # Campo selectbox
         status = col4.selectbox("Status", options=opcoes_status, index=opcoes_status.index(status_valor) if status_valor in opcoes_status else 0)
 
-
         objetivo_geral = st.text_area("Objetivo geral", projeto.get("objetivo_geral", ""))
-        #valor_dolar = st.text_input("Valor em dólar atualizado", projeto.get("valor_dolar_atualizado", ""))
 
         col1, col2, col3 = st.columns(3)
-
-        # Ponto Focal
         pessoas_options = {str(k): v for k, v in sorted(pessoas_dict.items(), key=lambda item: item[1].lower())}
         ponto_focal_default = str(projeto.get("ponto_focal", ""))
         ponto_focal_keys = list(pessoas_options.keys())
@@ -439,26 +464,19 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
             options=ponto_focal_keys,
             format_func=lambda x: pessoas_options.get(x, ""),
             index=ponto_focal_keys.index(ponto_focal_default) if ponto_focal_default in ponto_focal_keys else 0,
-            placeholder=""  # Placeholder vazio
+            placeholder=""
         )
 
-        # Lista de programas que devem ser removidos
         programas_excluidos = {"ADM Brasília", "ADM Santa Inês", "Comunicação", "Advocacy", "Coordenação"}
-
-        # Filtrar programas, excluindo os indesejados
         programas_filtrados = {
             str(k): v for k, v in programas_dict.items()
             if v not in programas_excluidos and v.strip()
         }
-
-        # Ordenar alfabeticamente pelo nome do programa
         programas_options = {
             str(k): v for k, v in sorted(programas_filtrados.items(), key=lambda item: item[1].lower())
         }
-
         programa_default = str(projeto.get("programa", ""))
         programa_keys = list(programas_options.keys())
-
         programa = col2.selectbox(
             "Programa",
             options=programa_keys,
@@ -467,16 +485,11 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
             placeholder=""
         )
 
-
-        # Projeto pai (sem opções em branco e ordenado alfabeticamente)
         projetos_pai_options = {
             str(k): v for k, v in projetos_ispn_dict.items() if v.strip()
         }
-        # Ordenar alfabeticamente pelos nomes dos projetos
         sorted_keys = sorted(projetos_pai_options, key=lambda x: projetos_pai_options[x].lower())
-
         codigo_pai_default = str(projeto.get("codigo_projeto_pai", ""))
-
         codigo_pai = col3.selectbox(
             "Projeto pai",
             options=sorted_keys,
@@ -485,17 +498,7 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
             placeholder=""
         )
 
-        col1, col2 = st.columns(2)
-
-        # Campos específicos
-        if tipo_projeto == "PF":
-            cpf = col1.text_input("CPF", projeto.get("cpf", ""))
-            genero = col2.selectbox("Gênero", ["Masculino", "Feminino", "Outro"], index=["Masculino", "Feminino", "Outro"].index(projeto.get("genero", "Masculino")))
-        else:
-            cnpj = st.text_input("CNPJ", projeto.get("cnpj", ""))
-
-        submitted = st.form_submit_button("Salvar alterações")
-
+        submitted = st.form_submit_button("Salvar")
         if submitted:
             doc = {
                 "codigo": codigo,
@@ -513,31 +516,26 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
                 "data_relatorio_monitoramento_final": data_relatorio,
                 "moeda": moeda,
                 "valor": valor,
-                "bioma": bioma,
+                "bioma": ", ".join(bioma) if isinstance(bioma, list) else str(bioma),
                 "status": status,
-                "temas": temas,
-                "publico": publico,
+                "temas": ", ".join(temas) if isinstance(temas, list) else str(temas),
+                "publico": ", ".join(publico) if isinstance(publico, list) else str(publico),
                 "objetivo_geral": objetivo_geral,
-                "valor_dolar_original": "",
-                "valor_dolar_atualizado": "",
                 "tipo": tipo_projeto,
                 "ponto_focal": ObjectId(ponto_focal) if ponto_focal and ObjectId.is_valid(ponto_focal) else None,
                 "programa": ObjectId(programa) if programa and ObjectId.is_valid(programa) else None,
                 "codigo_projeto_pai": ObjectId(codigo_pai) if codigo_pai and ObjectId.is_valid(codigo_pai) else None,
+                "ufs": ",".join(str(ufs_dict[nome]) for nome in ufs_selecionados if nome in ufs_dict),
+                "municipio_principal": str(municipio_principal) if municipio_principal is not None else "",
+                "municipios": ",".join(str(codigo) for codigo in municipios_atuacao),
             }
-
-            # Atribuições fora do dict
-            doc["ufs"] = [ufs_dict[nome] for nome in ufs_selecionados]
-            doc["municipio_principal"] = municipios_dict_filtrados.get(municipio_principal_nome, None)
-            doc["municipios"] = [municipios_dict_filtrados[nome] for nome in municipios_nomes]
-
             if tipo_projeto == "PF":
                 doc["cpf"] = cpf
                 doc["genero"] = genero
             else:
                 doc["cnpj"] = cnpj
-
             return doc
+
     return None
 
 
@@ -548,13 +546,13 @@ def gerenciar_projetos():
 
     abas = st.tabs(["Adicionar", "Editar", "Excluir"])
 
-    # Dicionários auxiliares
     pessoas_dict = {p["_id"]: p.get("nome_completo", "") for p in pessoas.find()}
     programas_dict = {p["_id"]: p.get("nome_programa_area", "") for p in db["programas_areas"].find()}
     projetos_ispn_dict = {p["_id"]: p.get("codigo", "") for p in db["projetos_ispn"].find()}
 
-    # ---------------------- Adicionar ----------------------
+    # --- Adicionar ---
     with abas[0]:
+        st.session_state["modo_formulario"] = "adicionar"
         tipo_projeto = st.pills("Tipo de projeto", ["PF", "PJ"], selection_mode="single", default="PJ")
         colecao = db["projetos_pf"] if tipo_projeto == "PF" else db["projetos_pj"]
         novo = form_projeto({}, tipo_projeto, pessoas_dict, programas_dict, projetos_ispn_dict)
@@ -564,8 +562,9 @@ def gerenciar_projetos():
             time.sleep(2)
             st.rerun()
 
-    # ---------------------- Editar ----------------------
+    # --- Editar ---
     with abas[1]:
+        st.session_state["modo_formulario"] = "editar"
         projetos_pf = list(db["projetos_pf"].find())
         projetos_pj = list(db["projetos_pj"].find())
         todos_projetos = [(p, "PF") for p in projetos_pf] + [(p, "PJ") for p in projetos_pj]
@@ -589,6 +588,7 @@ def gerenciar_projetos():
                 time.sleep(2)
                 st.rerun()
 
+
     # ---------------------- Excluir ----------------------
     with abas[2]:
         projetos_pf = list(db["projetos_pf"].find())
@@ -607,8 +607,7 @@ def gerenciar_projetos():
             tipo = "PF" if selecionado_id in [str(p["_id"]) for p, t in todos_projetos if t == "PF"] else "PJ"
             colecao = db["projetos_pf"] if tipo == "PF" else db["projetos_pj"]
             projeto = colecao.find_one({"_id": ObjectId(selecionado_id)})
-            nome_proj = projeto.get("nome_do_projeto", "sem nome")
-            if st.button(f"Excluir o projeto: {nome_proj}"):
+            if st.button(f"Excluir projeto"):
                 colecao.delete_one({"_id": ObjectId(selecionado_id)})
                 st.warning("Projeto excluído.")
                 time.sleep(2)
@@ -763,6 +762,16 @@ df_projetos = df_projetos[colunas].rename(columns={
 })
 
 
+# Criar dicionário código_uf -> sigla
+codigo_uf_para_sigla = {
+    '11': 'RO', '12': 'AC', '13': 'AM', '14': 'RR', '15': 'PA', '16': 'AP', '17': 'TO',
+    '21': 'MA', '22': 'PI', '23': 'CE', '24': 'RN', '25': 'PB', '26': 'PE', '27': 'AL', '28': 'SE', '29': 'BA',
+    '31': 'MG', '32': 'ES', '33': 'RJ', '35': 'SP',
+    '41': 'PR', '42': 'SC', '43': 'RS',
+    '50': 'MS', '51': 'MT', '52': 'GO', '53': 'DF'
+}
+
+
 df_projetos_codigos = df_projetos.copy()
 
 
@@ -872,7 +881,7 @@ with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
     municipios_unicos = sorted(
         df_base["Município(s)"].dropna().apply(lambda x: [m.strip() for m in x.split(",")]).explode().unique()
     )
-    municipio_sel = col6.multiselect("Município", options=municipios_unicos, placeholder="Todos")
+    municipio_sel = col6.multiselect("Município(s)", options=municipios_unicos, placeholder="Todos")
     if municipio_sel:
         mask &= df_base["Município(s)"].apply(
             lambda x: any(m.strip() in municipio_sel for m in x.split(",")) if isinstance(x, str) else False
@@ -1136,139 +1145,129 @@ with lista:
 
 
 with mapa:
-    
-    
-    ######################################################################################################
-    # MAPA SOMENTE DOS MUNICÍPIOS PRINCIPAIS 
-    ######################################################################################################
-    
-    
     st.subheader("Mapa de distribuição de projetos")
 
-    pontos_focais_dict = carregar_pontos_focais(todos_projetos)
-
-    # Carregar CSV de municípios
     @st.cache_data
     def carregar_municipios():
         url = "https://raw.githubusercontent.com/kelvins/Municipios-Brasileiros/master/csv/municipios.csv"
-        return pd.read_csv(url)
+        df = pd.read_csv(url)
+        df.rename(columns={'codigo_ibge': 'codigo_municipio'}, inplace=True)
+        df['codigo_municipio'] = df['codigo_municipio'].astype(str)
+        return df
 
     df_munis = carregar_municipios()
 
+    @st.cache_data
+    def preparar_df_coords(df_projetos_codigos, df_filtrado, df_munis):
+        # Extrair código do município
+        df_projetos_codigos['codigo_municipio'] = [
+            m.split(",")[0].strip() if m else "" 
+            for m in df_projetos_codigos['Município Principal']
+        ]
 
-    # Renomear a coluna e ajustar tipo
-    df_munis.rename(columns={'codigo_ibge': 'codigo_municipio'}, inplace=True)
-    df_munis['codigo_municipio'] = df_munis['codigo_municipio'].astype(str)
+        # Filtrar
+        df_filtrado_proj = df_projetos_codigos[df_projetos_codigos["Código"].isin(df_filtrado["Código"])].copy()
+        df_filtrado_proj['codigo_municipio'] = df_filtrado_proj['Município Principal'].astype(str)
+        df_filtrado_proj['Ano'] = df_filtrado_proj['Ano'].astype(str).str.replace(".0", "", regex=False)
+
+        # Merge para coordenadas
+        df_coords = df_filtrado_proj.merge(
+            df_munis,
+            left_on='codigo_municipio',
+            right_on='codigo_municipio',
+            how='left'
+        ).dropna(subset=['latitude', 'longitude']).drop_duplicates(subset='Código')
+
+        return df_coords
     
-    df_projetos_codigos['codigo_municipio'] = [
-        m.split(",")[0].strip() if m else "" 
-        for m in df_projetos_codigos['Município Principal']
-    ]
+    @st.cache_data
+    def carregar_pontos_focais(_projetos):
+        ids = [p["ponto_focal"] for p in _projetos if isinstance(p.get("ponto_focal"), ObjectId)]
+        if not ids:
+            return {}
+
+        pessoas = list(db["pessoas"].find(
+            {"_id": {"$in": ids}},
+            {"_id": 1, "nome_completo": 1}
+        ))
+
+        return {p["_id"]: p.get("nome_completo", "Não encontrado") for p in pessoas}
 
 
-
-    # Filtra df_projetos_codigos para conter apenas os projetos filtrados atualmente
-    df_projetos_codigos_filtrado = df_projetos_codigos[df_projetos_codigos["Código"].isin(df_filtrado["Código"])].copy()
-    
-    #st.write(df_projetos_codigos)
-    # Garantir que os códigos no dataframe de projetos também sejam string
-    df_projetos_codigos_filtrado['codigo_municipio'] = df_projetos_codigos_filtrado['Município Principal'].astype(str)
-    
-    df_projetos_codigos_filtrado['Ano'] = df_projetos_codigos_filtrado['Ano'].astype(str)
-    df_projetos_codigos_filtrado["Ano"] = df_projetos_codigos_filtrado["Ano"].str.replace(".0", "", regex=False)
-    
-
-    # Cruzamento via código
-    df_coords_projetos = df_projetos_codigos_filtrado.merge(
-        df_munis,
-        left_on='codigo_municipio',
-        right_on='codigo_municipio',
-        how='left'
-    ).dropna(subset=['latitude', 'longitude']).drop_duplicates(subset='Código')
-    
+    df_coords_projetos = preparar_df_coords(df_projetos_codigos, df_filtrado, df_munis)
     num_proj_mapa = len(df_coords_projetos)
-    
+    pontos_focais_dict = carregar_pontos_focais(todos_projetos)
     st.write(f"{num_proj_mapa} projetos no mapa")
-    
-    # Criar dicionário código_uf -> sigla
-    codigo_uf_para_sigla = {
-        '11': 'RO', '12': 'AC', '13': 'AM', '14': 'RR', '15': 'PA', '16': 'AP', '17': 'TO',
-        '21': 'MA', '22': 'PI', '23': 'CE', '24': 'RN', '25': 'PB', '26': 'PE', '27': 'AL', '28': 'SE', '29': 'BA',
-        '31': 'MG', '32': 'ES', '33': 'RJ', '35': 'SP',
-        '41': 'PR', '42': 'SC', '43': 'RS',
-        '50': 'MS', '51': 'MT', '52': 'GO', '53': 'DF'
-    }
 
-    # Criar o mapa
-    m = folium.Map(location=[-15.78, -47.93], zoom_start=4, tiles="CartoDB positron", height="800px")
-    cluster = MarkerCluster().add_to(m)
-
-    for _, row in df_coords_projetos.iterrows():
-        lat, lon = row['latitude'], row['longitude']
-        codigo = row['Código']
-        ano_de_aprovacao = row['Ano']
-
-        projeto = next((p for p in todos_projetos if p.get("codigo") == codigo), None)
+    @st.cache_data
+    def gerar_mapa(df_coords_projetos, _todos_projetos, df_munis):
         
-        if projeto:
-            proponente = projeto.get('proponente', '')
-            nome_proj = projeto.get('nome_do_projeto', '')
-            ponto_focal_obj = projeto.get("ponto_focal")
+        m = folium.Map(location=[-15.78, -47.93], zoom_start=4, tiles="CartoDB positron", height="800px")
+        cluster = MarkerCluster().add_to(m)
+
+        for _, row in df_coords_projetos.iterrows():
+            lat, lon = row['latitude'], row['longitude']
+            codigo = row['Código']
+            ano_de_aprovacao = row['Ano']
+
+            projeto = next((p for p in todos_projetos if p.get("codigo") == codigo), None)
+            if not projeto:
+                continue
+
+            proponente = projeto.get("proponente", "")
+            nome_proj = projeto.get("nome_do_projeto", "")
             tipo_do_projeto = projeto.get("tipo")
             categoria = projeto.get("categoria")
             sigla = projeto.get("sigla")
             edital = projeto.get("edital")
+
+            # Ponto focal
+            ponto_focal_obj = projeto.get("ponto_focal")
             nome_ponto_focal = pontos_focais_dict.get(ponto_focal_obj, "Não informado")
-            
-        else:
-            continue
 
-        # Municípios principais e todos os municípios do projeto
-        muni_principal_codigo = str(row.get('codigo_municipio', '')).strip()  # ou 'Município Principal' se for o código
-        codigos_municipios_projeto = [c.strip() for c in str(row.get('Município(s)', '')).split(',') if c.strip()]
+            # Município principal
+            muni_principal_codigo = str(row.get('codigo_municipio', '')).strip()
+            muni_principal_info = df_munis[df_munis['codigo_municipio'] == muni_principal_codigo]
+            if not muni_principal_info.empty:
+                nome_muni_principal = muni_principal_info.iloc[0]['nome'].title()
+                uf_sigla_principal = codigo_uf_para_sigla.get(str(int(muni_principal_info.iloc[0]['codigo_uf'])), "")
+                muni_principal_str = f"{nome_muni_principal} - {uf_sigla_principal}"
+            else:
+                muni_principal_str = "Não informado"
 
-        # Formatando município principal
-        muni_principal_info = df_munis[df_munis['codigo_municipio'] == muni_principal_codigo]
-        if not muni_principal_info.empty:
-            nome_muni_principal = muni_principal_info.iloc[0]['nome'].title()
-            uf_sigla_principal = codigo_uf_para_sigla.get(str(int(muni_principal_info.iloc[0]['codigo_uf'])), "")
-            muni_principal_str = f"{nome_muni_principal} - {uf_sigla_principal}"
-        else:
-            muni_principal_str = "Não informado"
+            # Demais municípios
+            codigos_municipios_projeto = [c.strip() for c in str(row.get('Município(s)', '')).split(',') if c.strip()]
+            demais_municipios = []
+            for cod in codigos_municipios_projeto:
+                if cod == muni_principal_codigo:
+                    continue
+                muni_info = df_munis[df_munis['codigo_municipio'] == cod]
+                if not muni_info.empty:
+                    nome_muni = muni_info.iloc[0]['nome'].title()
+                    uf_sigla = codigo_uf_para_sigla.get(str(int(muni_info.iloc[0]['codigo_uf'])), "")
+                    demais_municipios.append(f"{nome_muni} - {uf_sigla}")
+            demais_municipios_html = "<br>".join(demais_municipios) if demais_municipios else "Nenhum"
 
-        # Formatando demais municípios (excluindo o principal)
-        demais_municipios = []
-        for cod in codigos_municipios_projeto:
-            if cod == muni_principal_codigo:
-                continue
-            muni_info = df_munis[df_munis['codigo_municipio'] == cod]
-            if not muni_info.empty:
-                nome_muni = muni_info.iloc[0]['nome'].title()
-                uf_sigla = codigo_uf_para_sigla.get(str(int(muni_info.iloc[0]['codigo_uf'])), "")
-                demais_municipios.append(f"{nome_muni} - {uf_sigla}")
+            popup_html = f"""
+                <b>Proponente:</b> {proponente}<br>
+                <b>Projeto:</b> {nome_proj}<br><br>
+                <b>Código:</b> {codigo}<br>
+                <b>Sigla:</b> {sigla}<br>
+                <b>Ano:</b> {ano_de_aprovacao}<br>
+                <b>Edital:</b> {edital}<br>
+                <b>Ponto Focal:</b> {nome_ponto_focal}<br>
+                <b>{tipo_do_projeto} - {categoria}</b><br><br>
+                <b>Município principal:</b> {muni_principal_str}<br>
+                <b>Outros municípios:</b><br>
+                {demais_municipios_html}
+            """
 
-        demais_municipios_html = "<br>".join(demais_municipios) if demais_municipios else "Nenhum"
+            folium.Marker(
+                location=[lat, lon],
+                popup=folium.Popup(popup_html, max_width=400)
+            ).add_to(cluster)
 
-        popup_html = f"""
-            <b>Proponente:</b> {proponente}<br>
-            <b>Projeto:</b> {nome_proj}<br><br>
+        return m
 
-            <b>Código:</b> {codigo}<br>
-            <b>Sigla:</b> {sigla}<br>
-            <b>Ano:</b> {ano_de_aprovacao}<br>
-            <b>Edital:</b> {edital}<br>
-            <b>Ponto Focal:</b> {nome_ponto_focal}<br>
-            <b>{tipo_do_projeto} - {categoria}</b><br><br>
-
-            <b>Município principal:</b> {muni_principal_str}<br>
-            <b>Outros municípios:</b><br>
-            {demais_municipios_html}
-            
-        """
-
-        folium.Marker(
-            location=[lat, lon],
-            popup=folium.Popup(popup_html, max_width=400)
-        ).add_to(cluster)
-
-    st_folium(m, width=None, height=800, returned_objects=[])
+    mapa_folium = gerar_mapa(df_coords_projetos, todos_projetos, df_munis)
+    st_folium(mapa_folium, width=None, height=800, returned_objects=[])
