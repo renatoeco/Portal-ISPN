@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import folium
-import uuid
+import unicodedata
 import math
 import time
 from bson import ObjectId
@@ -29,6 +29,7 @@ projetos_ispn = list(db["projetos_ispn"].find())
 
 colecao_doadores = db["doadores"]
 ufs_municipios = db["ufs_municipios"]
+programas = db["programas_areas"]
 pessoas = db["pessoas"]
 estatistica = db["estatistica"]  # Coleção de estatísticas
 
@@ -651,6 +652,10 @@ def parse_valor(valor):
     return 0.0
 
 
+def normalizar(s):
+    return ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn').lower()
+
+
 ######################################################################################################
 # MAIN
 ######################################################################################################
@@ -738,7 +743,16 @@ colunas = [
     "municipios",
     "tipo",
     "municipio_principal",
-    "cnpj"
+    "cnpj",
+    "programa",
+    "temas",
+    "bioma",
+    "publico",
+    "genero",
+    "status",
+    "cpf",
+    "proponente",
+    "ponto_focal"
 ]
 
 # Adiciona "doador" se ela estiver presente no DataFrame
@@ -758,7 +772,16 @@ df_projetos = df_projetos[colunas].rename(columns={
     "municipios": "Município(s)",
     "tipo": "Tipo",
     "municipio_principal": "Município Principal",
-    "cnpj": "CNPJ"
+    "cnpj": "CNPJ",
+    "cpf": "CPF",
+    "proponente": "Proponente",
+    "programa": "Programa",
+    "temas": "Temas",
+    "publico": "Público",
+    "bioma": "Bioma",
+    "genero": "Gênero",
+    "status": "Status",
+    "ponto_focal": "Ponto Focal"
 })
 
 
@@ -828,7 +851,8 @@ with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
     mask = pd.Series(True, index=df_base.index)
 
     # ===== PRIMEIRA LINHA =====
-    col1, col2 = st.columns(2)
+    
+    col1, col2 = st.columns([1, 5])
     tipos_disponiveis = ["Projetos PJ", "Projetos PF"]
     tipo_sel = col1.pills("Tipo", tipos_disponiveis, selection_mode="multi")
 
@@ -837,6 +861,62 @@ with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
             mask &= (df_base["Tipo"] == "PJ")
         elif "Projetos PF" in tipo_sel and "Projetos PJ" not in tipo_sel:
             mask &= (df_base["Tipo"] == "PF")
+            
+    # Campo de busca geral
+    busca_geral = col2.text_input("Buscar por Sigla, Proponente, CNPJ ou CPF").strip()
+
+    if busca_geral:
+        termo = normalizar(busca_geral)
+        
+        def corresponde(row):
+            return (
+                termo in normalizar(row["Sigla"]) or
+                termo in normalizar(row["Proponente"]) or
+                termo in normalizar(row["CNPJ"]) or
+                termo in normalizar(row["CPF"])
+            )
+
+        mask &= df_base.apply(corresponde, axis=1)
+    
+
+    # ===== Segunda Linha =====
+
+    # Dicionários de ID -> Nome
+    pessoas_dict = {str(p["_id"]): p["nome_completo"] for p in pessoas.find()}
+    programas_dict = {str(p["_id"]): p["nome_programa_area"] for p in programas.find()}
+
+    #st.write(df_base)
+
+    df_base["Ponto Focal"] = df_base["Ponto Focal"].apply(lambda x: pessoas_dict.get(str(x), "Não informado") if pd.notna(x) else "Não informado")
+    df_base["Programa"] = df_base["Programa"].apply(lambda x: programas_dict.get(str(x), "Não informado") if pd.notna(x) else "Não informado")
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    # Filtro Categoria
+    categoria_disponiveis = sorted(df_base["Categoria"].dropna().unique())
+    categoria_sel = col1.multiselect("Categoria", options=categoria_disponiveis, placeholder="Todos")
+    if categoria_sel:
+        mask &= df_base["Categoria"].isin(categoria_sel)
+
+    # Filtro Ponto Focal
+    ponto_focal_disponiveis = sorted(df_base["Ponto Focal"].dropna().unique())
+    ponto_focal_sel = col2.multiselect("Ponto Focal", options=ponto_focal_disponiveis, placeholder="Todos")
+    if ponto_focal_sel:
+        mask &= df_base["Ponto Focal"].isin(ponto_focal_sel)
+
+    # Filtro Programa
+    programa_disponiveis = sorted(df_base["Programa"].dropna().unique())
+    programa_sel = col3.multiselect("Programa", options=programa_disponiveis, placeholder="Todos")
+    if programa_sel:
+        mask &= df_base["Programa"].isin(programa_sel)
+
+    # Filtro Gênero
+    genero_disponiveis = sorted(df_base["Gênero"].dropna().unique())
+    genero_sel = col4.multiselect("Gênero", options=genero_disponiveis, placeholder="Todos")
+    if genero_sel:
+        mask &= df_base["Gênero"].isin(genero_sel)
+        
+    # ===== Terceira Linha =====
 
     col1, col2, col3, col4 = st.columns(4)
 
@@ -864,7 +944,63 @@ with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
     if codigo_sel:
         mask &= df_base["Código"].isin(codigo_sel)
 
-    # ===== SEGUNDA LINHA =====
+    # ===== Quarta Linha =====
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    temas_disponiveis = sorted(
+        df_base["Temas"]
+        .dropna()
+        .apply(lambda x: [m.strip() for m in x.split(",")])
+        .explode()
+        .unique(),
+        key=normalizar
+    )
+
+    temas_sel = col1.multiselect("Temas", options=temas_disponiveis, placeholder="Todos")
+    if temas_sel:
+        mask &= df_base["Temas"].apply(
+            lambda x: any(m.strip() in temas_sel for m in x.split(",")) if isinstance(x, str) else False
+        )
+
+    publicos_disponiveis = sorted(
+        df_base["Público"]
+        .dropna()
+        .apply(lambda x: [m.strip() for m in x.split(",")])
+        .explode()
+        .unique(),
+        key=normalizar
+    )
+
+    publicos_sel = col2.multiselect("Público", options=publicos_disponiveis, placeholder="Todos")
+    if publicos_sel:
+        mask &= df_base["Público"].apply(
+            lambda x: any(m.strip() in publicos_sel for m in x.split(",")) if isinstance(x, str) else False
+        )
+
+    biomas_disponiveis = sorted(
+        df_base["Bioma"]
+        .dropna()
+        .apply(lambda x: [m.strip() for m in x.split(",")])
+        .explode()
+        .unique(),
+        key=normalizar
+    )
+
+    biomas_sel = col3.multiselect("Bioma", options=biomas_disponiveis, placeholder="Todos")
+    if biomas_sel:
+        mask &= df_base["Bioma"].apply(
+            lambda x: any(m.strip() in biomas_sel for m in x.split(",")) if isinstance(x, str) else False
+        )
+
+    status_disponiveis = sorted(df_base["Status"].dropna().unique())
+    status_sel = col4.multiselect("Status", options=status_disponiveis, placeholder="Todos")
+    if status_sel:
+        mask &= df_base["Status"].isin(status_sel)
+
+
+    # ===== Quinta Linha =====
+    
     col5, col6 = st.columns(2)
 
     # Estado
@@ -1002,19 +1138,7 @@ with geral:
     st.write("")
     st.write("")
  
-    # Gráfico
-
-    # Garantir campos como string
-    df_filtrado["Ano"] = df_filtrado["Ano"].astype(str)
-    df_filtrado["Doador"] = df_filtrado["Doador"].astype(str)
-
-    # Agrupamento
-    dados = (
-        df_filtrado
-        .groupby(["Ano", "Doador"])
-        .size()
-        .reset_index(name="apoios")
-    )
+    # Gráfico  
 
     # Garantir que os campos são string
     df_filtrado["Ano"] = df_filtrado["Ano"].astype(str)
@@ -1027,9 +1151,21 @@ with geral:
         .size()
         .reset_index(name="apoios")
     )
+    
+    if df_filtrado.empty:
+        anos_todos = []  # garante variável existente
+    else:
+        try:
+            anos_min = pd.to_numeric(df_filtrado["Ano"], errors="coerce").min()
+            anos_max = pd.to_numeric(df_filtrado["Ano"], errors="coerce").max()
 
-    # Obter intervalo completo de anos
-    anos_todos = list(map(str, range(int(df_filtrado["Ano"].min()), int(df_filtrado["Ano"].max()) + 1)))
+            if pd.notna(anos_min) and pd.notna(anos_max):
+                anos_todos = list(map(str, range(int(anos_min), int(anos_max) + 1)))
+            else:
+                anos_todos = []
+        except Exception as e:
+            st.error(f"Erro ao calcular anos disponíveis: {e}")
+            anos_todos = []
 
     # Preencher com 0 onde não há apoio (para doadores já existentes)
     doadores = dados["Doador"].unique()
@@ -1111,7 +1247,7 @@ with lista:
 
     st.write("")
 
-    colunas_visiveis = [c for c in df_exibir.columns if c not in ["Tipo", "Município Principal", "CNPJ"]]
+    colunas_visiveis = [c for c in df_exibir.columns if c not in ["Tipo", "Município Principal", "CNPJ", "CPF", "Proponente", "Programa", "Temas", "Público", "Bioma", "Gênero", "Status", "Ponto Focal"]]
     headers = colunas_visiveis + ["Detalhes"]
 
     col_sizes = [2, 2, 1, 2, 2, 2, 1, 2, 3, 3]  # ajuste se necessário
