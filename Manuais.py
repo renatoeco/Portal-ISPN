@@ -18,61 +18,261 @@ div[data-testid="stDialog"] div[role="dialog"]:has(.big-dialog) {
     unsafe_allow_html=True,
 )
 
-manuais = [
-    {
-        "nome": "Política de Viagem",
-        "descricao": """A Política de Viagem do ISPN define normas para planejamento, aprovação, execução 
-        e reembolso de viagens de colaboradores, prestadores, voluntários e equipe técnica. Inclui 
-        diretrizes sobre transporte, hospedagem, alimentação e seguro de viagem.""",
-        "arquivo": "https://ispn.org.br/site/wp-content/uploads/2025/04/Politica-para-viagens-1.pdf",
-        "versao": "abril de 2025"
-    },
-    {
-        "nome": "Código de Ética",
-        "descricao": """O Código de Ética e Conduta do ISPN reúne os princípios, diretrizes e 
-        normas que orientam o comportamento de colaboradores, prestadores de serviços e parceiros. 
-        Seu objetivo é fortalecer os valores institucionais, garantindo que todas as atividades sejam 
-        conduzidas com ética, transparência e respeito, refletindo o compromisso do Instituto com relações 
-        responsáveis e alinhadas às suas diretrizes estratégicas.""",
-        "arquivo": "https://ispn.org.br/site/wp-content/uploads/2025/02/Codigo-de-Etica-ISPN_jan25-1.pdf",
-        "versao": "janeiro de 2025"
-    },
-    {
-        "nome": "Manual operacional do Fundo Ecos",
-        "descricao": """O Manual Operacional do Fundo Ecos reúne as diretrizes, procedimentos e estruturas 
-        que orientam a gestão e execução de projetos apoiados pelo Fundo. Abrange desde os princípios 
-        institucionais do ISPN e os pilares do Fundo, até os processos de seleção, contratação, 
-        monitoramento e prestação de contas de projetos. O manual detalha a governança, categorias 
-        de projetos, critérios de avaliação, fluxo de recursos e estratégias de comunicação, 
-        fornecendo uma referência completa para garantir transparência, eficiência e alinhamento 
-        com os objetivos estratégicos do Fundo Ecos.""",
-        "arquivo": "https://fundoecos.org.br/wp-content/uploads/2025/05/Manual-operacional-Fundo-Ecos_2025_site.pdf",
-        "versao": "fevereiro de 2025"
-    }
-]
 
-        
-# Ordena os manuais por ordem alfabética do nome
-manuais.sort(key=lambda x: x["nome"]) 
 
-for manual in manuais:
+
+
+
+import streamlit as st
+
+# ACORDOS DE CONVIVÊNCIA
+with st.expander("ACORDOS DE CONVIVÊNCIA"):
+    st.write("""O Acordo de convivência do escritório de Brasília orienta sobre uso organizado do espaço, incluindo 
+             agendamento de reuniões, respeito ao silêncio, limpeza de áreas comuns e cuidados com 
+             equipamentos e segurança ao final do expediente.""")
     
-    with st.container(border=True):
-        
-        # Nome
-        st.write(f"**{manual['nome'].upper()}**")
+    with st.container(horizontal=True):
+        st.write("Versão: março de 2023")
+        st.link_button(
+            label="Ver documento",
+            url="https://ispn.org.br/site/wp-content/uploads/2023/03/Acordo-de-convivencia_Marco-2023.pdf", 
+            type="tertiary",
+            icon=":material/open_in_new:"
+        )
 
-        # Descrição
-        st.write(manual["descricao"])
+# CÓDIGO DE ÉTICA
+with st.expander("CÓDIGO DE ÉTICA"):
+    st.write("""O Código de Ética e Conduta do ISPN reúne os princípios, diretrizes e 
+    normas que orientam o comportamento de colaboradores, prestadores de serviços e parceiros. 
+    Seu objetivo é fortalecer os valores institucionais, garantindo que todas as atividades sejam 
+    conduzidas com ética, transparência e respeito, refletindo o compromisso do Instituto com relações 
+    responsáveis e alinhadas às suas diretrizes estratégicas.""")
+    
+    with st.container(horizontal=True):
+        st.write("Versão: janeiro de 2025")
+        st.link_button(
+            label="Ver documento",
+            url="https://ispn.org.br/site/wp-content/uploads/2025/02/Codigo-de-Etica-ISPN_jan25-1.pdf", 
+            type="tertiary",
+            icon=":material/open_in_new:"
+        )
 
-        with st.container(horizontal=True):
 
-            # Versão
-            st.write(f"Versão: {manual['versao']}")
+# LISTAS DE PRESENÇA
+with st.expander("LISTAS DE PRESENÇA"):
+    st.write("Modelo de Lista de Presença com autorização de uso de imagem.")
+    
+    with st.container(horizontal=True):
+        st.write("Versão: 2025")
+        st.link_button(
+            label="Ver documento",
+            url="https://ispn.org.br/site/wp-content/uploads/2023/04/Modelo-para-lista-de-presenca_Uso-de-Imagem-e-LGPD_Generica.docx", 
+            type="tertiary",
+            icon=":material/open_in_new:"
+        )
 
-            # Botão link
-            st.link_button(
-                label="Abrir documento :material/open_in_new:",
-                url=manual["arquivo"], 
-                type="tertiary"
-            )
+    st.divider()
+    st.write("Modelo de Lista de Presença com autorização de uso de imagem para **povos indígenas**.")
+    
+    with st.container(horizontal=True):
+        st.write("Versão: 2025")
+        st.link_button(
+            label="Ver documento",
+            url="https://ispn.org.br/site/wp-content/uploads/2022/09/Modelo-para-lista-de-presenc%CC%A7a_Uso-de-Imagem-e-LGPD_com-Povos-Indigenas.docx", 
+            type="tertiary",
+            icon=":material/open_in_new:"
+        )
+
+
+# MANUAL DO ISPN
+with st.expander("MANUAL DO ISPN"):
+    st.write("""O manual do ISPN apresenta diretrizes institucionais e operacionais, abordando 
+             políticas de ética, conduta e privacidade, princípios e valores, teoria da mudança, 
+             estratégias de atuação socioambiental, programas e iniciativas, gestão financeira e 
+             administrativa, normas internas, responsabilidades de cargos, comunicação, manutenção 
+             de espaços e tecnologia, além de políticas anticorrupção e de prevenção a fraudes.""")
+    
+    with st.container(horizontal=True):
+        st.write("Versão: maio de 2025")
+        st.link_button(
+            label="Ver documento",
+            url="https://ispn.org.br/site/wp-content/uploads/2025/05/Manual_ISPN_V7-1.pdf", 
+            type="tertiary",
+            icon=":material/open_in_new:"
+        )
+
+
+# MANUAL OPERACIONAL DO FUNDO ECOS
+with st.expander("MANUAL OPERACIONAL DO FUNDO ECOS"):
+    st.write("""O Manual Operacional do Fundo Ecos reúne as diretrizes, procedimentos e estruturas 
+    que orientam a gestão e execução de projetos apoiados pelo Fundo. Abrange desde os princípios 
+    institucionais do ISPN e os pilares do Fundo, até os processos de seleção, contratação, 
+    monitoramento e prestação de contas de projetos. O manual detalha a governança, categorias 
+    de projetos, critérios de avaliação, fluxo de recursos e estratégias de comunicação, 
+    fornecendo uma referência completa para garantir transparência, eficiência e alinhamento 
+    com os objetivos estratégicos do Fundo Ecos.""")
+    
+    with st.container(horizontal=True):
+        st.write("Versão: fevereiro de 2025")
+        st.link_button(
+            label="Ver documento",
+            url="https://fundoecos.org.br/wp-content/uploads/2025/05/Manual-operacional-Fundo-Ecos_2025_site.pdf", 
+            type="tertiary",
+            icon=":material/open_in_new:"
+        )
+
+
+# ORGANOGRAMA
+with st.expander("ORGANOGRAMA"):
+    st.write("Organograma do ISPN")
+
+    st.image('https://ispn.org.br/site/wp-content/uploads/2025/02/Organograma-2025.png')
+
+# POLÍTICA DE PRIVACIDADE
+with st.expander("POLÍTICA DE PRIVACIDADE"):
+    st.write("""A Política de Privacidade do ISPN regula a coleta, uso, compartilhamento e proteção de 
+    dados pessoais, em conformidade com a LGPD (Lei nº 13.709/2018). Ela explica quem está sujeito à política, 
+    quais dados são coletados, como são utilizados, medidas de segurança adotadas, direitos dos titulares e 
+    formas de contato.""")
+    
+    with st.container(horizontal=True):
+        st.write("Versão: fevereiro de 2025")
+        st.link_button(
+            label="Ver documento",
+            url="https://ispn.org.br/site/wp-content/uploads/2025/02/Politica-de-Privacidade-1.pdf", 
+            type="tertiary",
+            icon=":material/open_in_new:"
+        )
+
+
+# POLÍTICA DE PROTEÇÃO DE PESSOAS EM SITUAÇÃO DE VULNERABILIDADE
+with st.expander("POLÍTICA DE PROTEÇÃO DE PESSOAS EM SITUAÇÃO DE VULNERABILIDADE"):
+    st.write("""A Política de Proteção de Pessoas em Situação de Vulnerabilidade do ISPN define normas de 
+    conduta para todos que atuam em nome do Instituto (diretores, funcionários, colaboradores, prestadores, 
+    estagiários e voluntários), com o objetivo de proteger pessoas em situação de vulnerabilidade – incluindo 
+    crianças, adolescentes e adultos expostos a ameaças, exclusão, discriminação, pobreza ou outras condições 
+    que aumentem sua vulnerabilidade. A política busca prevenir danos, garantir a dignidade e integridade humana, 
+    e orientar procedimentos para enfrentar riscos específicos. Projetos apoiados pelo Fundo Ecos devem respeitar 
+    esta política.""")
+    
+    with st.container(horizontal=True):
+        st.write("Versão: 3a edição - janeiro de 2025")
+        st.link_button(
+            label="Ver documento",
+            url="https://ispn.org.br/site/wp-content/uploads/2025/02/3a-edicao_POLITICA_SEGURANCA-jan25-1.pdf", 
+            type="tertiary",
+            icon=":material/open_in_new:"
+        )
+
+
+# POLÍTICA DE VIAGEM
+with st.expander("POLÍTICA DE VIAGEM"):
+    st.write("""A Política de Viagem do ISPN define normas para planejamento, aprovação, execução 
+    e reembolso de viagens de colaboradores, prestadores, voluntários e equipe técnica. Inclui 
+    diretrizes sobre transporte, hospedagem, alimentação e seguro de viagem.""")
+    
+    with st.container(horizontal=True):
+        st.write("Versão: abril de 2025")
+        st.link_button(
+            label="Ver documento",
+            url="https://ispn.org.br/site/wp-content/uploads/2025/04/Politica-para-viagens-1.pdf", 
+            type="tertiary",
+            icon=":material/open_in_new:"
+        )
+
+
+# PLANILHA PARA REEMBOLSO DE EVENTO
+with st.expander("PLANILHA PARA REEMBOLSO DE EVENTO"):
+    st.write("Modelo de planilha para solicitação de Reembolso de despesas / Prestação de contas.")
+
+    with st.container(horizontal=True):
+        st.write("Versão: 2025")
+        st.link_button(
+            label="Ver documento",
+            url="https://ispn.org.br/site/wp-content/uploads/2022/07/5.-PLANILHA-PARA-REEMBOLSO-EVENTOS.xlsx", 
+            type="tertiary",
+            icon=":material/open_in_new:"
+        )
+
+# RELATÓRIO MENSAL
+with st.expander("RELATÓRIO MENSAL DE ATIVIDADES"):
+
+    # 1) Modelo de relatório
+    st.write("**1) Modelo de relatório**")
+    st.link_button(
+        label="Ver documento",
+        url="https://ispn.org.br/site/wp-content/uploads/2022/07/RELATORIO-MENSAL-DE-ATIVIDADES.xlsx", 
+        type="secondary",
+        icon=":material/open_in_new:"
+    )
+
+    st.write('')
+
+    # 2) Vídeo tutorial do Autentique
+    st.write("**2) Vídeo tutorial para assinatura do Relatório via Autentique**")
+    st.video('https://www.youtube.com/watch?v=pLILQpTCX5U', width=1000)
+
+    st.write('')
+
+    # 3) Importação automática dos eventos da agenda
+    st.write("**3) Dica extra: Método de importação automática dos eventos da agenda**")
+    st.write('É uma função no menu do google sheets que importa todos os eventos da sua agenda em um determinado período.')
+    st.write('Auxilia na sistematização de atividades para o relatório mensal. Se você anota tudo certinho na agenda, no final do mês seu relatório estará praticamente pronto.')
+
+ 
+
+    st.write('O script precisa ser instalado apenas na primeira vez. No dia a dia, basta chamar a função no menu e inserir as datas.')
+
+    st.write('Abaixo está um vídeo tutorial e o botão para o script utilizado no vídeo.')
+
+
+    with st.container(horizontal=True):
+        st.link_button(
+            label="Vídeo tutorial",
+            url="https://drive.google.com/file/d/1GbdjPHbkD2arXqLxwaznXkp_1rXQDS5E/view", 
+            type="secondary",
+            icon=":material/live_tv:"
+        )
+
+        st.link_button(
+            label="Copiar script",
+            url="https://docs.google.com/document/d/1EsB1bzEEdgxHw3dqfNd4ufFnS7_Rzd5khbGQ3qK_HmU/edit?usp=sharing", 
+            type="secondary",
+            icon=":material/docs:"
+        )
+
+    st.write('O script foi desenvolvido por André Moraes e Renato Araujo.')
+
+
+
+# SOLICITAÇÃO DE AUTORIZAÇÃO DE VIAGEM (SAV)
+with st.expander("SOLICITAÇÃO DE AUTORIZAÇÃO DE VIAGEM (SAV)"):
+    st.write("As **Solicitações de Autorização de Viagem (SAVs)** e os **Relatórios de Viagem Simplificados (RVSs)** devem ser feitos no **[Portal de Viagens do ISPN](https://ispn-viagens.streamlit.app)**")
+
+    st.divider()
+
+    st.write("**Guia de utilização do Portal de Viagens**")
+
+    with st.container(horizontal=True):
+        st.write("Versão: fevereiro 2025")
+        st.link_button(
+            label="Ver documento",
+            url="https://drive.google.com/file/d/1xs5L4OBXDbhvUfmOGpxIlLnvTgD3dX1c/view?usp=sharing", 
+            type="tertiary",
+            icon=":material/open_in_new:"
+        )    
+
+# TERMOS DE REFERÊNCIA
+with st.expander("TERMOS DE REFERÊNCIA"):
+    st.write("Modelo de Termo de Referência para contratação de serviços.")
+
+    with st.container(horizontal=True):
+        st.write("Versão: maio de 2025")
+        st.link_button(
+            label="Ver documento",
+            url="https://ispn.org.br/site/wp-content/uploads/2025/05/TDR_padrao_15-05-2025.docx", 
+            type="tertiary",
+            icon=":material/open_in_new:"
+        )
+
+
