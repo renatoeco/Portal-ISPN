@@ -1,9 +1,8 @@
 import streamlit as st
-import requests
-import fitz  # PyMuPDF
-from PIL import Image
+
 
 st.set_page_config(layout="wide")
+st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
 st.header("Manuais")
 st.write('')
 
@@ -22,60 +21,58 @@ div[data-testid="stDialog"] div[role="dialog"]:has(.big-dialog) {
 manuais = [
     {
         "nome": "Política de Viagem",
-        "descricao": "descrição",
-        "arquivo": "https://ispn.org.br/site/wp-content/uploads/2025/04/Politica-para-viagens-1.pdf"
+        "descricao": """A Política de Viagem do ISPN define normas para planejamento, aprovação, execução 
+        e reembolso de viagens de colaboradores, prestadores, voluntários e equipe técnica. Inclui 
+        diretrizes sobre transporte, hospedagem, alimentação e seguro de viagem.""",
+        "arquivo": "https://ispn.org.br/site/wp-content/uploads/2025/04/Politica-para-viagens-1.pdf",
+        "versao": "abril de 2025"
     },
     {
         "nome": "Código de Ética",
-        "descricao": "descrição",
-        "arquivo": "https://ispn.org.br/site/wp-content/uploads/2025/02/Codigo-de-Etica-ISPN_jan25-1.pdf"
+        "descricao": """O Código de Ética e Conduta do ISPN reúne os princípios, diretrizes e 
+        normas que orientam o comportamento de colaboradores, prestadores de serviços e parceiros. 
+        Seu objetivo é fortalecer os valores institucionais, garantindo que todas as atividades sejam 
+        conduzidas com ética, transparência e respeito, refletindo o compromisso do Instituto com relações 
+        responsáveis e alinhadas às suas diretrizes estratégicas.""",
+        "arquivo": "https://ispn.org.br/site/wp-content/uploads/2025/02/Codigo-de-Etica-ISPN_jan25-1.pdf",
+        "versao": "janeiro de 2025"
     },
     {
         "nome": "Manual operacional do Fundo Ecos",
-        "descricao": "descrição",
-        "arquivo": "https://fundoecos.org.br/wp-content/uploads/2025/05/Manual-operacional-Fundo-Ecos_2025_site.pdf"
+        "descricao": """O Manual Operacional do Fundo Ecos reúne as diretrizes, procedimentos e estruturas 
+        que orientam a gestão e execução de projetos apoiados pelo Fundo. Abrange desde os princípios 
+        institucionais do ISPN e os pilares do Fundo, até os processos de seleção, contratação, 
+        monitoramento e prestação de contas de projetos. O manual detalha a governança, categorias 
+        de projetos, critérios de avaliação, fluxo de recursos e estratégias de comunicação, 
+        fornecendo uma referência completa para garantir transparência, eficiência e alinhamento 
+        com os objetivos estratégicos do Fundo Ecos.""",
+        "arquivo": "https://fundoecos.org.br/wp-content/uploads/2025/05/Manual-operacional-Fundo-Ecos_2025_site.pdf",
+        "versao": "fevereiro de 2025"
     }
 ]
 
-@st.dialog("Detalhes do manual", width="large")
-def dialogo_manual(nome_manual, descricao, arquivo_url):
-    
-    #st.html("<span class='big-dialog'></span>")
-    
-    st.subheader(nome_manual)
-    st.write(descricao)
-
-    # Baixar PDF
-    r = requests.get(arquivo_url)
-    if r.status_code == 200:
-        pdf_bytes = r.content
-
-        try:
-            # Botão para download
-            st.download_button(
-                label="Clique aqui para baixar",
-                data=pdf_bytes,
-                file_name=arquivo_url.split("/")[-1],
-                mime="application/pdf"
-            )
-            
-            # Abrir PDF com PyMuPDF
-            pdf_doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-            for page_num in range(len(pdf_doc)):
-                page = pdf_doc[page_num]
-                pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))  # Zoom 2x para melhor resolução
-                img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-                st.image(img, caption=f"Página {page_num+1}", use_container_width=True)
-
-        except Exception as e:
-            st.error(f"Erro ao converter PDF: {e}")
-
         
-    else:
-        st.error("Não foi possível carregar o PDF.")
-        
-    
+# Ordena os manuais por ordem alfabética do nome
+manuais.sort(key=lambda x: x["nome"]) 
 
 for manual in manuais:
-    if st.button(manual["nome"], type="tertiary"):
-        dialogo_manual(manual["nome"], manual["descricao"], manual["arquivo"])
+    
+    with st.container(border=True):
+        
+        # Nome
+        st.write(f"**{manual['nome'].upper()}**")
+
+        # Descrição
+        st.write(manual["descricao"])
+
+        with st.container(horizontal=True):
+
+            # Versão
+            st.write(f"Versão: {manual['versao']}")
+
+            # Botão link
+            st.link_button(
+                label="Abrir documento :material/open_in_new:",
+                url=manual["arquivo"], 
+                type="tertiary"
+            )
