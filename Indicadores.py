@@ -57,7 +57,8 @@ def formatar_brasileiro(valor):
 def somar_indicador_por_nome(nome_indicador, tipo_selecionado=None, projetos_filtrados=None, anos_filtrados=None, autores_filtrados=None):
     indicador_doc = indicadores.find_one({"nome_indicador": nome_indicador})
     if not indicador_doc:
-        return "0"
+        return "" if nome_indicador == "especies" else "0"
+
     indicador_id = indicador_doc["_id"]
 
     filtro = {"id_do_indicador": indicador_id}
@@ -70,6 +71,15 @@ def somar_indicador_por_nome(nome_indicador, tipo_selecionado=None, projetos_fil
     if autores_filtrados:
         filtro["autor_anotacao"] = {"$in": autores_filtrados}
 
+    # Exceção para espécies: não soma, retorna apenas o valor original (string)
+    if nome_indicador == "especies":
+        doc = lancamentos.find_one(filtro)
+        if doc:
+            return doc.get("valor", "")
+        else:
+            return ""
+
+    # Para os demais indicadores, soma normalmente
     total = 0
     for doc in lancamentos.find(filtro):
         valor = doc.get("valor", "")
@@ -84,6 +94,39 @@ def somar_indicador_por_nome(nome_indicador, tipo_selecionado=None, projetos_fil
     if total == 0:
         return "0"
     return formatar_brasileiro(total)
+
+
+
+# --- Função otimizada para pegar siglas de vários projetos ---
+def ids_para_siglas(ids_por_tipo):
+    """
+    Recebe um dicionário {tipo: [lista de ObjectIds]} e retorna um dict {id_str: sigla}
+    """
+    from bson import ObjectId
+
+    resultado = {}
+    for tipo, lista_ids in ids_por_tipo.items():
+        if not lista_ids:
+            continue
+
+        # Seleciona a coleção correta
+        if tipo == "PJ":
+            colecao = projetos_pj
+        elif tipo == "PF":
+            colecao = projetos_pf
+        else:
+            colecao = projetos_ispn
+
+        # Consulta todos de uma vez
+        docs = colecao.find(
+            {"_id": {"$in": lista_ids}},
+            {"sigla": 1}
+        )
+
+        for doc in docs:
+            resultado[str(doc["_id"])] = doc.get("sigla", "")
+
+    return resultado
 
 
 @st.dialog("Lançamentos", width="large")
@@ -115,6 +158,9 @@ def mostrar_detalhes(nome_indicador, tipo_selecionado=None, projetos_filtrados=N
 
     df = pd.DataFrame(lancs)
 
+    # Guardar o ObjectId original
+    df["Projeto_id"] = df["projeto"]
+
     # Renomear colunas para exibição
     colunas_mapeadas = {
         "projeto": "Projeto",
@@ -124,30 +170,37 @@ def mostrar_detalhes(nome_indicador, tipo_selecionado=None, projetos_filtrados=N
         "data_anotacao": "Data da Anotação",
         "observacoes": "Observações"
     }
-
     for col in colunas_mapeadas.keys():
         if col not in df.columns:
             df[col] = ""
-
     df.rename(columns=colunas_mapeadas, inplace=True)
 
-    # Converter para ObjectId apenas se ainda não for
-    df["Projeto"] = df["Projeto"].astype(str).map(id_para_codigo).fillna("Sem código")
+    # Criar coluna Código
+    df["Projeto"] = df["Projeto_id"].astype(str).map(id_para_codigo).fillna("Sem código")
+
+    # Criar coluna Sigla — consulta única por tipo
+    ids_por_tipo = {}
+    for _, row in df.iterrows():
+        tipo = row.get("tipo", "")
+        if tipo not in ids_por_tipo:
+            ids_por_tipo[tipo] = []
+        ids_por_tipo[tipo].append(row["Projeto_id"])
+
+    # Remover duplicados
+    for t in ids_por_tipo:
+        ids_por_tipo[t] = list(set(ids_por_tipo[t]))
+
+    siglas_dict = ids_para_siglas(ids_por_tipo)
+    df["Sigla"] = df["Projeto_id"].astype(str).map(siglas_dict).fillna("Sem sigla")
 
     df["Observações"] = df["Observações"].fillna("")
 
-    # Reordenar as colunas e ordenar pelo código do projeto
-    df = df[list(colunas_mapeadas.values())].sort_values("Projeto")
+    # Reordenar
+    colunas_exibir = ["Projeto", "Sigla", "Ano", "Valor", "Autor", "Data da Anotação", "Observações"]
+    df = df[colunas_exibir].sort_values("Projeto")
 
-    st.dataframe(df[list(colunas_mapeadas.values())], hide_index=True, use_container_width=True)
-    
+    st.dataframe(df, hide_index=True, use_container_width=True)
     st.html("<span class='big-dialog'></span>")
-
-
-def handler(nome_indicador, projetos_filtrados=None, anos_filtrados=None):
-    def _handler():
-        mostrar_detalhes(nome_indicador, projetos_filtrados, anos_filtrados)
-    return _handler
 
 
 def formatar_nome_legivel(nome):
@@ -205,20 +258,23 @@ def formatar_nome_legivel(nome):
 
 def botao_indicador_legivel(titulo, nome_indicador, tipo, projetos, anos, autores):
     valor = somar_indicador_por_nome(nome_indicador, tipo, projetos, anos, autores)
-    if valor != "0":
-        st.button(f"{titulo}: **{valor}**", 
-                  on_click=lambda: mostrar_detalhes(nome_indicador, tipo, projetos, anos, autores),
-                  type="tertiary")
-
-
-# Função para aplicar filtros progressivamente
-def atualizar_opcoes(df, campo, campos_restritivos):
-    df_filtrado = df.copy()
-    for outro_campo, valores in campos_restritivos.items():
-
-        if outro_campo != campo and valores:
-            df_filtrado = df_filtrado[df_filtrado[outro_campo].isin(valores)]
-    return sorted(df_filtrado[campo].dropna().unique().tolist())
+    
+    if nome_indicador.lower() == "especies":
+        # Exibe o botão apenas se houver algum valor
+        if valor:  # verifica se não é vazio ou None
+            st.button(
+                f"{titulo}",
+                on_click=lambda: mostrar_detalhes(nome_indicador, tipo, projetos, anos, autores),
+                type="tertiary"
+            )
+    else:
+        # Para os demais indicadores, mantém a lógica atual
+        if valor != "0":
+            st.button(
+                f"{titulo}: **{valor}**",
+                on_click=lambda: mostrar_detalhes(nome_indicador, tipo, projetos, anos, autores),
+                type="tertiary"
+            )
 
 
 def atualizar_filtro_interativo(campo, opcoes, label):
@@ -238,6 +294,73 @@ def atualizar_filtro_interativo(campo, opcoes, label):
 @st.dialog("Gerenciar lançamentos", width="large")   
 def gerenciar_lancamentos():
     tab_add, tab_edit, tab_delete = st.tabs([":material/add: Adicionar", ":material/edit: Editar", ":material/delete: Excluir"])
+
+    # listas de controle
+    indicadores_float = [
+        "Área com manejo ecológico do fogo (ha)",
+        "Área com manejo agroecológico (ha)",
+        "Área com manejo para restauração (ha)",
+        "Área com manejo para extrativismo (ha)",
+        "Faturamento bruto anual pré-projeto",
+        "Faturamento bruto anual pós-projeto",
+        "Volume financeiro de vendas institucionais com apoio do Fundo Ecos",
+        "Valor da contrapartida financeira projetinhos",
+        "Valor da contrapartida não financeira projetinhos",
+        "Valor mobilizado de novos recursos"
+    ]
+    indicador_texto = "Espécies"
+    
+    # Lista de nomes legíveis na ordem definida
+    ordem_indicadores = [
+        "Número de organizações apoiadas",
+        "Número de comunidades fortalecidas",
+        "Número de famílias",
+        "Número de homens jovens (até 29 anos)",
+        "Número de homens adultos",
+        "Número de mulheres jovens (até 29 anos)",
+        "Número de mulheres adultas",
+        "Número de indígenas",
+        "Número de lideranças comunitárias fortalecidas",
+        "Número de famílias comercializando produtos da sociobio com apoio do Fundo Ecos",
+        "Número de famílias acessando vendas institucionais com apoio do Fundo Ecos",
+        "Número de estudantes recebendo bolsa",
+        "Número de capacitações realizadas",
+        "Número de homens jovens capacitados (até 29 anos)",
+        "Número de homens adultos capacitados",
+        "Número de mulheres jovens capacitadas (até 29 anos)",
+        "Número de mulheres adultas capacitadas",
+        "Número de intercâmbios realizados",
+        "Número de homens em intercâmbios",
+        "Número de mulheres em intercâmbios",
+        "Número de iniciativas de Gestão Territorial implantadas",
+        "Área com manejo ecológico do fogo (ha)",
+        "Área com manejo agroecológico (ha)",
+        "Área com manejo para restauração (ha)",
+        "Área com manejo para extrativismo (ha)",
+        "Número de agroindústrias implementadas/reformadas",
+        "Número de tecnologias instaladas",
+        "Número de pessoas beneficiadas com tecnologias",
+        "Número de vídeos produzidos",
+        "Número de aparições na mídia",
+        "Número de publicações de caráter técnico",
+        "Número de artigos acadêmicos produzidos e publicados",
+        "Número de comunicadores comunitários contribuindo na execução das ações do ISPN",
+        "Faturamento bruto anual pré-projeto",
+        "Faturamento bruto anual pós-projeto",
+        "Volume financeiro de vendas institucionais com apoio do Fundo Ecos",
+        "Número de visitas de monitoramento realizadas ao projeto apoiado",
+        "Valor da contrapartida financeira projetinhos",
+        "Valor da contrapartida não financeira projetinhos",
+        "Espécies",
+        "Número de organizações apoiadas que alavancaram recursos",
+        "Valor mobilizado de novos recursos",
+        "Número de políticas públicas monitoradas pelo ISPN",
+        "Número de proposições legislativas acompanhadas pelo ISPN",
+        "Número de contribuições (notas técnicas, participações e/ou documentos) que apoiam a construção e aprimoramento de políticas públicas"
+    ]
+    
+    # Pega o autor do session_state
+    autor_nome = st.session_state.get("nome", "")
 
     # ------------------------- ABA ADICIONAR -------------------------
     with tab_add:
@@ -296,55 +419,6 @@ def gerenciar_lancamentos():
                     for i in indicadores_lista
                 }
 
-                # Lista de nomes legíveis na ordem definida
-                ordem_indicadores = [
-                    "Número de organizações apoiadas",
-                    "Número de comunidades fortalecidas",
-                    "Número de famílias",
-                    "Número de homens jovens (até 29 anos)",
-                    "Número de homens adultos",
-                    "Número de mulheres jovens (até 29 anos)",
-                    "Número de mulheres adultas",
-                    "Número de indígenas",
-                    "Número de lideranças comunitárias fortalecidas",
-                    "Número de famílias comercializando produtos da sociobio com apoio do Fundo Ecos",
-                    "Número de famílias acessando vendas institucionais com apoio do Fundo Ecos",
-                    "Número de estudantes recebendo bolsa",
-                    "Número de capacitações realizadas",
-                    "Número de homens jovens capacitados (até 29 anos)",
-                    "Número de homens adultos capacitados",
-                    "Número de mulheres jovens capacitadas (até 29 anos)",
-                    "Número de mulheres adultas capacitadas",
-                    "Número de intercâmbios realizados",
-                    "Número de homens em intercâmbios",
-                    "Número de mulheres em intercâmbios",
-                    "Número de iniciativas de Gestão Territorial implantadas",
-                    "Área com manejo ecológico do fogo (ha)",
-                    "Área com manejo agroecológico (ha)",
-                    "Área com manejo para restauração (ha)",
-                    "Área com manejo para extrativismo (ha)",
-                    "Número de agroindústrias implementadas/reformadas",
-                    "Número de tecnologias instaladas",
-                    "Número de pessoas beneficiadas com tecnologias",
-                    "Número de vídeos produzidos",
-                    "Número de aparições na mídia",
-                    "Número de publicações de caráter técnico",
-                    "Número de artigos acadêmicos produzidos e publicados",
-                    "Número de comunicadores comunitários contribuindo na execução das ações do ISPN",
-                    "Faturamento bruto anual pré-projeto",
-                    "Faturamento bruto anual pós-projeto",
-                    "Volume financeiro de vendas institucionais com apoio do Fundo Ecos",
-                    "Número de visitas de monitoramento realizadas ao projeto apoiado",
-                    "Valor da contrapartida financeira projetinhos",
-                    "Valor da contrapartida não financeira projetinhos",
-                    "Espécies",
-                    "Número de organizações apoiadas que alavancaram recursos",
-                    "Valor mobilizado de novos recursos",
-                    "Número de políticas públicas monitoradas pelo ISPN",
-                    "Número de proposições legislativas acompanhadas pelo ISPN",
-                    "Número de contribuições (notas técnicas, participações e/ou documentos) que apoiam a construção e aprimoramento de políticas públicas"
-                ]
-
                 # Cria o selectbox mantendo a ordem
                 indicador_legivel = st.selectbox(
                     "Indicador",
@@ -355,22 +429,25 @@ def gerenciar_lancamentos():
                     indicador_doc = indicadores_opcoes[indicador_legivel]
                     indicador_oid = indicador_doc["_id"]
 
-                    # Pega o autor do session_state
-                    autor_nome = st.session_state.get("nome", "")
+                    
 
                     with st.form(key="form_lancamento_indicador"):
                         col1, col2 = st.columns(2)
 
-                        # Lógica de campo de valor
-                        if "espécies" in indicador_legivel.lower():
-                            valor = col1.text_input("Espécies")  # texto livre
+                        # lógica de input para valor
+                        if indicador_legivel == indicador_texto:
+                            valor = col1.text_input("Espécies")  # salva como str
+                            tipo_valor = "texto"
+
+                        elif indicador_legivel in indicadores_float:
+                            valor = col1.number_input("Valor", value=0.00, step=0.01, format="%.2f")
+                            tipo_valor = "float"
+
                         else:
-                            valor = col1.number_input("Valor", step=1.0, format="%.2f")
+                            valor = col1.number_input("Valor", value=0, step=1, format="%d")
+                            tipo_valor = "int"
 
-                        # Campo de ano como number_input a partir de 2025
                         ano = col2.number_input("Ano", min_value=2025, step=1)
-
-                        # Observações
                         observacoes = st.text_area("Observações", height=100)
 
                         submit = st.form_submit_button("Salvar lançamento")
@@ -380,11 +457,18 @@ def gerenciar_lancamentos():
                             st.warning("Nome do autor não encontrado no session_state.")
                             st.stop()
 
+                        # conversão do valor para o tipo correto
+                        if tipo_valor == "float":
+                            valor = float(valor)
+                        elif tipo_valor == "int":
+                            valor = int(valor)
+                        # se for texto, mantém como está
+
                         novo_lancamento = {
                             "id_do_indicador": indicador_oid,
                             "projeto": projeto_oid,
                             "data_anotacao": datetime.datetime.now(),
-                            "autor_anotacao": autor_nome,  # já vem do session_state
+                            "autor_anotacao": autor_nome,
                             "valor": valor,
                             "ano": str(ano),
                             "observacoes": observacoes,
@@ -399,7 +483,7 @@ def gerenciar_lancamentos():
                 else:
                     st.info("Por favor, selecione as opções acima para prosseguir.")
 
-    # ------------------------- ABA EDITAR -------------------------
+  # ------------------------- ABA EDITAR -------------------------
     with tab_edit:
         st.subheader("Editar lançamento")
 
@@ -441,7 +525,6 @@ def gerenciar_lancamentos():
                 key="projeto_edit"
             )
 
-
             if projeto_sel_edit != "":
                 projeto_oid_edit = projetos_opcoes_edit[projeto_sel_edit]
 
@@ -453,14 +536,25 @@ def gerenciar_lancamentos():
                     }).sort("data_anotacao", -1)
                 )
 
+                # Filtrar lançamentos pelo autor, exceto para admins
+                usuario_atual = st.session_state.get("nome", "")
+                tipo_usuario = st.session_state.get("tipo_usuario", [])
+                if "admin" not in tipo_usuario:
+                    lancamentos_proj = [l for l in lancamentos_proj if l.get("autor_anotacao") == usuario_atual]
 
                 if not lancamentos_proj:
-                    st.info("Nenhum lançamento encontrado para este projeto.")
+                    st.info("Nenhum lançamento disponível para edição.")
                 else:
-                    lanc_opcoes_edit = {
-                        f"{l['data_anotacao'].strftime('%d/%m/%Y')} - {l['autor_anotacao']}": l["_id"]
-                        for l in lancamentos_proj
-                    }
+                    lanc_opcoes_edit = {}
+                    for l in lancamentos_proj:
+                        indicador_doc = indicadores.find_one({"_id": l["id_do_indicador"]})
+                        indicador_nome = formatar_nome_legivel(indicador_doc["nome_indicador"]) if indicador_doc else "Indicador desconhecido"
+
+                        data_str = l["data_anotacao"].strftime('%d/%m/%Y') if isinstance(l["data_anotacao"], datetime.datetime) else "Sem data"
+                        autor = l.get("autor_anotacao", "Sem autor")
+
+                        label = f"{data_str} - {autor} - {indicador_nome}"
+                        lanc_opcoes_edit[label] = l["_id"]
 
                     lanc_sel_edit = st.selectbox(
                         "Selecione o lançamento",
@@ -471,22 +565,39 @@ def gerenciar_lancamentos():
                     if lanc_sel_edit != "":
                         lanc_id_edit = lanc_opcoes_edit[lanc_sel_edit]
                         doc = lancamentos.find_one({"_id": lanc_id_edit})
-                        
+
+                        indicador_doc_edit = indicadores.find_one({"_id": doc["id_do_indicador"]})
+                        indicador_nome_edit = formatar_nome_legivel(indicador_doc_edit["nome_indicador"]) if indicador_doc_edit else ""
+
                         col1, col2 = st.columns(2)
-                        
-                        novo_valor = col1.number_input("Valor", value=float(doc["valor"]), step=1.0)
+
+                        if indicador_nome_edit == indicador_texto:
+                            novo_valor = col1.text_input("Espécies", value=str(doc["valor"]))
+                            tipo_valor = "texto"
+                        elif indicador_nome_edit in indicadores_float:
+                            valor_inicial = float(doc["valor"]) if doc["valor"] != "" else 0.00
+                            novo_valor = col1.number_input("Valor", value=valor_inicial, step=0.01, format="%.2f")
+                            tipo_valor = "float"
+                        else:
+                            valor_inicial = int(doc["valor"]) if str(doc["valor"]).isdigit() else 0
+                            novo_valor = col1.number_input("Valor", value=valor_inicial, step=1, format="%d")
+                            tipo_valor = "int"
 
                         ano_str = doc.get("ano", "2025")
                         try:
                             ano_int = int(ano_str)
                         except ValueError:
                             ano_int = 2025
-
                         novo_ano = col2.number_input("Ano", value=ano_int, min_value=2025, step=1)
 
                         novas_obs = st.text_area("Observações", value=doc.get("observacoes", ""))
 
                         if st.button("Salvar alterações", key="salvar_edit"):
+                            if tipo_valor == "float":
+                                novo_valor = float(novo_valor)
+                            elif tipo_valor == "int":
+                                novo_valor = int(novo_valor)
+
                             lancamentos.update_one(
                                 {"_id": lanc_id_edit},
                                 {"$set": {
@@ -498,84 +609,110 @@ def gerenciar_lancamentos():
                             st.success("Lançamento atualizado com sucesso!")
                             st.rerun()
 
-
-
     # ------------------------- ABA EXCLUIR -------------------------
     with tab_delete:
         st.subheader("Excluir lançamento")
 
-        tipo_projeto_del = st.selectbox(
+        tipo_projeto_delete = st.selectbox(
             "Tipo de projeto",
             ["", "Fundo Ecos", "Projetos ISPN"],
-            key="tipo_projeto_del"
+            key="tipo_projeto_delete"
         )
 
-        subtipo_del = None
-        if tipo_projeto_del == "Fundo Ecos":
-            subtipo_del = st.selectbox(
+        subtipo_delete = None
+        if tipo_projeto_delete == "Fundo Ecos":
+            subtipo_delete = st.selectbox(
                 "Subtipo",
                 ["", "PJ", "PF"],
-                key="subtipo_projeto_del"
+                key="subtipo_projeto_delete"
             )
 
-        if (tipo_projeto_del == "Projetos ISPN") or (tipo_projeto_del == "Fundo Ecos" and subtipo_del in ["PJ", "PF"]):
+        if (tipo_projeto_delete == "Projetos ISPN") or (tipo_projeto_delete == "Fundo Ecos" and subtipo_delete in ["PJ", "PF"]):
 
-            if tipo_projeto_del == "Projetos ISPN":
+            if tipo_projeto_delete == "Projetos ISPN":
                 colecao = projetos_ispn
-            elif subtipo_del == "PJ":
+                tipo_salvar = "ispn"
+            elif subtipo_delete == "PJ":
                 colecao = projetos_pj
-            elif subtipo_del == "PF":
+                tipo_salvar = "PJ"
+            elif subtipo_delete == "PF":
                 colecao = projetos_pf
+                tipo_salvar = "PF"
 
-            projetos_lista_del = list(colecao.find({}, {"_id": 1, "codigo": 1, "sigla": 1}))
-            
-            projetos_opcoes_del = {
+            projetos_lista_delete = list(colecao.find({}, {"_id": 1, "codigo": 1, "sigla": 1}))
+            projetos_opcoes_delete = {
                 f"{p.get('codigo', 'Sem código')} - {p.get('sigla', '')}": p["_id"]
-                for p in projetos_lista_del
+                for p in projetos_lista_delete
             }
 
-            projeto_sel_del = st.selectbox(
+            projeto_sel_delete = st.selectbox(
                 "Projeto",
-                [""] + sorted(list(projetos_opcoes_del.keys())),
-                key="projeto_del"
+                [""] + sorted(list(projetos_opcoes_delete.keys())),
+                key="projeto_delete"
             )
 
+            if projeto_sel_delete != "":
+                projeto_oid_delete = projetos_opcoes_delete[projeto_sel_delete]
 
-            if projeto_sel_del != "":
-                projeto_oid_del = projetos_opcoes_del[projeto_sel_del]
-
-                lancamentos_proj_del = list(
+                lancamentos_proj = list(
                     lancamentos.find({
-                        "projeto": projeto_oid_del,
+                        "projeto": projeto_oid_delete,
+                        "tipo": tipo_salvar,
                         "data_anotacao": {"$exists": True, "$ne": None, "$ne": ""}
                     }).sort("data_anotacao", -1)
                 )
 
-                if not lancamentos_proj_del:
-                    st.info("Nenhum lançamento encontrado para este projeto.")
-                else:
-                    lanc_opcoes_del = {
-                        f"{l['data_anotacao'].strftime('%d/%m/%Y')} - {l['autor_anotacao']}": l["_id"]
-                        for l in lancamentos_proj_del
-                    }
+                # Filtrar lançamentos pelo autor, exceto para admins
+                usuario_atual = st.session_state.get("nome", "")
+                tipo_usuario = st.session_state.get("tipo_usuario", [])
+                if "admin" not in tipo_usuario:
+                    lancamentos_proj = [l for l in lancamentos_proj if l.get("autor_anotacao") == usuario_atual]
 
-                    lanc_sel_del = st.selectbox(
+                if not lancamentos_proj:
+                    st.info("Nenhum lançamento disponível para exclusão.")
+                else:
+                    lanc_opcoes_delete = {}
+                    for l in lancamentos_proj:
+                        indicador_doc = indicadores.find_one({"_id": l["id_do_indicador"]})
+                        indicador_nome = formatar_nome_legivel(indicador_doc["nome_indicador"]) if indicador_doc else "Indicador desconhecido"
+
+                        data_str = l["data_anotacao"].strftime('%d/%m/%Y') if isinstance(l["data_anotacao"], datetime.datetime) else "Sem data"
+                        autor = l.get("autor_anotacao", "Sem autor")
+
+                        label = f"{data_str} - {autor} - {indicador_nome}"
+                        lanc_opcoes_delete[label] = l["_id"]
+
+                    lanc_sel_delete = st.selectbox(
                         "Selecione o lançamento",
-                        [""] + list(lanc_opcoes_del.keys()),
-                        key="lanc_sel_del"
+                        [""] + list(lanc_opcoes_delete.keys()),
+                        key="lanc_sel_delete"
                     )
 
-                    if lanc_sel_del != "":
-                        lanc_id_del = lanc_opcoes_del[lanc_sel_del]
-                        doc = lancamentos.find_one({"_id": lanc_id_del})
+                    if lanc_sel_delete != "":
+                        lanc_id_delete = lanc_opcoes_delete[lanc_sel_delete]
+                        doc = lancamentos.find_one({"_id": lanc_id_delete})
 
-                        st.warning(f"Tem certeza que deseja excluir o lançamento de {doc['data_anotacao'].strftime('%d/%m/%Y')} - {doc['autor_anotacao']}?")
+                        #indicador_doc_delete = indicadores.find_one({"_id": doc["id_do_indicador"]})
+                        #indicador_nome_delete = formatar_nome_legivel(indicador_doc_delete["nome_indicador"]) if indicador_doc_delete else ""
+
+                        indicador_nome_conf = ""
+                        if doc.get("indicador"):
+                            indicador_doc_conf = indicadores.find_one({"_id": doc["indicador"]})
+                            if indicador_doc_conf:
+                                indicador_nome_conf = indicador_doc_conf.get("indicador", "")
+
+                        valor_lanc = doc.get("valor", "Sem valor")
+                        st.warning(
+                            f"Tem certeza que deseja excluir o lançamento de "
+                            f"{doc['data_anotacao'].strftime('%d/%m/%Y')} - {doc['autor_anotacao']} - "
+                            f"{indicador_nome_conf} Valor: {valor_lanc}?"
+                        )
 
                         if st.button("Excluir", key="excluir_lanc"):
-                            lancamentos.delete_one({"_id": lanc_id_del})
+                            lancamentos.delete_one({"_id": lanc_id_delete})
                             st.success("Lançamento excluído com sucesso!")
                             st.rerun()
-                    
+
 
 ######################################################################################################
 # MAIN
