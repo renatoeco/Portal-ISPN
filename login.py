@@ -209,17 +209,27 @@ def login():
 
             cols = st.columns([1, 3])
 
-            # Exibe o logo
+            # Exibe o logo - TESTE DE LOGOS
             cols[1].image("images/colab_rounded_THIN.png", width=400)
             cols[1].write('')
             cols[1].write('')
+
             cols[1].image("images/colab_fauna_THIN.png", width=400)
             cols[1].write('')
             cols[1].write('')
+            
             cols[1].image("images/COLAB_caderno_THIN.png", width=400)
             cols[1].write('')
             cols[1].write('')
-            cols[1].image("images/COLAB_mulher_THIN.png", width=400)
+            
+            cols[1].image("images/colab_onca_THIN.png", width=400)
+            cols[1].write('')
+            cols[1].write('')
+                        
+            cols[1].image("images/colab_onca_round_THIN.png", width=400)
+            cols[1].write('')
+            cols[1].write('')
+
 
 
 
