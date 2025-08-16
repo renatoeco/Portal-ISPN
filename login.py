@@ -180,8 +180,21 @@ def recuperar_senha_dialog():
 
 def login():
 
+    # st.image("images/logo_ISPN_horizontal_ass.png", width=300)
+    
+    # Exibe o logo
+    st.markdown(
+        """
+        <div style="text-align: center;">
+            <img src="https://ispn.org.br/site/wp-content/uploads/2021/04/logo_ISPN_2021.png" width="300"/>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
     # Pula 10 linhas
-    for _ in range(10):
+    for _ in range(9):
         st.write('')
 
 
@@ -189,30 +202,47 @@ def login():
 
         # Coluna da esquerda
         with st.container():
-            # Exibe o logo
-            st.markdown(
-                """
-                <div style="text-align: center;">
-                    <img src="https://ispn.org.br/site/wp-content/uploads/2021/04/logo_ISPN_2021.png" width="300"/>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-            st.write('')
+            
             st.write('')
             st.write('')
             st.write('')
 
+            cols = st.columns([1, 3])
+
+            # Exibe o logo
+            cols[1].image("images/colab_rounded_THIN.png", width=400)
+            cols[1].write('')
+            cols[1].write('')
+            cols[1].image("images/colab_fauna_THIN.png", width=400)
+            cols[1].write('')
+            cols[1].write('')
+            cols[1].image("images/COLAB_caderno_THIN.png", width=400)
+            cols[1].write('')
+            cols[1].write('')
+            cols[1].image("images/COLAB_mulher_THIN.png", width=400)
+
+
+
+            # st.image("images/logo_ISPN_horizontal_ass.png", width=300)
+
+
             # Exibe o título 
-            st.markdown("<div style='text-align: center;'><h1 style='color: #666;'><strong>ISPN COLAB</strong></h1></div>", unsafe_allow_html=True)
+            # st.markdown("<div style='text-align: center;'><h1 style='color: #666;'><strong>ISPN COLAB</strong></h1></div>", unsafe_allow_html=True)
+            
+            # st.image("images/colab_fauna.png", width=400)
+            
             st.write('')
             st.write('')
             st.write('')
             st.write('')
 
         # Coluna da direita
+ 
         with st.container():
 
+            st.write('')
+            st.write('')
+            st.write('')
 
             with st.form("login_form", border=False):
                 # Novo campo de e-mail
@@ -258,54 +288,6 @@ def login():
 
 
 
-
-
-
-    # # Cria colunas para centralizar o formulário
-    # col1, col2, col3 = st.columns([2, 3, 2])
-
-    # with col2.form("login_form", border=False):
-    #     # Novo campo de e-mail
-    #     email_input = st.text_input("E-mail")
-
-    #     # Campo de senha
-    #     password = st.text_input("Senha", type="password")
-
-    #     if st.form_submit_button("Entrar"):
-    #         usuario_encontrado = colaboradores.find_one({
-    #             "e_mail": {"$regex": f"^{email_input.strip()}$", "$options": "i"},
-    #             "senha": password
-    #         })
-
-    #         # Salva o email para possível recuperação de senha
-    #         st.session_state["email_para_recuperar"] = email_input.strip()
-
-    #         if usuario_encontrado:
-    #             if usuario_encontrado.get("status", "").lower() != "ativo":
-    #                 st.error("Usuário inativo. Entre em contato com o renato@ispn.org.br.")
-    #                 return
-
-    #             tipo_usuario = [x.strip() for x in usuario_encontrado.get("tipo de usuário", "").split(",")]
-
-    #             # Autentica
-    #             st.session_state["logged_in"] = True
-    #             st.session_state["tipo_usuario"] = tipo_usuario
-    #             st.session_state["nome"] = usuario_encontrado.get("nome_completo")
-    #             st.session_state["cpf"] = usuario_encontrado.get("CPF")
-    #             st.session_state["id_usuario"] = usuario_encontrado.get("_id")
-    #             st.rerun()
-    #         else:
-    #             st.error("E-mail ou senha inválidos!")
-
-    
-    
-    # # Botão para recuperar senha
-    # col2.write('')
-    # col2.write('')
-    # col2.button("Esqueci a senha", key="forgot_password", type="tertiary", on_click=recuperar_senha_dialog)
-
-    # # Informação adicional
-    # col2.markdown("<div style='color: #007ad3;'><br>É o seu primeiro acesso?<br>Clique em \"Esqueci a senha\".</div>", unsafe_allow_html=True)
 
 
 ##############################################################################################################
