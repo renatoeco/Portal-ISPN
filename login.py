@@ -229,6 +229,10 @@ def login():
             cols[1].image("images/colab_onca_round_THIN.png", width=400)
             cols[1].write('')
             cols[1].write('')
+            
+            cols[1].image("images/colab_onca_round_caderno_THIN.png", width=400)
+            cols[1].write('')
+            cols[1].write('')
 
 
 
