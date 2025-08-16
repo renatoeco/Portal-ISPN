@@ -6,6 +6,8 @@ import smtplib
 from email.mime.text import MIMEText  
 from funcoes_auxiliares import conectar_mongo_portal_ispn  # Função personalizada para conectar ao MongoDB
 
+# Configurar o streamlit para tela wide
+st.set_page_config(layout="wide")
 
 ##############################################################################################################
 # CONEXÃO COM O BANCO DE DADOS (MONGODB)
@@ -29,7 +31,6 @@ def encontrar_usuario_por_email(colaboradores, email_busca):
     if usuario:
         return usuario.get("nome_completo"), usuario  # Retorna o nome e os dados do usuário
     return None, None  # Caso não encontre
-
 
 
 # Função para enviar um e_mail com código de verificação
@@ -88,7 +89,7 @@ def recuperar_senha_dialog():
             email_default = st.session_state.get("email_para_recuperar", "")
             email = st.text_input("Digite seu e-mail:", value=email_default)
 
-            if st.form_submit_button("Enviar código de verificação"):
+            if st.form_submit_button("Enviar código de verificação", icon=":material/mail:"):
                 if email:
                     nome, verificar_colaboradores = encontrar_usuario_por_email(colaboradores, email)
                     if verificar_colaboradores:
@@ -178,72 +179,133 @@ def recuperar_senha_dialog():
 ##############################################################################################################
 
 def login():
-    # Exibe o logo
-    st.markdown(
-        """
-        <div style="text-align: center;">
-            <img src="https://ispn.org.br/site/wp-content/uploads/2021/04/logo_ISPN_2021.png" width="300"/>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-    st.write('')
-    st.write('')
-    st.write('')
-    st.write('')
 
-    # Exibe o título 
-    st.markdown("<div style='text-align: center;'><h1 style='color: #666;'><strong>Portal do ISPN</strong></h1></div>", unsafe_allow_html=True)
-    st.write('')
-    st.write('')
-    st.write('')
-    st.write('')
+    # Pula 10 linhas
+    for _ in range(10):
+        st.write('')
 
-    # Cria colunas para centralizar o formulário
-    col1, col2, col3 = st.columns([2, 3, 2])
 
-    with col2.form("login_form", border=False):
-        # Novo campo de e-mail
-        email_input = st.text_input("Insira seu e-mail")
+    with st.container(horizontal=True, gap="large"):
 
-        # Campo de senha
-        password = st.text_input("Insira a senha", type="password")
+        # Coluna da esquerda
+        with st.container():
+            # Exibe o logo
+            st.markdown(
+                """
+                <div style="text-align: center;">
+                    <img src="https://ispn.org.br/site/wp-content/uploads/2021/04/logo_ISPN_2021.png" width="300"/>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+            st.write('')
+            st.write('')
+            st.write('')
+            st.write('')
 
-        if st.form_submit_button("Entrar"):
-            usuario_encontrado = colaboradores.find_one({
-                "e_mail": {"$regex": f"^{email_input.strip()}$", "$options": "i"},
-                "senha": password
-            })
+            # Exibe o título 
+            st.markdown("<div style='text-align: center;'><h1 style='color: #666;'><strong>ISPN COLAB</strong></h1></div>", unsafe_allow_html=True)
+            st.write('')
+            st.write('')
+            st.write('')
+            st.write('')
 
-            # Salva o email para possível recuperação de senha
-            st.session_state["email_para_recuperar"] = email_input.strip()
+        # Coluna da direita
+        with st.container():
 
-            if usuario_encontrado:
-                if usuario_encontrado.get("status", "").lower() != "ativo":
-                    st.error("Usuário inativo. Entre em contato com o renato@ispn.org.br.")
-                    return
 
-                tipo_usuario = [x.strip() for x in usuario_encontrado.get("tipo de usuário", "").split(",")]
+            with st.form("login_form", border=False):
+                # Novo campo de e-mail
+                email_input = st.text_input("E-mail", width=300)
 
-                # Autentica
-                st.session_state["logged_in"] = True
-                st.session_state["tipo_usuario"] = tipo_usuario
-                st.session_state["nome"] = usuario_encontrado.get("nome_completo")
-                st.session_state["cpf"] = usuario_encontrado.get("CPF")
-                st.session_state["id_usuario"] = usuario_encontrado.get("_id")
-                st.rerun()
-            else:
-                st.error("E-mail ou senha inválidos!")
+                # Campo de senha
+                password = st.text_input("Senha", type="password", width=300)
+
+                if st.form_submit_button("Entrar"):
+                    usuario_encontrado = colaboradores.find_one({
+                        "e_mail": {"$regex": f"^{email_input.strip()}$", "$options": "i"},
+                        "senha": password
+                    })
+
+                    # Salva o email para possível recuperação de senha
+                    st.session_state["email_para_recuperar"] = email_input.strip()
+
+                    if usuario_encontrado:
+                        if usuario_encontrado.get("status", "").lower() != "ativo":
+                            st.error("Usuário inativo. Entre em contato com o renato@ispn.org.br.")
+                            return
+
+                        tipo_usuario = [x.strip() for x in usuario_encontrado.get("tipo de usuário", "").split(",")]
+
+                        # Autentica
+                        st.session_state["logged_in"] = True
+                        st.session_state["tipo_usuario"] = tipo_usuario
+                        st.session_state["nome"] = usuario_encontrado.get("nome_completo")
+                        st.session_state["cpf"] = usuario_encontrado.get("CPF")
+                        st.session_state["id_usuario"] = usuario_encontrado.get("_id")
+                        st.rerun()
+                    else:
+                        st.error("E-mail ou senha inválidos!")
+
+            # Botão para recuperar senha
+            st.write('')
+            st.write('')
+            st.button("Esqueci a senha", key="forgot_password", type="tertiary", on_click=recuperar_senha_dialog)
+
+            # Informação adicional
+            st.markdown("<div style='color: #007ad3;'><br>É o seu primeiro acesso?<br>Clique em \"Esqueci a senha\".</div>", unsafe_allow_html=True)
+
+
+
+
+
+
+
+    # # Cria colunas para centralizar o formulário
+    # col1, col2, col3 = st.columns([2, 3, 2])
+
+    # with col2.form("login_form", border=False):
+    #     # Novo campo de e-mail
+    #     email_input = st.text_input("E-mail")
+
+    #     # Campo de senha
+    #     password = st.text_input("Senha", type="password")
+
+    #     if st.form_submit_button("Entrar"):
+    #         usuario_encontrado = colaboradores.find_one({
+    #             "e_mail": {"$regex": f"^{email_input.strip()}$", "$options": "i"},
+    #             "senha": password
+    #         })
+
+    #         # Salva o email para possível recuperação de senha
+    #         st.session_state["email_para_recuperar"] = email_input.strip()
+
+    #         if usuario_encontrado:
+    #             if usuario_encontrado.get("status", "").lower() != "ativo":
+    #                 st.error("Usuário inativo. Entre em contato com o renato@ispn.org.br.")
+    #                 return
+
+    #             tipo_usuario = [x.strip() for x in usuario_encontrado.get("tipo de usuário", "").split(",")]
+
+    #             # Autentica
+    #             st.session_state["logged_in"] = True
+    #             st.session_state["tipo_usuario"] = tipo_usuario
+    #             st.session_state["nome"] = usuario_encontrado.get("nome_completo")
+    #             st.session_state["cpf"] = usuario_encontrado.get("CPF")
+    #             st.session_state["id_usuario"] = usuario_encontrado.get("_id")
+    #             st.rerun()
+    #         else:
+    #             st.error("E-mail ou senha inválidos!")
 
     
     
-    # Botão para recuperar senha
-    col2.write('')
-    col2.write('')
-    col2.button("Esqueci a senha", key="forgot_password", type="tertiary", on_click=recuperar_senha_dialog)
+    # # Botão para recuperar senha
+    # col2.write('')
+    # col2.write('')
+    # col2.button("Esqueci a senha", key="forgot_password", type="tertiary", on_click=recuperar_senha_dialog)
 
-    # Informação adicional
-    col2.markdown("<div style='color: #007ad3;'><br>É o seu primeiro acesso?<br>Clique em \"Esqueci a senha\".</div>", unsafe_allow_html=True)
+    # # Informação adicional
+    # col2.markdown("<div style='color: #007ad3;'><br>É o seu primeiro acesso?<br>Clique em \"Esqueci a senha\".</div>", unsafe_allow_html=True)
 
 
 ##############################################################################################################
