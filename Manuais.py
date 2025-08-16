@@ -19,14 +19,18 @@ div[data-testid="stDialog"] div[role="dialog"]:has(.big-dialog) {
 )
 
 
+# ###########################################################################################################
+
+# COLOCAR OS DOCUMENTOS EM ORDEM ALFABÉTICA
+
+# ###########################################################################################################
 
 
 
-
-import streamlit as st
 
 # ACORDOS DE CONVIVÊNCIA
 with st.expander("ACORDOS DE CONVIVÊNCIA"):
+    st.write("**Acordo de Convivência do Escritório de Brasília**")
     st.write("""O Acordo de convivência do escritório de Brasília orienta sobre uso organizado do espaço, incluindo 
              agendamento de reuniões, respeito ao silêncio, limpeza de áreas comuns e cuidados com 
              equipamentos e segurança ao final do expediente.""")
@@ -60,6 +64,7 @@ with st.expander("CÓDIGO DE ÉTICA"):
 
 # LISTAS DE PRESENÇA
 with st.expander("LISTAS DE PRESENÇA"):
+    st.write('')
     st.write("Modelo de Lista de Presença com autorização de uso de imagem.")
     
     with st.container(horizontal=True):
@@ -201,7 +206,7 @@ with st.expander("RELATÓRIO MENSAL DE ATIVIDADES"):
     st.write("**1) Modelo de relatório**")
     st.link_button(
         label="Ver documento",
-        url="https://ispn.org.br/site/wp-content/uploads/2022/07/RELATORIO-MENSAL-DE-ATIVIDADES.xlsx", 
+        url="https://ispn.org.br/site/wp-content/uploads/2022/08/6.-Modelo-Relatorio-mensal-de-atividades.docx", 
         type="secondary",
         icon=":material/open_in_new:"
     )
@@ -215,7 +220,7 @@ with st.expander("RELATÓRIO MENSAL DE ATIVIDADES"):
     st.write('')
 
     # 3) Importação automática dos eventos da agenda
-    st.write("**3) Dica extra: Método de importação automática dos eventos da agenda**")
+    st.write("**3) Dica extra: método de importação automática dos eventos da agenda**")
     st.write('É uma função no menu do google sheets que importa todos os eventos da sua agenda em um determinado período.')
     st.write('Auxilia na sistematização de atividades para o relatório mensal. Se você anota tudo certinho na agenda, no final do mês seu relatório estará praticamente pronto.')
 
@@ -223,7 +228,7 @@ with st.expander("RELATÓRIO MENSAL DE ATIVIDADES"):
 
     st.write('O script precisa ser instalado apenas na primeira vez. No dia a dia, basta chamar a função no menu e inserir as datas.')
 
-    st.write('Abaixo está um vídeo tutorial e o botão para o script utilizado no vídeo.')
+    st.write('Abaixo está um vídeo tutorial e o botão para o script utilizado.')
 
 
     with st.container(horizontal=True):
@@ -246,8 +251,9 @@ with st.expander("RELATÓRIO MENSAL DE ATIVIDADES"):
 
 
 # SOLICITAÇÃO DE AUTORIZAÇÃO DE VIAGEM (SAV)
-with st.expander("SOLICITAÇÃO DE AUTORIZAÇÃO DE VIAGEM (SAV)"):
-    st.write("As **Solicitações de Autorização de Viagem (SAVs)** e os **Relatórios de Viagem Simplificados (RVSs)** devem ser feitos no **[Portal de Viagens do ISPN](https://ispn-viagens.streamlit.app)**")
+with st.expander("SOLICITAÇÃO DE AUTORIZAÇÃO DE VIAGEM"):
+    st.write('')
+    st.write("As **Solicitações de Autorização de Viagem (SAVs)** e os **Relatórios de Viagem Simplificados (RVSs)** são feitos no **[Portal de Viagens do ISPN](https://ispn-viagens.streamlit.app)**")
 
     st.divider()
 
