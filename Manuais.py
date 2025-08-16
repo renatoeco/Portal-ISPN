@@ -19,6 +19,15 @@ div[data-testid="stDialog"] div[role="dialog"]:has(.big-dialog) {
 )
 
 
+st.write('Para assuntos administrativos referentes a prestação de contas, relatórios, solicitações de viagens e formulários de evento, entre em contato com os seguintes endereços:')
+
+st.write("**Brasília**: admbsb@ispn.org.br")
+st.write("**Maranhão**: administrativoma@ispn.org.br")
+
+st.write('')
+
+
+
 # ###########################################################################################################
 
 # COLOCAR OS DOCUMENTOS EM ORDEM ALFABÉTICA
@@ -131,7 +140,7 @@ with st.expander("MANUAL OPERACIONAL DO FUNDO ECOS"):
 with st.expander("ORGANOGRAMA"):
     st.write("Organograma do ISPN")
 
-    st.image('https://ispn.org.br/site/wp-content/uploads/2025/02/Organograma-2025.png')
+    st.image('https://ispn.org.br/site/wp-content/uploads/2025/02/Organograma-2025.png', width=1000)
 
 # POLÍTICA DE PRIVACIDADE
 with st.expander("POLÍTICA DE PRIVACIDADE"):
