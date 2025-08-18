@@ -502,6 +502,12 @@ def editar_titulo_de_cada_resultado_mp_dialog(resultado_idx):
 st.set_page_config(layout="wide")
 st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
 
+if "modo_edicao" not in st.session_state:
+    st.session_state.modo_edicao = False
+
+
+
+
 st.header("Estratégia")
 
 
