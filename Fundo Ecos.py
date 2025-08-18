@@ -499,7 +499,7 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
             placeholder=""
         )
 
-        submitted = st.form_submit_button("Salvar")
+        submitted = st.form_submit_button("Salvar", icon=":material/save:")
         if submitted:
             doc = {
                 "codigo": codigo,
@@ -592,27 +592,32 @@ def gerenciar_projetos():
 
     # ---------------------- Excluir ----------------------
     with abas[2]:
-        projetos_pf = list(db["projetos_pf"].find())
-        projetos_pj = list(db["projetos_pj"].find())
-        todos_projetos = [(p, "PF") for p in projetos_pf] + [(p, "PJ") for p in projetos_pj]
+        
+        # Somente para admin
+        if set(st.session_state.tipo_usuario) & {"admin"}:
+        
 
-        opcoes = {
-            str(proj["_id"]): f"{proj.get('codigo', '')} ({proj.get('sigla', '')})"
-            for proj, tipo in todos_projetos
-        }
+            projetos_pf = list(db["projetos_pf"].find())
+            projetos_pj = list(db["projetos_pj"].find())
+            todos_projetos = [(p, "PF") for p in projetos_pf] + [(p, "PJ") for p in projetos_pj]
 
-        if not opcoes:
-            st.info("Nenhum projeto encontrado para excluir.")
-        else:
-            selecionado_id = st.selectbox("Selecione o projeto para excluir", list(opcoes.keys()), format_func=lambda x: opcoes[x])
-            tipo = "PF" if selecionado_id in [str(p["_id"]) for p, t in todos_projetos if t == "PF"] else "PJ"
-            colecao = db["projetos_pf"] if tipo == "PF" else db["projetos_pj"]
-            projeto = colecao.find_one({"_id": ObjectId(selecionado_id)})
-            if st.button(f"Excluir projeto"):
-                colecao.delete_one({"_id": ObjectId(selecionado_id)})
-                st.warning("Projeto excluído.")
-                time.sleep(2)
-                st.rerun()
+            opcoes = {
+                str(proj["_id"]): f"{proj.get('codigo', '')} ({proj.get('sigla', '')})"
+                for proj, tipo in todos_projetos
+            }
+
+            if not opcoes:
+                st.info("Nenhum projeto encontrado para excluir.")
+            else:
+                selecionado_id = st.selectbox("Selecione o projeto para excluir", list(opcoes.keys()), format_func=lambda x: opcoes[x])
+                tipo = "PF" if selecionado_id in [str(p["_id"]) for p, t in todos_projetos if t == "PF"] else "PJ"
+                colecao = db["projetos_pf"] if tipo == "PF" else db["projetos_pj"]
+                projeto = colecao.find_one({"_id": ObjectId(selecionado_id)})
+                if st.button(f"Excluir projeto", icon=":material/delete:"):
+                    colecao.delete_one({"_id": ObjectId(selecionado_id)})
+                    st.warning("Projeto excluído.")
+                    time.sleep(2)
+                    st.rerun()
     
     
 def extrair_itens_distintos(series: pd.Series) -> pd.Series:
@@ -1202,6 +1207,11 @@ with geral:
         margin=dict(t=60, b=60, l=40, r=10)
     )
 
+    # fig.update_traces(
+    #     marker_pattern_shape=["", "/", "\\", "x", "-", "|", "."],
+    # )
+
+
     # Mostrar
     st.plotly_chart(fig, use_container_width=True)
 
@@ -1210,47 +1220,74 @@ with lista:
     st.write("")
 
     if set(st.session_state.tipo_usuario) & {"admin", "gestao_fundo_ecos"}:
-        col1, col2, col3 = st.columns([2, 2, 1])
 
-        col3.button("Gerenciar projetos", on_click=gerenciar_projetos, use_container_width=True, icon=":material/contract_edit:")
+        st.button("Gerenciar projetos", on_click=gerenciar_projetos, icon=":material/contract_edit:")
 
-
-    # Ordenar Ano desc, Código asc
+    # --- Ordenar Ano desc, Código asc ---
     df_exibir = (
         st.session_state["df_filtrado"]
         .copy()
-        .sort_values(by=["Ano", "Código"], ascending=[True, True])
+        .sort_values(by=["Ano", "Código"], ascending=[False, True])
         .reset_index(drop=True)
     )
 
-    # Paginação
+    # --- Paginação ---
     itens_por_pagina = 50
     total_linhas = len(df_exibir)
     total_paginas = max(math.ceil(total_linhas / itens_por_pagina), 1)
 
-    col1, col2, col3 = st.columns([5, 1, 1])
-    pagina_atual = col3.number_input(
+    # --- Inicializar paginação no session_state ---
+    if "pagina_atual" not in st.session_state:
+        st.session_state["pagina_atual"] = 1
+    if "pagina_topo" not in st.session_state:
+        st.session_state["pagina_topo"] = st.session_state["pagina_atual"]
+    if "pagina_rodape" not in st.session_state:
+        st.session_state["pagina_rodape"] = st.session_state["pagina_atual"]
+
+    # --- Funções de callback para sincronização ---
+    def atualizar_topo():
+        st.session_state["pagina_atual"] = st.session_state["pagina_topo"]
+        st.session_state["pagina_rodape"] = st.session_state["pagina_topo"]
+
+    def atualizar_rodape():
+        st.session_state["pagina_atual"] = st.session_state["pagina_rodape"]
+        st.session_state["pagina_topo"] = st.session_state["pagina_rodape"]
+
+    # --- Controle topo ---
+    col1, col2, col3 = st.columns([5,2,1])
+
+    col3.number_input(
         "Página",
-        min_value=1, max_value=total_paginas, value=1, step=1,
-        key="pagina_projetos"
+        min_value=1,
+        max_value=total_paginas,
+        value=st.session_state["pagina_topo"],
+        step=1,
+        key="pagina_topo",
+        on_change=atualizar_topo
     )
 
-    inicio = (pagina_atual - 1) * itens_por_pagina
+    # --- Definir intervalo de linhas ---
+    inicio = (st.session_state["pagina_atual"] - 1) * itens_por_pagina
     fim = inicio + itens_por_pagina
     df_paginado = df_exibir.iloc[inicio:fim]
 
-    with col1:
+
+
+    # --- Informação de contagem ---
+    with col2:
         st.write("")
-        st.subheader(f"Mostrando {inicio + 1} a {min(fim, total_linhas)} de {total_linhas} projetos")
+        st.write(f"**Mostrando {inicio + 1} a {min(fim, total_linhas)} de {total_linhas} projetos**")
         st.write("")
         st.write("")
 
-    st.write("")
-
+    # --- Layout da tabela customizada ---
+    # colunas_visiveis = [c for c in df_exibir.columns]  # personalizar se quiser excluir colunas
     colunas_visiveis = [c for c in df_exibir.columns if c not in ["Tipo", "Município Principal", "CNPJ", "CPF", "Proponente", "Programa", "Temas", "Público", "Bioma", "Gênero", "Status", "Ponto Focal"]]
+
     headers = colunas_visiveis + ["Detalhes"]
 
-    col_sizes = [2, 2, 1, 2, 2, 2, 1, 2, 3, 3]  # ajuste se necessário
+    col_sizes = [2, 2, 1, 2, 2, 2, 1, 2, 3, 3]  
+
     header_cols = st.columns(col_sizes)
     for col, header in zip(header_cols, headers):
         col.markdown(f"**{header}**")
@@ -1271,6 +1308,107 @@ with lista:
             icon=":material/menu:"
         )
         st.divider()
+
+    # --- Controle rodapé ---
+    col1, col2, col3 = st.columns([5,2,1])
+
+    # --- Informação de contagem ---
+    with col2:
+        st.write("")
+        st.write(f"**Mostrando {inicio + 1} a {min(fim, total_linhas)} de {total_linhas} projetos**")
+        st.write("")
+        st.write("")
+
+    col3.number_input(
+        "Página",
+        min_value=1,
+        max_value=total_paginas,
+        value=st.session_state["pagina_rodape"],
+        step=1,
+        key="pagina_rodape",
+        on_change=atualizar_rodape
+    )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    # # Ordenar Ano desc, Código asc
+    # df_exibir = (
+    #     st.session_state["df_filtrado"]
+    #     .copy()
+    #     .sort_values(by=["Ano", "Código"], ascending=[True, True])
+    #     .reset_index(drop=True)
+    # )
+
+    # # Paginação
+    # itens_por_pagina = 50
+    # total_linhas = len(df_exibir)
+    # total_paginas = max(math.ceil(total_linhas / itens_por_pagina), 1)
+
+    # # Controle de paginas
+    # col1, col2, col3 = st.columns([5, 1, 1])
+    # pagina_atual = col3.number_input(
+    #     "Página",
+    #     min_value=1, max_value=total_paginas, value=1, step=1,
+    #     key="pagina_projetos"
+    # )
+
+    # inicio = (pagina_atual - 1) * itens_por_pagina
+    # fim = inicio + itens_por_pagina
+    # df_paginado = df_exibir.iloc[inicio:fim]
+
+    # with col1:
+    #     st.write("")
+    #     st.subheader(f"Mostrando {inicio + 1} a {min(fim, total_linhas)} de {total_linhas} projetos")
+    #     st.write("")
+    #     st.write("")
+
+    # st.write("")
+
+    # colunas_visiveis = [c for c in df_exibir.columns if c not in ["Tipo", "Município Principal", "CNPJ", "CPF", "Proponente", "Programa", "Temas", "Público", "Bioma", "Gênero", "Status", "Ponto Focal"]]
+    # headers = colunas_visiveis + ["Detalhes"]
+
+    # col_sizes = [2, 2, 1, 2, 2, 2, 1, 2, 3, 3]  # ajuste se necessário
+    # header_cols = st.columns(col_sizes)
+    # for col, header in zip(header_cols, headers):
+    #     col.markdown(f"**{header}**")
+
+    # st.divider()
+
+    # for _, row in df_paginado.iterrows():
+    #     cols = st.columns(col_sizes)
+    #     for j, key in enumerate(colunas_visiveis):
+    #         cols[j].write(row[key])
+
+    #     codigo_proj = str(row["Código"]).strip()
+    #     cols[-1].button(
+    #         "Detalhes",
+    #         key=f"ver_{codigo_proj}",
+    #         on_click=mostrar_detalhes,
+    #         args=(codigo_proj,),
+    #         icon=":material/menu:"
+    #     )
+    #     st.divider()
 
     # col1, col2, col3 = st.columns([5, 1, 1])
     # pagina_atual = col3.number_input(
