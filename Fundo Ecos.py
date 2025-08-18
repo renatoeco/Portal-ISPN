@@ -276,6 +276,39 @@ def mostrar_detalhes(codigo_proj: str):
     st.html("<span class='big-dialog'></span>")
 
 
+@st.dialog("Cadastrar pessoa beneficiária")
+def cadastrar_pessoa_beneficiaria():
+    with st.form("Cadastro de Pessoa"):
+        nome = st.text_input("Nome completo")
+        cpf = st.text_input("CPF")
+        #genero = st.select_box()
+        cadastrar = st.form_submit_button("Cadastrar")
+        if cadastrar:
+            if not nome.strip() or not cpf.strip():
+                st.error("Todos os campos são obrigatórios.")
+            else:
+                db["pessoas_beneficiarias"].insert_one({"proponente": nome.strip(), "cpf": cpf.strip()})
+                st.success("Pessoa cadastrada com sucesso!")
+                time.sleep(2)
+                st.rerun()
+
+
+@st.dialog("Cadastrar organização beneficiária")
+def cadastrar_org_beneficiaria():
+    with st.form("Cadastro de Organização"):
+        nome = st.text_input("Nome da Organização")
+        cnpj = st.text_input("CNPJ")
+        cadastrar = st.form_submit_button("Cadastrar")
+        if cadastrar:
+            if not nome.strip() or not cnpj.strip():
+                st.error("Todos os campos são obrigatórios.")
+            else:
+                db["organizacoes_beneficiarias"].insert_one({"proponente": nome.strip(), "cnpj": cnpj.strip()})
+                st.success("Organização cadastrada com sucesso!")
+                time.sleep(2)
+                st.rerun()
+
+
 def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_ispn_dict):
     form_key = f"form_projeto_{str(projeto.get('_id', 'novo'))}"
     
@@ -348,7 +381,34 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         # Campos comuns
         codigo = col1.text_input("Código", projeto.get("codigo", ""))
         sigla = col2.text_input("Sigla", projeto.get("sigla", ""))
-        proponente = col3.text_input("Proponente", projeto.get("proponente", ""))
+        
+        # Buscar proponentes do banco
+        if tipo_projeto == "PF":
+            proponentes_cursor = db["pessoas_beneficiarias"].find()
+            proponentes_dict = {str(p["_id"]): p.get("proponente", "") for p in proponentes_cursor}
+        else:
+            proponentes_cursor = db["organizacoes_beneficiarias"].find()
+            proponentes_dict = {str(p["_id"]): p.get("proponente", "") for p in proponentes_cursor}
+
+        # Primeira opção vazia + opção de cadastro
+        proponentes_options = {"": ""}  # primeira opção vazia
+        proponentes_options["novo"] = "Cadastrar novo proponente"
+        proponentes_options.update({str(k): v for k, v in sorted(proponentes_dict.items(), key=lambda item: item[1].lower())})
+
+        proponente_selecionado = col3.selectbox(
+            "Proponente",
+            options=list(proponentes_options.keys()),
+            format_func=lambda k: proponentes_options[k],
+            index=list(proponentes_options.keys()).index(projeto.get("proponente_id", "")) 
+                if projeto.get("proponente_id", "") in proponentes_options else 0
+        )
+
+        # Abre o diálogo de cadastro se escolher "novo"
+        if proponente_selecionado == "novo":
+            if tipo_projeto == "PF":
+                cadastrar_pessoa_beneficiaria()
+            else:
+                cadastrar_org_beneficiaria()
 
         col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
         nome_do_projeto = col1.text_input("Nome do projeto", projeto.get("nome_do_projeto", ""))
@@ -504,7 +564,7 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
             doc = {
                 "codigo": codigo,
                 "sigla": sigla,
-                "proponente": proponente,
+                "proponente": proponente_selecionado,
                 "nome_do_projeto": nome_do_projeto,
                 "edital": edital,
                 "categoria": categoria,
@@ -1283,7 +1343,7 @@ with lista:
 with mapa:
     st.subheader("Mapa de distribuição de projetos")
 
-    @st.cache_data
+    @st.cache_data(show_spinner=False)
     def carregar_municipios():
         url = "https://raw.githubusercontent.com/kelvins/Municipios-Brasileiros/master/csv/municipios.csv"
         df = pd.read_csv(url)
@@ -1293,7 +1353,7 @@ with mapa:
 
     df_munis = carregar_municipios()
 
-    @st.cache_data
+    @st.cache_data(show_spinner=False)
     def preparar_df_coords(df_projetos_codigos, df_filtrado, df_munis):
         # Extrair código do município
         df_projetos_codigos['codigo_municipio'] = [
@@ -1316,7 +1376,7 @@ with mapa:
 
         return df_coords
     
-    @st.cache_data
+    @st.cache_data(show_spinner=False)
     def carregar_pontos_focais(_projetos):
         ids = [p["ponto_focal"] for p in _projetos if isinstance(p.get("ponto_focal"), ObjectId)]
         if not ids:
@@ -1335,7 +1395,7 @@ with mapa:
     pontos_focais_dict = carregar_pontos_focais(todos_projetos)
     st.write(f"{num_proj_mapa} projetos no mapa")
 
-    @st.cache_data
+    @st.cache_data(show_spinner=False)
     def gerar_mapa(df_coords_projetos, _todos_projetos, df_munis):
         
         m = folium.Map(location=[-15.78, -47.93], zoom_start=4, tiles="CartoDB positron", height="800px")
