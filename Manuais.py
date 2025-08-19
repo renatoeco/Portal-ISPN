@@ -98,6 +98,28 @@ with st.expander("LISTAS DE PRESENÇA"):
         )
 
 
+
+# MANUAL DE CARGOS E POLÍTICA DE REMUNERAÇÃO
+with st.expander("MANUAL DE CARGOS E POLÍTICA DE REMUNERAÇÃO"):
+    st.write("""O Manual de Cargos e Política de Remuneração Reúne a descrição da estrutura organizacional, 
+             cargos e funções, além de metodologias aplicadas para definição de responsabilidades, 
+             competências e requisitos. Também estabelece diretrizes para o plano de remuneração, 
+             critérios de progressão de carreira e alinhamento salarial, promovendo transparência, 
+             não discriminação e clareza nas funções e possibilidades de crescimento profissional dentro da instituição.""")
+    
+    with st.container(horizontal=True):
+        st.write("Versão: julho de 2025")
+        st.link_button(
+            label="Ver documento",
+            url="https://ispn.org.br/site/wp-content/uploads/2025/08/ISPN_MANUAL-DE-CARGOS-E-REMUNERACAO_VFINAL_compressed.pdf", 
+            type="tertiary",
+            icon=":material/open_in_new:"
+        )
+
+
+
+
+
 # MANUAL DO ISPN
 with st.expander("MANUAL DO ISPN"):
     st.write("""O manual do ISPN apresenta diretrizes institucionais e operacionais, abordando 
