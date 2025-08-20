@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import folium
 import re
+from datetime import datetime
 import unicodedata
 import math
 import time
@@ -417,13 +418,7 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         )
 
         # Edital como number_input (1 casa decimal) e convertido para str
-        edital_val = col3.number_input(
-            "Edital",
-            value=float(projeto.get("edital", 0) or 0),
-            step=1.0,
-            format="%.1f"
-        )
-        edital = str(edital_val)
+        edital = col3.text_input("Edital", projeto.get("edital", ""))
         
         ano_aprovacao = col4.number_input("Ano de aprovação", value=projeto.get("ano_de_aprovacao", 2025), step=1)
 
@@ -461,19 +456,15 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
 
         col1, col2 = st.columns([1, 4])
 
-        
-
         latlong = col1.text_input(
             "Latitude, Longitude",
             value=projeto.get("lat_long_principal", ""),   # 🔹 usa o valor salvo no projeto
             placeholder="-23.175173, -45.856398",
-            key=f"latlong_{form_key}"
+            key=f"latlong_{form_key}",
+            help="Descrição de como as coordenadas devem ser preenchidas"
         )
 
-
         local_obs = col2.text_area("Observações sobre o local", projeto.get("observacoes_sobre_o_local", ""))
-
-        
 
         if modo == "editar":
             col1, col2, col3, col4 = st.columns(4)
@@ -485,12 +476,33 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
             )
             duracao = str(duracao_val)
 
-            data_inicio = col2.text_input("Data início do contrato", projeto.get("data_inicio_do_contrato", ""))
-            data_fim = col3.text_input("Data fim do contrato", projeto.get("data_final_do_contrato", ""))
-            data_relatorio = col4.text_input(
-                "Data relatório final",
-                projeto.get("data_relatorio_monitoramento_final", "")
+            # Data início
+            data_inicio_date = col2.date_input(
+                "Data início do contrato",
+                value=datetime.strptime(projeto.get("data_inicio_do_contrato", ""), "%d/%m/%Y").date()
+                if projeto.get("data_inicio_do_contrato") else None,
+                format="DD/MM/YYYY"
             )
+            data_inicio = data_inicio_date.strftime("%d/%m/%Y") if data_inicio_date else ""
+
+            # Data fim
+            data_fim_date = col3.date_input(
+                "Data fim do contrato",
+                value=datetime.strptime(projeto.get("data_final_do_contrato", ""), "%d/%m/%Y").date()
+                if projeto.get("data_final_do_contrato") else None,
+                format="DD/MM/YYYY"
+            )
+            data_fim = data_fim_date.strftime("%d/%m/%Y") if data_fim_date else ""
+
+            # Data relatório
+            data_relatorio_date = col4.date_input(
+                "Data relatório final",
+                value=datetime.strptime(projeto.get("data_relatorio_monitoramento_final", ""), "%d/%m/%Y").date()
+                if projeto.get("data_relatorio_monitoramento_final") else None,
+                format="DD/MM/YYYY"
+            )
+            data_relatorio = data_relatorio_date.strftime("%d/%m/%Y") if data_relatorio_date else ""
+
         else:
             col1, col2, col3 = st.columns(3)
             duracao_val = col1.number_input(
@@ -501,8 +513,24 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
             )
             duracao = str(duracao_val)
 
-            data_inicio = col2.text_input("Data início do contrato", projeto.get("data_inicio_do_contrato", ""))
-            data_fim = col3.text_input("Data fim do contrato", projeto.get("data_final_do_contrato", ""))
+            # Data início
+            data_inicio_date = col2.date_input(
+                "Data início do contrato",
+                value=datetime.strptime(projeto.get("data_inicio_do_contrato", ""), "%d/%m/%Y").date()
+                if projeto.get("data_inicio_do_contrato") else None,
+                format="DD/MM/YYYY"
+            )
+            data_inicio = data_inicio_date.strftime("%d/%m/%Y") if data_inicio_date else ""
+
+            # Data fim
+            data_fim_date = col3.date_input(
+                "Data fim do contrato",
+                value=datetime.strptime(projeto.get("data_final_do_contrato", ""), "%d/%m/%Y").date()
+                if projeto.get("data_final_do_contrato") else None,
+                format="DD/MM/YYYY"
+            )
+            data_fim = data_fim_date.strftime("%d/%m/%Y") if data_fim_date else ""
+            
             data_relatorio = ""
 
         col1, col2 = st.columns(2)
@@ -513,7 +541,15 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
             index=opcoes_moeda.index(moeda_valor) if moeda_valor in opcoes_moeda else 0,
             placeholder=""
         )
-        valor = col2.text_input("Valor", projeto.get("valor", ""))
+
+        valor_val = col2.number_input(
+            "valor",
+            value=float(projeto.get("valor", 0) or 0),
+            step=1.0,
+            format="%07.3f" 
+        )
+        valor = str(valor_val)
+        #valor = col2.text_input("Valor", projeto.get("valor", ""))
 
         col1, col2, col3, col4 = st.columns(4)
         opcoes_temas = ["Agroecologia", "Agroextrativismo - Beneficiamento e Comercialização", "Água", "Apicultura e meliponicultura",
@@ -593,12 +629,12 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
 
             # --- Campos obrigatórios ---
             campos_obrigatorios = [codigo, sigla, nome_do_projeto, proponente_selecionado, categoria, ano_aprovacao, 
-                                   ponto_focal, programa, objetivo_geral, edital, local_obs, duracao, data_inicio, 
-                                   data_fim, moeda, valor, bioma, status, temas, publico, codigo_pai, ufs_selecionados, 
+                                   ponto_focal, programa, objetivo_geral, edital, duracao, data_inicio, data_fim, 
+                                   moeda, valor, bioma, status, temas, publico, codigo_pai, ufs_selecionados, 
                                    municipio_principal, municipios_atuacao]
             
             if not all(campos_obrigatorios):
-                st.warning("Preencha todos os campos antes de salvar.")
+                st.warning("Preencha todos os campos obrigatórios antes de salvar.")
 
             else:
                 # --- Verificar duplicidade ---
@@ -756,11 +792,6 @@ def gerenciar_projetos():
 @st.dialog("Cadastrar proponentes", width="large")
 def gerenciar_proponentes():
 
-    #abas = st.tabs(["Adicionar", "Editar", "Excluir"])
-    
-    # ---------------------- Cadastro de Organizações e Pessoas Beneficiárias ----------------------
-    #with abas[0]:
-
     tipo_cadastro = st.pills(
         "Selecione o tipo",
         ["Organização", "Pessoa"],
@@ -772,25 +803,30 @@ def gerenciar_proponentes():
     if tipo_cadastro == "Organização":
         with st.form("Cadastro de Organização", border=False):
             nome = st.text_input("Nome da organização")
-            cnpj = st.text_input("CNPJ")
+            cnpj = st.text_input("CNPJ", placeholder="00.000.000/0000-00")
             st.write("")
             cadastrar = st.form_submit_button("Cadastrar organização")
+
             if cadastrar:
                 if not nome.strip() or not cnpj.strip():
                     st.error("Todos os campos são obrigatórios.")
                 else:
-                    org_beneficiarias.insert_one(
-                        {"proponente": nome.strip(), "cnpj": cnpj.strip()}
-                    )
-                    st.success("Organização cadastrada com sucesso!")
-                    time.sleep(2)
-                    st.rerun()
+                    # Verificar se já existe o CNPJ
+                    existente = org_beneficiarias.find_one({"cnpj": cnpj.strip()})
+                    if existente:
+                        st.error("Já existe uma organização cadastrada com esse CNPJ.")
+                    else:
+                        org_beneficiarias.insert_one(
+                            {"proponente": nome.strip(), "cnpj": cnpj.strip()}
+                        )
+                        st.success("Organização cadastrada com sucesso!")
+                        time.sleep(2)
+                        st.rerun()
 
     elif tipo_cadastro == "Pessoa":
         with st.form("Cadastro de Pessoa", border=False):
             nome = st.text_input("Nome completo")
-            cpf = st.text_input("CPF")
-
+            cpf = st.text_input("CPF", placeholder="000.000.000-00")
             genero = st.selectbox(
                 "Gênero",
                 ["Masculino", "Feminino", "Não binário", "Outro"],
@@ -799,16 +835,23 @@ def gerenciar_proponentes():
 
             st.write("")
             cadastrar = st.form_submit_button("Cadastrar pessoa")
+
             if cadastrar:
                 if not nome.strip() or not cpf.strip():
                     st.error("Todos os campos são obrigatórios.")
                 else:
-                    pessoas_beneficiarias.insert_one(
-                        {"proponente": nome.strip(), "cpf": cpf.strip(),"genero": genero.strip() }
-                    )
-                    st.success("Pessoa cadastrada com sucesso!")
-                    time.sleep(2)
-                    st.rerun()
+                    # Verificar se já existe o CPF
+                    existente = pessoas_beneficiarias.find_one({"cpf": cpf.strip()})
+                    if existente:
+                        st.error("Já existe uma pessoa cadastrada com esse CPF.")
+                    else:
+                        pessoas_beneficiarias.insert_one(
+                            {"proponente": nome.strip(), "cpf": cpf.strip(), "genero": genero.strip()}
+                        )
+                        st.success("Pessoa cadastrada com sucesso!")
+                        time.sleep(2)
+                        st.rerun()
+
     
     
 def extrair_itens_distintos(series: pd.Series) -> pd.Series:
@@ -1117,7 +1160,7 @@ with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
     col1, col2, col3, col4 = st.columns(4)
 
     # Edital
-    editais_disponiveis = sorted(df_base["Edital"].dropna().unique(), key=lambda x: float(x))
+    editais_disponiveis = sorted(df_base["Edital"].dropna().unique(), key=lambda x: str(x))
     edital_sel = col1.multiselect("Edital", options=editais_disponiveis, placeholder="Todos")
     if edital_sel:
         mask &= df_base["Edital"].isin(edital_sel)
