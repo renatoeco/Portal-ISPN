@@ -415,7 +415,15 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
             placeholder=""
         )
 
-        edital = col3.text_input("Edital", projeto.get("edital", ""))
+        # Edital como number_input (1 casa decimal) e convertido para str
+        edital_val = col3.number_input(
+            "Edital",
+            value=float(projeto.get("edital", 0) or 0),
+            step=1.0,
+            format="%.1f"
+        )
+        edital = str(edital_val)
+        
         ano_aprovacao = col4.number_input("Ano de aprovação", value=projeto.get("ano_de_aprovacao", 2025), step=1)
 
         col1, col2, col3 = st.columns(3)
