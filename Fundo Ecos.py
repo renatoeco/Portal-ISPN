@@ -32,6 +32,8 @@ ufs_municipios = db["ufs_municipios"]
 programas = db["programas_areas"]
 pessoas = db["pessoas"]
 estatistica = db["estatistica"]  # Coleção de estatísticas
+org_beneficiarias = db["organizacoes_beneficiarias"]
+pessoas_beneficiarias = db["pessoas_beneficiarias"]
 
 
 ######################################################################################################
@@ -281,6 +283,9 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
     
     with st.form(key=form_key):
 
+        colecao = db["projetos_pf"] if tipo_projeto == "PF" else db["projetos_pj"]
+       
+
         # --- Detecta se é adicionar ou editar ---
         modo = st.session_state.get("modo_formulario", "adicionar")  # valor padrão
 
@@ -334,21 +339,70 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         if isinstance(municipios_str, str):
             municipios_codigos = [int(c.strip()) for c in municipios_str.split(",") if c.strip()]
 
-
-        # Campos específicos
-        if tipo_projeto == "PF":
-            col1, col2, col3, col4, col5 = st.columns(5)
-            cpf = col4.text_input("CPF", projeto.get("cpf", ""))
-            genero = col5.selectbox("Gênero", ["Masculino", "Feminino", "Outro"], 
-                                    index=["Masculino", "Feminino", "Outro"].index(projeto.get("genero", "Masculino")))
-        else:
-            col1, col2, col3, col4 = st.columns(4)
-            cnpj = col4.text_input("CNPJ", projeto.get("cnpj", ""))
+        col1, col2, col3 = st.columns(3)
 
         # Campos comuns
         codigo = col1.text_input("Código", projeto.get("codigo", ""))
         sigla = col2.text_input("Sigla", projeto.get("sigla", ""))
-        proponente = col3.text_input("Proponente", projeto.get("proponente", ""))
+        
+        # Buscar proponentes do banco
+        if tipo_projeto == "PF":
+            proponentes_cursor = pessoas_beneficiarias.find()
+            proponentes_dict = {
+                str(p["_id"]): {
+                    "nome": p.get("proponente", ""),
+                    "cpf": p.get("cpf", ""),
+                    "genero": p.get("genero", "")
+                }
+                for p in proponentes_cursor
+            }
+        else:
+            proponentes_cursor = org_beneficiarias.find()
+            proponentes_dict = {
+                str(p["_id"]): {
+                    "nome": p.get("proponente", ""),
+                    "cnpj": p.get("cnpj", "")
+                }
+                for p in proponentes_cursor
+            }
+
+        # --- Garantir que o proponente salvo no projeto apareça na lista ---
+        proponente_salvo = projeto.get("proponente", "")
+        if proponente_salvo and not any(v["nome"] == proponente_salvo for v in proponentes_dict.values()):
+            # cria uma opção fake para mostrar o proponente atual mesmo que não esteja em pessoas/org_beneficiarias
+            proponentes_dict["proponente_atual"] = {"nome": proponente_salvo}
+
+        # Montar opções
+        proponentes_options = {"": ""}
+        proponentes_options.update({
+            k: v["nome"] for k, v in sorted(proponentes_dict.items(), key=lambda item: item[1]["nome"].lower())
+        })
+
+        # Seleção (default = proponente atual do projeto)
+        default_key = next((k for k, v in proponentes_options.items() if v == proponente_salvo), "")
+
+        proponente_selecionado = col3.selectbox(
+            "Proponente",
+            options=list(proponentes_options.keys()),
+            format_func=lambda k: proponentes_options[k],
+            index=list(proponentes_options.keys()).index(default_key) if default_key in proponentes_options else 0,
+            key=f"select_proponente_{tipo_projeto}_{projeto.get('_id', '')}"
+        )
+
+
+        # Preencher automaticamente os campos ligados ao proponente
+        if proponente_selecionado and proponente_selecionado in proponentes_dict:
+            dados_proponente = proponentes_dict[proponente_selecionado]
+            if tipo_projeto == "PF":
+                cpf = dados_proponente.get("cpf", "")
+                genero = dados_proponente.get("genero", "")
+                cnpj = ""
+            else:
+                cnpj = dados_proponente.get("cnpj", "")
+                cpf = ""
+                genero = ""
+        else:
+            cpf, genero, cnpj = "", "", ""
 
         col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
         nome_do_projeto = col1.text_input("Nome do projeto", projeto.get("nome_do_projeto", ""))
@@ -499,45 +553,89 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
             placeholder=""
         )
 
-        submitted = st.form_submit_button("Salvar", icon=":material/save:")
-        if submitted:
-            doc = {
-                "codigo": codigo,
-                "sigla": sigla,
-                "proponente": proponente,
-                "nome_do_projeto": nome_do_projeto,
-                "edital": edital,
-                "categoria": categoria,
-                "ano_de_aprovacao": ano_aprovacao,
-                "lat_long_principal": latlong,
-                "observacoes_sobre_o_local": local_obs,
-                "duracao_original_meses": duracao,
-                "data_inicio_do_contrato": data_inicio,
-                "data_final_do_contrato": data_fim,
-                "data_relatorio_monitoramento_final": data_relatorio,
-                "moeda": moeda,
-                "valor": valor,
-                "bioma": ", ".join(bioma) if isinstance(bioma, list) else str(bioma),
-                "status": status,
-                "temas": ", ".join(temas) if isinstance(temas, list) else str(temas),
-                "publico": ", ".join(publico) if isinstance(publico, list) else str(publico),
-                "objetivo_geral": objetivo_geral,
-                "tipo": tipo_projeto,
-                "ponto_focal": ObjectId(ponto_focal) if ponto_focal and ObjectId.is_valid(ponto_focal) else None,
-                "programa": ObjectId(programa) if programa and ObjectId.is_valid(programa) else None,
-                "codigo_projeto_pai": ObjectId(codigo_pai) if codigo_pai and ObjectId.is_valid(codigo_pai) else None,
-                "ufs": ",".join(str(ufs_dict[nome]) for nome in ufs_selecionados if nome in ufs_dict),
-                "municipio_principal": str(municipio_principal) if municipio_principal is not None else "",
-                "municipios": ",".join(str(codigo) for codigo in municipios_atuacao),
-            }
-            if tipo_projeto == "PF":
-                doc["cpf"] = cpf
-                doc["genero"] = genero
-            else:
-                doc["cnpj"] = cnpj
-            return doc
+        st.write("")
 
-    return None
+        submitted = st.form_submit_button("Salvar")
+        if submitted:
+
+            # --- Campos obrigatórios ---
+            campos_obrigatorios = [codigo, sigla, nome_do_projeto, proponente_selecionado, categoria, ano_aprovacao, 
+                                   ponto_focal, programa, objetivo_geral, edital, local_obs, duracao, data_inicio, 
+                                   data_fim, moeda, valor, bioma, status, temas, publico, codigo_pai, ufs_selecionados, 
+                                   municipio_principal, municipios_atuacao]
+            
+            if not all(campos_obrigatorios):
+                st.warning("Preencha todos os campos antes de salvar.")
+
+            else:
+                # --- Verificar duplicidade ---
+                filtro_codigo = {"codigo": codigo} if codigo else None
+                filtro_sigla = {"sigla": sigla} if sigla else None
+
+                if modo == "editar" and projeto.get("_id"):
+                    try:
+                        proj_id = ObjectId(projeto["_id"]) if isinstance(projeto["_id"], str) else projeto["_id"]
+                    except:
+                        proj_id = projeto["_id"]
+
+                    if codigo:
+                        filtro_codigo = {"$and": [{"_id": {"$ne": proj_id}}, {"codigo": codigo}]}
+                    if sigla:
+                        filtro_sigla = {"$and": [{"_id": {"$ne": proj_id}}, {"sigla": sigla}]}
+
+                # Checa duplicidade em PF e PJ
+                codigo_existente = None
+                sigla_existente = None
+
+                for col in [db["projetos_pf"], db["projetos_pj"]]:
+                    if filtro_codigo and not codigo_existente:
+                        codigo_existente = col.find_one(filtro_codigo)
+                    if filtro_sigla and not sigla_existente:
+                        sigla_existente = col.find_one(filtro_sigla)
+
+
+                if codigo_existente and sigla_existente:
+                    st.warning(f"Já existe um projeto com o código '{codigo}' e com a sigla '{sigla}'.")
+                elif codigo_existente:
+                    st.warning(f"Já existe um projeto com o código '{codigo}'.")
+                elif sigla_existente:
+                    st.warning(f"Já existe um projeto com a sigla '{sigla}'.")
+                else:
+                    doc = {
+                        "codigo": codigo,
+                        "sigla": sigla,
+                        "proponente": proponentes_dict.get(proponente_selecionado, {}).get("nome", ""),
+                        "nome_do_projeto": nome_do_projeto,
+                        "edital": edital,
+                        "categoria": categoria,
+                        "ano_de_aprovacao": ano_aprovacao,
+                        "lat_long_principal": latlong,
+                        "observacoes_sobre_o_local": local_obs,
+                        "duracao_original_meses": duracao,
+                        "data_inicio_do_contrato": data_inicio,
+                        "data_final_do_contrato": data_fim,
+                        "data_relatorio_monitoramento_final": data_relatorio,
+                        "moeda": moeda,
+                        "valor": valor,
+                        "bioma": ", ".join(bioma) if isinstance(bioma, list) else str(bioma),
+                        "status": status,
+                        "temas": ", ".join(temas) if isinstance(temas, list) else str(temas),
+                        "publico": ", ".join(publico) if isinstance(publico, list) else str(publico),
+                        "objetivo_geral": objetivo_geral,
+                        "tipo": tipo_projeto,
+                        "ponto_focal": ObjectId(ponto_focal) if ponto_focal and ObjectId.is_valid(ponto_focal) else None,
+                        "programa": ObjectId(programa) if programa and ObjectId.is_valid(programa) else None,
+                        "codigo_projeto_pai": ObjectId(codigo_pai) if codigo_pai and ObjectId.is_valid(codigo_pai) else None,
+                        "ufs": ",".join(str(ufs_dict[nome]) for nome in ufs_selecionados if nome in ufs_dict),
+                        "municipio_principal": str(municipio_principal) if municipio_principal is not None else "",
+                        "municipios": ",".join(str(codigo) for codigo in municipios_atuacao),
+                    }
+                    if tipo_projeto == "PF":
+                        doc["cpf"] = proponentes_dict.get(proponente_selecionado, {}).get("cpf", "")
+                        doc["genero"] = proponentes_dict.get(proponente_selecionado, {}).get("genero", "")
+                    else:
+                        doc["cnpj"] = proponentes_dict.get(proponente_selecionado, {}).get("cnpj", "")
+                    return doc
 
 
 @st.dialog("Gerenciar projetos", width="large")
@@ -560,15 +658,13 @@ def gerenciar_projetos():
         if novo:
             colecao.insert_one(novo)
             st.success("Projeto adicionado com sucesso.")
-            time.sleep(2)
+            time.sleep(1)
             st.rerun()
 
     # --- Editar ---
     with abas[1]:
         st.session_state["modo_formulario"] = "editar"
-        projetos_pf = list(db["projetos_pf"].find())
-        projetos_pj = list(db["projetos_pj"].find())
-        todos_projetos = [(p, "PF") for p in projetos_pf] + [(p, "PJ") for p in projetos_pj]
+        todos_projetos = [(p, "PF") for p in pf] + [(p, "PJ") for p in pj]
 
         opcoes = {
             str(proj["_id"]): f"{proj.get('codigo', '')} ({proj.get('sigla', '')})"
@@ -586,36 +682,91 @@ def gerenciar_projetos():
             if atualizado:
                 colecao.update_one({"_id": ObjectId(selecionado_id)}, {"$set": atualizado})
                 st.success("Projeto atualizado com sucesso.")
-                time.sleep(2)
+                time.sleep(1)
                 st.rerun()
 
 
     # ---------------------- Excluir ----------------------
     with abas[2]:
-        
-        # Somente para admin
-        if set(st.session_state.tipo_usuario) & {"admin"}:
-        
-
-            projetos_pf = list(db["projetos_pf"].find())
-            projetos_pj = list(db["projetos_pj"].find())
-            todos_projetos = [(p, "PF") for p in projetos_pf] + [(p, "PJ") for p in projetos_pj]
+ 
+        todos_projetos = [(p, "PF") for p in pf] + [(p, "PJ") for p in pj]
 
             opcoes = {
                 str(proj["_id"]): f"{proj.get('codigo', '')} ({proj.get('sigla', '')})"
                 for proj, tipo in todos_projetos
             }
 
-            if not opcoes:
-                st.info("Nenhum projeto encontrado para excluir.")
-            else:
-                selecionado_id = st.selectbox("Selecione o projeto para excluir", list(opcoes.keys()), format_func=lambda x: opcoes[x])
-                tipo = "PF" if selecionado_id in [str(p["_id"]) for p, t in todos_projetos if t == "PF"] else "PJ"
-                colecao = db["projetos_pf"] if tipo == "PF" else db["projetos_pj"]
-                projeto = colecao.find_one({"_id": ObjectId(selecionado_id)})
-                if st.button(f"Excluir projeto", icon=":material/delete:"):
-                    colecao.delete_one({"_id": ObjectId(selecionado_id)})
-                    st.warning("Projeto excluído.")
+        if not opcoes:
+            st.info("Nenhum projeto encontrado para excluir.")
+        else:
+            selecionado_id = st.selectbox("Selecione o projeto para excluir", list(opcoes.keys()), format_func=lambda x: opcoes[x])
+            tipo = "PF" if selecionado_id in [str(p["_id"]) for p, t in todos_projetos if t == "PF"] else "PJ"
+            colecao = db["projetos_pf"] if tipo == "PF" else db["projetos_pj"]
+            projeto = colecao.find_one({"_id": ObjectId(selecionado_id)})
+
+            st.write("")
+
+            if st.button(f"Excluir projeto"):
+                colecao.delete_one({"_id": ObjectId(selecionado_id)})
+                st.success("Projeto excluído com sucesso.")
+                time.sleep(1)
+                st.rerun()
+
+
+@st.dialog("Cadastrar proponentes", width="large")
+def gerenciar_proponentes():
+
+    #abas = st.tabs(["Adicionar", "Editar", "Excluir"])
+    
+    # ---------------------- Cadastro de Organizações e Pessoas Beneficiárias ----------------------
+    #with abas[0]:
+
+    tipo_cadastro = st.pills(
+        "Selecione o tipo",
+        ["Organização", "Pessoa"],
+        selection_mode="single",
+        default="Organização",
+        key="tipo_cadastro_proponente"
+    )
+
+    if tipo_cadastro == "Organização":
+        with st.form("Cadastro de Organização", border=False):
+            nome = st.text_input("Nome da organização")
+            cnpj = st.text_input("CNPJ")
+            st.write("")
+            cadastrar = st.form_submit_button("Cadastrar organização")
+            if cadastrar:
+                if not nome.strip() or not cnpj.strip():
+                    st.error("Todos os campos são obrigatórios.")
+                else:
+                    org_beneficiarias.insert_one(
+                        {"proponente": nome.strip(), "cnpj": cnpj.strip()}
+                    )
+                    st.success("Organização cadastrada com sucesso!")
+                    time.sleep(2)
+                    st.rerun()
+
+    elif tipo_cadastro == "Pessoa":
+        with st.form("Cadastro de Pessoa", border=False):
+            nome = st.text_input("Nome completo")
+            cpf = st.text_input("CPF")
+
+            genero = st.selectbox(
+                "Gênero",
+                ["Masculino", "Feminino", "Não binário", "Outro"],
+                key="tipo_genero"
+            )
+
+            st.write("")
+            cadastrar = st.form_submit_button("Cadastrar pessoa")
+            if cadastrar:
+                if not nome.strip() or not cpf.strip():
+                    st.error("Todos os campos são obrigatórios.")
+                else:
+                    pessoas_beneficiarias.insert_one(
+                        {"proponente": nome.strip(), "cpf": cpf.strip(),"genero": genero.strip() }
+                    )
+                    st.success("Pessoa cadastrada com sucesso!")
                     time.sleep(2)
                     st.rerun()
     
@@ -1220,8 +1371,10 @@ with lista:
     st.write("")
 
     if set(st.session_state.tipo_usuario) & {"admin", "gestao_fundo_ecos"}:
+        col1, col2, col3 = st.columns([2, 1, 1])
 
-        st.button("Gerenciar projetos", on_click=gerenciar_projetos, icon=":material/contract_edit:")
+        col2.button("Cadastrar proponentes", on_click=gerenciar_proponentes, use_container_width=True, icon=":material/add_business:")
+        col3.button("Gerenciar projetos", on_click=gerenciar_projetos, use_container_width=True, icon=":material/contract_edit:")
 
     # --- Ordenar Ano desc, Código asc ---
     df_exibir = (
@@ -1421,7 +1574,7 @@ with lista:
 with mapa:
     st.subheader("Mapa de distribuição de projetos")
 
-    @st.cache_data
+    @st.cache_data(show_spinner=False)
     def carregar_municipios():
         url = "https://raw.githubusercontent.com/kelvins/Municipios-Brasileiros/master/csv/municipios.csv"
         df = pd.read_csv(url)
@@ -1431,7 +1584,7 @@ with mapa:
 
     df_munis = carregar_municipios()
 
-    @st.cache_data
+    @st.cache_data(show_spinner=False)
     def preparar_df_coords(df_projetos_codigos, df_filtrado, df_munis):
         # Extrair código do município
         df_projetos_codigos['codigo_municipio'] = [
@@ -1454,7 +1607,7 @@ with mapa:
 
         return df_coords
     
-    @st.cache_data
+    @st.cache_data(show_spinner=False)
     def carregar_pontos_focais(_projetos):
         ids = [p["ponto_focal"] for p in _projetos if isinstance(p.get("ponto_focal"), ObjectId)]
         if not ids:
@@ -1473,7 +1626,7 @@ with mapa:
     pontos_focais_dict = carregar_pontos_focais(todos_projetos)
     st.write(f"{num_proj_mapa} projetos no mapa")
 
-    @st.cache_data
+    @st.cache_data(show_spinner=False)
     def gerar_mapa(df_coords_projetos, _todos_projetos, df_munis):
         
         m = folium.Map(location=[-15.78, -47.93], zoom_start=4, tiles="CartoDB positron", height="800px")
