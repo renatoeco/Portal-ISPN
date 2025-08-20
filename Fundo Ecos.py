@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import folium
+import re
 import unicodedata
 import math
 import time
@@ -459,14 +460,31 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         )
 
         col1, col2 = st.columns([1, 4])
-        latlong = col1.text_input("Latitude e longitude principais", projeto.get("lat_long_principal", ""))
+
+        
+
+        latlong = col1.text_input(
+            "Latitude, Longitude",
+            value=projeto.get("lat_long_principal", ""),   # 🔹 usa o valor salvo no projeto
+            placeholder="-23.175173, -45.856398",
+            key=f"latlong_{form_key}"
+        )
+
+
         local_obs = col2.text_area("Observações sobre o local", projeto.get("observacoes_sobre_o_local", ""))
 
         
 
         if modo == "editar":
             col1, col2, col3, col4 = st.columns(4)
-            duracao = col1.text_input("Duração original (meses)", projeto.get("duracao_original_meses", ""))
+            duracao_val = col1.number_input(
+                "Duração (em meses)",
+                value=int(projeto.get("duracao_original_meses", 0) or 0),
+                step=1,
+                
+            )
+            duracao = str(duracao_val)
+
             data_inicio = col2.text_input("Data início do contrato", projeto.get("data_inicio_do_contrato", ""))
             data_fim = col3.text_input("Data fim do contrato", projeto.get("data_final_do_contrato", ""))
             data_relatorio = col4.text_input(
@@ -475,7 +493,14 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
             )
         else:
             col1, col2, col3 = st.columns(3)
-            duracao = col1.text_input("Duração original (meses)", projeto.get("duracao_original_meses", ""))
+            duracao_val = col1.number_input(
+                "Duração (em meses)",
+                value=int(projeto.get("duracao_original_meses", 0) or 0),
+                step=1,
+                
+            )
+            duracao = str(duracao_val)
+
             data_inicio = col2.text_input("Data início do contrato", projeto.get("data_inicio_do_contrato", ""))
             data_fim = col3.text_input("Data fim do contrato", projeto.get("data_final_do_contrato", ""))
             data_relatorio = ""
@@ -600,6 +625,13 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
                         codigo_existente = col.find_one(filtro_codigo)
                     if filtro_sigla and not sigla_existente:
                         sigla_existente = col.find_one(filtro_sigla)
+
+                 # --- Validação de latitude e longitude ---
+                padrao = r"^-?\d{1,3}\.\d{1,10},\s*-?\d{1,3}\.\d{1,10}$"
+                if latlong:
+                    if not re.match(padrao, latlong):
+                        st.error("Formato de coordenadas inválido! Use o padrão: -23.175173, -45.856398")
+                        return None  # Não retorna doc se for inválido
 
 
                 if codigo_existente and sigla_existente:
