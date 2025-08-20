@@ -691,10 +691,10 @@ def gerenciar_projetos():
  
         todos_projetos = [(p, "PF") for p in pf] + [(p, "PJ") for p in pj]
 
-            opcoes = {
-                str(proj["_id"]): f"{proj.get('codigo', '')} ({proj.get('sigla', '')})"
-                for proj, tipo in todos_projetos
-            }
+        opcoes = {
+            str(proj["_id"]): f"{proj.get('codigo', '')} ({proj.get('sigla', '')})"
+            for proj, tipo in todos_projetos
+        }
 
         if not opcoes:
             st.info("Nenhum projeto encontrado para excluir.")
@@ -1415,7 +1415,7 @@ with lista:
         max_value=total_paginas,
         value=st.session_state["pagina_topo"],
         step=1,
-        key="pagina_topo",
+        # key="pagina_topo",
         on_change=atualizar_topo
     )
 
