@@ -37,14 +37,14 @@ def df_tem_mudancas(df_novo: pd.DataFrame, df_antigo: pd.DataFrame) -> bool:
     Returns:
         bool: True se os DataFrames forem diferentes, False se iguais.
     """
-    if df_novo.shape != df_antigo.shape:
-        return True
+    # if df_novo.shape != df_antigo.shape:
+    #     return True
 
-    # Compara índice e colunas
-    if not df_novo.index.equals(df_antigo.index):
-        return True
-    if not df_novo.columns.equals(df_antigo.columns):
-        return True
+    # # Compara índice e colunas
+    # if not df_novo.index.equals(df_antigo.index):
+    #     return True
+    # if not df_novo.columns.equals(df_antigo.columns):
+    #     return True
 
     # Compara valores (elemento a elemento)
     return not df_novo.equals(df_antigo)
@@ -502,6 +502,12 @@ def editar_titulo_de_cada_resultado_mp_dialog(resultado_idx):
 st.set_page_config(layout="wide")
 st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
 
+if "modo_edicao" not in st.session_state:
+    st.session_state.modo_edicao = False
+
+
+
+
 st.header("Estratégia")
 
 
@@ -710,7 +716,7 @@ with aba_res_mp:
                         nova_lista = df_metas_editado.to_dict(orient="records")
 
                         # Atualiza no MongoDB o campo específico no documento correto
-                        colecao.update_one(
+                        estrategia.update_one(
                             {"_id": documento["_id"]},
                             {"$set": {"resultados_medio_prazo.resultados_mp": nova_lista}}
                         )
