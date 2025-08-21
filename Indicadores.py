@@ -710,20 +710,20 @@ def gerenciar_lancamentos():
                         lanc_id_delete = lanc_opcoes_delete[lanc_sel_delete]
                         doc = lancamentos.find_one({"_id": lanc_id_delete})
 
-                        #indicador_doc_delete = indicadores.find_one({"_id": doc["id_do_indicador"]})
-                        #indicador_nome_delete = formatar_nome_legivel(indicador_doc_delete["nome_indicador"]) if indicador_doc_delete else ""
-
-                        indicador_nome_conf = ""
-                        if doc.get("indicador"):
-                            indicador_doc_conf = indicadores.find_one({"_id": doc["indicador"]})
+                        indicador_id = doc.get("id_do_indicador") or doc.get("indicador")
+                        indicador_nome_conf = "Indicador desconhecido"
+                        if indicador_id:
+                            indicador_doc_conf = indicadores.find_one({"_id": indicador_id}, {"nome_indicador": 1})
                             if indicador_doc_conf:
-                                indicador_nome_conf = indicador_doc_conf.get("indicador", "")
+                                indicador_nome_conf = formatar_nome_legivel(
+                                    indicador_doc_conf.get("nome_indicador", "")
+                                ) or "Indicador"
 
                         valor_lanc = doc.get("valor", "Sem valor")
                         st.warning(
-                            f"Tem certeza que deseja excluir o lançamento de "
-                            f"{doc['data_anotacao'].strftime('%d/%m/%Y')} - {doc['autor_anotacao']} - "
-                            f"{indicador_nome_conf} Valor: {valor_lanc}?"
+                            f"Tem certeza que deseja excluir o indicador registrado por "
+                            f"{doc['autor_anotacao']} em {doc['data_anotacao'].strftime('%d/%m/%Y')}?\n\n"
+                            f"**{indicador_nome_conf}**: {valor_lanc}"
                         )
 
                         if st.button("Excluir", key="excluir_lanc"):
