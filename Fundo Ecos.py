@@ -391,7 +391,6 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
             key=f"select_proponente_{tipo_projeto}_{projeto.get('_id', '')}"
         )
 
-
         # Preencher automaticamente os campos ligados ao proponente
         if proponente_selecionado and proponente_selecionado in proponentes_dict:
             dados_proponente = proponentes_dict[proponente_selecionado]
@@ -552,10 +551,12 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         #valor = col2.text_input("Valor", projeto.get("valor", ""))
 
         col1, col2, col3, col4 = st.columns(4)
-        opcoes_temas = ["Agroecologia", "Agroextrativismo - Beneficiamento e Comercialização", "Água", "Apicultura e meliponicultura",
+        opcoes_temas = [
+            "Agroecologia", "Agroextrativismo - Beneficiamento e Comercialização", "Água", "Apicultura e meliponicultura",
             "Artesanato", "Articulação", "Capacitação", "Certificação", "Conservação da biodiversidade", "Criação de animais", "Cultura",
-            "Educação Ambiental", "Energia Renovável", "Fauna", "Fogo", "Gestão Territorial", "Manejo da biodiversidade", "Pesquisa",
-            "Plantas medicinais", "Política Pública", "Recuperação de áreas degradadas", "Sistemas Agroflorestais - SAFs", "Turismo"
+            "Educação Ambiental","Escola Família Agrícola", "Economia solidária", "Energia Renovável", "Fauna", "Fogo", "Gestão Territorial", 
+            "Manejo da biodiversidade", "Pesquisa", "Plantas medicinais", "Política Pública", "Recuperação de áreas degradadas", "Segurança alimentar", 
+            "Sistemas Agroflorestais - SAFs", "Turismo", "Outro"
         ]
         opcoes_publico = ["Agricultores Familiares", "Assentados da Reforma Agrária", "Comunidade Tradicional", "Garimpeiros", 
                           "Idosos", "Indígenas", "Jovens", "Mulheres", "Pescador Artesanal", "Quilombola", "Urbano", "Outro" ]

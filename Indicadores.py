@@ -726,7 +726,7 @@ def gerenciar_lancamentos():
                             f"**{indicador_nome_conf}**: {valor_lanc}"
                         )
 
-                        if st.button("Excluir", key="excluir_lanc"):
+                        if st.button("Excluir", key="excluir_lanc", icon=":material/delete:"):
                             lancamentos.delete_one({"_id": lanc_id_delete})
                             st.success("Lançamento excluído com sucesso!")
                             st.rerun()

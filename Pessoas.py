@@ -379,8 +379,9 @@ def gerenciar_pessoas():
 # Botão de cadastro de novos colaboradores só para alguns tipos de usuário
 if set(st.session_state.tipo_usuario) & {"admin", "gestao_pessoas"}:
 
+    col1, col2, col3 = st.columns([2, 2, 1])
     # Botão para abrir o modal de cadastro
-    st.button("Gerenciar colaboradores", on_click=gerenciar_pessoas, use_container_width=True, icon=":material/person_add:")
+    col3.button("Gerenciar colaboradores", on_click=gerenciar_pessoas, use_container_width=True, icon=":material/person_add:")
 
 # Criar DataFrame
 df_pessoas = pd.DataFrame(pessoas_lista)
