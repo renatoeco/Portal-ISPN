@@ -286,7 +286,7 @@ else:
                     "PPP-ECOS",
                     "Rede Cerrado",
                     "Tô no Mapa",
-                    "PIPOU"
+                    "PIPOU indígena"
                 ]
                 for palavra in palavras:
                     st.write(f"- {palavra}")
