@@ -17,7 +17,7 @@ num_caracteres = len(texto)
 caracteres_restantes = MAX_CARACTERES - num_caracteres
 
 if caracteres_restantes < 0:
-    st.error(f"Você ultrapassou o limite em {-caracteres_restantes} caracteres!")
+    st.markdown(f"<span style='color:red'>{num_caracteres} / {MAX_CARACTERES} - Você ultrapassou o limite em {-caracteres_restantes} caracteres!</span>", unsafe_allow_html=True)
 else:
     st.write(f"{num_caracteres} / {MAX_CARACTERES}")
-    st.write(f"*Clique fora da caixa de texto para atualizar o contador")
+st.write(f"*Clique fora da caixa de texto para atualizar o contador")
