@@ -375,12 +375,15 @@ def gerenciar_pessoas():
 # MAIN
 ######################################################################################################
 
+# Container horizontal de botões
+container_botoes = st.container(horizontal=True)
 
 # Botão de cadastro de novos colaboradores só para alguns tipos de usuário
 if set(st.session_state.tipo_usuario) & {"admin", "gestao_pessoas"}:
 
     # Botão para abrir o modal de cadastro
-    st.button("Gerenciar colaboradores", on_click=gerenciar_pessoas, use_container_width=True, icon=":material/person_add:")
+    container_botoes.button("Gerenciar colaboradores", on_click=gerenciar_pessoas, icon=":material/group:")
+    st.write('')
 
 # Criar DataFrame
 df_pessoas = pd.DataFrame(pessoas_lista)
