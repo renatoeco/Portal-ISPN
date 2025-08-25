@@ -125,13 +125,12 @@ for doc in dados_programas:
             "genero_coordenador": genero_coordenador
         })
 
-# Remover o item em que "titulo":"Anterior aos programas"
-for item in lista_programas:
-    if item["titulo"] == "Anterior aos programas":
-        lista_programas.remove(item)
-        break
+# Remove "Anterior aos programas"
+lista_programas = [item for item in lista_programas if item["titulo"] != "Anterior aos programas"]
 
-st.write(lista_programas)
+# Move "Coordenação" para o início, se existir
+lista_programas.sort(key=lambda x: 0 if x["titulo"] == "Coordenação" else 1)
+
 
 titulos_abas = [p['titulo'] for p in lista_programas if p.get('titulo')]
 
