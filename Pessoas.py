@@ -53,7 +53,6 @@ for pessoa in dados_pessoas:
         "Raça": pessoa.get("raça", ""),
         "Tipo de usuário": pessoa.get("tipo de usuário", ""),
         "Status": pessoa.get("status", ""),
-        "tipo_de_conta": pessoa.get("banco", {}).get("tipo_conta", [""])
 
     })
 
@@ -86,18 +85,27 @@ def gerenciar_pessoas():
             # Layout com colunas para inputs lado a lado
             col1, col2 = st.columns([1, 1])
             
+            # Nome
             nome = col1.text_input("Nome completo:")
+            
+            # Gênero
             genero = col2.selectbox("Gênero:", ["Masculino", "Feminino", "Outro"], index=None, placeholder="")
 
             col1, col2 = st.columns([1, 1])
             
+            # CPF e RG
             cpf = col1.text_input("CPF:", placeholder="000.000.000-00")
             rg = col2.text_input("RG e órgão emissor:")
 
             col1, col2, col3 = st.columns([1, 2, 2])
             
+            # Data de nascimento
             data_nascimento = col1.text_input("Data de nascimento:", placeholder="dd/mm/aaaa")
+            
+            # Telefon
             telefone = col2.text_input("Telefone:")
+            
+            # E-mail
             email = col3.text_input("E-mail:")
 
             col1, col2 = st.columns([1, 1])
@@ -125,15 +133,15 @@ def gerenciar_pessoas():
             programa_area = nome_para_id_programa.get(programa_area_nome)
 
             st.markdown("---")
+            
+            # Dados Bancários
             st.markdown("#### Dados bancários")
             
             col1, col2 = st.columns([1, 1])
-            
             nome_banco = col1.text_input("Nome do banco:")
             agencia = col2.text_input("Agência:")
             
             col1, col2 = st.columns([1, 1])
-            
             conta = col1.text_input("Conta:")
             tipo_conta = col2.selectbox("Tipo de conta:", ["Conta Corrente", "Conta Poupança", "Conta Salário"], index=None, placeholder="")
 
@@ -142,6 +150,7 @@ def gerenciar_pessoas():
             
             col1, col2 = st.columns([1, 2])
             
+            # Férias
             a_receber = col1.number_input("Dias de férias a receber:", step=1, min_value=0)
 
             # Variáveis de férias com valores iniciais
@@ -150,7 +159,120 @@ def gerenciar_pessoas():
             total_gozado = 0
             saldo_atual = residual_ano_anterior + valor_inicial_ano_atual
             
-            st.write("")
+            st.divider()
+
+            # Permissões
+            st.write('**Permissões:**')
+
+
+
+
+            # Roteamento de tipo de usuário especial
+            # Só o admin pode atribuir permissão para outro admin
+            if set(st.session_state.tipo_usuario) & {"admin"}:
+
+                # Opções possíveis para o campo "tipo de usuário"
+                opcoes_tipo_usuario = [
+                    "admin", "gestao_pessoas", "gestao_ferias", "supervisao_ferias", 
+                    "gestao_noticias", "gestao_pls", "gestao_projetos_doadores", 
+                    "gestao_fundo_ecos", "gestao_viagens", "gestao_manuais", "coordenador"
+                ]
+
+            else: # Se não for admin, não aparece a permissão admin disponível
+                # Opções possíveis para o campo "tipo de usuário"
+                opcoes_tipo_usuario = [
+                    "gestao_pessoas", "gestao_ferias", "supervisao_ferias", 
+                    "gestao_noticias", "gestao_pls", "gestao_projetos_doadores", 
+                    "gestao_fundo_ecos", "gestao_viagens", "gestao_manuais", "coordenador"
+                ]
+
+            # Multiselect para tipo de usuário com valores padrão preenchidos
+            tipo_usuario = st.multiselect(
+                "Tipo de usuário:",
+                options=opcoes_tipo_usuario,
+                # default=tipo_usuario_default,
+                key="cadastrar_tipo_usuario",
+                # disabled=desabilitar
+            )
+
+
+            with st.expander("Ver tipos de permissões"):
+
+                col1, col2 = st.columns([1, 1])
+
+
+                # admin
+                col1, col2 = st.columns([1, 2])
+                col1.write("**admin**")
+                col2.write("Tem todas as permissões.")
+
+                # gestao_pessoas
+                col1, col2 = st.columns([1, 2])
+                col1.write("**gestao_pessoas**")
+                col2.write("Faz a gestão de pessoas.")
+
+                # gestao_ferias
+                col1, col2 = st.columns([1, 2])
+                col1.write("**gestao_ferias**")
+                col2.write("Faz o registro de férias.")
+
+                # supervisao_ferias
+                col1, col2 = st.columns([1, 2])
+                col1.write("**supervisao_ferias**")
+                col2.write("Visualiza detalhes das férias de todos(as).")
+
+                # gestao_noticias
+                col1, col2 = st.columns([1, 2])
+                col1.write("**gestao_noticias**")
+                col2.write("Faz triagem de notícias.")
+
+                # gestao_pls
+                col1, col2 = st.columns([1, 2])
+                col1.write("**gestao_pls**")
+                col2.write("Faz a gestão dos Projetos de Lei monitorados.")
+
+                # gestao_projetos_doadores
+                col1, col2 = st.columns([1, 2])
+                col1.write("**gestao_projetos_doadores**")
+                col2.write("Faz a gestão de projetos e doadores.")
+
+                # gestao_fundo_ecos
+                col1, col2 = st.columns([1, 2])
+                col1.write("**gestao_fundo_ecos**")
+                col2.write("Faz a gestão dos projetos e editais do Fundo Ecos.")
+
+                # gestao_viagens
+                col1, col2 = st.columns([1, 2])
+                col1.write("**gestao_viagens**")
+                col2.write("Pode ver os dados de todas as viagens.")
+
+                # gestao_manuais
+                col1, col2 = st.columns([1, 2])
+                col1.write("**gestao_manuais**")
+                col2.write("Faz a gestão da página de manuais.")
+
+            st.write('')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
             # Ao submeter o formulário de cadastro
             if st.form_submit_button("Cadastrar", type="secondary", icon=":material/person_add:"):
@@ -361,7 +483,6 @@ def gerenciar_pessoas():
                     # Permissões
                     st.write('**Permissões**')
 
-                    col1, col2 = st.columns([1, 1])
 
                     # Roteamento de tipo de usuário especial
                     # Só o admin pode atribuir permissão para outro admin
@@ -406,7 +527,12 @@ def gerenciar_pessoas():
                         disabled=desabilitar
                     )
 
+
                     with st.expander("Ver tipos de permissões"):
+
+                        col1, col2 = st.columns([1, 1])
+
+
                         # admin
                         col1, col2 = st.columns([1, 2])
                         col1.write("**admin**")
