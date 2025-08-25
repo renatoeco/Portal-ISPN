@@ -16,6 +16,8 @@ db = conectar_mongo_portal_ispn()
 estatistica = db["estatistica"]
 colaboradores = db["colaboradores"]
 institucional = db["institucional"]
+estrategia = db["estrategia"]
+
 
 
 ###########################################################################################################
@@ -48,7 +50,7 @@ estatistica.update_one(
 def editar_info_institucional_dialog():
 
     # Cria quatro abas para editar diferentes seções institucionais
-    tab1, tab2, tab3, tab4 = st.tabs(["Editar frase força", "Editar missão", "Editar visão de futuro", "Editar valores"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Editar frase força", "Editar missão", "Editar visão de futuro", "Editar valores", "Editar Teoria da Mudança"])
 
     # Aba para edição da frase de força
     with tab1:
@@ -200,6 +202,58 @@ def editar_info_institucional_dialog():
             time.sleep(2)
             st.rerun()
 
+    # Aba para edição da Teoria da Mudança
+    with tab5:
+        # Pega o documento da coleção estratégia com a teoria da mudança
+        teoria_doc = estrategia.find_one({"teoria da mudança": {"$exists": True}})
+
+        # Cria lista com os valores atuais da teoria da mudança
+        lista_tm = teoria_doc["teoria da mudança"] if teoria_doc else []
+
+        # Valores padrões
+        problema_atual = ""
+        proposito_atual = ""
+        impacto_atual = ""
+
+        # Percorre a lista e extrai os valores atuais
+        for item in lista_tm:
+            if "problema" in item:
+                problema_atual = item["problema"]
+            if "proposito" in item:
+                proposito_atual = item["proposito"]
+            if "impacto" in item:
+                impacto_atual = item["impacto"]
+
+        # Input para novos valores
+        novo_problema = st.text_area("Problema", value=problema_atual)
+        novo_proposito = st.text_area("Propósito", value=proposito_atual)
+        novo_impacto = st.text_area("Impacto", value=impacto_atual)
+
+        # Botão para salvar alterações
+        if st.button("Salvar alterações", key="salvar_teoria_mudanca", icon=":material/save:"):
+            # Cria lista com os novos valores
+            novos_dados = [
+                {"problema": novo_problema},
+                {"proposito": novo_proposito},
+                {"impacto": novo_impacto}
+            ]
+
+            # Verifica se o documento existe
+            if teoria_doc:
+                # Atualiza o documento
+                estrategia.update_one(
+                    {"_id": teoria_doc["_id"]},
+                    {"$set": {"teoria da mudança": novos_dados}}
+                )
+                st.success("Teoria da mudança atualizada com sucesso!")
+            else:
+                # Cria um novo documento
+                estrategia.insert_one({"teoria da mudança": novos_dados})
+                st.success("Teoria da mudança criada com sucesso!")
+
+            # Espera 2 segundos e recarrega a página
+            time.sleep(2)
+            st.rerun()        
 
 ###########################################################################################################
 # INTERFACE PRINCIPAL DA PÁGINA
@@ -246,8 +300,13 @@ st.write('')
 st.write('')
 st.write('')
 
-tipos_usuario = st.session_state.get("tipo_usuario", [])
-if "admin" in tipos_usuario:
+# tipos_usuario = st.session_state.get("tipo_usuario", [])
+
+# Roteamento de tipo de usuário especial
+# Só o admin pode atribuir permissão para outro admin
+if set(st.session_state.tipo_usuario) & {"admin"}:
+
+# if "admin" in tipos_usuario:
     col1, col2, col3 = st.columns([6, 1, 1])  # Ajuste os pesos conforme necessário
     with col3:
         st.button("Editar página", icon=":material/edit:", key="editar_info", on_click=editar_info_institucional_dialog, use_container_width=True)
@@ -260,25 +319,26 @@ st.write('')
 st.write('')
 
 
+
+# MISSÃO -------------------------------------------------------------------------------------------
+
 # Exibe missão com botão de edição para administradores
 st.subheader("Missão")
 st.write(missao_atual)
 
-
 st.write('')
 st.write('')
 
-# Visão de longo prazo
+# VISÃO DE FUTURO -------------------------------------------------------------------------------------------
 st.subheader(visao_atual_titulo)
 st.write(visao_atual_texto)
 
 st.write('')
 st.write('')
 
-# Valores institucionais
+# VALORES INSTITUCIONAIS -------------------------------------------------------------------------------------------
 st.subheader(valores_titulo_atual)
 st.write('')
-
 
 if lista_valores:
     def extrair_numero(titulo):
@@ -300,3 +360,50 @@ if lista_valores:
             posicao = idx + espacos_vazios
             with colunas[posicao].container(border=True):
                 st.markdown(f"**{valor['titulo']}**  \n{valor['descricao']}")
+
+    st.write('')
+    st.write('')
+
+
+
+# TEORIA DA MUDANÇA -------------------------------------------------------------------------------
+
+    # Busca o documento da coleção 'estrategia' que contenha a chave "teoria da mudança"
+    teoria_doc = estrategia.find_one({"teoria da mudança": {"$exists": True}})
+
+    # Inicializa os textos com valores padrão
+    problema = "Problema não cadastrado ainda."
+    proposito = "Propósito não cadastrado ainda."
+    impacto = "Impacto não cadastrado ainda."
+
+    # Se o documento for encontrado, percorre a lista e extrai os textos
+    if teoria_doc:
+        lista_tm = teoria_doc.get("teoria da mudança", [])
+        for item in lista_tm:
+            if "problema" in item:
+                problema = item["problema"]
+            if "proposito" in item:
+                proposito = item["proposito"]
+            if "impacto" in item:
+                impacto = item["impacto"]
+
+    # tipos_usuario = st.session_state.get("tipo_usuario", [])
+    # if "admIN" in tipos_usuario:
+    #     col1, col2 = st.columns([7, 1])
+    #     with col2:
+    #         st.button("Editar página", icon=":material/edit:", key="editar_info_tm", on_click=editar_info_teoria_mudanca_dialog, use_container_width=True)
+
+    st.write('')
+    st.subheader('Teoria da Mudança')
+    st.write('')
+
+    st.write('**Problema:**')
+    st.write(problema)
+
+    st.write('')
+    st.write('**Propósito:**')
+    st.write(proposito)
+
+    st.write('')
+    st.write('**Impacto:**')
+    st.write(impacto)
