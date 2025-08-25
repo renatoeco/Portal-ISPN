@@ -296,8 +296,9 @@ else:
             if st.button("Palavras-chave", icon=":material/list:", use_container_width=True):
                 mostrar_palavras_chave()
     else:
+        col1, col2, col3 = st.columns([2, 2, 1])
         # Mesmo se não for admin precisamos definir container_botao_exportar p/ botão de download adiante
-        container_botao_exportar = st.container()
+        container_botao_exportar = col3.container()
 
     st.write('')
 

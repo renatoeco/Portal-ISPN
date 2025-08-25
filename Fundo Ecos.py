@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 import folium
+import re
+from datetime import datetime
 import unicodedata
 import math
 import time
@@ -280,362 +282,513 @@ def mostrar_detalhes(codigo_proj: str):
 
 def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_ispn_dict):
     form_key = f"form_projeto_{str(projeto.get('_id', 'novo'))}"
+
+    colecao = db["projetos_pf"] if tipo_projeto == "PF" else db["projetos_pj"]
+
+    # --- Detecta se é adicionar ou editar ---
+    modo = st.session_state.get("modo_formulario", "adicionar")  # valor padrão
+
+    # Obtemos categorias e moedas únicas a partir das duas coleções
+    colecoes_projetos = [db["projetos_pf"], db["projetos_pj"]]
+    categorias_set = set()
+    moedas_set = set()
+    for colecao in colecoes_projetos:
+        categorias_set.update(filter(None, [p.get("categoria", "").strip() for p in colecao.find()]))
+        moedas_set.update(filter(None, [p.get("moeda", "").strip() for p in colecao.find()]))
+
+    opcoes_categoria = sorted(categorias_set)
+    opcoes_moeda = sorted(moedas_set)
+
+    # --- Carrega dados do Mongo ---
+    doc_ufs = ufs_municipios.find_one({"ufs": {"$exists": True}})
+    doc_municipios = ufs_municipios.find_one({"municipios": {"$exists": True}})
+
+    dados_ufs = doc_ufs.get("ufs", []) if doc_ufs else []
+    dados_municipios = doc_municipios.get("municipios", []) if doc_municipios else []
+
+    # Mapas para nome <-> código
+    ufs_dict = {uf["nome_uf"].strip(): int(uf["codigo_uf"]) for uf in dados_ufs}
+    ufs_codigo_para_nome = {int(uf["codigo_uf"]): uf["nome_uf"].strip() for uf in dados_ufs}
+
+    # Criar mapeamento código -> "Município - UF"
+    municipios_codigo_para_label = {
+        int(m["codigo_municipio"]): f'{m["nome_municipio"].strip()} - {codigo_uf_para_sigla[str(m["codigo_municipio"])[:2]]}'
+        for m in dados_municipios
+    }
+
+    # Converte ufs do projeto, que estão salvos como string separada por vírgula, para lista de códigos (int)
+    ufs_codigos = []
+    ufs_str = projeto.get("ufs", "")
+    if isinstance(ufs_str, str):
+        ufs_codigos = [int(c.strip()) for c in ufs_str.split(",") if c.strip()]
+
+    ufs_valor_nome = [ufs_codigo_para_nome.get(c) for c in ufs_codigos if c in ufs_codigo_para_nome]
+
+    # municipio_principal do projeto (string), converte para int para buscar label
+    municipio_principal_codigo = projeto.get("municipio_principal", None)
+    if municipio_principal_codigo is not None:
+        try:
+            municipio_principal_codigo = int(municipio_principal_codigo)
+        except:
+            municipio_principal_codigo = None
+
+    # municipios de atuação (string separada por vírgula)
+    municipios_codigos = []
+    municipios_str = projeto.get("municipios", "")
+    if isinstance(municipios_str, str):
+        municipios_codigos = [int(c.strip()) for c in municipios_str.split(",") if c.strip()]
+
+    col1, col2, col3 = st.columns(3)
+
+    # Campos comuns
+    codigo = col1.text_input("Código*", projeto.get("codigo", ""))
+    sigla = col2.text_input("Sigla*", projeto.get("sigla", ""))
     
-    with st.form(key=form_key):
-
-        colecao = db["projetos_pf"] if tipo_projeto == "PF" else db["projetos_pj"]
-       
-
-        # --- Detecta se é adicionar ou editar ---
-        modo = st.session_state.get("modo_formulario", "adicionar")  # valor padrão
-
-        # Obtemos categorias e moedas únicas a partir das duas coleções
-        colecoes_projetos = [db["projetos_pf"], db["projetos_pj"]]
-        categorias_set = set()
-        moedas_set = set()
-        for colecao in colecoes_projetos:
-            categorias_set.update(filter(None, [p.get("categoria", "").strip() for p in colecao.find()]))
-            moedas_set.update(filter(None, [p.get("moeda", "").strip() for p in colecao.find()]))
-
-        opcoes_categoria = sorted(categorias_set)
-        opcoes_moeda = sorted(moedas_set)
-
-        # --- Carrega dados do Mongo ---
-        doc_ufs = ufs_municipios.find_one({"ufs": {"$exists": True}})
-        doc_municipios = ufs_municipios.find_one({"municipios": {"$exists": True}})
-
-        dados_ufs = doc_ufs.get("ufs", []) if doc_ufs else []
-        dados_municipios = doc_municipios.get("municipios", []) if doc_municipios else []
-
-        # Mapas para nome <-> código
-        ufs_dict = {uf["nome_uf"].strip(): int(uf["codigo_uf"]) for uf in dados_ufs}
-        ufs_codigo_para_nome = {int(uf["codigo_uf"]): uf["nome_uf"].strip() for uf in dados_ufs}
-
-        # Criar mapeamento código -> "Município - UF"
-        municipios_codigo_para_label = {
-            int(m["codigo_municipio"]): f'{m["nome_municipio"].strip()} - {codigo_uf_para_sigla[str(m["codigo_municipio"])[:2]]}'
-            for m in dados_municipios
+    # Buscar proponentes do banco
+    if tipo_projeto == "PF":
+        proponentes_cursor = pessoas_beneficiarias.find()
+        proponentes_dict = {
+            str(p["_id"]): {
+                "nome": p.get("proponente", ""),
+                "cpf": p.get("cpf", ""),
+                "genero": p.get("genero", "")
+            }
+            for p in proponentes_cursor
+        }
+    else:
+        proponentes_cursor = org_beneficiarias.find()
+        proponentes_dict = {
+            str(p["_id"]): {
+                "nome": p.get("proponente", ""),
+                "cnpj": p.get("cnpj", "")
+            }
+            for p in proponentes_cursor
         }
 
-       # Converte ufs do projeto, que estão salvos como string separada por vírgula, para lista de códigos (int)
-        ufs_codigos = []
-        ufs_str = projeto.get("ufs", "")
-        if isinstance(ufs_str, str):
-            ufs_codigos = [int(c.strip()) for c in ufs_str.split(",") if c.strip()]
+    # --- Garantir que o proponente salvo no projeto apareça na lista ---
+    proponente_salvo = projeto.get("proponente", "")
+    if proponente_salvo and not any(v["nome"] == proponente_salvo for v in proponentes_dict.values()):
+        # cria uma opção fake para mostrar o proponente atual mesmo que não esteja em pessoas/org_beneficiarias
+        proponentes_dict["proponente_atual"] = {"nome": proponente_salvo}
 
-        ufs_valor_nome = [ufs_codigo_para_nome.get(c) for c in ufs_codigos if c in ufs_codigo_para_nome]
+    # --- Montar opções (inclui "" e "Cadastrar proponente") ---
+    proponentes_options = {"": ""}
+    proponentes_options["novo"] = "--Cadastrar proponente--"
+    proponentes_options.update({
+        k: v["nome"] for k, v in sorted(proponentes_dict.items(), key=lambda item: item[1]["nome"].lower())
+    })
 
-        # municipio_principal do projeto (string), converte para int para buscar label
-        municipio_principal_codigo = projeto.get("municipio_principal", None)
-        if municipio_principal_codigo is not None:
-            try:
-                municipio_principal_codigo = int(municipio_principal_codigo)
-            except:
-                municipio_principal_codigo = None
+    # Seleção (default = proponente atual do projeto)
+    default_key = next((k for k, v in proponentes_options.items() if v == proponente_salvo), "")
 
-        # municipios de atuação (string separada por vírgula)
-        municipios_codigos = []
-        municipios_str = projeto.get("municipios", "")
-        if isinstance(municipios_str, str):
-            municipios_codigos = [int(c.strip()) for c in municipios_str.split(",") if c.strip()]
+    proponente_selecionado = col3.selectbox(
+        "Proponente*",
+        options=list(proponentes_options.keys()),
+        format_func=lambda k: proponentes_options[k],
+        index=list(proponentes_options.keys()).index(default_key) if default_key in proponentes_options else 0,
+        key=f"select_proponente_{tipo_projeto}_{projeto.get('_id', '')}"
+    )
 
-        col1, col2, col3 = st.columns(3)
+    # --- Cadastro de novo proponente ---
+    if proponente_selecionado == "novo":
+        with st.expander("Cadastrar novo proponente", expanded=True):
 
-        # Campos comuns
-        codigo = col1.text_input("Código", projeto.get("codigo", ""))
-        sigla = col2.text_input("Sigla", projeto.get("sigla", ""))
-        
-        # Buscar proponentes do banco
-        if tipo_projeto == "PF":
-            proponentes_cursor = pessoas_beneficiarias.find()
-            proponentes_dict = {
-                str(p["_id"]): {
-                    "nome": p.get("proponente", ""),
-                    "cpf": p.get("cpf", ""),
-                    "genero": p.get("genero", "")
-                }
-                for p in proponentes_cursor
-            }
-        else:
-            proponentes_cursor = org_beneficiarias.find()
-            proponentes_dict = {
-                str(p["_id"]): {
-                    "nome": p.get("proponente", ""),
-                    "cnpj": p.get("cnpj", "")
-                }
-                for p in proponentes_cursor
-            }
-
-        # --- Garantir que o proponente salvo no projeto apareça na lista ---
-        proponente_salvo = projeto.get("proponente", "")
-        if proponente_salvo and not any(v["nome"] == proponente_salvo for v in proponentes_dict.values()):
-            # cria uma opção fake para mostrar o proponente atual mesmo que não esteja em pessoas/org_beneficiarias
-            proponentes_dict["proponente_atual"] = {"nome": proponente_salvo}
-
-        # Montar opções
-        proponentes_options = {"": ""}
-        proponentes_options.update({
-            k: v["nome"] for k, v in sorted(proponentes_dict.items(), key=lambda item: item[1]["nome"].lower())
-        })
-
-        # Seleção (default = proponente atual do projeto)
-        default_key = next((k for k, v in proponentes_options.items() if v == proponente_salvo), "")
-
-        proponente_selecionado = col3.selectbox(
-            "Proponente",
-            options=list(proponentes_options.keys()),
-            format_func=lambda k: proponentes_options[k],
-            index=list(proponentes_options.keys()).index(default_key) if default_key in proponentes_options else 0,
-            key=f"select_proponente_{tipo_projeto}_{projeto.get('_id', '')}"
-        )
-
-
-        # Preencher automaticamente os campos ligados ao proponente
-        if proponente_selecionado and proponente_selecionado in proponentes_dict:
-            dados_proponente = proponentes_dict[proponente_selecionado]
-            if tipo_projeto == "PF":
-                cpf = dados_proponente.get("cpf", "")
-                genero = dados_proponente.get("genero", "")
-                cnpj = ""
-            else:
-                cnpj = dados_proponente.get("cnpj", "")
-                cpf = ""
-                genero = ""
-        else:
-            cpf, genero, cnpj = "", "", ""
-
-        col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
-        nome_do_projeto = col1.text_input("Nome do projeto", projeto.get("nome_do_projeto", ""))
-
-        categoria_valor = projeto.get("categoria", "")
-        categoria = col2.selectbox(
-            "Categoria",
-            options=opcoes_categoria,
-            index=opcoes_categoria.index(categoria_valor) if categoria_valor in opcoes_categoria else 0,
-            placeholder=""
-        )
-
-        edital = col3.text_input("Edital", projeto.get("edital", ""))
-        ano_aprovacao = col4.number_input("Ano de aprovação", value=projeto.get("ano_de_aprovacao", 2025), step=1)
-
-        col1, col2, col3 = st.columns(3)
-
-        # --- Seleção de estados (não afeta municípios) ---
-        ufs_selecionados = col1.multiselect(
-            "Estado(s)",
-            options=sorted(ufs_dict.keys()),
-            default=ufs_valor_nome,
-            key=f"ufs_{form_key}",
-            placeholder=""
-        )
-
-        # --- Município principal (todos os municípios) ---
-        municipio_principal = col2.selectbox(
-            "Município principal",
-            options=sorted(municipios_codigo_para_label.keys()),
-            format_func=lambda codigo: municipios_codigo_para_label.get(codigo, ""),
-            index=sorted(municipios_codigo_para_label.keys()).index(municipio_principal_codigo)
-                if municipio_principal_codigo in municipios_codigo_para_label else 0,
-            key=f"municipio_principal_{form_key}", 
-            placeholder=""
-        )
-
-        # --- Municípios de atuação (todos os municípios) ---
-        municipios_atuacao = col3.multiselect(
-            "Municípios de atuação",
-            options=sorted(municipios_codigo_para_label.keys()),
-            format_func=lambda codigo: municipios_codigo_para_label.get(codigo, ""),
-            default=municipios_codigos,
-            key=f"municipios_{form_key}",
-            placeholder=""
-        )
-
-        col1, col2 = st.columns([1, 4])
-        latlong = col1.text_input("Latitude e longitude principais", projeto.get("lat_long_principal", ""))
-        local_obs = col2.text_area("Observações sobre o local", projeto.get("observacoes_sobre_o_local", ""))
-
-        
-
-        if modo == "editar":
-            col1, col2, col3, col4 = st.columns(4)
-            duracao = col1.text_input("Duração original (meses)", projeto.get("duracao_original_meses", ""))
-            data_inicio = col2.text_input("Data início do contrato", projeto.get("data_inicio_do_contrato", ""))
-            data_fim = col3.text_input("Data fim do contrato", projeto.get("data_final_do_contrato", ""))
-            data_relatorio = col4.text_input(
-                "Data relatório final",
-                projeto.get("data_relatorio_monitoramento_final", "")
+            tipo_cadastro = st.pills(
+                "Selecione o tipo",
+                ["Organização", "Pessoa"],
+                selection_mode="single",
+                default="Organização",
+                key=f"tipo_cadastro_proponente_{projeto.get('_id', '')}"
             )
+
+            if tipo_cadastro == "Organização":
+                with st.form(f"Cadastro_organizacao_{projeto.get('_id', '')}", border=False):
+                    nome = st.text_input("Nome da organização", key=f"nome_org_{projeto.get('_id', '')}")
+                    cnpj = st.text_input("CNPJ", placeholder="00.000.000/0000-00", key=f"cnpj_org_{projeto.get('_id', '')}")
+                    st.write("")
+                    cadastrar = st.form_submit_button("Cadastrar organização")
+
+                    if cadastrar:
+                        if not nome.strip() or not cnpj.strip():
+                            st.error("Todos os campos são obrigatórios.")
+                        else:
+                            existente = org_beneficiarias.find_one({"cnpj": cnpj.strip()})
+                            if existente:
+                                st.error("Já existe uma organização cadastrada com esse CNPJ.")
+                            else:
+                                org_beneficiarias.insert_one({"proponente": nome.strip(), "cnpj": cnpj.strip()})
+                                st.success("Organização cadastrada com sucesso!")
+                                time.sleep(2)
+                                st.rerun()
+
+            elif tipo_cadastro == "Pessoa":
+                with st.form(f"Cadastro_pessoa_{projeto.get('_id', '')}", border=False):
+                    nome = st.text_input("Nome completo", key=f"nome_pessoa_{projeto.get('_id', '')}")
+                    cpf = st.text_input("CPF", placeholder="000.000.000-00", key=f"cpf_pessoa_{projeto.get('_id', '')}")
+                    genero = st.selectbox(
+                        "Gênero",
+                        ["Masculino", "Feminino", "Não binário", "Outro"],
+                        key=f"tipo_genero_{projeto.get('_id', '')}"
+                    )
+
+                    st.write("")
+                    cadastrar = st.form_submit_button("Cadastrar pessoa")
+
+                    if cadastrar:
+                        if not nome.strip() or not cpf.strip():
+                            st.error("Todos os campos são obrigatórios.")
+                        else:
+                            existente = pessoas_beneficiarias.find_one({"cpf": cpf.strip()})
+                            if existente:
+                                st.error("Já existe uma pessoa cadastrada com esse CPF.")
+                            else:
+                                pessoas_beneficiarias.insert_one(
+                                    {"proponente": nome.strip(), "cpf": cpf.strip(), "genero": genero.strip()}
+                                )
+                                st.success("Pessoa cadastrada com sucesso!")
+                                time.sleep(2)
+                                st.rerun()
+
+    # Preencher automaticamente os campos ligados ao proponente
+    if proponente_selecionado and proponente_selecionado in proponentes_dict:
+        dados_proponente = proponentes_dict[proponente_selecionado]
+        if tipo_projeto == "PF":
+            cpf = dados_proponente.get("cpf", "")
+            genero = dados_proponente.get("genero", "")
+            cnpj = ""
         else:
-            col1, col2, col3 = st.columns(3)
-            duracao = col1.text_input("Duração original (meses)", projeto.get("duracao_original_meses", ""))
-            data_inicio = col2.text_input("Data início do contrato", projeto.get("data_inicio_do_contrato", ""))
-            data_fim = col3.text_input("Data fim do contrato", projeto.get("data_final_do_contrato", ""))
-            data_relatorio = ""
+            cnpj = dados_proponente.get("cnpj", "")
+            cpf = ""
+            genero = ""
+    else:
+        cpf, genero, cnpj = "", "", ""
 
-        col1, col2 = st.columns(2)
-        moeda_valor = projeto.get("moeda", "")
-        moeda = col1.selectbox(
-            "Moeda",
-            options=opcoes_moeda,
-            index=opcoes_moeda.index(moeda_valor) if moeda_valor in opcoes_moeda else 0,
-            placeholder=""
-        )
-        valor = col2.text_input("Valor", projeto.get("valor", ""))
+    col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
+    nome_do_projeto = col1.text_input("Nome do projeto*", projeto.get("nome_do_projeto", ""))
 
+    categoria_valor = projeto.get("categoria", "")
+    categoria = col2.selectbox(
+        "Categoria*",
+        options=opcoes_categoria,
+        index=opcoes_categoria.index(categoria_valor) if categoria_valor in opcoes_categoria else 0,
+        placeholder=""
+    )
+
+    # Edital como number_input (1 casa decimal) e convertido para str
+    edital = col3.text_input("Edital*", projeto.get("edital", ""))
+    
+    ano_aprovacao = col4.number_input("Ano de aprovação*", value=projeto.get("ano_de_aprovacao", 2025), step=1)
+
+    col1, col2, col3 = st.columns(3)
+
+    # --- Seleção de estados (não afeta municípios) ---
+    ufs_selecionados = col1.multiselect(
+        "Estado(s)*",
+        options=sorted(ufs_dict.keys()),
+        default=ufs_valor_nome,
+        key=f"ufs_{form_key}",
+        placeholder=""
+    )
+
+    # --- Município principal (todos os municípios) ---
+    municipio_principal = col2.selectbox(
+        "Município principal*",
+        options=sorted(municipios_codigo_para_label.keys()),
+        format_func=lambda codigo: municipios_codigo_para_label.get(codigo, ""),
+        index=sorted(municipios_codigo_para_label.keys()).index(municipio_principal_codigo)
+            if municipio_principal_codigo in municipios_codigo_para_label else 0,
+        key=f"municipio_principal_{form_key}", 
+        placeholder=""
+    )
+
+    # --- Municípios de atuação (todos os municípios) ---
+    municipios_atuacao = col3.multiselect(
+        "Municípios de atuação*",
+        options=sorted(municipios_codigo_para_label.keys()),
+        format_func=lambda codigo: municipios_codigo_para_label.get(codigo, ""),
+        default=municipios_codigos,
+        key=f"municipios_{form_key}",
+        placeholder=""
+    )
+
+    col1, col2 = st.columns([1, 4])
+
+    latlong = col1.text_input(
+        "Latitude, Longitude",
+        value=projeto.get("lat_long_principal", ""),   # 🔹 usa o valor salvo no projeto
+        placeholder="-23.175173, -45.856398",
+        key=f"latlong_{form_key}",
+        help="Descrição de como as coordenadas devem ser preenchidas"
+    )
+
+    local_obs = col2.text_area(
+        "Observações sobre o local",
+        projeto.get("observacoes_sobre_o_local", ""),
+        key=f"obs_local_{form_key}"
+    )
+
+
+    if modo == "editar":
         col1, col2, col3, col4 = st.columns(4)
-        opcoes_temas = ["Agroecologia", "Agroextrativismo - Beneficiamento e Comercialização", "Água", "Apicultura e meliponicultura",
-            "Artesanato", "Articulação", "Capacitação", "Certificação", "Conservação da biodiversidade", "Criação de animais", "Cultura",
-            "Educação Ambiental", "Energia Renovável", "Fauna", "Fogo", "Gestão Territorial", "Manejo da biodiversidade", "Pesquisa",
-            "Plantas medicinais", "Política Pública", "Recuperação de áreas degradadas", "Sistemas Agroflorestais - SAFs", "Turismo"
-        ]
-        opcoes_publico = ["Agricultores Familiares", "Assentados da Reforma Agrária", "Comunidade Tradicional", "Garimpeiros", 
-                          "Idosos", "Indígenas", "Jovens", "Mulheres", "Pescador Artesanal", "Quilombola", "Urbano", "Outro" ]
-        opcoes_bioma = ["Amazônia", "Caatinga", "Cerrado", "Mata Atlântica", "Pampas", "Pantanal"]
-        opcoes_status = ["Em andamento", "Finalizado", "Cancelado"]
-
-        temas_valor = [
-            p.strip()
-            for p in projeto.get("temas", "").split(",")
-            if p.strip() in opcoes_temas
-        ]
-
-        publico_valor = [p.strip() for p in projeto.get("publico", "").split(",") if p.strip()]
-        bioma_valor = [b.strip() for b in projeto.get("bioma", "").split(",") if b.strip()]
-        status_valor = projeto.get("status", opcoes_status[0])
-
-        temas = col1.multiselect("Temas", options=opcoes_temas, default=temas_valor, placeholder="")
-        publico = col2.multiselect("Público", options=opcoes_publico, default=publico_valor, placeholder="")
-        bioma = col3.multiselect("Bioma", options=opcoes_bioma, default=bioma_valor, placeholder="")
-        status = col4.selectbox("Status", options=opcoes_status, index=opcoes_status.index(status_valor) if status_valor in opcoes_status else 0)
-
-        objetivo_geral = st.text_area("Objetivo geral", projeto.get("objetivo_geral", ""))
-
-        col1, col2, col3 = st.columns(3)
-        pessoas_options = {str(k): v for k, v in sorted(pessoas_dict.items(), key=lambda item: item[1].lower())}
-        ponto_focal_default = str(projeto.get("ponto_focal", ""))
-        ponto_focal_keys = list(pessoas_options.keys())
-        ponto_focal = col1.selectbox(
-            "Ponto focal",
-            options=ponto_focal_keys,
-            format_func=lambda x: pessoas_options.get(x, ""),
-            index=ponto_focal_keys.index(ponto_focal_default) if ponto_focal_default in ponto_focal_keys else 0,
-            placeholder=""
-        )
-
-        programas_excluidos = {"ADM Brasília", "ADM Santa Inês", "Comunicação", "Advocacy", "Coordenação"}
-        programas_filtrados = {
-            str(k): v for k, v in programas_dict.items()
-            if v not in programas_excluidos and v.strip()
-        }
-        programas_options = {
-            str(k): v for k, v in sorted(programas_filtrados.items(), key=lambda item: item[1].lower())
-        }
-        programa_default = str(projeto.get("programa", ""))
-        programa_keys = list(programas_options.keys())
-        programa = col2.selectbox(
-            "Programa",
-            options=programa_keys,
-            format_func=lambda x: programas_options.get(x, ""),
-            index=programa_keys.index(programa_default) if programa_default in programa_keys else 0,
-            placeholder=""
-        )
-
-        projetos_pai_options = {
-            str(k): v for k, v in projetos_ispn_dict.items() if v.strip()
-        }
-        sorted_keys = sorted(projetos_pai_options, key=lambda x: projetos_pai_options[x].lower())
-        codigo_pai_default = str(projeto.get("codigo_projeto_pai", ""))
-        codigo_pai = col3.selectbox(
-            "Projeto pai",
-            options=sorted_keys,
-            format_func=lambda x: projetos_pai_options.get(x, "Desconhecido"),
-            index=sorted_keys.index(codigo_pai_default) if codigo_pai_default in sorted_keys else 0,
-            placeholder=""
-        )
-
-        st.write("")
-
-        submitted = st.form_submit_button("Salvar")
-        if submitted:
-
-            # --- Campos obrigatórios ---
-            campos_obrigatorios = [codigo, sigla, nome_do_projeto, proponente_selecionado, categoria, ano_aprovacao, 
-                                   ponto_focal, programa, objetivo_geral, edital, local_obs, duracao, data_inicio, 
-                                   data_fim, moeda, valor, bioma, status, temas, publico, codigo_pai, ufs_selecionados, 
-                                   municipio_principal, municipios_atuacao]
+        duracao_val = col1.number_input(
+            "Duração (em meses)*",
+            value=int(projeto.get("duracao_original_meses", 0) or 0),
+            step=1,
             
-            if not all(campos_obrigatorios):
-                st.warning("Preencha todos os campos antes de salvar.")
+        )
+        duracao = str(duracao_val)
 
-            else:
-                # --- Verificar duplicidade ---
-                filtro_codigo = {"codigo": codigo} if codigo else None
-                filtro_sigla = {"sigla": sigla} if sigla else None
+        # Data início
+        data_inicio_date = col2.date_input(
+            "Data início do contrato*",
+            value=datetime.strptime(projeto.get("data_inicio_do_contrato", ""), "%d/%m/%Y").date()
+            if projeto.get("data_inicio_do_contrato") else None,
+            format="DD/MM/YYYY"
+        )
+        data_inicio = data_inicio_date.strftime("%d/%m/%Y") if data_inicio_date else ""
 
-                if modo == "editar" and projeto.get("_id"):
-                    try:
-                        proj_id = ObjectId(projeto["_id"]) if isinstance(projeto["_id"], str) else projeto["_id"]
-                    except:
-                        proj_id = projeto["_id"]
+        # Data fim
+        data_fim_date = col3.date_input(
+            "Data fim do contrato*",
+            value=datetime.strptime(projeto.get("data_final_do_contrato", ""), "%d/%m/%Y").date()
+            if projeto.get("data_final_do_contrato") else None,
+            format="DD/MM/YYYY"
+        )
+        data_fim = data_fim_date.strftime("%d/%m/%Y") if data_fim_date else ""
 
-                    if codigo:
-                        filtro_codigo = {"$and": [{"_id": {"$ne": proj_id}}, {"codigo": codigo}]}
-                    if sigla:
-                        filtro_sigla = {"$and": [{"_id": {"$ne": proj_id}}, {"sigla": sigla}]}
+        # Data relatório
+        data_relatorio_date = col4.date_input(
+            "Data relatório final",
+            value=datetime.strptime(projeto.get("data_relatorio_monitoramento_final", ""), "%d/%m/%Y").date()
+            if projeto.get("data_relatorio_monitoramento_final") else None,
+            format="DD/MM/YYYY"
+        )
+        data_relatorio = data_relatorio_date.strftime("%d/%m/%Y") if data_relatorio_date else ""
 
-                # Checa duplicidade em PF e PJ
-                codigo_existente = None
-                sigla_existente = None
+    else:
+        col1, col2, col3 = st.columns(3)
+        duracao_val = col1.number_input(
+            "Duração (em meses)*",
+            value=int(projeto.get("duracao_original_meses", 0) or 0),
+            step=1,
+            
+        )
+        duracao = str(duracao_val)
 
-                for col in [db["projetos_pf"], db["projetos_pj"]]:
-                    if filtro_codigo and not codigo_existente:
-                        codigo_existente = col.find_one(filtro_codigo)
-                    if filtro_sigla and not sigla_existente:
-                        sigla_existente = col.find_one(filtro_sigla)
+        # Data início
+        data_inicio_date = col2.date_input(
+            "Data início do contrato*",
+            value=datetime.strptime(projeto.get("data_inicio_do_contrato", ""), "%d/%m/%Y").date()
+            if projeto.get("data_inicio_do_contrato") else None,
+            format="DD/MM/YYYY"
+        )
+        data_inicio = data_inicio_date.strftime("%d/%m/%Y") if data_inicio_date else ""
+
+        # Data fim
+        data_fim_date = col3.date_input(
+            "Data fim do contrato*",
+            value=datetime.strptime(projeto.get("data_final_do_contrato", ""), "%d/%m/%Y").date()
+            if projeto.get("data_final_do_contrato") else None,
+            format="DD/MM/YYYY"
+        )
+        data_fim = data_fim_date.strftime("%d/%m/%Y") if data_fim_date else ""
+        
+        data_relatorio = ""
+
+    col1, col2 = st.columns(2)
+    moeda_valor = projeto.get("moeda", "")
+    moeda = col1.selectbox(
+        "Moeda*",
+        options=opcoes_moeda,
+        index=opcoes_moeda.index(moeda_valor) if moeda_valor in opcoes_moeda else 0,
+        placeholder=""
+    )
+
+    valor_val = col2.number_input(
+        "Valor*",
+        value=float(projeto.get("valor", 0) or 0),
+        step=1.0,
+        format="%07.3f" 
+    )
+    valor = str(valor_val)
+    #valor = col2.text_input("Valor", projeto.get("valor", ""))
+
+    col1, col2, col3, col4 = st.columns(4)
+    opcoes_temas = [
+        "Agroecologia", "Agroextrativismo - Beneficiamento e Comercialização", "Água", "Apicultura e meliponicultura",
+        "Artesanato", "Articulação", "Capacitação", "Certificação", "Conservação da biodiversidade", "Criação de animais", "Cultura",
+        "Educação Ambiental","Escola Família Agrícola", "Economia solidária", "Energia Renovável", "Fauna", "Fogo", "Gestão Territorial", 
+        "Manejo da biodiversidade", "Pesquisa", "Plantas medicinais", "Política Pública", "Recuperação de áreas degradadas", "Segurança alimentar", 
+        "Sistemas Agroflorestais - SAFs", "Turismo", "Outro"
+    ]
+    opcoes_publico = ["Agricultores Familiares", "Assentados da Reforma Agrária", "Comunidade Tradicional", "Garimpeiros", 
+                        "Idosos", "Indígenas", "Jovens", "Mulheres", "Pescador Artesanal", "Quilombola", "Urbano", "Outro" ]
+    opcoes_bioma = ["Amazônia", "Caatinga", "Cerrado", "Mata Atlântica", "Pampas", "Pantanal"]
+    opcoes_status = ["Em andamento", "Finalizado", "Cancelado"]
+
+    temas_valor = [
+        p.strip()
+        for p in projeto.get("temas", "").split(",")
+        if p.strip() in opcoes_temas
+    ]
+
+    publico_valor = [p.strip() for p in projeto.get("publico", "").split(",") if p.strip()]
+    bioma_valor = [b.strip() for b in projeto.get("bioma", "").split(",") if b.strip()]
+    status_valor = projeto.get("status", opcoes_status[0])
+
+    temas = col1.multiselect("Temas*", options=opcoes_temas, default=temas_valor, placeholder="")
+    publico = col2.multiselect("Público*", options=opcoes_publico, default=publico_valor, placeholder="")
+    bioma = col3.multiselect("Bioma*", options=opcoes_bioma, default=bioma_valor, placeholder="")
+    status = col4.selectbox(
+        "Status*", 
+        options=opcoes_status, 
+        index=opcoes_status.index(status_valor) if status_valor in opcoes_status else 0,
+        key=f"status_{str(projeto.get('_id', 'novo'))}"
+    )
+
+    objetivo_geral = st.text_area(
+        "Objetivo geral*",
+        projeto.get("objetivo_geral", ""),
+        key=f"objetivo_geral_{projeto.get('_id', 'novo')}"
+    )
 
 
-                if codigo_existente and sigla_existente:
-                    st.warning(f"Já existe um projeto com o código '{codigo}' e com a sigla '{sigla}'.")
-                elif codigo_existente:
-                    st.warning(f"Já existe um projeto com o código '{codigo}'.")
-                elif sigla_existente:
-                    st.warning(f"Já existe um projeto com a sigla '{sigla}'.")
-                else:
-                    doc = {
-                        "codigo": codigo,
-                        "sigla": sigla,
-                        "proponente": proponentes_dict.get(proponente_selecionado, {}).get("nome", ""),
-                        "nome_do_projeto": nome_do_projeto,
-                        "edital": edital,
-                        "categoria": categoria,
-                        "ano_de_aprovacao": ano_aprovacao,
-                        "lat_long_principal": latlong,
-                        "observacoes_sobre_o_local": local_obs,
-                        "duracao_original_meses": duracao,
-                        "data_inicio_do_contrato": data_inicio,
-                        "data_final_do_contrato": data_fim,
-                        "data_relatorio_monitoramento_final": data_relatorio,
-                        "moeda": moeda,
-                        "valor": valor,
-                        "bioma": ", ".join(bioma) if isinstance(bioma, list) else str(bioma),
-                        "status": status,
-                        "temas": ", ".join(temas) if isinstance(temas, list) else str(temas),
-                        "publico": ", ".join(publico) if isinstance(publico, list) else str(publico),
-                        "objetivo_geral": objetivo_geral,
-                        "tipo": tipo_projeto,
-                        "ponto_focal": ObjectId(ponto_focal) if ponto_focal and ObjectId.is_valid(ponto_focal) else None,
-                        "programa": ObjectId(programa) if programa and ObjectId.is_valid(programa) else None,
-                        "codigo_projeto_pai": ObjectId(codigo_pai) if codigo_pai and ObjectId.is_valid(codigo_pai) else None,
-                        "ufs": ",".join(str(ufs_dict[nome]) for nome in ufs_selecionados if nome in ufs_dict),
-                        "municipio_principal": str(municipio_principal) if municipio_principal is not None else "",
-                        "municipios": ",".join(str(codigo) for codigo in municipios_atuacao),
-                    }
-                    if tipo_projeto == "PF":
-                        doc["cpf"] = proponentes_dict.get(proponente_selecionado, {}).get("cpf", "")
-                        doc["genero"] = proponentes_dict.get(proponente_selecionado, {}).get("genero", "")
-                    else:
-                        doc["cnpj"] = proponentes_dict.get(proponente_selecionado, {}).get("cnpj", "")
-                    return doc
+    col1, col2, col3 = st.columns(3)
+    pessoas_options = {str(k): v for k, v in sorted(pessoas_dict.items(), key=lambda item: item[1].lower())}
+    ponto_focal_default = str(projeto.get("ponto_focal", ""))
+    ponto_focal_keys = list(pessoas_options.keys())
+    ponto_focal = col1.selectbox(
+        "Ponto focal*",
+        options=ponto_focal_keys,
+        format_func=lambda x: pessoas_options.get(x, ""),
+        index=ponto_focal_keys.index(ponto_focal_default) if ponto_focal_default in ponto_focal_keys else 0,
+        placeholder=""
+    )
+
+    programas_excluidos = {"ADM Brasília", "ADM Santa Inês", "Comunicação", "Advocacy", "Coordenação"}
+    programas_filtrados = {
+        str(k): v for k, v in programas_dict.items()
+        if v not in programas_excluidos and v.strip()
+    }
+    programas_options = {
+        str(k): v for k, v in sorted(programas_filtrados.items(), key=lambda item: item[1].lower())
+    }
+    programa_default = str(projeto.get("programa", ""))
+    programa_keys = list(programas_options.keys())
+    programa = col2.selectbox(
+        "Programa*",
+        options=programa_keys,
+        format_func=lambda x: programas_options.get(x, ""),
+        index=programa_keys.index(programa_default) if programa_default in programa_keys else 0,
+        placeholder=""
+    )
+
+    projetos_pai_options = {
+        str(k): v for k, v in projetos_ispn_dict.items() if v.strip()
+    }
+    sorted_keys = sorted(projetos_pai_options, key=lambda x: projetos_pai_options[x].lower())
+    codigo_pai_default = str(projeto.get("codigo_projeto_pai", ""))
+    codigo_pai = col3.selectbox(
+        "Projeto pai*",
+        options=sorted_keys,
+        format_func=lambda x: projetos_pai_options.get(x, "Desconhecido"),
+        index=sorted_keys.index(codigo_pai_default) if codigo_pai_default in sorted_keys else 0,
+        placeholder=""
+    )
+
+    st.write("")
+
+    salvar = st.button("Salvar", key=f"salvar_{form_key}")
+    if salvar:
+        # --- Campos obrigatórios ---
+        campos_obrigatorios = [
+            codigo, sigla, nome_do_projeto, proponente_selecionado, categoria, ano_aprovacao, 
+            ponto_focal, programa, objetivo_geral, edital, duracao, data_inicio, data_fim, 
+            moeda, valor, bioma, status, temas, publico, codigo_pai, ufs_selecionados, 
+            municipio_principal, municipios_atuacao
+        ]
+
+        if not all(campos_obrigatorios):
+            st.warning("Preencha todos os campos obrigatórios (*) antes de salvar.")
+            return None
+
+        # --- Verificar duplicidade ---
+        filtro_codigo = {"codigo": codigo} if codigo else None
+        filtro_sigla = {"sigla": sigla} if sigla else None
+
+        if modo == "editar" and projeto.get("_id"):
+            try:
+                proj_id = ObjectId(projeto["_id"]) if isinstance(projeto["_id"], str) else projeto["_id"]
+            except:
+                proj_id = projeto["_id"]
+
+            if codigo:
+                filtro_codigo = {"$and": [{"_id": {"$ne": proj_id}}, {"codigo": codigo}]}
+            if sigla:
+                filtro_sigla = {"$and": [{"_id": {"$ne": proj_id}}, {"sigla": sigla}]}
+
+        # Checa duplicidade em PF e PJ
+        codigo_existente, sigla_existente = None, None
+        for col in [db["projetos_pf"], db["projetos_pj"]]:
+            if filtro_codigo and not codigo_existente:
+                codigo_existente = col.find_one(filtro_codigo)
+            if filtro_sigla and not sigla_existente:
+                sigla_existente = col.find_one(filtro_sigla)
+
+        # --- Validação de latitude/longitude ---
+        padrao = r"^-?\d{1,3}\.\d{1,10},\s*-?\d{1,3}\.\d{1,10}$"
+        if latlong and not re.match(padrao, latlong):
+            st.error("Formato de coordenadas inválido! Use o padrão: -23.175173, -45.856398")
+            return None  
+
+        # --- Mensagens de duplicidade ---
+        if codigo_existente and sigla_existente:
+            st.warning(f"Já existe um projeto com o código '{codigo}' e com a sigla '{sigla}'.")
+            return None
+        elif codigo_existente:
+            st.warning(f"Já existe um projeto com o código '{codigo}'.")
+            return None
+        elif sigla_existente:
+            st.warning(f"Já existe um projeto com a sigla '{sigla}'.")
+            return None
+
+        # --- Se passou em todas as verificações ---
+        doc = {
+            "codigo": codigo,
+            "sigla": sigla,
+            "proponente": proponentes_dict.get(proponente_selecionado, {}).get("nome", ""),
+            "nome_do_projeto": nome_do_projeto,
+            "edital": edital,
+            "categoria": categoria,
+            "ano_de_aprovacao": ano_aprovacao,
+            "lat_long_principal": latlong,
+            "observacoes_sobre_o_local": local_obs,
+            "duracao_original_meses": duracao,
+            "data_inicio_do_contrato": data_inicio,
+            "data_final_do_contrato": data_fim,
+            "data_relatorio_monitoramento_final": data_relatorio,
+            "moeda": moeda,
+            "valor": valor,
+            "bioma": ", ".join(bioma) if isinstance(bioma, list) else str(bioma),
+            "status": status,
+            "temas": ", ".join(temas) if isinstance(temas, list) else str(temas),
+            "publico": ", ".join(publico) if isinstance(publico, list) else str(publico),
+            "objetivo_geral": objetivo_geral,
+            "tipo": tipo_projeto,
+            "ponto_focal": ObjectId(ponto_focal) if ponto_focal and ObjectId.is_valid(ponto_focal) else None,
+            "programa": ObjectId(programa) if programa and ObjectId.is_valid(programa) else None,
+            "codigo_projeto_pai": ObjectId(codigo_pai) if codigo_pai and ObjectId.is_valid(codigo_pai) else None,
+            "ufs": ",".join(str(ufs_dict[nome]) for nome in ufs_selecionados if nome in ufs_dict),
+            "municipio_principal": str(municipio_principal) if municipio_principal is not None else "",
+            "municipios": ",".join(str(codigo) for codigo in municipios_atuacao),
+        }
+        if tipo_projeto == "PF":
+            doc["cpf"] = proponentes_dict.get(proponente_selecionado, {}).get("cpf", "")
+            doc["genero"] = proponentes_dict.get(proponente_selecionado, {}).get("genero", "")
+        else:
+            doc["cnpj"] = proponentes_dict.get(proponente_selecionado, {}).get("cnpj", "")
+
+        return doc
 
 
 @st.dialog("Gerenciar projetos", width="large")
@@ -713,63 +866,69 @@ def gerenciar_projetos():
                 st.rerun()
 
 
-@st.dialog("Cadastrar proponentes", width="large")
-def gerenciar_proponentes():
+# @st.dialog("Cadastrar proponentes", width="large")
+# def gerenciar_proponentes():
 
-    #abas = st.tabs(["Adicionar", "Editar", "Excluir"])
-    
-    # ---------------------- Cadastro de Organizações e Pessoas Beneficiárias ----------------------
-    #with abas[0]:
+#     tipo_cadastro = st.pills(
+#         "Selecione o tipo",
+#         ["Organização", "Pessoa"],
+#         selection_mode="single",
+#         default="Organização",
+#         key="tipo_cadastro_proponente"
+#     )
 
-    tipo_cadastro = st.pills(
-        "Selecione o tipo",
-        ["Organização", "Pessoa"],
-        selection_mode="single",
-        default="Organização",
-        key="tipo_cadastro_proponente"
-    )
+#     if tipo_cadastro == "Organização":
+#         with st.form("Cadastro de Organização", border=False):
+#             nome = st.text_input("Nome da organização")
+#             cnpj = st.text_input("CNPJ", placeholder="00.000.000/0000-00")
+#             st.write("")
+#             cadastrar = st.form_submit_button("Cadastrar organização")
 
-    if tipo_cadastro == "Organização":
-        with st.form("Cadastro de Organização", border=False):
-            nome = st.text_input("Nome da organização")
-            cnpj = st.text_input("CNPJ")
-            st.write("")
-            cadastrar = st.form_submit_button("Cadastrar organização")
-            if cadastrar:
-                if not nome.strip() or not cnpj.strip():
-                    st.error("Todos os campos são obrigatórios.")
-                else:
-                    org_beneficiarias.insert_one(
-                        {"proponente": nome.strip(), "cnpj": cnpj.strip()}
-                    )
-                    st.success("Organização cadastrada com sucesso!")
-                    time.sleep(2)
-                    st.rerun()
+#             if cadastrar:
+#                 if not nome.strip() or not cnpj.strip():
+#                     st.error("Todos os campos são obrigatórios.")
+#                 else:
+#                     # Verificar se já existe o CNPJ
+#                     existente = org_beneficiarias.find_one({"cnpj": cnpj.strip()})
+#                     if existente:
+#                         st.error("Já existe uma organização cadastrada com esse CNPJ.")
+#                     else:
+#                         org_beneficiarias.insert_one(
+#                             {"proponente": nome.strip(), "cnpj": cnpj.strip()}
+#                         )
+#                         st.success("Organização cadastrada com sucesso!")
+#                         time.sleep(2)
+#                         st.rerun()
 
-    elif tipo_cadastro == "Pessoa":
-        with st.form("Cadastro de Pessoa", border=False):
-            nome = st.text_input("Nome completo")
-            cpf = st.text_input("CPF")
+#     elif tipo_cadastro == "Pessoa":
+#         with st.form("Cadastro de Pessoa", border=False):
+#             nome = st.text_input("Nome completo")
+#             cpf = st.text_input("CPF", placeholder="000.000.000-00")
+#             genero = st.selectbox(
+#                 "Gênero",
+#                 ["Masculino", "Feminino", "Não binário", "Outro"],
+#                 key="tipo_genero"
+#             )
 
-            genero = st.selectbox(
-                "Gênero",
-                ["Masculino", "Feminino", "Não binário", "Outro"],
-                key="tipo_genero"
-            )
+#             st.write("")
+#             cadastrar = st.form_submit_button("Cadastrar pessoa")
 
-            st.write("")
-            cadastrar = st.form_submit_button("Cadastrar pessoa")
-            if cadastrar:
-                if not nome.strip() or not cpf.strip():
-                    st.error("Todos os campos são obrigatórios.")
-                else:
-                    pessoas_beneficiarias.insert_one(
-                        {"proponente": nome.strip(), "cpf": cpf.strip(),"genero": genero.strip() }
-                    )
-                    st.success("Pessoa cadastrada com sucesso!")
-                    time.sleep(2)
-                    st.rerun()
-    
+#             if cadastrar:
+#                 if not nome.strip() or not cpf.strip():
+#                     st.error("Todos os campos são obrigatórios.")
+#                 else:
+#                     # Verificar se já existe o CPF
+#                     existente = pessoas_beneficiarias.find_one({"cpf": cpf.strip()})
+#                     if existente:
+#                         st.error("Já existe uma pessoa cadastrada com esse CPF.")
+#                     else:
+#                         pessoas_beneficiarias.insert_one(
+#                             {"proponente": nome.strip(), "cpf": cpf.strip(), "genero": genero.strip()}
+#                         )
+#                         st.success("Pessoa cadastrada com sucesso!")
+#                         time.sleep(2)
+#                         st.rerun()
+
     
 def extrair_itens_distintos(series: pd.Series) -> pd.Series:
         """
@@ -1077,7 +1236,7 @@ with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
     col1, col2, col3, col4 = st.columns(4)
 
     # Edital
-    editais_disponiveis = sorted(df_base["Edital"].dropna().unique(), key=lambda x: float(x))
+    editais_disponiveis = sorted(df_base["Edital"].dropna().unique(), key=lambda x: str(x))
     edital_sel = col1.multiselect("Edital", options=editais_disponiveis, placeholder="Todos")
     if edital_sel:
         mask &= df_base["Edital"].isin(edital_sel)
@@ -1373,7 +1532,7 @@ with lista:
     if set(st.session_state.tipo_usuario) & {"admin", "gestao_fundo_ecos"}:
         col1, col2, col3 = st.columns([2, 1, 1])
 
-        col2.button("Cadastrar proponentes", on_click=gerenciar_proponentes, use_container_width=True, icon=":material/add_business:")
+        #col2.button("Cadastrar proponentes", on_click=gerenciar_proponentes, use_container_width=True, icon=":material/add_business:")
         col3.button("Gerenciar projetos", on_click=gerenciar_projetos, use_container_width=True, icon=":material/contract_edit:")
 
     # --- Ordenar Ano desc, Código asc ---
