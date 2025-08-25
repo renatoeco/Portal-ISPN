@@ -27,6 +27,8 @@ estatistica = db["estatistica"]
 pessoas = db["pessoas"]  
 programas_areas = db["programas_areas"]
 
+
+
 # Busca todos os documentos da coleção "pessoas"
 dados_pessoas = list(pessoas.find())
 
@@ -163,8 +165,6 @@ def gerenciar_pessoas():
 
             # Permissões
             st.write('**Permissões:**')
-
-
 
 
             # Roteamento de tipo de usuário especial
@@ -627,12 +627,11 @@ def gerenciar_pessoas():
 ######################################################################################################
 
 # Container horizontal de botões
-container_botoes = st.container(horizontal=True)
+container_botoes = st.container(horizontal=True, horizontal_alignment="right")
 
 # Botão de cadastro de novos colaboradores só para alguns tipos de usuário
 if set(st.session_state.tipo_usuario) & {"admin", "gestao_pessoas"}:
 
-    col1, col2, col3 = st.columns([2, 2, 1])
     # Botão para abrir o modal de cadastro
     container_botoes.button("Gerenciar colaboradores", on_click=gerenciar_pessoas, icon=":material/group:")
     st.write('')
@@ -641,18 +640,24 @@ if set(st.session_state.tipo_usuario) & {"admin", "gestao_pessoas"}:
 df_pessoas = pd.DataFrame(pessoas_lista)
 
 # Filtra apenas os ativos para exibir
-df_pessoas = df_pessoas[df_pessoas["Status"].str.lower() == "ativo"]
+# df_pessoas = df_pessoas[df_pessoas["Status"].str.lower() == "ativo"]
 
 # Remove colunas indesejadas
 df_pessoas = df_pessoas.drop(columns=["Tipo de usuário", "Status"])
 
 
-# Filtros (pode-se popular dinamicamente se quiser)
-col1, col2, col3= st.columns(3)
 
-col1.selectbox("Programa", ["Todos", "Cerrado", "Iniciativas Comunitárias", "Maranhão", "Sociobiodiversidade", "Povos Indígenas"])
-col2.selectbox("Doador", ["Todos", "USAID", "GEF", "UE", "Laudes Foundation"])
-col3.selectbox("Projeto", ["Todos", "Projeto 1", "Projeto 2", "Projeto 3", "Projeto 4", "Projeto 5"])
+# ????????????????????????????????????????????
+# st.write(dados_programas)
+
+programas = [p["nome_programa_area"] for p in dados_programas]
+
+with st.container(horizontal=True):
+
+    programa = st.selectbox("Programa / Área", ["Todos"] + programas)
+    doador = st.selectbox("Doador", ["Todos", "USAID", "GEF", "UE", "Laudes Foundation"])
+    projeto = st.selectbox("Projeto", ["Todos", "Projeto 1", "Projeto 2", "Projeto 3", "Projeto 4", "Projeto 5"])
+    status = st.selectbox("Status", ["ativos", "inativos"], index=0)
 
 # Exibir DataFrame
 st.subheader(f'{len(df_pessoas)} colaboradores(as)')
