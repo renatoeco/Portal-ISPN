@@ -52,7 +52,9 @@ for pessoa in dados_pessoas:
         "Gênero": pessoa.get("gênero", ""),
         "Raça": pessoa.get("raça", ""),
         "Tipo de usuário": pessoa.get("tipo de usuário", ""),
-        "Status": pessoa.get("status", "")
+        "Status": pessoa.get("status", ""),
+        "tipo_de_conta": pessoa.get("banco", {}).get("tipo_conta", [""])
+
     })
 
 
@@ -218,7 +220,9 @@ def gerenciar_pessoas():
             for p in dados_pessoas
             if "coordenador" in p  # só inclui quem tem o campo 'coordenador'
         ])
-        nome_selecionado = st.selectbox("Selecione o(a) colaborador(a) para editar:", nomes_existentes, index=None, placeholder="")
+
+        cols = st.columns([3, 2])
+        nome_selecionado = cols[0].selectbox("Selecione o(a) colaborador(a) para editar:", nomes_existentes, index=None, placeholder="")
 
         if nome_selecionado:
             # Busca colaborador selecionado no banco
@@ -227,29 +231,50 @@ def gerenciar_pessoas():
             if pessoa:
                 # Formulário para edição dos dados
                 with st.form("form_editar_colaborador"):
-                    st.write(f"Editando informações de **{pessoa['nome_completo']}**")
+                    # st.write(f"Editando informações de **{pessoa['nome_completo']}**")
+                    st.write('')
+
+
+                    # Começando com o status do colaborador
+                    cols = st.columns([1, 2])
+
+                    status_opcoes = ["ativo", "inativo"]
+                    status = cols[0].selectbox("Status do(a) colaborador(a):", status_opcoes, index=status_opcoes.index(pessoa.get("status", "ativo")), key="editar_status")
+
+                    if status == "ativo":
+                        desabilitar = False
+                    else:
+                        desabilitar = True
+
+                    st.markdown("---")
+
 
                     col1, col2 = st.columns([1, 1])
                     
-                    nome = col1.text_input("Nome completo:", value=pessoa.get("nome_completo", ""))
+                    # Nome completo
+                    nome = col1.text_input("Nome completo:", value=pessoa.get("nome_completo", ""), disabled=desabilitar)
                     
+                    # Gênero
                     # Gera lista única e ordenada de gêneros para seleção
-                    lista_generos = sorted({pessoa["Gênero"] for pessoa in pessoas_lista if pessoa["Gênero"]})
-                    genero = col2.selectbox("Gênero:", lista_generos, key="editar_genero")
+                    lista_generos = ['Masculino', 'Feminino', 'Não binário', 'Outro']
+                    genero = col2.selectbox("Gênero:", lista_generos, key="editar_genero", disabled=desabilitar)
 
                     col1, col2 = st.columns([1, 1])
-                    
-                    cpf = col1.text_input("CPF:", value=pessoa.get("CPF", ""))
-                    rg = col2.text_input("RG e órgão emissor:", value=pessoa.get("RG", ""))
+
+                    # CPF e RG 
+                    cpf = col1.text_input("CPF:", value=pessoa.get("CPF", ""), disabled=desabilitar)
+                    rg = col2.text_input("RG e órgão emissor:", value=pessoa.get("RG", ""), disabled=desabilitar)
 
                     col1, col2, col3 = st.columns([1, 2, 2])
                     
-                    data_nascimento = col1.text_input("Data de nascimento:", value=pessoa.get("data_nascimento", ""))
-                    telefone = col2.text_input("Telefone:", value=pessoa.get("telefone", ""))
-                    email = col3.text_input("E-mail:", value=pessoa.get("e_mail", ""))
+                    # Data de nascimento, telefone e e-mail
+                    data_nascimento = col1.text_input("Data de nascimento:", value=pessoa.get("data_nascimento", ""), disabled=desabilitar)
+                    telefone = col2.text_input("Telefone:", value=pessoa.get("telefone", ""), disabled=desabilitar)
+                    email = col3.text_input("E-mail:", value=pessoa.get("e_mail", ""), disabled=desabilitar)
                     
                     col1, col2 = st.columns([1, 1])
                     
+                    # Coordenador
                     # Busca coordenador associado para selecionar valor padrão
                     coordenador_encontrado = next(
                         (c for c in coordenadores_possiveis if c["id"] == pessoa.get("coordenador", "")),
@@ -262,9 +287,11 @@ def gerenciar_pessoas():
                         "Nome do(a) coordenador(a):",
                         nomes_coordenadores,
                         index=nomes_coordenadores.index(nome_coordenador_default) if nome_coordenador_default in nomes_coordenadores else 0,
-                        key="editar_nome_coordenador"
+                        key="editr_nome_coordenador", 
+                        disabled=desabilitar
                     )
 
+                    # Programa / Área
                     # Pega o ObjectId atual salvo no banco
                     programa_area_atual = pessoa.get("programa_area")
                     # Converte o ObjectId para nome legível
@@ -275,21 +302,86 @@ def gerenciar_pessoas():
                         "Programa / Área:",
                         lista_programas_areas,
                         index=lista_programas_areas.index(programa_area_nome_atual) if programa_area_nome_atual in lista_programas_areas else 0,
-                        key="editar_programa"
+                        key="editar_programa", 
+                        disabled=desabilitar
                     )
 
                     # Após seleção, pega o ObjectId correspondente ao nome
                     programa_area = nome_para_id_programa.get(programa_area_nome)
 
                     
-                    col1, col2 = st.columns([1, 1])
+
                     
-                    # Opções possíveis para o campo "tipo de usuário"
-                    opcoes_tipo_usuario = [
-                        "gestao_pessoas", "gestao_ferias", "supervisao_ferias", 
-                        "gestao_noticias", "gestao_pls", "gestao_projetos_doadores", 
-                        "gestao_fundo_ecos", "gestao_viagens", "gestao_manuais", "coordenador"
-                    ]
+
+                    st.markdown("---")
+
+                    # Dados bancários
+                    col1, col2 = st.columns([1, 1])
+                    nome_banco = col1.text_input("Nome do banco:", value=pessoa.get("banco", {}).get("nome_banco", ""), disabled=desabilitar)
+                    agencia = col2.text_input("Agência:", value=pessoa.get("banco", {}).get("agencia", ""), disabled=desabilitar)
+
+                    col1, col2 = st.columns([1, 1])
+                    conta = col1.text_input("Conta:", value=pessoa.get("banco", {}).get("conta", ""), disabled=desabilitar)
+
+
+                    opcoes_conta = ["", "Conta Corrente", "Conta Poupança", "Conta Salário"]
+
+                    tipo_conta_atual = pessoa.get("banco", {}).get("tipo_conta", "")
+
+                    # Define o índice com segurança
+                    if tipo_conta_atual in opcoes_conta:
+                        index_conta = opcoes_conta.index(tipo_conta_atual)
+                    else:
+                        index_conta = 0  # seleciona a opção vazia
+
+                    tipo_conta = col2.selectbox(
+                        "Tipo de conta:",
+                        options=opcoes_conta,
+                        index=index_conta,
+                        disabled=desabilitar,
+                        key="editar_tipo_conta"
+                    )
+
+
+                    st.write("")
+                    
+                    # Busca o coordenador selecionado com base no nome e programa selecionado nos campos do formulário
+                    coordenador = next((
+                        c for c in coordenadores_possiveis
+                        if c["nome"] == nome_coordenador and c["programa"] == programa_area
+                    ), None)
+
+                    # Se nenhum coordenador for encontrado com os critérios acima, exibe um aviso e interrompe a função
+                    if not coordenador:
+                        st.warning("Coordenador não encontrado para o nome e programa selecionados.")
+                        return
+
+                    st.divider()
+
+                    # Permissões
+                    st.write('**Permissões**')
+
+                    col1, col2 = st.columns([1, 1])
+
+                    # Roteamento de tipo de usuário especial
+                    # Só o admin pode atribuir permissão para outro admin
+                    if set(st.session_state.tipo_usuario) & {"admin"}:
+
+                        # Opções possíveis para o campo "tipo de usuário"
+                        opcoes_tipo_usuario = [
+                            "admin", "gestao_pessoas", "gestao_ferias", "supervisao_ferias", 
+                            "gestao_noticias", "gestao_pls", "gestao_projetos_doadores", 
+                            "gestao_fundo_ecos", "gestao_viagens", "gestao_manuais", "coordenador"
+                        ]
+
+                    else: # Se não for admin, não aparece a permissão admin disponível
+                        # Opções possíveis para o campo "tipo de usuário"
+                        opcoes_tipo_usuario = [
+                            "gestao_pessoas", "gestao_ferias", "supervisao_ferias", 
+                            "gestao_noticias", "gestao_pls", "gestao_projetos_doadores", 
+                            "gestao_fundo_ecos", "gestao_viagens", "gestao_manuais", "coordenador"
+                        ]
+
 
                     # Recupera o campo "tipo de usuário" do banco (pode ser string ou lista)
                     tipo_usuario_raw = pessoa.get("tipo de usuário", "")
@@ -306,41 +398,69 @@ def gerenciar_pessoas():
                     tipo_usuario_default = [t for t in tipo_usuario_list if t in opcoes_tipo_usuario]
 
                     # Multiselect para tipo de usuário com valores padrão preenchidos
-                    tipo_usuario = col1.multiselect(
+                    tipo_usuario = st.multiselect(
                         "Tipo de usuário:",
                         options=opcoes_tipo_usuario,
                         default=tipo_usuario_default,
-                        key="editar_tipo_usuario"
+                        key="editar_tipo_usuario",
+                        disabled=desabilitar
                     )
-                    
-                    # Seleção do status do colaborador
-                    status_opcoes = ["ativo", "inativo"]
-                    status = col2.selectbox("Status do colaborador:", status_opcoes, index=status_opcoes.index(pessoa.get("status", "ativo")), key="editar_status")
 
-                    st.markdown("---")
+                    with st.expander("Ver tipos de permissões"):
+                        # admin
+                        col1, col2 = st.columns([1, 2])
+                        col1.write("**admin**")
+                        col2.write("Tem todas as permissões.")
 
-                    # Campos bancários para edição
-                    col1, col2 = st.columns([1, 1])
-                    nome_banco = col1.text_input("Nome do banco:", value=pessoa.get("banco", {}).get("nome_banco", ""))
-                    agencia = col2.text_input("Agência:", value=pessoa.get("banco", {}).get("agencia", ""))
+                        # gestao_pessoas
+                        col1, col2 = st.columns([1, 2])
+                        col1.write("**gestao_pessoas**")
+                        col2.write("Faz a gestão de pessoas.")
 
-                    col1, col2 = st.columns([1, 1])
-                    conta = col1.text_input("Conta:", value=pessoa.get("banco", {}).get("conta", ""))
-                    tipo_conta = col2.text_input("Tipo de conta:", value=pessoa.get("banco", {}).get("tipo_conta")),
+                        # gestao_ferias
+                        col1, col2 = st.columns([1, 2])
+                        col1.write("**gestao_ferias**")
+                        col2.write("Faz o registro de férias.")
+
+                        # supervisao_ferias
+                        col1, col2 = st.columns([1, 2])
+                        col1.write("**supervisao_ferias**")
+                        col2.write("Visualiza detalhes das férias de todos(as).")
+
+                        # gestao_noticias
+                        col1, col2 = st.columns([1, 2])
+                        col1.write("**gestao_noticias**")
+                        col2.write("Faz triagem de notícias.")
+
+                        # gestao_pls
+                        col1, col2 = st.columns([1, 2])
+                        col1.write("**gestao_pls**")
+                        col2.write("Faz a gestão dos Projetos de Lei monitorados.")
+
+                        # gestao_projetos_doadores
+                        col1, col2 = st.columns([1, 2])
+                        col1.write("**gestao_projetos_doadores**")
+                        col2.write("Faz a gestão de projetos e doadores.")
+
+                        # gestao_fundo_ecos
+                        col1, col2 = st.columns([1, 2])
+                        col1.write("**gestao_fundo_ecos**")
+                        col2.write("Faz a gestão dos projetos e editais do Fundo Ecos.")
+
+                        # gestao_viagens
+                        col1, col2 = st.columns([1, 2])
+                        col1.write("**gestao_viagens**")
+                        col2.write("Pode ver os dados de todas as viagens.")
+
+                        # gestao_manuais
+                        col1, col2 = st.columns([1, 2])
+                        col1.write("**gestao_manuais**")
+                        col2.write("Faz a gestão da página de manuais.")
+
+                    st.write('')
 
 
-                    st.write("")
-                    
-                    # Busca o coordenador selecionado com base no nome e programa selecionado nos campos do formulário
-                    coordenador = next((
-                        c for c in coordenadores_possiveis
-                        if c["nome"] == nome_coordenador and c["programa"] == programa_area
-                    ), None)
 
-                    # Se nenhum coordenador for encontrado com os critérios acima, exibe um aviso e interrompe a função
-                    if not coordenador:
-                        st.warning("Coordenador não encontrado para o nome e programa selecionados.")
-                        return
 
                     # Quando o botão "Salvar alterações" for pressionado
                     if st.form_submit_button("Salvar alterações", type="secondary", icon=":material/save:"):
@@ -365,6 +485,11 @@ def gerenciar_pessoas():
                                 "status": status
                             }}
                         )
+
+
+
+
+
                         # Exibe mensagem de sucesso, aguarda 2 segundos e atualiza a página
                         st.success("Informações atualizadas com sucesso!", icon=":material/check_circle:")
                         time.sleep(2)
