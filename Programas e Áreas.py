@@ -125,6 +125,14 @@ for doc in dados_programas:
             "genero_coordenador": genero_coordenador
         })
 
+# Remover o item em que "titulo":"Anterior aos programas"
+for item in lista_programas:
+    if item["titulo"] == "Anterior aos programas":
+        lista_programas.remove(item)
+        break
+
+st.write(lista_programas)
+
 titulos_abas = [p['titulo'] for p in lista_programas if p.get('titulo')]
 
 lista_equipe = []
