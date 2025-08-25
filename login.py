@@ -341,11 +341,11 @@ else:
     # Mostra menu de navegação se estiver logado
     pg = st.navigation([
         "Institucional.py", 
-        "Estratégia.py", 
-        "Indicadores.py",
+        # "Estratégia.py", 
         "Programas e Áreas.py", 
         "Pessoas.py",
         "Doadores.py", 
+        "Indicadores.py",
         "Projetos.py", 
         "Fundo Ecos.py",
         "Redes e Articulações.py", 

@@ -3,6 +3,7 @@ import time
 import re
 from datetime import datetime
 from funcoes_auxiliares import conectar_mongo_portal_ispn  # Função personalizada para conectar ao MongoDB
+from bson import ObjectId
 
 
 ###########################################################################################################
@@ -46,11 +47,11 @@ estatistica.update_one(
 ###########################################################################################################
 
 # Cria uma caixa de diálogo no Streamlit com abas para edição de informações institucionais
-@st.dialog("Informações Institucionais", width="large")
+@st.dialog("Editar Informações Institucionais", width="large")
 def editar_info_institucional_dialog():
 
     # Cria quatro abas para editar diferentes seções institucionais
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Editar frase força", "Editar missão", "Editar visão de futuro", "Editar valores", "Editar Teoria da Mudança"])
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Frase força", "Missão", "Visão de futuro", "Valores", "Teoria da Mudança", "Estratégia"])
 
     # Aba para edição da frase de força
     with tab1:
@@ -255,6 +256,119 @@ def editar_info_institucional_dialog():
             time.sleep(2)
             st.rerun()        
 
+
+    # Aba para edição da Estratégia
+    with tab6:
+        # Busca o documento da estratégia que possui a chave "estrategia"
+        estrategia_doc = estrategia.find_one({"estrategia": {"$exists": True}})
+
+        # Obtém o título atual da página de estratégias, se existir
+        titulo_pagina_atual = estrategia_doc.get("estrategia", {}).get("titulo_pagina_estrategia", "") if estrategia_doc else ""
+
+        # Obtém a lista atual de estratégias, se existir
+        lista_estrategias_atual = estrategia_doc.get("estrategia", {}).get("estrategias", []) if estrategia_doc else []
+
+        # Campo de entrada para um novo título da página de estratégias
+        novo_titulo_pagina = st.text_input("Título da página de estratégias", value=titulo_pagina_atual)
+
+        # Botão para atualizar o título da página
+        if st.button("Atualizar título da página", key="atualizar_titulo_pagina_estrategias", icon=":material/save:"):
+            if estrategia_doc:
+                estrategia.update_one(
+                    {"_id": estrategia_doc["_id"]},
+                    {"$set": {"estrategia.titulo_pagina_estrategia": novo_titulo_pagina}}
+                )
+                st.success("Título da página atualizado com sucesso!")
+                time.sleep(2)
+                st.rerun()
+            else:
+                st.error("Documento não encontrado.")
+
+        st.markdown("---")
+
+        # Organiza as estratégias por ordem alfabética
+        estrategias_ordenadas = sorted(lista_estrategias_atual, key=lambda x: x.get("titulo", "").lower())
+        opcoes_estrategias = ["- Nova estratégia -"] + [e["titulo"] for e in estrategias_ordenadas]
+
+        titulo_selecionado = st.selectbox("Selecione a estratégia para editar", options=opcoes_estrategias)
+        estrategia_selecionada = None
+        index_estrategia = None
+
+        if titulo_selecionado != "- Nova estratégia -":
+            # Encontrar a estratégia com base no título
+            estrategia_selecionada = next((e for e in lista_estrategias_atual if e["titulo"] == titulo_selecionado), None)
+            index_estrategia = lista_estrategias_atual.index(estrategia_selecionada) if estrategia_selecionada else None
+
+        st.subheader("Editar estratégia" if estrategia_selecionada else "Adicionar nova estratégia")
+
+        novo_titulo = st.text_input("Título", value=estrategia_selecionada.get("titulo", "") if estrategia_selecionada else "", key="novo_titulo_estrategia")
+
+        # Atualizar estratégia existente
+        if estrategia_selecionada and st.button("Atualizar estratégia", key="atualizar_estrategia", icon=":material/save:"):
+            lista_estrategias_atual[index_estrategia]["titulo"] = novo_titulo
+
+            update_data = {"estrategia.estrategias": lista_estrategias_atual}
+            if novo_titulo_pagina != titulo_pagina_atual:
+                update_data["estrategia.titulo_pagina_estrategia"] = novo_titulo_pagina
+
+            estrategia.update_one(
+                {"_id": estrategia_doc["_id"]},
+                {"$set": update_data}
+            )
+            st.success("Estratégia atualizada com sucesso!")
+            time.sleep(2)
+            st.rerun()
+
+        # Excluir estratégia
+        if estrategia_selecionada and st.button("Excluir estratégia", key="excluir_estrategia", icon=":material/delete:"):
+            lista_estrategias_atual.pop(index_estrategia)
+
+            update_data = {"estrategia.estrategias": lista_estrategias_atual}
+            if novo_titulo_pagina != titulo_pagina_atual:
+                update_data["estrategia.titulo_pagina_estrategia"] = novo_titulo_pagina
+
+            estrategia.update_one(
+                {"_id": estrategia_doc["_id"]},
+                {"$set": update_data}
+            )
+            st.success("Estratégia excluída com sucesso!")
+            time.sleep(2)
+            st.rerun()
+
+        # Adicionar nova estratégia
+        if not estrategia_selecionada and st.button("Adicionar estratégia", key="adicionar_estrategia", icon=":material/add:"):
+            update_data = {}
+
+            if novo_titulo.strip():
+                nova_estrategia = {
+                    "_id": str(ObjectId()),  # Gerar um novo ObjectId para a estratégia
+                    "titulo": novo_titulo
+                }
+                lista_estrategias_atual.append(nova_estrategia)
+                update_data["estrategia.estrategias"] = lista_estrategias_atual
+
+                if estrategia_doc:
+                    if novo_titulo_pagina != titulo_pagina_atual:
+                        update_data["estrategia.titulo_pagina_estrategia"] = novo_titulo_pagina
+                    estrategia.update_one(
+                        {"_id": estrategia_doc["_id"]},
+                        {"$set": update_data}
+                    )
+                else:
+                    estrategia.insert_one({
+                        "estrategia": {
+                            "titulo_pagina_estrategia": novo_titulo_pagina,
+                            "estrategias": [nova_estrategia]
+                        }
+                    })
+                st.success("Nova estratégia adicionada com sucesso!")
+
+            time.sleep(2)
+            st.rerun()
+
+
+
+
 ###########################################################################################################
 # INTERFACE PRINCIPAL DA PÁGINA
 ###########################################################################################################
@@ -368,42 +482,80 @@ if lista_valores:
 
 # TEORIA DA MUDANÇA -------------------------------------------------------------------------------
 
-    # Busca o documento da coleção 'estrategia' que contenha a chave "teoria da mudança"
-    teoria_doc = estrategia.find_one({"teoria da mudança": {"$exists": True}})
+# Busca o documento da coleção 'estrategia' que contenha a chave "teoria da mudança"
+teoria_doc = estrategia.find_one({"teoria da mudança": {"$exists": True}})
 
-    # Inicializa os textos com valores padrão
-    problema = "Problema não cadastrado ainda."
-    proposito = "Propósito não cadastrado ainda."
-    impacto = "Impacto não cadastrado ainda."
+# Inicializa os textos com valores padrão
+problema = "Problema não cadastrado ainda."
+proposito = "Propósito não cadastrado ainda."
+impacto = "Impacto não cadastrado ainda."
 
-    # Se o documento for encontrado, percorre a lista e extrai os textos
-    if teoria_doc:
-        lista_tm = teoria_doc.get("teoria da mudança", [])
-        for item in lista_tm:
-            if "problema" in item:
-                problema = item["problema"]
-            if "proposito" in item:
-                proposito = item["proposito"]
-            if "impacto" in item:
-                impacto = item["impacto"]
+# Se o documento for encontrado, percorre a lista e extrai os textos
+if teoria_doc:
+    lista_tm = teoria_doc.get("teoria da mudança", [])
+    for item in lista_tm:
+        if "problema" in item:
+            problema = item["problema"]
+        if "proposito" in item:
+            proposito = item["proposito"]
+        if "impacto" in item:
+            impacto = item["impacto"]
 
-    # tipos_usuario = st.session_state.get("tipo_usuario", [])
-    # if "admIN" in tipos_usuario:
-    #     col1, col2 = st.columns([7, 1])
-    #     with col2:
-    #         st.button("Editar página", icon=":material/edit:", key="editar_info_tm", on_click=editar_info_teoria_mudanca_dialog, use_container_width=True)
+st.write('')
+st.subheader('Teoria da Mudança')
+st.write('')
 
-    st.write('')
-    st.subheader('Teoria da Mudança')
-    st.write('')
+st.write('**Problema:**')
+st.write(problema)
 
-    st.write('**Problema:**')
-    st.write(problema)
+st.write('')
+st.write('**Propósito:**')
+st.write(proposito)
 
-    st.write('')
-    st.write('**Propósito:**')
-    st.write(proposito)
+st.write('')
+st.write('**Impacto:**')
+st.write(impacto)
 
-    st.write('')
-    st.write('**Impacto:**')
-    st.write(impacto)
+st.write('')
+st.write('')
+
+
+
+# ESTRATÉGIA -------------------------------------------------------------------------------
+
+st.subheader('Estratégia')
+
+estrategia_doc = estrategia.find_one({"estrategia": {"$exists": True}})
+
+# Acessa o título e a lista de estratégias de forma segura
+titulo_pagina_atual = estrategia_doc.get("estrategia", {}).get("titulo_pagina_estrategia", "") if estrategia_doc else ""
+lista_estrategias_atual = estrategia_doc.get("estrategia", {}).get("estrategias", []) if estrategia_doc else []
+
+# tipos_usuario = st.session_state.get("tipo_usuario", [])
+# if "admin" in tipos_usuario:
+#     col1, col2 = st.columns([7, 1])
+#     with col2:
+#         st.button("Editar página", icon=":material/edit:", key="editar_titulo_estrategia", on_click=editar_estrategia_dialog, use_container_width=True)
+
+st.write('')
+st.markdown(f"<h3 style='font-size: 22px; font-style: italic;'>{titulo_pagina_atual if titulo_pagina_atual else 'Promoção de Paisagens Produtivas Ecossociais'}</h3>", unsafe_allow_html=True)
+st.write('')
+
+
+# Função para ordenar estratégias com base no número do título
+def extrair_numero(estrategia):
+    try:
+        return int(estrategia["titulo"].split(" - ")[0])
+    except:
+        return float('inf')  # Coloca no final se não for possível extrair
+
+lista_estrategias_ordenada = sorted(lista_estrategias_atual, key=extrair_numero)
+
+linha = st.container(horizontal=True)
+
+for estrategia_item in lista_estrategias_ordenada:
+    with linha.container(border=True):
+        st.markdown(f"**{estrategia_item.get('titulo')}**")
+
+       
+
