@@ -26,13 +26,14 @@ db = conectar_mongo_portal_ispn()
 estatistica = db["estatistica"] 
 pessoas = db["pessoas"]  
 programas_areas = db["programas_areas"]
+projetos_ispn = db["projetos_ispn"]
 
 
-
-# Busca todos os documentos da coleção "pessoas"
+# Busca todos os documentos das coleções
 dados_pessoas = list(pessoas.find())
-
 dados_programas = list(programas_areas.find())
+dados_projetos_ispn = list(projetos_ispn.find())
+
 
 # Converte documentos MongoDB em lista de dicionários para facilitar manipulação
 pessoas_lista = []
@@ -74,6 +75,9 @@ def gerenciar_pessoas():
     nome_para_id_programa = {p["nome_programa_area"]: p["_id"] for p in dados_programas}
     id_para_nome_programa = {p["_id"]: p["nome_programa_area"] for p in dados_programas}
 
+    # Mapeia nomes de projeto <-> ObjectId
+    nome_para_id_projeto = {p["codigo"]: p["_id"] for p in dados_projetos_ispn}
+    id_para_nome_projeto = {p["_id"]: p["codigo"] for p in dados_projetos_ispn}
     
     # Cria duas abas: cadastro e edição
     aba_cadastrar, aba_editar = st.tabs([":material/person_add: Cadastrar novo(a)", ":material/edit: Editar"])
@@ -91,7 +95,7 @@ def gerenciar_pessoas():
             nome = col1.text_input("Nome completo:")
             
             # Gênero
-            genero = col2.selectbox("Gênero:", ["Masculino", "Feminino", "Outro"], index=None, placeholder="")
+            genero = col2.selectbox("Gênero:", ["Masculino", "Feminino", "Não binário", "Outro"], index=None, placeholder="")
 
             col1, col2 = st.columns([1, 1])
             
@@ -120,19 +124,24 @@ def gerenciar_pessoas():
                     "programa": pessoa.get("programa_area", "")
                 }
                 for pessoa in dados_pessoas
-                if pessoa.get("tipo de usuário", "").lower() == "coordenador"
+                if pessoa.get("tipo de usuário", "").lower() == "coordenador(a)"
             ]
             
             # Extrai nomes únicos dos coordenadores ordenados
-            nomes_coordenadores = sorted({c["nome"] for c in coordenadores_possiveis})
+            # nomes_coordenadores = sorted({c["nome"] for c in coordenadores_possiveis})
 
             # Seleção do nome do coordenador no formulário
-            nome_coordenador = col1.selectbox("Nome do(a) coordenador(a):", nomes_coordenadores, index=None, placeholder="")
+            # nome_coordenador = col1.selectbox("Nome do(a) coordenador(a):", nomes_coordenadores, index=None, placeholder="")
 
             # Lista ordenada dos programas/áreas para seleção
             lista_programas_areas = sorted(nome_para_id_programa.keys())
-            programa_area_nome = col2.selectbox("Programa / Área:", lista_programas_areas, index=None, placeholder="")
+            programa_area_nome = col1.selectbox("Programa / Área:", lista_programas_areas, index=None, placeholder="")
             programa_area = nome_para_id_programa.get(programa_area_nome)
+
+            # Projeto pagador
+            lista_projetos = sorted({p["nome_do_projeto"] for p in dados_projetos_ispn if p.get("nome_do_projeto", "") != ""})
+            projeto_pagador_nome = st.selectbox("Contratado(a) pelo projeto:", lista_projetos, index=None)
+            projeto_pagador = nome_para_id_projeto.get(projeto_pagador_nome)
 
             st.markdown("---")
             
@@ -175,7 +184,7 @@ def gerenciar_pessoas():
                 opcoes_tipo_usuario = [
                     "admin", "gestao_pessoas", "gestao_ferias", "supervisao_ferias", 
                     "gestao_noticias", "gestao_pls", "gestao_projetos_doadores", 
-                    "gestao_fundo_ecos", "gestao_viagens", "gestao_manuais", "coordenador"
+                    "gestao_fundo_ecos", "gestao_viagens", "gestao_manuais", "coordenador(a)"
                 ]
 
             else: # Se não for admin, não aparece a permissão admin disponível
@@ -183,7 +192,7 @@ def gerenciar_pessoas():
                 opcoes_tipo_usuario = [
                     "gestao_pessoas", "gestao_ferias", "supervisao_ferias", 
                     "gestao_noticias", "gestao_pls", "gestao_projetos_doadores", 
-                    "gestao_fundo_ecos", "gestao_viagens", "gestao_manuais", "coordenador"
+                    "gestao_fundo_ecos", "gestao_viagens", "gestao_manuais", "coordenador(a)"
                 ]
 
             # Multiselect para tipo de usuário com valores padrão preenchidos
@@ -257,28 +266,13 @@ def gerenciar_pessoas():
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-            # Ao submeter o formulário de cadastro
+            # Ao submeter o formulário de cadastro -----------------------------------------------------------------
             if st.form_submit_button("Cadastrar", type="secondary", icon=":material/person_add:"):
+                
                 # Validação de campos obrigatórios
                 if not nome or not email or not programa_area or not nome_coordenador:
                     st.warning("Preencha os campos obrigatórios.")
+                
                 else:
                     # Busca coordenador pelo nome e programa selecionados
                     coordenador = next((
@@ -289,7 +283,7 @@ def gerenciar_pessoas():
                     # Se coordenador não encontrado, mostra aviso
                     if not coordenador:
                         st.warning("Coordenador não encontrado para o nome e programa selecionados.")
-                        return
+                        # return
 
                     # Ano atual para armazenar dados de férias
                     ano_atual = str(datetime.now().year)
@@ -326,6 +320,7 @@ def gerenciar_pessoas():
                         "status": "ativo",
                         "e_mail": email,
                         "e_mail_coordenador": coordenador["id"],
+                        "projeto_pagador": projeto_pagador
                     }
 
                     # Insere o novo colaborador no banco
@@ -492,7 +487,7 @@ def gerenciar_pessoas():
                         opcoes_tipo_usuario = [
                             "admin", "gestao_pessoas", "gestao_ferias", "supervisao_ferias", 
                             "gestao_noticias", "gestao_pls", "gestao_projetos_doadores", 
-                            "gestao_fundo_ecos", "gestao_viagens", "gestao_manuais", "coordenador"
+                            "gestao_fundo_ecos", "gestao_viagens", "gestao_manuais", "coordenador(a)"
                         ]
 
                     else: # Se não for admin, não aparece a permissão admin disponível
@@ -500,7 +495,7 @@ def gerenciar_pessoas():
                         opcoes_tipo_usuario = [
                             "gestao_pessoas", "gestao_ferias", "supervisao_ferias", 
                             "gestao_noticias", "gestao_pls", "gestao_projetos_doadores", 
-                            "gestao_fundo_ecos", "gestao_viagens", "gestao_manuais", "coordenador"
+                            "gestao_fundo_ecos", "gestao_viagens", "gestao_manuais", "coordenador(a)"
                         ]
 
 
@@ -643,21 +638,34 @@ df_pessoas = pd.DataFrame(pessoas_lista)
 # df_pessoas = df_pessoas[df_pessoas["Status"].str.lower() == "ativo"]
 
 # Remove colunas indesejadas
-df_pessoas = df_pessoas.drop(columns=["Tipo de usuário", "Status"])
+df_pessoas = df_pessoas.drop(columns=["Tipo de usuário"])
 
 
 
 # ????????????????????????????????????????????
-# st.write(dados_programas)
+# st.write(df_pessoas)
 
 programas = [p["nome_programa_area"] for p in dados_programas]
 
+# Organizar o dataframe por ordem alfabética de nome
+df_pessoas = df_pessoas.sort_values(by="Nome")
+
+
+# Filtros
 with st.container(horizontal=True):
 
     programa = st.selectbox("Programa / Área", ["Todos"] + programas)
-    doador = st.selectbox("Doador", ["Todos", "USAID", "GEF", "UE", "Laudes Foundation"])
+    # doador = st.selectbox("Doador", ["Todos", "USAID", "GEF", "UE", "Laudes Foundation"])
     projeto = st.selectbox("Projeto", ["Todos", "Projeto 1", "Projeto 2", "Projeto 3", "Projeto 4", "Projeto 5"])
-    status = st.selectbox("Status", ["ativos", "inativos"], index=0)
+    status = st.selectbox("Status", ["ativo", "inativo"], index=0)
+
+
+# Filtrar DataFrame
+if programa == "Todos":
+    df_pessoas = df_pessoas[df_pessoas["Status"] == status]
+else:
+    df_pessoas = df_pessoas[(df_pessoas["Programa/Área"] == programa)& (df_pessoas["Status"] == status)]
+
 
 # Exibir DataFrame
 st.subheader(f'{len(df_pessoas)} colaboradores(as)')
