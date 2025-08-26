@@ -513,18 +513,23 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
 
     col1, col2 = st.columns([1, 4])
 
+    # --- Latitude e longitude ---
+
     latlong = col1.text_input(
         "Latitude, Longitude",
         value=projeto.get("lat_long_principal", ""),   # 🔹 usa o valor salvo no projeto
         placeholder="-23.175173, -45.856398",
         key=f"latlong_{form_key}",
-        help="Descrição de como as coordenadas devem ser preenchidas"
+        help="Você pode usar o Google Maps para obter as coordenadas nesse formato '-23.175173, -45.856398'"
     )
+
+    # --- Observações sobre o local ---
 
     local_obs = col2.text_area(
         "Observações sobre o local",
         projeto.get("observacoes_sobre_o_local", ""),
-        key=f"obs_local_{form_key}"
+        key=f"obs_local_{form_key}",
+        placeholder="Anote aqui se é alguma localização especial, como Tera Indígena, Assentamento, Unidade de Conservação, área urbana, etc."
     )
 
 
@@ -865,69 +870,6 @@ def gerenciar_projetos():
                 time.sleep(1)
                 st.rerun()
 
-
-# @st.dialog("Cadastrar proponentes", width="large")
-# def gerenciar_proponentes():
-
-#     tipo_cadastro = st.pills(
-#         "Selecione o tipo",
-#         ["Organização", "Pessoa"],
-#         selection_mode="single",
-#         default="Organização",
-#         key="tipo_cadastro_proponente"
-#     )
-
-#     if tipo_cadastro == "Organização":
-#         with st.form("Cadastro de Organização", border=False):
-#             nome = st.text_input("Nome da organização")
-#             cnpj = st.text_input("CNPJ", placeholder="00.000.000/0000-00")
-#             st.write("")
-#             cadastrar = st.form_submit_button("Cadastrar organização")
-
-#             if cadastrar:
-#                 if not nome.strip() or not cnpj.strip():
-#                     st.error("Todos os campos são obrigatórios.")
-#                 else:
-#                     # Verificar se já existe o CNPJ
-#                     existente = org_beneficiarias.find_one({"cnpj": cnpj.strip()})
-#                     if existente:
-#                         st.error("Já existe uma organização cadastrada com esse CNPJ.")
-#                     else:
-#                         org_beneficiarias.insert_one(
-#                             {"proponente": nome.strip(), "cnpj": cnpj.strip()}
-#                         )
-#                         st.success("Organização cadastrada com sucesso!")
-#                         time.sleep(2)
-#                         st.rerun()
-
-#     elif tipo_cadastro == "Pessoa":
-#         with st.form("Cadastro de Pessoa", border=False):
-#             nome = st.text_input("Nome completo")
-#             cpf = st.text_input("CPF", placeholder="000.000.000-00")
-#             genero = st.selectbox(
-#                 "Gênero",
-#                 ["Masculino", "Feminino", "Não binário", "Outro"],
-#                 key="tipo_genero"
-#             )
-
-#             st.write("")
-#             cadastrar = st.form_submit_button("Cadastrar pessoa")
-
-#             if cadastrar:
-#                 if not nome.strip() or not cpf.strip():
-#                     st.error("Todos os campos são obrigatórios.")
-#                 else:
-#                     # Verificar se já existe o CPF
-#                     existente = pessoas_beneficiarias.find_one({"cpf": cpf.strip()})
-#                     if existente:
-#                         st.error("Já existe uma pessoa cadastrada com esse CPF.")
-#                     else:
-#                         pessoas_beneficiarias.insert_one(
-#                             {"proponente": nome.strip(), "cpf": cpf.strip(), "genero": genero.strip()}
-#                         )
-#                         st.success("Pessoa cadastrada com sucesso!")
-#                         time.sleep(2)
-#                         st.rerun()
 
     
 def extrair_itens_distintos(series: pd.Series) -> pd.Series:
@@ -1532,8 +1474,8 @@ with lista:
     if set(st.session_state.tipo_usuario) & {"admin", "gestao_fundo_ecos"}:
         col1, col2, col3 = st.columns([2, 1, 1])
 
-        #col2.button("Cadastrar proponentes", on_click=gerenciar_proponentes, use_container_width=True, icon=":material/add_business:")
         col3.button("Gerenciar projetos", on_click=gerenciar_projetos, use_container_width=True, icon=":material/contract_edit:")
+
 
     # --- Ordenar Ano desc, Código asc ---
     df_exibir = (
@@ -1566,15 +1508,16 @@ with lista:
         st.session_state["pagina_topo"] = st.session_state["pagina_rodape"]
 
     # --- Controle topo ---
-    col1, col2, col3 = st.columns([5,2,1])
+    col1, col2, col3 = st.columns([1,2,5])
 
-    col3.number_input(
+
+    col1.number_input(
         "Página",
         min_value=1,
         max_value=total_paginas,
         value=st.session_state["pagina_topo"],
         step=1,
-        # key="pagina_topo",
+        key="pagina_topo",
         on_change=atualizar_topo
     )
 
@@ -1586,15 +1529,16 @@ with lista:
 
 
     # --- Informação de contagem ---
-    with col2:
-        st.write("")
-        st.write(f"**Mostrando {inicio + 1} a {min(fim, total_linhas)} de {total_linhas} projetos**")
-        st.write("")
-        st.write("")
+    # with col1:
+    # st.write("")
+    st.write(f"Mostrando **{inicio + 1}** a **{min(fim, total_linhas)}** de **{total_linhas}** projetos")
+    st.write("")
+    st.write("")
+
 
     # --- Layout da tabela customizada ---
     # colunas_visiveis = [c for c in df_exibir.columns]  # personalizar se quiser excluir colunas
-    colunas_visiveis = [c for c in df_exibir.columns if c not in ["Tipo", "Município Principal", "CNPJ", "CPF", "Proponente", "Programa", "Temas", "Público", "Bioma", "Gênero", "Status", "Ponto Focal"]]
+    colunas_visiveis = [c for c in df_exibir.columns if c not in ["Tipo", "Município(s)", "CNPJ", "CPF", "Proponente", "Programa", "Temas", "Público", "Bioma", "Gênero", "Status", "Ponto Focal"]]
 
     headers = colunas_visiveis + ["Detalhes"]
 
@@ -1622,16 +1566,12 @@ with lista:
         st.divider()
 
     # --- Controle rodapé ---
-    col1, col2, col3 = st.columns([5,2,1])
+    col1, col2, col3 = st.columns([1,2,5])
+
 
     # --- Informação de contagem ---
-    with col2:
-        st.write("")
-        st.write(f"**Mostrando {inicio + 1} a {min(fim, total_linhas)} de {total_linhas} projetos**")
-        st.write("")
-        st.write("")
 
-    col3.number_input(
+    col1.number_input(
         "Página",
         min_value=1,
         max_value=total_paginas,
@@ -1641,6 +1581,9 @@ with lista:
         on_change=atualizar_rodape
     )
 
+    st.write(f"**Mostrando {inicio + 1} a {min(fim, total_linhas)} de {total_linhas} projetos**")
+    st.write("")
+    st.write("")
 
 
 
@@ -1662,72 +1605,6 @@ with lista:
 
 
 
-
-
-    # # Ordenar Ano desc, Código asc
-    # df_exibir = (
-    #     st.session_state["df_filtrado"]
-    #     .copy()
-    #     .sort_values(by=["Ano", "Código"], ascending=[True, True])
-    #     .reset_index(drop=True)
-    # )
-
-    # # Paginação
-    # itens_por_pagina = 50
-    # total_linhas = len(df_exibir)
-    # total_paginas = max(math.ceil(total_linhas / itens_por_pagina), 1)
-
-    # # Controle de paginas
-    # col1, col2, col3 = st.columns([5, 1, 1])
-    # pagina_atual = col3.number_input(
-    #     "Página",
-    #     min_value=1, max_value=total_paginas, value=1, step=1,
-    #     key="pagina_projetos"
-    # )
-
-    # inicio = (pagina_atual - 1) * itens_por_pagina
-    # fim = inicio + itens_por_pagina
-    # df_paginado = df_exibir.iloc[inicio:fim]
-
-    # with col1:
-    #     st.write("")
-    #     st.subheader(f"Mostrando {inicio + 1} a {min(fim, total_linhas)} de {total_linhas} projetos")
-    #     st.write("")
-    #     st.write("")
-
-    # st.write("")
-
-    # colunas_visiveis = [c for c in df_exibir.columns if c not in ["Tipo", "Município Principal", "CNPJ", "CPF", "Proponente", "Programa", "Temas", "Público", "Bioma", "Gênero", "Status", "Ponto Focal"]]
-    # headers = colunas_visiveis + ["Detalhes"]
-
-    # col_sizes = [2, 2, 1, 2, 2, 2, 1, 2, 3, 3]  # ajuste se necessário
-    # header_cols = st.columns(col_sizes)
-    # for col, header in zip(header_cols, headers):
-    #     col.markdown(f"**{header}**")
-
-    # st.divider()
-
-    # for _, row in df_paginado.iterrows():
-    #     cols = st.columns(col_sizes)
-    #     for j, key in enumerate(colunas_visiveis):
-    #         cols[j].write(row[key])
-
-    #     codigo_proj = str(row["Código"]).strip()
-    #     cols[-1].button(
-    #         "Detalhes",
-    #         key=f"ver_{codigo_proj}",
-    #         on_click=mostrar_detalhes,
-    #         args=(codigo_proj,),
-    #         icon=":material/menu:"
-    #     )
-    #     st.divider()
-
-    # col1, col2, col3 = st.columns([5, 1, 1])
-    # pagina_atual = col3.number_input(
-    #     "Página",
-    #     min_value=1, max_value=total_paginas, value=1, step=1,
-    #     key="pagina_projetos_embaixo"
-    # )
 
 
 with mapa:
