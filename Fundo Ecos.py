@@ -471,7 +471,8 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         "Categoria*",
         options=opcoes_categoria,
         index=opcoes_categoria.index(categoria_valor) if categoria_valor in opcoes_categoria else 0,
-        placeholder=""
+        placeholder="",
+        key=f"categoria_{form_key}"
     )
 
     # Edital como number_input (1 casa decimal) e convertido para str
@@ -534,6 +535,8 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
 
 
     if modo == "editar":
+
+        # --- Duração em meses ---
         col1, col2, col3, col4 = st.columns(4)
         duracao_val = col1.number_input(
             "Duração (em meses)*",
@@ -609,14 +612,34 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         placeholder=""
     )
 
+
+    # --- Valor ---
+    # pega valor do projeto
+    valor_raw = projeto.get("valor", 0) or 0
+
+    # se vier como string no padrão brasileiro → converte para float
+    if isinstance(valor_raw, str):
+        try:
+            valor_raw = float(valor_raw.replace(".", "").replace(",", "."))
+        except ValueError:
+            valor_raw = 0.0  # fallback seguro caso venha algo inválido
+    else:
+        valor_raw = float(valor_raw)
+
+    # agora usa no number_input
     valor_val = col2.number_input(
         "Valor*",
-        value=float(projeto.get("valor", 0) or 0),
+        value=valor_raw,
         step=1.0,
-        format="%07.3f" 
+        format="%.2f"   # exibe com 2 casas decimais
     )
-    valor = str(valor_val)
-    #valor = col2.text_input("Valor", projeto.get("valor", ""))
+
+
+    valor = f"{valor_val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+
+
 
     col1, col2, col3, col4 = st.columns(4)
     opcoes_temas = [
@@ -703,7 +726,7 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
 
     st.write("")
 
-    salvar = st.button("Salvar", key=f"salvar_{form_key}")
+    salvar = st.button("Salvar", key=f"salvar_{form_key}", icon=":material/save:")
     if salvar:
         # --- Campos obrigatórios ---
         campos_obrigatorios = [
@@ -741,7 +764,7 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
                 sigla_existente = col.find_one(filtro_sigla)
 
         # --- Validação de latitude/longitude ---
-        padrao = r"^-?\d{1,3}\.\d{1,10},\s*-?\d{1,3}\.\d{1,10}$"
+        padrao = r"^-?\d{1,3}\.\d{1,20},\s*-?\d{1,3}\.\d{1,20}$"
         if latlong and not re.match(padrao, latlong):
             st.error("Formato de coordenadas inválido! Use o padrão: -23.175173, -45.856398")
             return None  
@@ -824,24 +847,58 @@ def gerenciar_projetos():
         st.session_state["modo_formulario"] = "editar"
         todos_projetos = [(p, "PF") for p in pf] + [(p, "PJ") for p in pj]
 
+        # formarta as opções com Código e Sigla
         opcoes = {
             str(proj["_id"]): f"{proj.get('codigo', '')} ({proj.get('sigla', '')})"
             for proj, tipo in todos_projetos
         }
 
+
+
         if not opcoes:
             st.info("Nenhum projeto encontrado para editar.")
         else:
-            selecionado_id = st.selectbox("Selecione o projeto", list(opcoes.keys()), format_func=lambda x: opcoes[x])
-            tipo = "PF" if selecionado_id in [str(p["_id"]) for p, t in todos_projetos if t == "PF"] else "PJ"
-            colecao = db["projetos_pf"] if tipo == "PF" else db["projetos_pj"]
-            projeto = colecao.find_one({"_id": ObjectId(selecionado_id)})
-            atualizado = form_projeto(projeto, tipo, pessoas_dict, programas_dict, projetos_ispn_dict)
-            if atualizado:
-                colecao.update_one({"_id": ObjectId(selecionado_id)}, {"$set": atualizado})
-                st.success("Projeto atualizado com sucesso.")
-                time.sleep(1)
-                st.rerun()
+            # insere a opção vazia na frente
+            chaves = [""] + list(opcoes.keys())
+
+            selecionado_id = st.selectbox(
+                "Selecione o projeto",
+                chaves,
+                format_func=lambda x: opcoes[x] if x in opcoes else ""  # mostra vazio para a opção ""
+            )
+
+            st.divider()
+
+            if selecionado_id:  # só continua se um projeto for realmente escolhido
+                tipo = "PF" if selecionado_id in [str(p["_id"]) for p, t in todos_projetos if t == "PF"] else "PJ"
+                colecao = db["projetos_pf"] if tipo == "PF" else db["projetos_pj"]
+                projeto = colecao.find_one({"_id": ObjectId(selecionado_id)})
+                atualizado = form_projeto(projeto, tipo, pessoas_dict, programas_dict, projetos_ispn_dict)
+                if atualizado:
+                    colecao.update_one({"_id": ObjectId(selecionado_id)}, {"$set": atualizado})
+                    st.success("Projeto atualizado com sucesso.")
+                    time.sleep(1)
+                    st.rerun()
+
+
+
+
+
+
+
+        # if not opcoes:
+        #     st.info("Nenhum projeto encontrado para editar.")
+        # else:
+        #     selecionado_id = st.selectbox("Selecione o projeto", list(opcoes.keys()), format_func=lambda x: opcoes[x])
+        #     tipo = "PF" if selecionado_id in [str(p["_id"]) for p, t in todos_projetos if t == "PF"] else "PJ"
+        #     colecao = db["projetos_pf"] if tipo == "PF" else db["projetos_pj"]
+        #     projeto = colecao.find_one({"_id": ObjectId(selecionado_id)})
+        #     atualizado = form_projeto(projeto, tipo, pessoas_dict, programas_dict, projetos_ispn_dict)
+        #     if atualizado:
+        #         colecao.update_one({"_id": ObjectId(selecionado_id)}, {"$set": atualizado})
+        #         st.success("Projeto atualizado com sucesso.")
+        #         time.sleep(1)
+        #         st.rerun()
 
 
     # ---------------------- Excluir ----------------------
