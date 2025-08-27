@@ -159,6 +159,11 @@ def recuperar_senha_dialog():
                                 for key in ["codigo_enviado", "codigo_verificacao", "email_verificado", "codigo_validado"]:
                                     st.session_state.pop(key, None)
 
+                                # Inicializa o session_state.tipo_usuario
+                                tipo_usuario = [x.strip() for x in usuario.get("tipo de usuário", "").split(",")]
+                                st.session_state["tipo_usuario"] = tipo_usuario
+
+
                                 # Marca usuário como logado e reinicia o app
                                 st.session_state.logged_in = True
                                 time.sleep(2)
@@ -210,6 +215,9 @@ def login():
             cols = st.columns([1, 3])
 
             # Exibe o logo - TESTE DE LOGOS
+
+            cols[1].write("Teste de logos")
+
             cols[1].image("images/colab_rounded_THIN.png", width=400)
             cols[1].write('')
             cols[1].write('')
@@ -235,6 +243,26 @@ def login():
             cols[1].write('')
 
             cols[1].image("images/colab_onca_office_THIN.png", width=400)
+            cols[1].write('')
+            cols[1].write('')
+
+            cols[1].image("images/colab_26_1_CUT.png", width=400)
+            cols[1].write('')
+            cols[1].write('')
+
+            cols[1].image("images/colab_26_2_CUT.png", width=400)
+            cols[1].write('')
+            cols[1].write('')
+            
+            cols[1].image("images/colab_26_4_CUT.png", width=400)
+            cols[1].write('')
+            cols[1].write('')
+            
+            cols[1].image("images/colab_26_5_CUT.png", width=400)
+            cols[1].write('')
+            cols[1].write('')
+            
+            cols[1].image("images/colab_26_6_cut.png", width=400)
             cols[1].write('')
             cols[1].write('')
 
