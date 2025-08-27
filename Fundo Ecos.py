@@ -338,7 +338,24 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
     if isinstance(municipios_str, str):
         municipios_codigos = [int(c.strip()) for c in municipios_str.split(",") if c.strip()]
 
-    col1, col2, col3 = st.columns(3)
+    # Linha 0 - Status
+    col1, col2, col3 = st.columns([1,1,3])
+
+    # Campos comuns
+    opcoes_status = ["Em andamento", "Finalizado", "Cancelado"]
+    status_valor = projeto.get("status", opcoes_status[0])
+
+    status = col1.selectbox(
+        "Status*", 
+        options=opcoes_status, 
+        index=opcoes_status.index(status_valor) if status_valor in opcoes_status else 0,
+        key=f"status_{str(projeto.get('_id', 'novo'))}"
+    )
+
+
+
+    # Linha 1 - Código, Sigla e Proponente /////////////////////////////
+    col1, col2, col3 = st.columns([1,1,3])
 
     # Campos comuns
     codigo = col1.text_input("Código*", projeto.get("codigo", ""))
@@ -463,6 +480,8 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
     else:
         cpf, genero, cnpj = "", "", ""
 
+
+    # Linha 2 - Nome do projeto, categoria, edital e ano de aprovação //////////////////////////////////////////////
     col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
     nome_do_projeto = col1.text_input("Nome do projeto*", projeto.get("nome_do_projeto", ""))
 
@@ -480,6 +499,17 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
     
     ano_aprovacao = col4.number_input("Ano de aprovação*", value=projeto.get("ano_de_aprovacao", 2025), step=1)
 
+
+    # Linha 2.1 - Objetivo geral //////////////////////////////////////////////////////////////////////////////////
+    objetivo_geral = st.text_area(
+        "Objetivo geral*",
+        projeto.get("objetivo_geral", ""),
+        key=f"objetivo_geral_{projeto.get('_id', 'novo')}"
+    )
+
+
+
+    # Linha 3 - UFs, município principal e municípios de atuação //////////////////////////////////////////////
     col1, col2, col3 = st.columns(3)
 
     # --- Seleção de estados (não afeta municípios) ---
@@ -512,14 +542,15 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         placeholder=""
     )
 
-    col1, col2 = st.columns([1, 4])
+    # Linha 4 - Latitude e longitude, observações sobre o local //////////////////////////////////////////////
+    col1, col2 = st.columns([1, 2])
 
     # --- Latitude e longitude ---
 
     latlong = col1.text_input(
         "Latitude, Longitude",
         value=projeto.get("lat_long_principal", ""),   # 🔹 usa o valor salvo no projeto
-        placeholder="-23.175173, -45.856398",
+        # placeholder="-23.175173, -45.856398",
         key=f"latlong_{form_key}",
         help="Você pode usar o Google Maps para obter as coordenadas nesse formato '-23.175173, -45.856398'"
     )
@@ -536,6 +567,7 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
 
     if modo == "editar":
 
+        # Linha 5 - Duração, data início e data fim //////////////////////////////////////////////
         # --- Duração em meses ---
         col1, col2, col3, col4 = st.columns(4)
         duracao_val = col1.number_input(
@@ -573,6 +605,7 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         )
         data_relatorio = data_relatorio_date.strftime("%d/%m/%Y") if data_relatorio_date else ""
 
+    # Modo adicionar
     else:
         col1, col2, col3 = st.columns(3)
         duracao_val = col1.number_input(
@@ -603,7 +636,8 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         
         data_relatorio = ""
 
-    col1, col2 = st.columns(2)
+    # Linha 6 - Moeda e valor //////////////////////////////////////////////////
+    col1, col2, col3 = st.columns([1,2,6])
     moeda_valor = projeto.get("moeda", "")
     moeda = col1.selectbox(
         "Moeda*",
@@ -611,7 +645,6 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         index=opcoes_moeda.index(moeda_valor) if moeda_valor in opcoes_moeda else 0,
         placeholder=""
     )
-
 
     # --- Valor ---
     # pega valor do projeto
@@ -638,10 +671,8 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
     valor = f"{valor_val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
-
-
-
-    col1, col2, col3, col4 = st.columns(4)
+    # Linha 7 - Temas, público e bioma //////////////////////////////////////////////////
+    col1, col2, col3 = st.columns(3)
     opcoes_temas = [
         "Agroecologia", "Agroextrativismo - Beneficiamento e Comercialização", "Água", "Apicultura e meliponicultura",
         "Artesanato", "Articulação", "Capacitação", "Certificação", "Conservação da biodiversidade", "Criação de animais", "Cultura",
@@ -652,7 +683,7 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
     opcoes_publico = ["Agricultores Familiares", "Assentados da Reforma Agrária", "Comunidade Tradicional", "Garimpeiros", 
                         "Idosos", "Indígenas", "Jovens", "Mulheres", "Pescador Artesanal", "Quilombola", "Urbano", "Outro" ]
     opcoes_bioma = ["Amazônia", "Caatinga", "Cerrado", "Mata Atlântica", "Pampas", "Pantanal"]
-    opcoes_status = ["Em andamento", "Finalizado", "Cancelado"]
+    # opcoes_status = ["Em andamento", "Finalizado", "Cancelado"]
 
     temas_valor = [
         p.strip()
@@ -662,36 +693,53 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
 
     publico_valor = [p.strip() for p in projeto.get("publico", "").split(",") if p.strip()]
     bioma_valor = [b.strip() for b in projeto.get("bioma", "").split(",") if b.strip()]
-    status_valor = projeto.get("status", opcoes_status[0])
+    # status_valor = projeto.get("status", opcoes_status[0])
 
-    temas = col1.multiselect("Temas*", options=opcoes_temas, default=temas_valor, placeholder="")
-    publico = col2.multiselect("Público*", options=opcoes_publico, default=publico_valor, placeholder="")
-    bioma = col3.multiselect("Bioma*", options=opcoes_bioma, default=bioma_valor, placeholder="")
-    status = col4.selectbox(
-        "Status*", 
-        options=opcoes_status, 
-        index=opcoes_status.index(status_valor) if status_valor in opcoes_status else 0,
-        key=f"status_{str(projeto.get('_id', 'novo'))}"
-    )
-
-    objetivo_geral = st.text_area(
-        "Objetivo geral*",
-        projeto.get("objetivo_geral", ""),
-        key=f"objetivo_geral_{projeto.get('_id', 'novo')}"
-    )
+    temas = col1.multiselect("Temas*", options=opcoes_temas, default=temas_valor, placeholder="", key=f"temas_{str(projeto.get('_id', 'novo'))}")
+    publico = col2.multiselect("Público*", options=opcoes_publico, default=publico_valor, placeholder="", key=f"publico_{str(projeto.get('_id', 'novo'))}")
+    bioma = col3.multiselect("Bioma*", options=opcoes_bioma, default=bioma_valor, placeholder="", key=f"bioma_{str(projeto.get('_id', 'novo'))}")
+    # status = col4.selectbox(
+    #     "Status*", 
+    #     options=opcoes_status, 
+    #     index=opcoes_status.index(status_valor) if status_valor in opcoes_status else 0,
+    #     key=f"status_{str(projeto.get('_id', 'novo'))}"
+    # )
 
 
+    # Linha 8 - Ponto focal e programas //////////////////////////////////////////////////
     col1, col2, col3 = st.columns(3)
     pessoas_options = {str(k): v for k, v in sorted(pessoas_dict.items(), key=lambda item: item[1].lower())}
     ponto_focal_default = str(projeto.get("ponto_focal", ""))
     ponto_focal_keys = list(pessoas_options.keys())
+
+
+    # insere opção vazia na primeira posição
+    opcoes_ponto_focal = [""] + ponto_focal_keys
+
+    # calcula índice ajustado
+    if ponto_focal_default in ponto_focal_keys:
+        index_ajustado = ponto_focal_keys.index(ponto_focal_default) + 1  # +1 pela opção vazia
+    else:
+        index_ajustado = 0  # opção vazia selecionada por padrão
+
     ponto_focal = col1.selectbox(
         "Ponto focal*",
-        options=ponto_focal_keys,
-        format_func=lambda x: pessoas_options.get(x, ""),
-        index=ponto_focal_keys.index(ponto_focal_default) if ponto_focal_default in ponto_focal_keys else 0,
-        placeholder=""
+        options=opcoes_ponto_focal,
+        format_func=lambda x: pessoas_options.get(x, "") if x else "",  # mostra vazio para a opção ""
+        index=index_ajustado,
+        placeholder="Selecione..."
     )
+
+
+
+
+    # ponto_focal = col1.selectbox(
+    #     "Ponto focal*",
+    #     options=ponto_focal_keys,
+    #     format_func=lambda x: pessoas_options.get(x, ""),
+    #     index=ponto_focal_keys.index(ponto_focal_default) if ponto_focal_default in ponto_focal_keys else 0,
+    #     placeholder=""
+    # )
 
     programas_excluidos = {"ADM Brasília", "ADM Santa Inês", "Comunicação", "Advocacy", "Coordenação"}
     programas_filtrados = {
@@ -703,26 +751,71 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
     }
     programa_default = str(projeto.get("programa", ""))
     programa_keys = list(programas_options.keys())
+
+    # insere opção vazia na primeira posição
+    opcoes_programa = [""] + programa_keys
+
+    # calcula índice ajustado
+    if programa_default in programa_keys:
+        index_ajustado = programa_keys.index(programa_default) + 1  # +1 pela opção vazia
+    else:
+        index_ajustado = 0  # opção vazia selecionada por padrão
+
     programa = col2.selectbox(
         "Programa*",
-        options=programa_keys,
-        format_func=lambda x: programas_options.get(x, ""),
-        index=programa_keys.index(programa_default) if programa_default in programa_keys else 0,
-        placeholder=""
+        options=opcoes_programa,
+        format_func=lambda x: programas_options.get(x, "") if x else "",  # mostra vazio para a opção ""
+        index=index_ajustado,
+        placeholder="Selecione..."
     )
+
+
+
+
+
+
+
+    # programa = col2.selectbox(
+    #     "Programa*",
+    #     options=programa_keys,
+    #     format_func=lambda x: programas_options.get(x, ""),
+    #     index=programa_keys.index(programa_default) if programa_default in programa_keys else 0,
+    #     placeholder=""
+    # )
 
     projetos_pai_options = {
         str(k): v for k, v in projetos_ispn_dict.items() if v.strip()
     }
     sorted_keys = sorted(projetos_pai_options, key=lambda x: projetos_pai_options[x].lower())
     codigo_pai_default = str(projeto.get("codigo_projeto_pai", ""))
+
+    # insere opção vazia na primeira posição
+    opcoes_projeto_pai = [""] + sorted_keys
+
+    # calcula índice ajustado
+    if codigo_pai_default in sorted_keys:
+        index_ajustado = sorted_keys.index(codigo_pai_default) + 1  # +1 porque adicionamos a opção vazia
+    else:
+        index_ajustado = 0  # opção vazia selecionada por padrão
+
     codigo_pai = col3.selectbox(
         "Projeto pai*",
-        options=sorted_keys,
-        format_func=lambda x: projetos_pai_options.get(x, "Desconhecido"),
-        index=sorted_keys.index(codigo_pai_default) if codigo_pai_default in sorted_keys else 0,
-        placeholder=""
+        options=opcoes_projeto_pai,
+        format_func=lambda x: projetos_pai_options.get(x, "Desconhecido") if x else "",
+        index=index_ajustado,
+        placeholder="Selecione..."
     )
+
+
+
+
+    # codigo_pai = col3.selectbox(
+    #     "Projeto pai*",
+    #     options=sorted_keys,
+    #     format_func=lambda x: projetos_pai_options.get(x, "Desconhecido"),
+    #     index=sorted_keys.index(codigo_pai_default) if codigo_pai_default in sorted_keys else 0,
+    #     placeholder=""
+    # )
 
     st.write("")
 
@@ -904,28 +997,31 @@ def gerenciar_projetos():
     # ---------------------- Excluir ----------------------
     with abas[2]:
  
-        todos_projetos = [(p, "PF") for p in pf] + [(p, "PJ") for p in pj]
+        # Roteamento de tipo de usuário especial
+        if set(st.session_state.tipo_usuario) & {"admin"}:
 
-        opcoes = {
-            str(proj["_id"]): f"{proj.get('codigo', '')} ({proj.get('sigla', '')})"
-            for proj, tipo in todos_projetos
-        }
+            todos_projetos = [(p, "PF") for p in pf] + [(p, "PJ") for p in pj]
 
-        if not opcoes:
-            st.info("Nenhum projeto encontrado para excluir.")
-        else:
-            selecionado_id = st.selectbox("Selecione o projeto para excluir", list(opcoes.keys()), format_func=lambda x: opcoes[x])
-            tipo = "PF" if selecionado_id in [str(p["_id"]) for p, t in todos_projetos if t == "PF"] else "PJ"
-            colecao = db["projetos_pf"] if tipo == "PF" else db["projetos_pj"]
-            projeto = colecao.find_one({"_id": ObjectId(selecionado_id)})
+            opcoes = {
+                str(proj["_id"]): f"{proj.get('codigo', '')} ({proj.get('sigla', '')})"
+                for proj, tipo in todos_projetos
+            }
 
-            st.write("")
+            if not opcoes:
+                st.info("Nenhum projeto encontrado para excluir.")
+            else:
+                selecionado_id = st.selectbox("Selecione o projeto para excluir", list(opcoes.keys()), format_func=lambda x: opcoes[x])
+                tipo = "PF" if selecionado_id in [str(p["_id"]) for p, t in todos_projetos if t == "PF"] else "PJ"
+                colecao = db["projetos_pf"] if tipo == "PF" else db["projetos_pj"]
+                projeto = colecao.find_one({"_id": ObjectId(selecionado_id)})
 
-            if st.button(f"Excluir projeto"):
-                colecao.delete_one({"_id": ObjectId(selecionado_id)})
-                st.success("Projeto excluído com sucesso.")
-                time.sleep(1)
-                st.rerun()
+                st.write("")
+
+                if st.button(f"Excluir projeto"):
+                    colecao.delete_one({"_id": ObjectId(selecionado_id)})
+                    st.success("Projeto excluído com sucesso.")
+                    time.sleep(1)
+                    st.rerun()
 
 
     
