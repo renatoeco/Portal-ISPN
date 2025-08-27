@@ -373,7 +373,7 @@ else:
         # "Programas e Áreas.py", 
         # "Pessoas.py",
         # "Doadores.py", 
-        "Indicadores.py",
+        # "Indicadores.py",
         # "Projetos.py", 
         "Fundo Ecos.py",
         # "Redes e Articulações.py", 
