@@ -466,6 +466,8 @@ def gerenciar_lancamentos():
                             valor = col1.number_input("Valor", value=0, step=1, format="%d")
                             tipo_valor = "int"
 
+
+                        # Ano
                         ano_atual = datetime.datetime.now().year
                         ano_maximo = ano_atual + 1
 
@@ -476,7 +478,7 @@ def gerenciar_lancamentos():
 
                         # ano = col2.number_input("Ano", min_value=2024, step=1)
 
-
+                        # Observações
                         observacoes = st.text_area("Observações", height=100)
 
                         submit = st.form_submit_button("Salvar lançamento")
@@ -580,7 +582,14 @@ def gerenciar_lancamentos():
                         indicador_doc = indicadores.find_one({"_id": l["id_do_indicador"]})
                         indicador_nome = formatar_nome_legivel(indicador_doc["nome_indicador"]) if indicador_doc else "Indicador desconhecido"
 
-                        data_str = l["data_anotacao"].strftime('%d/%m/%Y') if isinstance(l["data_anotacao"], datetime.datetime) else "Sem data"
+
+                        data_str = (
+                            l["data_anotacao"].strftime('%d/%m/%Y %H:%M:%S') 
+                            if isinstance(l["data_anotacao"], datetime.datetime) 
+                            else "Sem data"
+                        )
+
+                        # data_str = l["data_anotacao"].strftime('%d/%m/%Y') if isinstance(l["data_anotacao"], datetime.datetime) else "Sem data"
                         autor = l.get("autor_anotacao", "Sem autor")
 
                         label = f"{data_str} - {autor} - {indicador_nome}"
@@ -613,13 +622,36 @@ def gerenciar_lancamentos():
                             novo_valor = col1.number_input("Valor", value=valor_inicial, step=1, format="%d")
                             tipo_valor = "int"
 
-                        ano_str = doc.get("ano", "2025")
-                        try:
-                            ano_int = int(ano_str)
-                        except ValueError:
-                            ano_int = 2025
-                        novo_ano = col2.number_input("Ano", value=ano_int, min_value=2025, step=1)
 
+                        # Ano
+
+                        # pega ano atual e define limite
+                        ano_atual = datetime.datetime.now().year
+                        ano_maximo = ano_atual + 1
+
+                        # gera lista de opções como string
+                        anos = ["até 2024"] + [str(ano) for ano in range(2025, ano_maximo + 1)]
+
+                        # pega valor já cadastrado, default "2025"
+                        ano_str = doc.get("ano", "2025")
+
+                        # garante que o valor já cadastrado esteja nas opções
+                        if ano_str not in anos:
+                            anos.insert(0, ano_str)  # adiciona no início se não estiver
+
+                        # cria o selectbox
+                        novo_ano = col2.selectbox("Ano", anos, index=anos.index(ano_str))
+
+
+
+                        # ano_str = doc.get("ano", "2025")
+                        # try:
+                        #     ano_int = int(ano_str)
+                        # except ValueError:
+                        #     ano_int = 2025
+                        # novo_ano = col2.number_input("Ano", value=ano_int, min_value=2025, step=1)
+
+                        # Observações
                         novas_obs = st.text_area("Observações", value=doc.get("observacoes", ""))
 
                         if st.button("Salvar alterações", key="salvar_edit"):
@@ -637,6 +669,7 @@ def gerenciar_lancamentos():
                                 }}
                             )
                             st.success("Lançamento atualizado com sucesso!")
+                            st.cache_data.clear()
                             st.rerun()
 
     # ------------------------- ABA EXCLUIR -------------------------
@@ -749,6 +782,7 @@ def gerenciar_lancamentos():
                         if st.button("Excluir", key="excluir_lanc", icon=":material/delete:"):
                             lancamentos.delete_one({"_id": lanc_id_delete})
                             st.success("Lançamento excluído com sucesso!")
+                            st.cache_data.clear()
                             st.rerun()
 
 
