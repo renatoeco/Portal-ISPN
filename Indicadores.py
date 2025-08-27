@@ -200,7 +200,7 @@ def mostrar_detalhes(nome_indicador, tipo_selecionado=None, projetos_filtrados=N
     colunas_exibir = ["Projeto", "Sigla", "Ano", "Valor", "Autor", "Data da Anotação", "Observações"]
     df = df[colunas_exibir].sort_values("Projeto")
 
-    st.dataframe(df, hide_index=True, use_container_width=True)
+    st.dataframe(df, hide_index=True, use_container_width=True, height=597)
     st.html("<span class='big-dialog'></span>")
 
 
