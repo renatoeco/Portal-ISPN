@@ -108,7 +108,7 @@ def gerenciar_pessoas():
             # Data de nascimento
             data_nascimento = col1.text_input("Data de nascimento:", placeholder="dd/mm/aaaa")
             
-            # Telefon
+            # Telefone
             telefone = col2.text_input("Telefone:")
             
             # E-mail
@@ -116,6 +116,14 @@ def gerenciar_pessoas():
 
             col1, col2 = st.columns([1, 1])
 
+            # Programa / Área
+            # Lista ordenada dos programas/áreas para seleção
+            lista_programas_areas = sorted(nome_para_id_programa.keys())
+            programa_area_nome = col1.selectbox("Programa / Área:", lista_programas_areas, index=None, placeholder="")
+            programa_area = nome_para_id_programa.get(programa_area_nome)
+
+
+            # Coordenador/a
             # Lista de coordenadores existentes (id, nome, programa)
             coordenadores_possiveis = [
                 {
@@ -124,19 +132,21 @@ def gerenciar_pessoas():
                     "programa": pessoa.get("programa_area", "")
                 }
                 for pessoa in dados_pessoas
-                if pessoa.get("tipo de usuário", "").lower() == "coordenador(a)"
+                if "coordenador(a)" in pessoa.get("tipo de usuário", "").lower()
             ]
-            
             # Extrai nomes únicos dos coordenadores ordenados
-            # nomes_coordenadores = sorted({c["nome"] for c in coordenadores_possiveis})
-
+            nomes_coordenadores = sorted({c["nome"] for c in coordenadores_possiveis})
             # Seleção do nome do coordenador no formulário
-            # nome_coordenador = col1.selectbox("Nome do(a) coordenador(a):", nomes_coordenadores, index=None, placeholder="")
+            coordenador = col2.selectbox("Nome do(a) coordenador(a):", nomes_coordenadores, index=None, placeholder="")
 
-            # Lista ordenada dos programas/áreas para seleção
-            lista_programas_areas = sorted(nome_para_id_programa.keys())
-            programa_area_nome = col1.selectbox("Programa / Área:", lista_programas_areas, index=None, placeholder="")
-            programa_area = nome_para_id_programa.get(programa_area_nome)
+            # Por fim, pega o id do coordenador
+            coordenador_id = None
+            for c in coordenadores_possiveis:
+                if c["nome"] == coordenador:
+                    coordenador_id = c["id"]
+                    break
+
+
 
             # Projeto pagador
             lista_projetos = sorted({p["nome_do_projeto"] for p in dados_projetos_ispn if p.get("nome_do_projeto", "") != ""})
@@ -182,17 +192,17 @@ def gerenciar_pessoas():
 
                 # Opções possíveis para o campo "tipo de usuário"
                 opcoes_tipo_usuario = [
-                    "admin", "gestao_pessoas", "gestao_ferias", "supervisao_ferias", 
+                    "coordenador(a)", "admin", "gestao_pessoas", "gestao_ferias", "supervisao_ferias", 
                     "gestao_noticias", "gestao_pls", "gestao_projetos_doadores", 
-                    "gestao_fundo_ecos", "gestao_viagens", "gestao_manuais", "coordenador(a)"
+                    "gestao_fundo_ecos", "gestao_viagens", "gestao_manuais"
                 ]
 
             else: # Se não for admin, não aparece a permissão admin disponível
                 # Opções possíveis para o campo "tipo de usuário"
                 opcoes_tipo_usuario = [
-                    "gestao_pessoas", "gestao_ferias", "supervisao_ferias", 
+                    "coordenador(a)", "gestao_pessoas", "gestao_ferias", "supervisao_ferias", 
                     "gestao_noticias", "gestao_pls", "gestao_projetos_doadores", 
-                    "gestao_fundo_ecos", "gestao_viagens", "gestao_manuais", "coordenador(a)"
+                    "gestao_fundo_ecos", "gestao_viagens", "gestao_manuais"
                 ]
 
             # Multiselect para tipo de usuário com valores padrão preenchidos
@@ -270,20 +280,20 @@ def gerenciar_pessoas():
             if st.form_submit_button("Cadastrar", type="secondary", icon=":material/person_add:"):
                 
                 # Validação de campos obrigatórios
-                if not nome or not email or not programa_area or not nome_coordenador:
+                if not nome or not email or not programa_area or not coordenador:
                     st.warning("Preencha os campos obrigatórios.")
                 
                 else:
-                    # Busca coordenador pelo nome e programa selecionados
-                    coordenador = next((
-                        c for c in coordenadores_possiveis
-                        if c["nome"] == nome_coordenador and c["programa"] == programa_area
-                    ), None)
+                    # # Busca coordenador pelo nome e programa selecionados
+                    # coordenador = next((
+                    #     c for c in coordenadores_possiveis
+                    #     if c["nome"] == nome_coordenador and c["programa"] == programa_area
+                    # ), None)
 
-                    # Se coordenador não encontrado, mostra aviso
-                    if not coordenador:
-                        st.warning("Coordenador não encontrado para o nome e programa selecionados.")
-                        # return
+                    # # Se coordenador não encontrado, mostra aviso
+                    # if not coordenador:
+                    #     st.warning("Coordenador não encontrado para o nome e programa selecionados.")
+                    #     # return
 
                     # Ano atual para armazenar dados de férias
                     ano_atual = str(datetime.now().year)
@@ -319,7 +329,8 @@ def gerenciar_pessoas():
                         },
                         "status": "ativo",
                         "e_mail": email,
-                        "e_mail_coordenador": coordenador["id"],
+                        # "e_mail_coordenador": coordenador["id"],
+                        "coordenador": coordenador["id"],
                         "projeto_pagador": projeto_pagador
                     }
 
@@ -390,32 +401,15 @@ def gerenciar_pessoas():
                     email = col3.text_input("E-mail:", value=pessoa.get("e_mail", ""), disabled=desabilitar)
                     
                     col1, col2 = st.columns([1, 1])
-                    
-                    # Coordenador
-                    # Busca coordenador associado para selecionar valor padrão
-                    coordenador_encontrado = next(
-                        (c for c in coordenadores_possiveis if c["id"] == pessoa.get("coordenador", "")),
-                        None
-                    )
-                    nome_coordenador_default = coordenador_encontrado["nome"] if coordenador_encontrado else None
 
-                    # Seleção do coordenador com valor padrão
-                    nome_coordenador = col1.selectbox(
-                        "Nome do(a) coordenador(a):",
-                        nomes_coordenadores,
-                        index=nomes_coordenadores.index(nome_coordenador_default) if nome_coordenador_default in nomes_coordenadores else 0,
-                        key="editr_nome_coordenador", 
-                        disabled=desabilitar
-                    )
-
-                    # Programa / Área
+                     # Programa / Área
                     # Pega o ObjectId atual salvo no banco
                     programa_area_atual = pessoa.get("programa_area")
                     # Converte o ObjectId para nome legível
                     programa_area_nome_atual = id_para_nome_programa.get(programa_area_atual, "")
 
                     # Selectbox mostra nomes dos programas
-                    programa_area_nome = col2.selectbox(
+                    programa_area_nome = col1.selectbox(
                         "Programa / Área:",
                         lista_programas_areas,
                         index=lista_programas_areas.index(programa_area_nome_atual) if programa_area_nome_atual in lista_programas_areas else 0,
@@ -425,6 +419,36 @@ def gerenciar_pessoas():
 
                     # Após seleção, pega o ObjectId correspondente ao nome
                     programa_area = nome_para_id_programa.get(programa_area_nome)
+
+
+
+
+                    # Coordenador
+                    # Busca coordenador associado para selecionar valor padrão
+                    coordenador_encontrado = next(
+                        (c for c in coordenadores_possiveis if c["id"] == pessoa.get("coordenador", "")),
+                        None
+                    )
+                    nome_coordenador_default = coordenador_encontrado["nome"] if coordenador_encontrado else None
+
+                    # Seleção do coordenador com valor padrão
+                    coordenador = col2.selectbox(
+                        "Nome do(a) coordenador(a):",
+                        nomes_coordenadores,
+                        index=coordenadores_possiveis.index(nome_coordenador_default) if nome_coordenador_default in coordenadores_possiveis else 0,
+                        key="editr_nome_coordenador", 
+                        disabled=desabilitar
+                    )
+
+                    # Por fim guarda o ObjectId correspondente ao nome
+
+                    # st.write(coordenadores_possiveis)
+                    coordenador_id = next(
+                        c["id"] for c in coordenadores_possiveis if c["nome"] == "Renato Farias de Araujo"
+                    )
+                    # coordenador_id = coordenadores_possiveis[coordenadores_possiveis.index(coordenador)]["id"]
+
+                   
 
                     
 
@@ -462,16 +486,16 @@ def gerenciar_pessoas():
 
                     st.write("")
                     
-                    # Busca o coordenador selecionado com base no nome e programa selecionado nos campos do formulário
-                    coordenador = next((
-                        c for c in coordenadores_possiveis
-                        if c["nome"] == nome_coordenador and c["programa"] == programa_area
-                    ), None)
+                    # # Busca o coordenador selecionado com base no nome e programa selecionado nos campos do formulário
+                    # coordenador = next((
+                    #     c for c in coordenadores_possiveis
+                    #     if c["nome"] == nome_coordenador and c["programa"] == programa_area
+                    # ), None)
 
-                    # Se nenhum coordenador for encontrado com os critérios acima, exibe um aviso e interrompe a função
-                    if not coordenador:
-                        st.warning("Coordenador não encontrado para o nome e programa selecionados.")
-                        return
+                    # # Se nenhum coordenador for encontrado com os critérios acima, exibe um aviso e interrompe a função
+                    # if not coordenador:
+                    #     st.warning("Coordenador não encontrado para o nome e programa selecionados.")
+                    #     return
 
                     st.divider()
 
@@ -485,17 +509,17 @@ def gerenciar_pessoas():
 
                         # Opções possíveis para o campo "tipo de usuário"
                         opcoes_tipo_usuario = [
-                            "admin", "gestao_pessoas", "gestao_ferias", "supervisao_ferias", 
+                            "coordenador(a)", "admin", "gestao_pessoas", "gestao_ferias", "supervisao_ferias", 
                             "gestao_noticias", "gestao_pls", "gestao_projetos_doadores", 
-                            "gestao_fundo_ecos", "gestao_viagens", "gestao_manuais", "coordenador(a)"
+                            "gestao_fundo_ecos", "gestao_viagens", "gestao_manuais"
                         ]
 
                     else: # Se não for admin, não aparece a permissão admin disponível
                         # Opções possíveis para o campo "tipo de usuário"
                         opcoes_tipo_usuario = [
-                            "gestao_pessoas", "gestao_ferias", "supervisao_ferias", 
+                            "coordenador(a)", "gestao_pessoas", "gestao_ferias", "supervisao_ferias", 
                             "gestao_noticias", "gestao_pls", "gestao_projetos_doadores", 
-                            "gestao_fundo_ecos", "gestao_viagens", "gestao_manuais", "coordenador(a)"
+                            "gestao_fundo_ecos", "gestao_viagens", "gestao_manuais"
                         ]
 
 
@@ -602,7 +626,8 @@ def gerenciar_pessoas():
                                 "banco.tipo_conta": tipo_conta,
                                 "programa_area": programa_area,
                                 "tipo de usuário": ", ".join(tipo_usuario) if tipo_usuario else "",
-                                "e_mail_coordenador": coordenador["id"],
+                                # "e_mail_coordenador": coordenador["id"],
+                                "coordenador": coordenador_id,
                                 "status": status
                             }}
                         )
