@@ -466,7 +466,17 @@ def gerenciar_lancamentos():
                             valor = col1.number_input("Valor", value=0, step=1, format="%d")
                             tipo_valor = "int"
 
-                        ano = col2.number_input("Ano", min_value=2024, step=1)
+                        ano_atual = datetime.datetime.now().year
+                        ano_maximo = ano_atual + 1
+
+                        # cria lista de opções, todas como string
+                        anos = ["até 2024"] + [str(ano) for ano in range(2025, ano_maximo + 1)]
+
+                        ano = col2.selectbox("Ano", anos)
+
+                        # ano = col2.number_input("Ano", min_value=2024, step=1)
+
+
                         observacoes = st.text_area("Observações", height=100)
 
                         submit = st.form_submit_button("Salvar lançamento")
@@ -497,6 +507,7 @@ def gerenciar_lancamentos():
                         lancamentos.insert_one(novo_lancamento)
                         st.success("Lançamento salvo com sucesso.")
                         time.sleep(2)
+                        st.cache_data.clear()
                         st.rerun()
 
                 else:
@@ -684,6 +695,8 @@ def gerenciar_lancamentos():
                 # Filtrar lançamentos pelo autor, exceto para admins
                 usuario_atual = st.session_state.get("nome", "")
                 tipo_usuario = st.session_state.get("tipo_usuario", [])
+                
+                
                 if "admin" not in tipo_usuario:
                     lancamentos_proj = [l for l in lancamentos_proj if l.get("autor_anotacao") == usuario_atual]
 
@@ -695,7 +708,13 @@ def gerenciar_lancamentos():
                         indicador_doc = indicadores.find_one({"_id": l["id_do_indicador"]})
                         indicador_nome = formatar_nome_legivel(indicador_doc["nome_indicador"]) if indicador_doc else "Indicador desconhecido"
 
-                        data_str = l["data_anotacao"].strftime('%d/%m/%Y') if isinstance(l["data_anotacao"], datetime.datetime) else "Sem data"
+                        data_str = (
+                            l["data_anotacao"].strftime('%d/%m/%Y %H:%M:%S') 
+                            if isinstance(l["data_anotacao"], datetime.datetime) 
+                            else "Sem data"
+                        )
+
+                        # data_str = l["data_anotacao"].strftime('%d/%m/%Y') if isinstance(l["data_anotacao"], datetime.datetime) else "Sem data"
                         autor = l.get("autor_anotacao", "Sem autor")
 
                         label = f"{data_str} - {autor} - {indicador_nome}"
