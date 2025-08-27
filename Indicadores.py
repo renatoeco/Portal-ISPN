@@ -3,7 +3,7 @@ import pandas as pd
 import datetime
 import time
 from bson import ObjectId
-from funcoes_auxiliares import conectar_mongo_portal_ispn
+from funcoes_auxiliares import conectar_mongo_portal_ispn, ajustar_altura_dataframe
 
 
 st.set_page_config(layout="wide")
@@ -200,7 +200,8 @@ def mostrar_detalhes(nome_indicador, tipo_selecionado=None, projetos_filtrados=N
     colunas_exibir = ["Projeto", "Sigla", "Ano", "Valor", "Autor", "Data da Anotação", "Observações"]
     df = df[colunas_exibir].sort_values("Projeto")
 
-    st.dataframe(df, hide_index=True, use_container_width=True, height=597)
+    # st.dataframe(df, hide_index=True, use_container_width=True, height=597)
+    ajustar_altura_dataframe(df, 1, 597)
     st.html("<span class='big-dialog'></span>")
 
 
@@ -807,7 +808,7 @@ with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
         col1, col2, col3 = st.columns(3)
         with col1:
             sigla_sel = st.multiselect(
-                "Filtrar por sigla",
+                "Filtrar por sigla / nome",
                 sorted(df_base["sigla"].unique()),
                 key="filtro_sigla",
                 placeholder=""
