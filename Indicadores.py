@@ -466,7 +466,7 @@ def gerenciar_lancamentos():
                             valor = col1.number_input("Valor", value=0, step=1, format="%d")
                             tipo_valor = "int"
 
-                        ano = col2.number_input("Ano", min_value=2025, step=1)
+                        ano = col2.number_input("Ano", min_value=2024, step=1)
                         observacoes = st.text_area("Observações", height=100)
 
                         submit = st.form_submit_button("Salvar lançamento")

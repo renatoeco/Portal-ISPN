@@ -495,7 +495,7 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
     )
 
     # Edital como number_input (1 casa decimal) e convertido para str
-    edital = col3.text_input("Edital*", projeto.get("edital", ""))
+    edital = col3.text_input("Edital", projeto.get("edital", ""))
     
     ano_aprovacao = col4.number_input("Ano de aprovação*", value=projeto.get("ano_de_aprovacao", 2025), step=1)
 
@@ -824,7 +824,7 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         # --- Campos obrigatórios ---
         campos_obrigatorios = [
             codigo, sigla, nome_do_projeto, proponente_selecionado, categoria, ano_aprovacao, 
-            ponto_focal, programa, objetivo_geral, edital, duracao, data_inicio, data_fim, 
+            ponto_focal, programa, objetivo_geral, duracao, data_inicio, data_fim, 
             moeda, valor, bioma, status, temas, publico, codigo_pai, ufs_selecionados, 
             municipio_principal, municipios_atuacao
         ]
