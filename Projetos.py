@@ -12,29 +12,6 @@ st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
 
 
 
-######################################################################################################
-# CONEXÃO COM O BANCO DE DADOS MONGODB
-######################################################################################################
-
-
-db = conectar_mongo_portal_ispn()
-estatistica = db["estatistica"]  # Coleção de estatísticas
-
-
-# --- 1. Converter listas de documentos em DataFrames ---
-df_doadores = pd.DataFrame(list(db["doadores"].find()))
-df_programas = pd.DataFrame(list(db["programas_areas"].find()))
-df_projetos_ispn = pd.DataFrame(list(db["projetos_ispn"].find()))
-
-# --- 2. Criar dicionários de mapeamento ---
-mapa_doador = {d["_id"]: d["nome_doador"] for d in db["doadores"].find()}
-mapa_programa = {p["_id"]: p["nome_programa_area"] for p in db["programas_areas"].find()}
-
-# --- 3. Aplicar os mapeamentos ao df_projetos_ispn ---
-df_projetos_ispn["doador_nome"] = df_projetos_ispn["doador"].map(mapa_doador)
-df_projetos_ispn["programa_nome"] = df_projetos_ispn["programa"].map(mapa_programa)
-
-
 
 ######################################################################################################
 # FUNÇÕES AUXILIARES
@@ -61,6 +38,52 @@ def formatar_valor(row):
         return f"{moeda} {valor_formatado}"
     except:
         return f"{moeda} 0"
+
+
+
+
+######################################################################################################
+# CONEXÃO COM O BANCO DE DADOS MONGODB
+######################################################################################################
+
+
+db = conectar_mongo_portal_ispn()
+estatistica = db["estatistica"]  # Coleção de estatísticas
+
+
+
+######################################################################################################
+# TRATAMENTO DOS DADOS
+######################################################################################################
+
+
+# --- 1. Converter listas de documentos em DataFrames ---
+df_doadores = pd.DataFrame(list(db["doadores"].find()))
+df_programas = pd.DataFrame(list(db["programas_areas"].find()))
+df_projetos_ispn = pd.DataFrame(list(db["projetos_ispn"].find()))
+
+# --- 2. Criar dicionários de mapeamento ---
+mapa_doador = {d["_id"]: d["nome_doador"] for d in db["doadores"].find()}
+mapa_programa = {p["_id"]: p["nome_programa_area"] for p in db["programas_areas"].find()}
+
+# --- 3. Aplicar os mapeamentos ao df_projetos_ispn ---
+df_projetos_ispn["doador_nome"] = df_projetos_ispn["doador"].map(mapa_doador)
+df_projetos_ispn["programa_nome"] = df_projetos_ispn["programa"].map(mapa_programa)
+
+# --- 4. Criar a coluna 'valor_com_moeda' ---
+df_projetos_ispn['valor_com_moeda'] = df_projetos_ispn.apply(formatar_valor, axis=1)
+
+
+# --- 5. Converter datas para datetime
+df_projetos_ispn['data_inicio_contrato'] = pd.to_datetime(df_projetos_ispn['data_inicio_contrato'])
+df_projetos_ispn['data_fim_contrato'] = pd.to_datetime(df_projetos_ispn['data_fim_contrato'])
+
+
+
+
+
+
+
 
 
 ######################################################################################################
@@ -106,7 +129,7 @@ with tab1:
 
     # Filtro de ano de início
     # Converter para datetime
-    df_projetos_ispn['data_inicio_contrato'] = pd.to_datetime(df_projetos_ispn['data_inicio_contrato'])
+    # df_projetos_ispn['data_inicio_contrato'] = pd.to_datetime(df_projetos_ispn['data_inicio_contrato'])
     # Pegar o menor e maior anos
     anos_disponiveis_inicio = sorted(df_projetos_ispn['data_inicio_contrato'].dt.year.unique())        
     anos_disponiveis_inicio = [ano for ano in anos_disponiveis_inicio if not pd.isna(ano)]        # Remove anos vazios
@@ -119,7 +142,7 @@ with tab1:
 
     # Filtro de ano de fim
     # Converter para datetime
-    df_projetos_ispn['data_fim_contrato'] = pd.to_datetime(df_projetos_ispn['data_fim_contrato'])
+    # df_projetos_ispn['data_fim_contrato'] = pd.to_datetime(df_projetos_ispn['data_fim_contrato'])
     # Pegar o menor e maior anos
     anos_disponiveis_fim = sorted(df_projetos_ispn['data_fim_contrato'].dt.year.unique())        
     anos_disponiveis_fim = [ano for ano in anos_disponiveis_fim if not pd.isna(ano)]        # Remove anos vazios
@@ -155,7 +178,7 @@ with tab1:
     ]
 
 
-    # Fim dos filtros -----------------------------------
+    # Fim dos filtros -----------------------------------------------------------------------------
 
 
 
@@ -164,8 +187,11 @@ with tab1:
     st.subheader(f'{len(df_projetos_ispn_filtrado)} projetos')
     st.write('')
 
+
+    # Cronograma ------------------------------------------
     with st.expander('Cronograma'):
-        # Gráfico de gantt cronograma ------------------------
+
+        # Gráfico de gantt cronograma 
 
         # Organizando o df por ordem de data_fim_contrato
         df_projetos_ispn_filtrado = df_projetos_ispn_filtrado.sort_values(by='data_fim_contrato', ascending=False)
@@ -238,12 +264,13 @@ with tab1:
     # st.write('**Projetos**')
 
     # Selecionando colunas pra mostrar
-    df_projetos_ispn_filtrado_show = df_projetos_ispn_filtrado[['codigo', 'nome_do_projeto', 'programa_nome', 'doador_nome', 'moeda','valor', 'data_inicio_contrato', 'data_fim_contrato', 'status']]
+    df_projetos_ispn_filtrado_show = df_projetos_ispn_filtrado[['codigo', 'nome_do_projeto', 'programa_nome', 'doador_nome', 'valor_com_moeda', 'data_inicio_contrato', 'data_fim_contrato', 'status']]
 
     
     # Formatando as datas
     df_projetos_ispn_filtrado_show['data_inicio_contrato'] = df_projetos_ispn_filtrado_show['data_inicio_contrato'].dt.strftime('%d/%m/%Y')
     df_projetos_ispn_filtrado_show['data_fim_contrato'] = df_projetos_ispn_filtrado_show['data_fim_contrato'].dt.strftime('%d/%m/%Y')
+
 
 
     # # Formatando as moedas nos valores
@@ -266,8 +293,11 @@ with tab1:
     #         return f"{moeda} {valor_formatado}"
     #     except:
     #         return f"{moeda} 0"
-    # Aplicar a função
-    df_projetos_ispn_filtrado_show['valor_com_moeda'] = df_projetos_ispn_filtrado_show.apply(formatar_valor, axis=1)
+
+
+
+    # # Aplicar a função
+    # df_projetos_ispn_filtrado_show['valor_com_moeda'] = df_projetos_ispn_filtrado_show.apply(formatar_valor, axis=1)
 
 
     # Renomeando as colunas
@@ -282,8 +312,10 @@ with tab1:
         'nome_do_projeto': 'Nome do projeto'
     })
 
+
     # Drop das colunas moeda e valor
-    df_projetos_ispn_filtrado_show = df_projetos_ispn_filtrado_show.drop(columns=['moeda', 'valor'])
+    # df_projetos_ispn_filtrado_show = df_projetos_ispn_filtrado_show.drop(columns=['moeda', 'valor'])
+
 
     # Reorganizar a ordem das colunas
     df_projetos_ispn_filtrado_show = df_projetos_ispn_filtrado_show[['Código', 'Nome do projeto', 'Programa', 'Doador', 'Valor', 'Início do contrato', 'Fim do contrato', 'Situação']]
@@ -322,21 +354,22 @@ with tab2:
             st.button('Gerenciar projeto', width=300, icon=":material/contract_edit:")
 
 
+
     # Valor e contrapartida
     col1, col2 = st.columns(2)
+ 
+    col1.metric("**Valor:**", df_projetos_ispn.loc[df_projetos_ispn['nome_do_projeto'] == projeto_selecionado, 'valor_com_moeda'].values[0])
     
-    # ??????????????????????????
-    st.write(df_projetos_ispn)
-
-    st.write(projeto_selecionado)
-
-    col1.metric("**Valor:**", df_projetos_ispn.loc[df_projetos_ispn['nome_do_projeto'] == projeto_selecionado, 'valor'].values[0])
- 
- 
- 
- 
- 
-    col2.metric("**Contrapartida:**", "R$ 5.000.000,00")
+    col2.metric(
+    "**Contrapartida:**",
+    "R$ " + str(df_projetos_ispn.loc[
+        df_projetos_ispn['nome_do_projeto'] == projeto_selecionado,
+        'valor_da_contrapartida_em_r$'
+    ].values[0])
+)
+    
+    
+    # col2.metric("**Contrapartida:**", df_projetos_ispn.loc[df_projetos_ispn['nome_do_projeto'] == projeto_selecionado, f'valor_da_contrapartida_em_r$'].values[0])
 
 
     st.write('**Situação:** Em andamento')
