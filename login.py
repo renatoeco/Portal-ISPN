@@ -216,7 +216,7 @@ def login():
 
             # Exibe o logo - TESTE DE LOGOS
 
-            cols[1].write("Teste de logos")
+            cols[1].write("Teste de logos. Quero opiniões!")
 
             cols[1].image("images/colab_rounded_THIN.png", width=400)
             cols[1].write('')

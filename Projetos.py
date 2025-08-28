@@ -1,11 +1,6 @@
 import streamlit as st
 import pandas as pd
 import datetime
-
-# import folium
-# from folium.plugins import MarkerCluster
-# from streamlit_folium import st_folium
-# from bson import ObjectId
 from funcoes_auxiliares import conectar_mongo_portal_ispn, ajustar_altura_dataframe
 import streamlit_shadcn_ui as ui
 import plotly.express as px
@@ -41,6 +36,31 @@ df_projetos_ispn["programa_nome"] = df_projetos_ispn["programa"].map(mapa_progra
 
 
 
+######################################################################################################
+# FUNÇÕES AUXILIARES
+######################################################################################################
+
+
+# Formatando as moedas nos valores
+# Dicionário de símbolos por moeda
+moedas = {
+    "reais": "R$",
+    "real": "R$",
+    "dólares": "US$",
+    "dólar": "US$",
+    "euros": "€",  # Incluído para futuro uso
+    "euro": "€"
+}
+# Função para limpar e formatar o valor
+def formatar_valor(row):
+    moeda = moedas.get(row['moeda'].lower(), '')
+    try:
+        valor = row['valor'] if row['valor'] else 0
+        valor_num = float(str(valor).replace('.', '').replace(',', '.'))
+        valor_formatado = f"{valor_num:,.0f}".replace(",", ".")
+        return f"{moeda} {valor_formatado}"
+    except:
+        return f"{moeda} 0"
 
 
 ######################################################################################################
@@ -56,7 +76,7 @@ st.write('')
 # tab1, tab2, tab3 = st.tabs(["Visão geral", "Projeto", "Entregas"])
 tab1, tab2 = st.tabs(["Visão geral", "Projeto"])
 
-# VISÃO GERAL
+# VISÃO GERAL -------------------------------------------------------------
 with tab1:
 
     st.write('')
@@ -77,7 +97,7 @@ with tab1:
     # Filtro situação
     situacoes_disponiveis = sorted(df_projetos_ispn['status'].unique())
     # Inclui Todas como primeira opção
-    situacoes_disponiveis = ["Todas"] + situacoes_disponiveis
+    situacoes_disponiveis = ["Todos"] + situacoes_disponiveis
     # Define índice padrão como "Em andamento", se existir
     index_padrao = situacoes_disponiveis.index("Em andamento") if "Em andamento" in situacoes_disponiveis else 0
     # Selectbox com valor padrão
@@ -119,22 +139,20 @@ with tab1:
     if programa_selecionado != "Todos":
         df_projetos_ispn_filtrado = df_projetos_ispn_filtrado[df_projetos_ispn_filtrado['programa_nome'] == programa_selecionado]
 
-    if status_selecionado != "Todas":
-        st.write(status_selecionado)
+    if status_selecionado != "Todos":
         df_projetos_ispn_filtrado = df_projetos_ispn_filtrado[df_projetos_ispn_filtrado['status'] == status_selecionado]
 
 
+    # Filtro dos anos
+    # Converter anos selecionados em datas reais (01/01 e 31/12)
+    data_inicio_periodo = pd.to_datetime(f"{ano_inicio_selecionado}-01-01")
+    data_fim_periodo = pd.to_datetime(f"{ano_fim_selecionado}-12-31")
 
-    # # Filtro dos anos
-    # # Converter anos selecionados em datas reais (01/01 e 31/12)
-    # data_inicio_periodo = pd.to_datetime(f"{ano_inicio_selecionado}-01-01")
-    # data_fim_periodo = pd.to_datetime(f"{ano_fim_selecionado}-12-31")
-
-    # # Filtrar projetos que possuem qualquer interseção com esse período
-    # df_projetos_ispn_filtrado = df_projetos_ispn_filtrado[
-    #     (df_projetos_ispn_filtrado['data_fim_contrato'] >= data_inicio_periodo) &
-    #     (df_projetos_ispn_filtrado['data_inicio_contrato'] <= data_fim_periodo)
-    # ]
+    # Filtrar projetos que possuem qualquer interseção com esse período
+    df_projetos_ispn_filtrado = df_projetos_ispn_filtrado[
+        (df_projetos_ispn_filtrado['data_fim_contrato'] >= data_inicio_periodo) &
+        (df_projetos_ispn_filtrado['data_inicio_contrato'] <= data_fim_periodo)
+    ]
 
 
     # Fim dos filtros -----------------------------------
@@ -217,7 +235,7 @@ with tab1:
 
     # Lista de projetos --------------------------
     st.write('')
-    st.write('**Projetos**')
+    # st.write('**Projetos**')
 
     # Selecionando colunas pra mostrar
     df_projetos_ispn_filtrado_show = df_projetos_ispn_filtrado[['codigo', 'nome_do_projeto', 'programa_nome', 'doador_nome', 'moeda','valor', 'data_inicio_contrato', 'data_fim_contrato', 'status']]
@@ -228,26 +246,26 @@ with tab1:
     df_projetos_ispn_filtrado_show['data_fim_contrato'] = df_projetos_ispn_filtrado_show['data_fim_contrato'].dt.strftime('%d/%m/%Y')
 
 
-    # Formatando as moedas nos valores
-    # Dicionário de símbolos por moeda
-    moedas = {
-        "reais": "R$",
-        "real": "R$",
-        "dólares": "US$",
-        "dólar": "US$",
-        "euros": "€",  # Incluído para futuro uso
-        "euro": "€"
-    }
-    # Função para limpar e formatar o valor
-    def formatar_valor(row):
-        moeda = moedas.get(row['moeda'].lower(), '')
-        try:
-            valor = row['valor'] if row['valor'] else 0
-            valor_num = float(str(valor).replace('.', '').replace(',', '.'))
-            valor_formatado = f"{valor_num:,.0f}".replace(",", ".")
-            return f"{moeda} {valor_formatado}"
-        except:
-            return f"{moeda} 0"
+    # # Formatando as moedas nos valores
+    # # Dicionário de símbolos por moeda
+    # moedas = {
+    #     "reais": "R$",
+    #     "real": "R$",
+    #     "dólares": "US$",
+    #     "dólar": "US$",
+    #     "euros": "€",  # Incluído para futuro uso
+    #     "euro": "€"
+    # }
+    # # Função para limpar e formatar o valor
+    # def formatar_valor(row):
+    #     moeda = moedas.get(row['moeda'].lower(), '')
+    #     try:
+    #         valor = row['valor'] if row['valor'] else 0
+    #         valor_num = float(str(valor).replace('.', '').replace(',', '.'))
+    #         valor_formatado = f"{valor_num:,.0f}".replace(",", ".")
+    #         return f"{moeda} {valor_formatado}"
+    #     except:
+    #         return f"{moeda} 0"
     # Aplicar a função
     df_projetos_ispn_filtrado_show['valor_com_moeda'] = df_projetos_ispn_filtrado_show.apply(formatar_valor, axis=1)
 
@@ -274,23 +292,50 @@ with tab1:
     ajustar_altura_dataframe(df_projetos_ispn_filtrado_show, 1)
 
 
+
+
+
+
+# ABA PROJETO -------------------------------------------------------------------------------------
 with tab2:
     st.write('')
 
-    col1, col2, col3 = st.columns(3)
+    # Seleção do projeto
+    projetos_selectbox = [""] + sorted(df_projetos_ispn.apply(lambda row: f"{row['sigla']} - {row['nome_do_projeto']}", axis=1).tolist())
+    projeto_selecionado_concat = st.selectbox('Selecione o projeto', projetos_selectbox)
+
+    st.divider()
+
+    # Nome do projeto
+    st.subheader(projeto_selecionado_concat)
+    st.write('')
+
+    projeto_selecionado = projeto_selecionado_concat.split(" - ")[1]
     
-    projeto_selecionado = col1.selectbox('Selecione o projeto', ['Ceres', 'USAID II', 'Vale Quebradeiras'])
+    # Botão de gerenciar
+    
+    # Roteamento de tipo de usuário especial
+    if set(st.session_state.tipo_usuario) & {"admin", "gestao_projetos_doadores"}:
+    
+        with st.container(horizontal=True, horizontal_alignment='right'):
 
-    st.subheader(projeto_selecionado)
-
-    col1, col2, col3 = st.columns(3)
+            st.button('Gerenciar projeto', width=300, icon=":material/contract_edit:")
 
 
-    col3.button('Gerenciar projeto', use_container_width=True)
-
+    # Valor e contrapartida
     col1, col2 = st.columns(2)
+    
+    # ??????????????????????????
+    st.write(df_projetos_ispn)
 
-    col1.metric("**Valor:**", "R$ 5.000.000,00")
+    st.write(projeto_selecionado)
+
+    col1.metric("**Valor:**", df_projetos_ispn.loc[df_projetos_ispn['nome_do_projeto'] == projeto_selecionado, 'valor'].values[0])
+ 
+ 
+ 
+ 
+ 
     col2.metric("**Contrapartida:**", "R$ 5.000.000,00")
 
 

@@ -561,7 +561,7 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         "Observações sobre o local",
         projeto.get("observacoes_sobre_o_local", ""),
         key=f"obs_local_{form_key}",
-        placeholder="Anote aqui se é alguma localização especial, como Tera Indígena, Assentamento, Unidade de Conservação, área urbana, etc."
+        placeholder="Anote o nome do local se for alguma localização especial, como Terra Indígena, Assentamento, Unidade de Conservação, área urbana, etc."
     )
 
 
