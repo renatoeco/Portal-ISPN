@@ -650,6 +650,7 @@ def gerenciar_pessoas():
 container_botoes = st.container(horizontal=True, horizontal_alignment="right")
 
 # Botão de cadastro de novos colaboradores só para alguns tipos de usuário
+# Roteamento de tipo de usuário
 if set(st.session_state.tipo_usuario) & {"admin", "gestao_pessoas"}:
 
     # Botão para abrir o modal de cadastro
