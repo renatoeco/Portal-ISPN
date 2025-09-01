@@ -678,7 +678,7 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
     opcoes_temas = [
         "Agroecologia", "Agroextrativismo - Beneficiamento e Comercialização", "Água", "Apicultura e meliponicultura",
         "Artesanato", "Articulação", "Capacitação", "Certificação", "Conservação da biodiversidade", "Criação de animais", "Cultura",
-        "Educação Ambiental","Escola Família Agrícola", "Economia solidária", "Energia Renovável", "Fauna", "Fogo", "Gestão Territorial", 
+        "Educação Ambiental", "Escola Família Agrícola", "Economia solidária", "Energia Renovável", "Fauna", "Fogo", "Gestão Territorial", 
         "Manejo da biodiversidade", "Pesquisa", "Plantas medicinais", "Política Pública", "Recuperação de áreas degradadas", "Segurança alimentar", 
         "Sistemas Agroflorestais - SAFs", "Turismo", "Outro"
     ]

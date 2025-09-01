@@ -61,6 +61,8 @@ estatistica = db["estatistica"]  # Coleção de estatísticas
 df_doadores = pd.DataFrame(list(db["doadores"].find()))
 df_programas = pd.DataFrame(list(db["programas_areas"].find()))
 df_projetos_ispn = pd.DataFrame(list(db["projetos_ispn"].find()))
+df_pessoas = pd.DataFrame(list(db["pessoas"].find()))
+
 
 # --- 2. Criar dicionários de mapeamento ---
 mapa_doador = {d["_id"]: d["nome_doador"] for d in db["doadores"].find()}
@@ -78,9 +80,21 @@ df_projetos_ispn['valor_com_moeda'] = df_projetos_ispn.apply(formatar_valor, axi
 df_projetos_ispn['data_inicio_contrato'] = pd.to_datetime(df_projetos_ispn['data_inicio_contrato'])
 df_projetos_ispn['data_fim_contrato'] = pd.to_datetime(df_projetos_ispn['data_fim_contrato'])
 
+# st.write(len(df_projetos_ispn))
+
+# st.write(df_projetos_ispn)
 
 
+# # --- 6. Considerar apenas as linhas em que há algum valor em sigla e nome_projeto
+# # df_projetos_ispn = df_projetos_ispn[(df_projetos_ispn['sigla'].notnull()) & (df_projetos_ispn['nome_do_projeto'].notnull())]
+# df_projetos_ispn = df_projetos_ispn[
+#     (df_projetos_ispn['sigla'] == '') & 
+#     (df_projetos_ispn['nome_do_projeto'] == '')
+# ]
 
+# st.write(len(df_projetos_ispn))
+
+# st.write(df_projetos_ispn)
 
 
 
@@ -336,11 +350,19 @@ with tab2:
     projetos_selectbox = [""] + sorted(df_projetos_ispn.apply(lambda row: f"{row['sigla']} - {row['nome_do_projeto']}", axis=1).tolist())
     projeto_selecionado_concat = st.selectbox('Selecione o projeto', projetos_selectbox)
 
-    st.divider()
+
+    if projeto_selecionado_concat == "":
+        # st.write('Selecione um projeto')
+        st.stop()
+    else:
+        st.divider()
+
 
     # Nome do projeto
     st.subheader(projeto_selecionado_concat)
     st.write('')
+
+    st.write(projeto_selecionado_concat)
 
     projeto_selecionado = projeto_selecionado_concat.split(" - ")[1]
     
@@ -371,22 +393,45 @@ with tab2:
     
     # col2.metric("**Contrapartida:**", df_projetos_ispn.loc[df_projetos_ispn['nome_do_projeto'] == projeto_selecionado, f'valor_da_contrapartida_em_r$'].values[0])
 
+# ?????????????????????????????????????
+    st.write(df_projetos_ispn.head(2))
 
-    st.write('**Situação:** Em andamento')
+    # Situação
+    st.write(f'**Situação:** {df_projetos_ispn.loc[df_projetos_ispn["nome_do_projeto"] == projeto_selecionado, "status"].values[0]}')
 
-    st.write('**Nome do projeto:** Fortalecimento das comunidades do Norte de Minas Gerais')
+    # Nome do projeto
+    st.write(f'**Nome do projeto:** {df_projetos_ispn.loc[df_projetos_ispn["nome_do_projeto"] == projeto_selecionado, "nome_do_projeto"].values[0]}')
 
-    st.write('**Objetivo geral:** Fortalecer as comunidades por meio de uma sério de treinamentos relacionados a gestão das áreas protegidas por comunidades.')
+    # Objetivo geral
+    objetivo_geral = df_projetos_ispn.loc[df_projetos_ispn["nome_do_projeto"] == projeto_selecionado, "objetivo_geral"].values[0]
+    if not objetivo_geral:
+        objetivo_geral = "_Não cadastrado_"
+    st.write(f'**Objetivo geral:** {objetivo_geral}')
 
-    st.write('**Objetivos específicos:**')
+    # Datas de início e término
 
-    st.markdown('- Objetivo específico 1 \n - Objetivo específico 2 \n - Objetivo específico 3')
 
-    st.write('**Data de início:** 15/03/2023')
-    st.write('**Data de término:** 15/08/2026')
+    data_inicio = df_projetos_ispn.loc[df_projetos_ispn["nome_do_projeto"] == projeto_selecionado, "data_inicio_contrato"].dt.strftime("%d/%m/%Y").values[0]
+    data_fim = df_projetos_ispn.loc[df_projetos_ispn["nome_do_projeto"] == projeto_selecionado, "data_fim_contrato"].dt.strftime("%d/%m/%Y").values[0]
 
+    st.write(f'**Data de início:** {data_inicio}')
+    st.write(f'**Data de término:** {data_fim}')
+
+
+
+
+    # Equipe contratada
     st.write('**Equipe contratada pelo projeto:**')
     
+
+
+    # ??????????????????
+    st.write(df_pessoas.head(3))
+
+
+
+
+
     dados_equipe = {
         "Nome": ["Ana", "Pedro", "João"],
         "Início do contrato": ["15/03/2023", "15/05/2023", "15/07/2023"],
