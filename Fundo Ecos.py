@@ -6,6 +6,8 @@ from datetime import datetime
 import unicodedata
 import math
 import time
+import io
+from datetime import date
 from bson import ObjectId
 import plotly.express as px
 from folium.plugins import MarkerCluster
@@ -1622,12 +1624,41 @@ with geral:
 
 
 with lista:
+
     st.write("")
+
+    # Gera o Excel em memória
+    output = io.BytesIO()
+    df_filtrado.to_excel(output, index=False)
+    output.seek(0)
+
+    # Nome do arquivo
+    data_de_hoje = date.today().strftime("%d-%m-%Y")
 
     if set(st.session_state.tipo_usuario) & {"admin", "gestao_fundo_ecos"}:
         col1, col2, col3 = st.columns([2, 1, 1])
 
+        col2.download_button(
+            label="Baixar tabela",
+            data=output,
+            file_name=f"tabela_de_projetos_{data_de_hoje}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+            icon=":material/file_download:"
+        )
+
         col3.button("Gerenciar projetos", on_click=gerenciar_projetos, use_container_width=True, icon=":material/contract_edit:")
+
+    else:
+        col1, col2, col3 = st.columns([2, 1, 1])
+        col3.download_button(
+            label="Baixar projetos filtrados",
+            data=output,
+            file_name=f"projetos_filtrados_{data_de_hoje}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+            icon=":material/file_download:"
+        )
 
 
     # --- Ordenar Ano desc, Código asc ---
