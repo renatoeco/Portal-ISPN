@@ -66,6 +66,7 @@ div[data-testid="stDialog"] div[role="dialog"]:has(.big-dialog) {
 
 
 # Função para converter lista de códigos em lista de nomes
+@st.cache_data(ttl=600, show_spinner=False)
 def converter_codigos_para_nomes(valor):
     if not valor:
         return ""
@@ -87,7 +88,8 @@ def converter_codigos_para_nomes(valor):
         return ", ".join(nomes)
     except Exception as e:
         return valor
-    
+
+@st.cache_data(ttl=600, show_spinner=False)
 def converter_uf_codigo_para_nome(valor):
     """
     Converte um ou mais códigos de UF para seus nomes correspondentes.
@@ -575,6 +577,7 @@ def mostrar_detalhes(codigo_proj: str):
             )
 
 
+@st.cache_data(ttl=600, show_spinner=False)
 def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_ispn_dict):
     form_key = f"form_projeto_{str(projeto.get('_id', 'novo'))}"
 
@@ -1317,7 +1320,8 @@ def gerenciar_projetos():
                     time.sleep(1)
                     st.rerun()
 
-  
+
+@st.cache_data(ttl=600, show_spinner=False)
 def extrair_itens_distintos(series: pd.Series) -> pd.Series:
         """
         Recebe uma Series de strings (ex: 'Acre, Rondônia') e retorna uma Series
@@ -1337,7 +1341,8 @@ def extrair_itens_distintos(series: pd.Series) -> pd.Series:
         s = s[(s != "") & (s.str.lower() != "nan")]
         return s
         
-                   
+
+@st.cache_data(ttl=600, show_spinner=False)                   
 def parse_valor(valor):
     """Converte valor string para float, retornando 0.0 se não for possível."""
     if isinstance(valor, (int, float)):
@@ -1355,6 +1360,7 @@ def parse_valor(valor):
     return 0.0
 
 
+@st.cache_data(ttl=600, show_spinner=False)
 def normalizar(s):
     return ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn').lower()
 
