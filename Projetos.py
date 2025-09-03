@@ -4,6 +4,8 @@ import datetime
 from funcoes_auxiliares import conectar_mongo_portal_ispn, ajustar_altura_dataframe
 import streamlit_shadcn_ui as ui
 import plotly.express as px
+import time
+
 
 
 
@@ -49,6 +51,7 @@ def formatar_valor(row):
 
 db = conectar_mongo_portal_ispn()
 estatistica = db["estatistica"]  # Coleção de estatísticas
+projetos_ispn = db["projetos_ispn"]  
 
 
 
@@ -60,7 +63,7 @@ estatistica = db["estatistica"]  # Coleção de estatísticas
 # --- 1. Converter listas de documentos em DataFrames ---
 df_doadores = pd.DataFrame(list(db["doadores"].find()))
 df_programas = pd.DataFrame(list(db["programas_areas"].find()))
-df_projetos_ispn = pd.DataFrame(list(db["projetos_ispn"].find()))
+df_projetos_ispn = pd.DataFrame(list(projetos_ispn.find()))
 df_pessoas = pd.DataFrame(list(db["pessoas"].find()))
 
 
@@ -362,8 +365,6 @@ with tab2:
     st.subheader(projeto_selecionado_concat)
     st.write('')
 
-    st.write(projeto_selecionado_concat)
-
     projeto_selecionado = projeto_selecionado_concat.split(" - ")[1]
     
     # Botão de gerenciar
@@ -371,7 +372,7 @@ with tab2:
     # Roteamento de tipo de usuário especial
     if set(st.session_state.tipo_usuario) & {"admin", "gestao_projetos_doadores"}:
     
-        with st.container(horizontal=True, horizontal_alignment='right'):
+        with st.container(horizontal=True):
 
             st.button('Gerenciar projeto', width=300, icon=":material/contract_edit:")
 
@@ -389,12 +390,7 @@ with tab2:
         'valor_da_contrapartida_em_r$'
     ].values[0])
 )
-    
-    
-    # col2.metric("**Contrapartida:**", df_projetos_ispn.loc[df_projetos_ispn['nome_do_projeto'] == projeto_selecionado, f'valor_da_contrapartida_em_r$'].values[0])
-
-# ?????????????????????????????????????
-    st.write(df_projetos_ispn.head(2))
+    st.write('')
 
     # Situação
     st.write(f'**Situação:** {df_projetos_ispn.loc[df_projetos_ispn["nome_do_projeto"] == projeto_selecionado, "status"].values[0]}')
@@ -402,63 +398,307 @@ with tab2:
     # Nome do projeto
     st.write(f'**Nome do projeto:** {df_projetos_ispn.loc[df_projetos_ispn["nome_do_projeto"] == projeto_selecionado, "nome_do_projeto"].values[0]}')
 
+
     # Objetivo geral
-    objetivo_geral = df_projetos_ispn.loc[df_projetos_ispn["nome_do_projeto"] == projeto_selecionado, "objetivo_geral"].values[0]
-    if not objetivo_geral:
+    objetivo_geral = df_projetos_ispn.loc[
+        df_projetos_ispn["nome_do_projeto"] == projeto_selecionado, "objetivo_geral"
+    ].values[0]
+
+    # Verificando se é NaN ou vazio
+    if pd.isna(objetivo_geral) or objetivo_geral == "":
         objetivo_geral = "_Não cadastrado_"
+
     st.write(f'**Objetivo geral:** {objetivo_geral}')
 
+
     # Datas de início e término
-
-
     data_inicio = df_projetos_ispn.loc[df_projetos_ispn["nome_do_projeto"] == projeto_selecionado, "data_inicio_contrato"].dt.strftime("%d/%m/%Y").values[0]
     data_fim = df_projetos_ispn.loc[df_projetos_ispn["nome_do_projeto"] == projeto_selecionado, "data_fim_contrato"].dt.strftime("%d/%m/%Y").values[0]
-
     st.write(f'**Data de início:** {data_inicio}')
     st.write(f'**Data de término:** {data_fim}')
 
 
 
 
-    # Equipe contratada
+    # Equipe contratada pelo projeto
     st.write('**Equipe contratada pelo projeto:**')
-    
+
+    # 1- Obter o _id do projeto selecionado
+    projeto_id = df_projetos_ispn.loc[
+        df_projetos_ispn["nome_do_projeto"] == projeto_selecionado, "_id"
+    ].values
+    if len(projeto_id) == 0:
+        st.write("_Nenhum projeto encontrado_")
+    else:
+        projeto_id = projeto_id[0]
+
+        # 2- Filtrar pessoas que pertencem a esse projeto
+        df_equipe = df_pessoas[df_pessoas["projeto_pagador"] == projeto_id].copy()
 
 
-    # ??????????????????
-    st.write(df_pessoas.head(3))
+        if df_equipe.empty:
+            st.write("_Não há equipe cadastrada para este projeto_")
+        else:
+            # 3- Selecionar colunas que quer mostrar
+            df_equipe = df_equipe[["nome_completo", "data_inicio_contrato", "data_fim_contrato"]]  # ajuste nomes das colunas conforme seu df_pessoas
+            df_equipe.rename(columns={
+                "nome_completo": "Nome",
+                "data_inicio_contrato": "Início do contrato",
+                "data_fim_contrato": "Fim do contrato"
+            }, inplace=True)
 
+            # 4- Ordenar pelo fim do contrato e ajustar índice
+            df_equipe.sort_values(by="Fim do contrato", ascending=True, inplace=True)
+            df_equipe.index += 1
 
+            # Resetar índice e adicionar +1 ao índice
+            df_equipe.reset_index(drop=True, inplace=True)
+            df_equipe.index += 1
 
+            # 5- Exibir no Streamlit
+            st.dataframe(df_equipe)
 
-
-    dados_equipe = {
-        "Nome": ["Ana", "Pedro", "João"],
-        "Início do contrato": ["15/03/2023", "15/05/2023", "15/07/2023"],
-        "Fim do contrato": ["15/08/2026", "15/08/2024", "15/08/2025"]
-    }
-    df_equipe = pd.DataFrame(dados_equipe)
-    df_equipe.sort_values(by='Fim do contrato', ascending=True, inplace=True)
-    df_equipe.index += 1
-    st.dataframe(df_equipe)
-    # ui.table(data=df_equipe)
 
     st.write('')
 
+
+
+
+
+
+
     st.write('**Anotações:**')
 
-    # Dados em formato de lista
-    dados = [
-        ["15/03/2023", "Início do projeto", "Ana"],
-        ["15/05/2023", "Primeiro pagamento realizado", "João"],
-        ["15/07/2023", "Entrega de relatório", "Pedro"]
-    ]
+    # ====================
+    # Função do diálogo
+    # ====================
+    @st.dialog("Gerenciar Anotações")
+    def dialog_anotacoes():
+        tab1, tab2, tab3 = st.tabs([":material/add: Nova anotação", ":material/edit: Editar", ":material/delete: Apagar"])
 
-    # Transformar em DataFrame
-    df = pd.DataFrame(dados, columns=["Data", "Anotação", "Autor"])
+        # ====================
+        # ABA 1: Cadastrar
+        # ====================
+        with tab1:
+            with st.form("form_cadastrar_anotacao"):
+                # hoje = datetime.today().strftime("%d/%m/%Y")
+                hoje = datetime.datetime.today().strftime("%d/%m/%Y")
 
-    # Mostrar com ui.table
-    ui.table(data=df)
+                st.write(f"Data: {hoje}")
+
+                anotacao_texto = st.text_area("Anotação")
+
+                submit = st.form_submit_button("Salvar anotação", icon=':material/save:')
+
+                if submit:
+                    if not anotacao_texto.strip():
+                        st.warning("A anotação não pode estar vazia.")
+                    else:
+                        # Buscar _id do projeto
+                        projeto = projetos_ispn.find_one({"nome_do_projeto": projeto_selecionado})
+                        if not projeto:
+                            st.error("Projeto não encontrado no banco de dados.")
+                        else:
+                            nova_anotacao = {
+                                "data_anotacao": datetime.datetime.today(),
+                                "autor": st.session_state.get("nome", "Desconhecido"),
+                                "anotacao": anotacao_texto.strip()
+                            }
+
+                            # Atualiza o projeto adicionando a nova anotação
+                            projetos_ispn.update_one(
+                                {"_id": projeto["_id"]},
+                                {"$push": {"anotacoes": nova_anotacao}}
+                            )
+                            st.success("Anotação cadastrada com sucesso!")
+                            time.sleep(3)
+                            st.rerun()
+
+        # ====================
+        # ABA 2: Editar
+        # ====================
+        with tab2:
+            projeto = projetos_ispn.find_one({"nome_do_projeto": projeto_selecionado})
+            
+            if not projeto or "anotacoes" not in projeto or len(projeto["anotacoes"]) == 0:
+                st.write("_Não há anotações para editar._")
+            else:
+                anotacoes = projeto["anotacoes"]
+                usuario_logado = st.session_state.get("nome", "Desconhecido")
+                
+                # Criar lista de opções com apenas anotações do próprio usuário
+                opcoes = [
+                    f'{a["data_anotacao"].strftime("%d/%m/%Y") if isinstance(a["data_anotacao"], datetime.datetime) else a["data_anotacao"]} - {a["anotacao"][:30]}...'
+                    for a in anotacoes if a.get("autor") == usuario_logado
+                ]
+                
+                if not opcoes:
+                    st.write("_Você não possui anotações para editar._")
+                else:
+                    # Adiciona opção vazia no início
+                    opcoes_com_vazio = [""] + opcoes
+                    
+                    # Selecionar anotação (valor padrão vazio)
+                    selecionada = st.selectbox(
+                        "Selecione a anotação para editar",
+                        options=opcoes_com_vazio,
+                        index=0
+                    )
+                    
+                    if selecionada:  # só prosseguir se o usuário selecionar algo
+                        # Índice real dentro da lista completa de anotações
+                        index = [i for i, a in enumerate(anotacoes) if a.get("autor") == usuario_logado][opcoes.index(selecionada)]
+                        anotacao_atual = anotacoes[index]["anotacao"]
+                        
+                        # Campo para editar
+                        nova_texto = st.text_area("Editar anotação", value=anotacao_atual)
+                        
+                        if st.button("Salvar alterações", icon=":material/save:"):
+                            if not nova_texto.strip():
+                                st.warning("A anotação não pode ficar vazia.")
+                            else:
+                                # Atualizar a anotação no MongoDB
+                                projetos_ispn.update_one(
+                                    {"_id": projeto["_id"]},
+                                    {"$set": {f"anotacoes.{index}.anotacao": nova_texto.strip()}}
+                                )
+                                st.success("Anotação editada com sucesso!")
+                                time.sleep(3)  # pausa antes do rerun
+                                st.rerun()
+
+
+
+
+        # ====================
+        # ABA 3: Apagar
+        # ====================
+        with tab3:
+            projeto = projetos_ispn.find_one({"nome_do_projeto": projeto_selecionado})
+            usuario_logado = st.session_state.get("nome", "Desconhecido")
+            
+            if not projeto or "anotacoes" not in projeto or len(projeto["anotacoes"]) == 0:
+                st.write("_Não há anotações para apagar._")
+            else:
+                anotacoes = projeto["anotacoes"]
+                
+                # Lista apenas anotações do próprio usuário
+                opcoes = [
+                    f'{a["data_anotacao"].strftime("%d/%m/%Y") if isinstance(a["data_anotacao"], datetime.datetime) else a["data_anotacao"]} - {a["anotacao"][:30]}...'
+                    for a in anotacoes if a.get("autor") == usuario_logado
+                ]
+                
+                if not opcoes:
+                    st.write("_Você não possui anotações para apagar._")
+                else:
+                    # Adiciona opção vazia no início
+                    opcoes_com_vazio = [""] + opcoes
+                    
+                    selecionada = st.selectbox(
+                        "Selecione a anotação para apagar",
+                        options=opcoes_com_vazio,
+                        index=0  # valor padrão vazio
+                    )
+                    
+                    if selecionada:  # só prosseguir se o usuário selecionar algo
+                        # Índice real dentro da lista completa de anotações
+                        index = [i for i, a in enumerate(anotacoes) if a.get("autor") == usuario_logado][opcoes.index(selecionada)]
+                        
+                        # Passo de confirmação
+                        st.warning("Você tem certeza que deseja apagar essa anotação?")
+                        if st.button("Sim, apagar anotação", key="confirm_delete", icon=":material/check:"):
+                            # Remover a anotação pelo índice
+                            projetos_ispn.update_one(
+                                {"_id": projeto["_id"]},
+                                {"$unset": {f"anotacoes.{index}": 1}}
+                            )
+                            # Remover o elemento "vazio" deixado pelo $unset
+                            projetos_ispn.update_one(
+                                {"_id": projeto["_id"]},
+                                {"$pull": {"anotacoes": None}}
+                            )
+                            st.success("Anotação apagada com sucesso!")
+                            time.sleep(3)
+                            st.rerun()
+
+
+
+
+    # ====================
+    # Botão para abrir o diálogo
+    # ====================
+    
+    with st.container(horizontal=True):
+        if st.button("Gerenciar anotações", icon=":material/edit:", width=300):
+            dialog_anotacoes()
+
+
+    # ====================
+    # Mostrar as anotações existentes
+    # ====================
+    projeto = projetos_ispn.find_one({"nome_do_projeto": projeto_selecionado})
+    if projeto and "anotacoes" in projeto:
+        anotacoes = [
+            [a["data_anotacao"].strftime("%d/%m/%Y") if isinstance(a["data_anotacao"], datetime.datetime) else a["data_anotacao"],
+            a["anotacao"],
+            a.get("autor", "Desconhecido")]
+            for a in projeto["anotacoes"]
+        ]
+        df = pd.DataFrame(anotacoes, columns=["Data", "Anotação", "Autor"])
+        ui.table(data=df)
+    else:
+        st.write("_Não há anotações cadastradas para este projeto._")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    # # Dados em formato de lista
+    # anotacoes = [
+    #     ["15/03/2023", "Início do projeto", "Ana"],
+    #     ["15/05/2023", "Primeiro pagamento realizado", "João"],
+    #     ["15/07/2023", "Entrega de relatório", "Pedro"]
+    # ]
+
+    # # Transformar em DataFrame
+    # df = pd.DataFrame(anotacoes, columns=["Data", "Anotação", "Autor"])
+
+    # # Mostrar com ui.table
+    # ui.table(data=df)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # with tab3:
 
