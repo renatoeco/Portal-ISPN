@@ -577,7 +577,7 @@ def mostrar_detalhes(codigo_proj: str):
             )
 
 
-@st.cache_data(ttl=600, show_spinner=False)
+# @st.cache_data(ttl=600, show_spinner=False)
 def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_ispn_dict):
     form_key = f"form_projeto_{str(projeto.get('_id', 'novo'))}"
 
@@ -638,6 +638,7 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
 
     # Linha 0 - Status
     col1, col2, col3 = st.columns([1,1,3])
+
 
     # Campos comuns
     opcoes_status = ["Em andamento", "Finalizado", "Cancelado"]
