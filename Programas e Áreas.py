@@ -2,7 +2,8 @@ import streamlit as st
 import pandas as pd
 from funcoes_auxiliares import conectar_mongo_portal_ispn
 from pymongo import UpdateOne
-
+import datetime
+import plotly.express as px
 
 st.set_page_config(layout="wide")
 st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
@@ -15,13 +16,20 @@ st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
 
 db = conectar_mongo_portal_ispn()
 estatistica = db["estatistica"]  # Coleção de estatísticas
+
 programas_areas = db["programas_areas"]
 projetos_ispn = db["projetos_ispn"] 
 doadores = db["doadores"]
-# projetos_pj = db["projetos_pj"] 
-# projetos_pf = db["projetos_pf"]  
 colaboradores_raw = list(db["pessoas"].find())
 
+# Carrega todos os projetos ISPN
+dados_projetos_ispn = list(projetos_ispn.find())
+
+# Carrega todos os programas
+dados_programas = list(programas_areas.find())
+
+# Carrega todos os doadores
+dados_doadores = list(doadores.find())
 
 ######################################################################################################
 # FUNÇÕES
@@ -42,21 +50,48 @@ def formatar_valor(valor_bruto, moeda_bruta):
     except Exception:
         return f"{moeda} 0"
 
-
-######################################################################################################
-# MAIN
-######################################################################################################
-
-
-# Buscando todos os documentos da coleção programas_areas
-dados_programas = list(programas_areas.find())
-
+# id para nome de programa
 mapa_id_para_nome_programa = {
     str(p["_id"]): p.get("nome_programa_area", "Não informado")
     for p in dados_programas
 }
 
-# Verifica se há programas sem coordenador
+# colaborador id para nome
+colaborador_id_para_nome = {
+    str(col["_id"]): col.get("nome_completo", "Não encontrado")
+    for col in colaboradores_raw
+}
+
+# id para sigla de projeto
+mapa_id_para_sigla_projeto = {
+    str(p["_id"]): p.get("sigla", "Não informado")
+    for p in dados_projetos_ispn
+}
+
+# doador id para nome
+mapa_doador_id_para_nome = {
+    str(d["_id"]): d.get("nome_doador", "Não informado")
+    for d in dados_doadores
+}
+
+# Dicionário de símbolos por moeda
+moedas = {
+    "reais": "R$",
+    "real": "R$",
+    "dólares": "US$",
+    "dólar": "US$",
+    "euros": "€",
+    "euro": "€"
+}
+
+######################################################################################################
+# TRATAMENTO DOS DADOS
+######################################################################################################
+
+
+
+# Verifica se há programas sem coordenador e completa ---------------------------------
+
 programas_sem_coordenador = [
     prog for prog in dados_programas if not prog.get("coordenador_id")
 ]
@@ -85,14 +120,15 @@ if programas_sem_coordenador:
     # Executa as atualizações em lote
     if atualizacoes:
         resultado = programas_areas.bulk_write(atualizacoes)
-        st.success(f"{resultado.modified_count} programa(s) atualizado(s) com coordenador_id.")
-    else:
-        st.info("Programas sem coordenador encontrados, mas nenhum coordenador correspondente foi localizado.")
+    #     st.success(f"{resultado.modified_count} programa(s) atualizado(s) com coordenador_id.")
+    # else:
+    #     st.info("Programas sem coordenador encontrados, mas nenhum coordenador correspondente foi localizado.")
 
-colaborador_id_para_nome = {
-    str(col["_id"]): col.get("nome_completo", "Não encontrado")
-    for col in colaboradores_raw
-}
+
+
+
+
+# PREPARAÇÃO DOS DADOS PARA MONTAR AS ABAS
 
 # Lista com nomes dos coordenadores, para filtrar da equipe
 nomes_coordenadores = set()
@@ -122,7 +158,8 @@ for doc in dados_programas:
         lista_programas.append({
             "titulo": programa.get("nome_programa_area", "Sem título"),
             "coordenador": nome_coordenador,
-            "genero_coordenador": genero_coordenador
+            "genero_coordenador": genero_coordenador,
+            "id": str(programa.get("_id", ""))
         })
 
 # Remove "Anterior aos programas"
@@ -131,8 +168,13 @@ lista_programas = [item for item in lista_programas if item["titulo"] != "Anteri
 # Move "Coordenação" para o início, se existir
 lista_programas.sort(key=lambda x: 0 if x["titulo"] == "Coordenação" else 1)
 
-
 titulos_abas = [p['titulo'] for p in lista_programas if p.get('titulo')]
+
+
+
+
+
+# PREPARAÇÃO DOS DADOS PARA MONTAR A EQUIPE
 
 lista_equipe = []
 
@@ -142,9 +184,9 @@ for colab_doc in colaboradores_raw:
 
     nome = colab_doc.get("nome_completo", "Desconhecido")
 
-    # Ignora coordenadores
-    if nome in nomes_coordenadores:
-        continue
+    # # Ignora coordenadores
+    # if nome in nomes_coordenadores:
+    #     continue
 
     genero = colab_doc.get("gênero", "")
     
@@ -153,17 +195,48 @@ for colab_doc in colaboradores_raw:
 
     projeto_pagador = colab_doc.get("projeto_pagador", "")
 
+    projeto_pagador_sigla = mapa_id_para_sigla_projeto.get(str(projeto_pagador), "Não informado")
+
+    data_inicio_contrato = colab_doc.get("data_inicio_contrato")
+    data_fim_contrato = colab_doc.get("data_fim_contrato")
+
+    if isinstance(data_inicio_contrato, datetime.datetime):
+        data_inicio_contrato = data_inicio_contrato.strftime("%d/%m/%Y")
+
+    if isinstance(data_fim_contrato, datetime.datetime):
+        data_fim_contrato = data_fim_contrato.strftime("%d/%m/%Y")
+
     lista_equipe.append({
         "Nome": nome,
         "Gênero": genero,
         "Programa": programa_area,
-        "Projeto": projeto_pagador
+        "Projeto": projeto_pagador_sigla,
+        "data_inicio_contrato": data_inicio_contrato,
+        "data_fim_contrato": data_fim_contrato
     })
 
+# Dataframe de equipe
 df_equipe = pd.DataFrame(lista_equipe)
 
-# Cria o DataFrame para exibição com coluna "Projetos" vazia
-df_equipe_exibir = df_equipe[["Nome", "Gênero", "Projeto"]].copy()
+# Ordena em ordem alfabética por nome
+df_equipe = df_equipe.sort_values(by="Nome")
+
+# Cria o DataFrame para exibição com coluna "Projetos"
+df_equipe_exibir = df_equipe[["Nome", "Gênero", "Projeto", "data_inicio_contrato", "data_fim_contrato"]].copy()
+
+df_equipe_exibir = df_equipe_exibir.rename(columns={
+    "data_inicio_contrato": "Início do contrato",
+    "data_fim_contrato": "Fim do contrato"
+})
+
+
+
+
+
+
+# #############################################
+# Início da Interface
+# #############################################
 
 
 st.header("Programas e Áreas")
@@ -172,77 +245,137 @@ st.write("")
 
 abas = st.tabs(titulos_abas)
 
-# Carrega todos os projetos ISPN
-dados_projetos_ispn = list(projetos_ispn.find())
 
-# Carrega todos os doadores
-dados_doadores = list(doadores.find())
-mapa_doador_id_para_nome = {
-    str(d["_id"]): d.get("nome_doador", "Não informado")
-    for d in dados_doadores
-}
-
-# Dicionário de símbolos por moeda
-moedas = {
-    "reais": "R$",
-    "real": "R$",
-    "dólares": "US$",
-    "dólar": "US$",
-    "euros": "€",
-    "euro": "€"
-}
-
+# Cria a aba para cada programa ------------------------------
 for i, aba in enumerate(abas):
     with aba:
+
         programa = lista_programas[i]
         titulo_programa = programa['titulo']
-        id_programa = dados_programas[i].get("_id") 
+        id_programa = programa['id'] 
 
+        # Filtra o df_equipe para o programa atual
 
         # Filtra no df original (que tem a coluna 'Programa')
         df_equipe_filtrado = df_equipe[df_equipe['Programa'] == titulo_programa].copy()
 
         # Para exibir, pega só as linhas do df_equipe_exibir correspondentes
-        df_exibir_filtrado = df_equipe_exibir.loc[df_equipe_filtrado.index].copy()
+        df_equipe_exibir_filtrado = df_equipe_exibir.loc[df_equipe_filtrado.index].copy()
+        df_equipe_exibir_filtrado.index = range(1, len(df_equipe_exibir_filtrado) + 1)
 
-        df_exibir_filtrado.index = range(1, len(df_exibir_filtrado) + 1)
-
-        st.subheader(f"{titulo_programa}")
-        
+        # Prepara genero e prefixo só pra pronomes de tratamento na tela
         genero = programa['genero_coordenador']
         prefixo = "Coordenador" if genero == "Masculino" else "Coordenadora" if genero == "Feminino" else "Coordenador(a)"
-        st.write(f"**{prefixo}:** {programa['coordenador']}")
 
         st.write("")
-        st.write('**Equipe**:')
-        st.write(f'{len(df_exibir_filtrado)} colaboradores(as):')
-        st.dataframe(df_exibir_filtrado, hide_index=True)
+
+        col1, col2 = st.columns([2, 1])
+
+        with col1:
+            
+            # Nome do programa
+            st.subheader(f"{titulo_programa}")
+            
+            # Coordenador(a)
+            st.write(f"**{prefixo}:** {programa['coordenador']}")
+
+
+
+
+            # Equipe --------------------------------------------------------------------------
+            st.write('')
+            st.markdown('#### **Equipe**')
+            st.write(f'{len(df_equipe_exibir_filtrado)} colaboradores(as):')
+
+        with col2:
+
+            # Gráfico de pizza por gênero
+            cores = {
+                "Masculino": "#ADD8E6",    # azul claro
+                "Feminino": "#FFC0CB",     # rosa claro
+                "Não binário": "#C6F4D6",  # verde claro
+                "Outro": "#F5F5DC",        # bege claro
+            }
+
+            fig = px.pie(
+                df_equipe_exibir_filtrado,
+                names='Gênero',
+                values=None,        # opcional, pode usar contagem automática
+                color='Gênero',     # <-- necessário para que color_discrete_map funcione
+                color_discrete_map=cores,
+                # diminuir o tamanho do gráfico
+                width=250,
+                height=250
+            )
+
+            st.plotly_chart(fig)
+
+
+
+        # Tebela de colaboradores
+        st.dataframe(df_equipe_exibir_filtrado, hide_index=True)
+
+
+        # Gráfico timeline de contratos de pessoas
+
+        # Ordenar por ordem decrescente de data_fim_contrato
+        df_equipe_exibir_filtrado = df_equipe_exibir_filtrado.sort_values(by='Fim do contrato', ascending=False)
+
+        # Tentando calcular a altura do gráfico dinamicamente
+        altura_base = 300  # altura mínima
+        altura_extra = sum([10 / (1 + i * 0.01) for i in range(len(df_equipe_exibir_filtrado))])
+        altura = int(altura_base + altura_extra)
+        
+        df_equipe_exibir_filtrado['Início do contrato'] = pd.to_datetime(df_equipe_exibir_filtrado['Início do contrato'], dayfirst=True)
+        df_equipe_exibir_filtrado['Fim do contrato'] = pd.to_datetime(df_equipe_exibir_filtrado['Fim do contrato'], dayfirst=True)
+        fig = px.timeline(
+            df_equipe_exibir_filtrado,
+            x_start="Início do contrato",
+            x_end="Fim do contrato",
+            y="Nome",
+            color="Projeto",
+            hover_data=["Projeto"],
+            height=altura
+        )
+        fig.update_layout(
+            yaxis_title=None,
+        )
+        fig.add_vline(x=datetime.date.today(), line_width=1, line_dash="dash", line_color="gray")
+        st.plotly_chart(fig)
 
         st.divider()
 
-        # PROJETOS
+
+
+
+
+
+        # PROJETOS #################################################################################################
 
         st.write('')
-        st.write('**Projetos:**')
+        st.markdown("#### **Projetos**")
 
         col1, col2, col3 = st.columns(3)
         situacao_filtro = col1.selectbox(
             "Situação",
             ["Todos", "Em andamento", "Finalizado", ""],
+            index=1,
             key=f"situacao_{i}"
         )
 
         # Filtra os projetos ligados ao programa atual pelo ID do programa
         projetos_do_programa = [
             p for p in dados_projetos_ispn
-            if p.get("programa") == id_programa
+            if str(p.get("programa")) == str(id_programa)
         ]
+
 
         # Ordena por código
         projetos_do_programa_ordenados = sorted(
             projetos_do_programa,
             key=lambda p: p.get("codigo", "")
         )
+
 
         # Aplica o filtro de situação
         if situacao_filtro != "Todos":
@@ -294,11 +427,62 @@ for i, aba in enumerate(abas):
 
             st.dataframe(df_projetos, hide_index=True)
         else:
-            st.info("Nenhum projeto vinculado a este programa/área.")
+            # cria o df_projetos vazio
+            df_projetos = pd.DataFrame({
+                "Código": [],
+                "Nome do projeto": [],
+                "Início": [],
+                "Fim": [],
+                "Valor": [],
+                "Doador": [],
+                "Situação": []
+            })
+            st.info("Nenhum projeto")
 
 
 
-        st.divider()
+        if not df_projetos.empty:
+            # Gráfico timeline com plotly express, com um projeto por linha
+
+            # Tentando calcular a altura do gráfico dinamicamente
+            altura_base = 300  # altura mínima
+            altura_extra = sum([10 / (1 + i * 0.01) for i in range(len(df_projetos))])
+            altura = int(altura_base + altura_extra)
+
+            # Converte para datetime
+            df_projetos['Início'] = pd.to_datetime(df_projetos['Início'], dayfirst=True)
+            df_projetos['Fim'] = pd.to_datetime(df_projetos['Fim'], dayfirst=True)
+
+            # Ordena os projetos em ordem decrescente da data de fim do contrato
+            df_projetos = df_projetos.sort_values(by='Fim', ascending=False)
+
+            fig = px.timeline(
+                df_projetos,
+                x_start="Início",
+                x_end="Fim",
+                y="Código",
+                color="Situação",
+                hover_data=["Código"],
+                height=altura
+            )
+            fig.update_layout(
+                yaxis_title=None,
+            )
+            fig.add_vline(x=datetime.date.today(), line_width=1, line_dash="dash", line_color="gray")
+            st.plotly_chart(fig, key=f"timeline_{i}")
+
+
+
+        # st.divider()
+
+
+
+        # REDES E ARTICULAÇÕES DO PROGRAMA
+
+
+
+
+
 
         # INDICADORES DO PROGRAMA
         # st.write('')
