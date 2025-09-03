@@ -80,8 +80,16 @@ df_projetos_ispn['valor_com_moeda'] = df_projetos_ispn.apply(formatar_valor, axi
 
 
 # --- 5. Converter datas para datetime
-df_projetos_ispn['data_inicio_contrato'] = pd.to_datetime(df_projetos_ispn['data_inicio_contrato'])
-df_projetos_ispn['data_fim_contrato'] = pd.to_datetime(df_projetos_ispn['data_fim_contrato'])
+df_projetos_ispn['data_inicio_contrato'] = pd.to_datetime(
+    df_projetos_ispn['data_inicio_contrato'], format="%d/%m/%Y", errors="coerce"
+)
+df_projetos_ispn['data_fim_contrato'] = pd.to_datetime(
+    df_projetos_ispn['data_fim_contrato'], format="%d/%m/%Y", errors="coerce"
+)
+
+
+# df_projetos_ispn['data_inicio_contrato'] = pd.to_datetime(df_projetos_ispn['data_inicio_contrato'])
+# df_projetos_ispn['data_fim_contrato'] = pd.to_datetime(df_projetos_ispn['data_fim_contrato'])
 
 # st.write(len(df_projetos_ispn))
 
@@ -285,8 +293,19 @@ with tab1:
 
     
     # Formatando as datas
-    df_projetos_ispn_filtrado_show['data_inicio_contrato'] = df_projetos_ispn_filtrado_show['data_inicio_contrato'].dt.strftime('%d/%m/%Y')
-    df_projetos_ispn_filtrado_show['data_fim_contrato'] = df_projetos_ispn_filtrado_show['data_fim_contrato'].dt.strftime('%d/%m/%Y')
+    df_projetos_ispn_filtrado_show = df_projetos_ispn_filtrado_show.copy()
+
+    df_projetos_ispn_filtrado_show['data_inicio_contrato'] = (
+        df_projetos_ispn_filtrado_show['data_inicio_contrato'].dt.strftime('%d/%m/%Y')
+    )
+    df_projetos_ispn_filtrado_show['data_fim_contrato'] = (
+        df_projetos_ispn_filtrado_show['data_fim_contrato'].dt.strftime('%d/%m/%Y')
+    )
+
+
+
+    # df_projetos_ispn_filtrado_show['data_inicio_contrato'] = df_projetos_ispn_filtrado_show['data_inicio_contrato'].dt.strftime('%d/%m/%Y')
+    # df_projetos_ispn_filtrado_show['data_fim_contrato'] = df_projetos_ispn_filtrado_show['data_fim_contrato'].dt.strftime('%d/%m/%Y')
 
 
 
