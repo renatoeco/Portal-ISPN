@@ -252,7 +252,7 @@ else:
     qtd_sem_status = len(noticias_sem_status)
 
     if qtd_sem_status > 0:
-        st.warning(f"{qtd_sem_status} notícia(s) precisam ser triadas.", icon=":material/warning:")
+        st.warning(f"{qtd_sem_status} notícia(s) aguardando triagem.", icon=":material/warning:")
 
     st.write("")
 
