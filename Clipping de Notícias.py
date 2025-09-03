@@ -367,7 +367,13 @@ else:
             height=220
         )
 
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, 
+                        use_container_width=True,
+                        config={
+                            "displayModeBar": False,  # remove a barra de ferramentas
+                            "staticPlot": True        # torna o gráfico 100% estático
+                        }
+                        )
 
 
     # TABELA ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////// 
