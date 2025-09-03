@@ -85,7 +85,7 @@ def gerenciar_pessoas():
     # Aba para cadastrar novo colaborador
     with aba_cadastrar:
         # Formulário para cadastro, limpa os campos após envio
-        with st.form("form_cadastro_colaborador", clear_on_submit=True):
+        with st.form("form_cadastro_colaborador", clear_on_submit=True, border=False):
             st.write('**Novo(a) colaborador(a):**')
 
             # Layout com colunas para inputs lado a lado
@@ -114,12 +114,24 @@ def gerenciar_pessoas():
             # E-mail
             email = col3.text_input("E-mail:")
 
-            col1, col2 = st.columns([1, 1])
+            col1, col2, col3 = st.columns([1, 1, 1])
+            
+            opcoes_cargos = [
+                "Analista de advocacy", "Analista de comunicação", "Analista de dados", "Analista Administrativo/Financeiro",
+                "Analista de Recursos Humanos", "Analista socioambiental", "Analista socioambiental pleno", "Analista socioambiental sênior",
+                "Assessora de advocacy", "Assessor de Comunicação", "Auxiliar de Serviços Gerais", "Auxiliar Administrativo/financeiro",
+                "Assistente Administrativo/financeiro", "Assistente socioambiental", "Coordenador Administrativo/financeiro de escritório",
+                "Coordenador Geral administrativo/financeiro", "Coordenador Executivo", "Coordenador de Área", "Coordenador de Programa",
+                "Motorista", "Secretária(o)/Recepcionista", "Técnico de campo", "Técnico em informática"
+            ]
+
+            
+            cargo = col1.selectbox("Cargo:", opcoes_cargos, index=None, placeholder="")
 
             # Programa / Área
             # Lista ordenada dos programas/áreas para seleção
             lista_programas_areas = sorted(nome_para_id_programa.keys())
-            programa_area_nome = col1.selectbox("Programa / Área:", lista_programas_areas, index=None, placeholder="")
+            programa_area_nome = col2.selectbox("Programa / Área:", lista_programas_areas, index=None, placeholder="")
             programa_area = nome_para_id_programa.get(programa_area_nome)
 
 
@@ -137,7 +149,7 @@ def gerenciar_pessoas():
             # Extrai nomes únicos dos coordenadores ordenados
             nomes_coordenadores = sorted({c["nome"] for c in coordenadores_possiveis})
             # Seleção do nome do coordenador no formulário
-            coordenador = col2.selectbox("Nome do(a) coordenador(a):", nomes_coordenadores, index=None, placeholder="")
+            coordenador = col3.selectbox("Nome do(a) coordenador(a):", nomes_coordenadores, index=None, placeholder="")
 
             # Por fim, pega o id do coordenador
             coordenador_id = None
@@ -304,6 +316,7 @@ def gerenciar_pessoas():
                         "gênero": genero,
                         "senha": "",
                         "tipo de usuário": "",
+                        "cargo": cargo,
                         "programa_area": programa_area,
                         "banco": {
                             "nome_banco": nome_banco,
