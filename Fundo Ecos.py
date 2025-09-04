@@ -910,7 +910,7 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         # Data início
         data_inicio_date = col2.date_input(
             "Data início do contrato*",
-            value=datetime.strptime(projeto.get("data_inicio_do_contrato", ""), "%d/%m/%Y").date()
+            value=datetime.datetime.strptime(projeto.get("data_inicio_do_contrato", ""), "%d/%m/%Y").date()
             if projeto.get("data_inicio_do_contrato") else None,
             format="DD/MM/YYYY"
         )
@@ -919,7 +919,7 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         # Data fim
         data_fim_date = col3.date_input(
             "Data fim do contrato*",
-            value=datetime.strptime(projeto.get("data_final_do_contrato", ""), "%d/%m/%Y").date()
+            value=datetime.datetime.strptime(projeto.get("data_final_do_contrato", ""), "%d/%m/%Y").date()
             if projeto.get("data_final_do_contrato") else None,
             format="DD/MM/YYYY"
         )
@@ -928,7 +928,7 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         # Data relatório
         data_relatorio_date = col4.date_input(
             "Data relatório final",
-            value=datetime.strptime(projeto.get("data_relatorio_monitoramento_final", ""), "%d/%m/%Y").date()
+            value=datetime.datetime.strptime(projeto.get("data_relatorio_monitoramento_final", ""), "%d/%m/%Y").date()
             if projeto.get("data_relatorio_monitoramento_final") else None,
             format="DD/MM/YYYY"
         )
@@ -1089,27 +1089,17 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
     else:
         index_ajustado = 0  # opção vazia selecionada por padrão
 
+    programa_key = f"programa_{str(projeto.get('_id', 'novo'))}"
     programa = col2.selectbox(
         "Programa*",
         options=opcoes_programa,
         format_func=lambda x: programas_options.get(x, "") if x else "",  # mostra vazio para a opção ""
         index=index_ajustado,
-        placeholder="Selecione..."
+        placeholder="Selecione...",
+        key=programa_key
     )
 
 
-
-
-
-
-
-    # programa = col2.selectbox(
-    #     "Programa*",
-    #     options=programa_keys,
-    #     format_func=lambda x: programas_options.get(x, ""),
-    #     index=programa_keys.index(programa_default) if programa_default in programa_keys else 0,
-    #     placeholder=""
-    # )
 
     projetos_pai_options = {
         str(k): v for k, v in projetos_ispn_dict.items() if v.strip()
