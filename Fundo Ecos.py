@@ -972,7 +972,8 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         "Moeda*",
         options=opcoes_moeda,
         index=opcoes_moeda.index(moeda_valor) if moeda_valor in opcoes_moeda else 0,
-        placeholder=""
+        placeholder="",
+        key=f"moeda_{form_key}"
     )
 
     # --- Valor ---
