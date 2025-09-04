@@ -320,7 +320,7 @@ def login():
                         st.session_state["id_usuario"] = usuario_encontrado.get("_id")
                         st.rerun()
                     else:
-                        st.error("E-mail ou senha inválidos!")
+                        st.error("E-mail ou senha inválidos!", width=300)
 
             # Botão para recuperar senha
             st.write('')

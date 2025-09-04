@@ -794,6 +794,7 @@ def gerenciar_lancamentos():
 st.header("Indicadores")
 st.write('')
 
+# Roteamento de tipo de usuário
 if set(st.session_state.tipo_usuario) & {"admin", "gestao_fundo_ecos"}:
     col1, col2, col3 = st.columns([2, 2, 1])
     col3.button("Gerenciar lançamentos", on_click=gerenciar_lancamentos, use_container_width=True, icon=":material/stylus_note:")
@@ -904,7 +905,7 @@ with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
                 placeholder=""
             )
 
-        aplicar = st.form_submit_button("Aplicar filtros", icon=":material/check:")
+        aplicar = st.form_submit_button("Aplicar filtros", icon=":material/check:", type="primary")
 
     # Atualiza session_state só ao clicar
     if aplicar:

@@ -75,9 +75,9 @@ def gerenciar_pessoas():
     nome_para_id_programa = {p["nome_programa_area"]: p["_id"] for p in dados_programas}
     id_para_nome_programa = {p["_id"]: p["nome_programa_area"] for p in dados_programas}
 
-    # Mapeia nomes de projeto <-> ObjectId
-    nome_para_id_projeto = {p["codigo"]: p["_id"] for p in dados_projetos_ispn}
-    id_para_nome_projeto = {p["_id"]: p["codigo"] for p in dados_projetos_ispn}
+    # Mapeia codigo de projeto <-> ObjectId
+    nome_para_id_projeto = {p["nome_do_projeto"]: p["_id"] for p in dados_projetos_ispn}
+    id_para_nome_projeto = {p["_id"]: p["nome_do_projeto"] for p in dados_projetos_ispn}
     
     # Cria duas abas: cadastro e edição
     aba_cadastrar, aba_editar = st.tabs([":material/person_add: Cadastrar novo(a)", ":material/edit: Editar"])
@@ -85,7 +85,7 @@ def gerenciar_pessoas():
     # Aba para cadastrar novo colaborador
     with aba_cadastrar:
         # Formulário para cadastro, limpa os campos após envio
-        with st.form("form_cadastro_colaborador", clear_on_submit=True):
+        with st.form("form_cadastro_colaborador", clear_on_submit=True, border=False):
             st.write('**Novo(a) colaborador(a):**')
 
             # Layout com colunas para inputs lado a lado
@@ -106,7 +106,7 @@ def gerenciar_pessoas():
             col1, col2, col3 = st.columns([1, 2, 2])
             
             # Data de nascimento
-            data_nascimento = col1.text_input("Data de nascimento:", placeholder="dd/mm/aaaa")
+            data_nascimento = col1.date_input("Data de nascimento:", format="DD/MM/YYYY", value=None)
             
             # Telefone
             telefone = col2.text_input("Telefone:")
@@ -114,12 +114,24 @@ def gerenciar_pessoas():
             # E-mail
             email = col3.text_input("E-mail:")
 
-            col1, col2 = st.columns([1, 1])
+            col1, col2, col3 = st.columns([1, 1, 1])
+            
+            opcoes_cargos = [
+                "Analista de advocacy", "Analista de comunicação", "Analista de dados", "Analista Administrativo/Financeiro",
+                "Analista de Recursos Humanos", "Analista socioambiental", "Analista socioambiental pleno", "Analista socioambiental sênior",
+                "Assessora de advocacy", "Assessor de Comunicação", "Auxiliar de Serviços Gerais", "Auxiliar Administrativo/financeiro",
+                "Assistente Administrativo/financeiro", "Assistente socioambiental", "Coordenador Administrativo/financeiro de escritório",
+                "Coordenador Geral administrativo/financeiro", "Coordenador Executivo", "Coordenador de Área", "Coordenador de Programa",
+                "Motorista", "Secretária(o)/Recepcionista", "Técnico de campo", "Técnico em informática"
+            ]
+
+            
+            cargo = col1.selectbox("Cargo:", opcoes_cargos, index=None, placeholder="")
 
             # Programa / Área
             # Lista ordenada dos programas/áreas para seleção
             lista_programas_areas = sorted(nome_para_id_programa.keys())
-            programa_area_nome = col1.selectbox("Programa / Área:", lista_programas_areas, index=None, placeholder="")
+            programa_area_nome = col2.selectbox("Programa / Área:", lista_programas_areas, index=None, placeholder="")
             programa_area = nome_para_id_programa.get(programa_area_nome)
 
 
@@ -137,7 +149,7 @@ def gerenciar_pessoas():
             # Extrai nomes únicos dos coordenadores ordenados
             nomes_coordenadores = sorted({c["nome"] for c in coordenadores_possiveis})
             # Seleção do nome do coordenador no formulário
-            coordenador = col2.selectbox("Nome do(a) coordenador(a):", nomes_coordenadores, index=None, placeholder="")
+            coordenador = col3.selectbox("Nome do(a) coordenador(a):", nomes_coordenadores, index=None, placeholder="")
 
             # Por fim, pega o id do coordenador
             coordenador_id = None
@@ -152,6 +164,12 @@ def gerenciar_pessoas():
             lista_projetos = sorted({p["nome_do_projeto"] for p in dados_projetos_ispn if p.get("nome_do_projeto", "") != ""})
             projeto_pagador_nome = st.selectbox("Contratado(a) pelo projeto:", lista_projetos, index=None)
             projeto_pagador = nome_para_id_projeto.get(projeto_pagador_nome)
+
+            # Datas de início e fim de contrato
+            with st.container(horizontal=True):
+                inicio_contrato = st.date_input("Data de início do contrato:", format="DD/MM/YYYY", value=None)
+                fim_contrato = st.date_input("Data de fim do contrato:", format="DD/MM/YYYY", value=None)
+
 
             st.markdown("---")
             
@@ -284,17 +302,7 @@ def gerenciar_pessoas():
                     st.warning("Preencha os campos obrigatórios.")
                 
                 else:
-                    # # Busca coordenador pelo nome e programa selecionados
-                    # coordenador = next((
-                    #     c for c in coordenadores_possiveis
-                    #     if c["nome"] == nome_coordenador and c["programa"] == programa_area
-                    # ), None)
-
-                    # # Se coordenador não encontrado, mostra aviso
-                    # if not coordenador:
-                    #     st.warning("Coordenador não encontrado para o nome e programa selecionados.")
-                    #     # return
-
+ 
                     # Ano atual para armazenar dados de férias
                     ano_atual = str(datetime.now().year)
 
@@ -304,10 +312,11 @@ def gerenciar_pessoas():
                         "CPF": cpf,
                         "RG": rg,
                         "telefone": telefone,
-                        "data_nascimento": data_nascimento,
+                        "data_nascimento": data_nascimento.strftime("%d/%m/%Y") if data_nascimento else None,
                         "gênero": genero,
                         "senha": "",
                         "tipo de usuário": "",
+                        "cargo": cargo,
                         "programa_area": programa_area,
                         "banco": {
                             "nome_banco": nome_banco,
@@ -330,8 +339,11 @@ def gerenciar_pessoas():
                         "status": "ativo",
                         "e_mail": email,
                         # "e_mail_coordenador": coordenador["id"],
-                        "coordenador": coordenador["id"],
-                        "projeto_pagador": projeto_pagador
+                        "coordenador": coordenador_id,
+                        "projeto_pagador": projeto_pagador,
+                        "data_inicio_contrato": inicio_contrato.strftime("%d/%m/%Y") if inicio_contrato else None,
+                        "data_fim_contrato": fim_contrato.strftime("%d/%m/%Y") if fim_contrato else None,
+
                     }
 
                     # Insere o novo colaborador no banco
@@ -396,7 +408,12 @@ def gerenciar_pessoas():
                     col1, col2, col3 = st.columns([1, 2, 2])
                     
                     # Data de nascimento, telefone e e-mail
-                    data_nascimento = col1.text_input("Data de nascimento:", value=pessoa.get("data_nascimento", ""), disabled=desabilitar)
+                    data_nascimento_str = pessoa.get("data_nascimento", "")
+                    if data_nascimento_str:
+                        data_nascimento = datetime.strptime(data_nascimento_str, "%d/%m/%Y")
+                    else:
+                        data_nascimento = None
+                    data_nascimento = col1.date_input("Data de nascimento:", format="DD/MM/YYYY", value=data_nascimento, disabled=desabilitar)
                     telefone = col2.text_input("Telefone:", value=pessoa.get("telefone", ""), disabled=desabilitar)
                     email = col3.text_input("E-mail:", value=pessoa.get("e_mail", ""), disabled=desabilitar)
                     
@@ -424,35 +441,94 @@ def gerenciar_pessoas():
 
 
                     # Coordenador
-                    # Busca coordenador associado para selecionar valor padrão
+
+                    # 1. Lista de nomes (adiciona opção vazia)
+                    nomes_coordenadores = [""] + [c["nome"] for c in coordenadores_possiveis]
+
+                    # 2. Tenta encontrar coordenador atual
+                    coordenador_atual_id = pessoa.get("coordenador")
                     coordenador_encontrado = next(
-                        (c for c in coordenadores_possiveis if c["id"] == pessoa.get("coordenador", "")),
+                        (c for c in coordenadores_possiveis if str(c["id"]) == str(coordenador_atual_id)),
                         None
                     )
-                    nome_coordenador_default = coordenador_encontrado["nome"] if coordenador_encontrado else None
 
-                    # Seleção do coordenador com valor padrão
-                    coordenador = col2.selectbox(
+                    # 3. Define valor default (se não achar, fica vazio)
+                    nome_coordenador_default = coordenador_encontrado["nome"] if coordenador_encontrado else ""
+
+                    # 4. Selectbox
+                    coordenador_nome = col2.selectbox(
                         "Nome do(a) coordenador(a):",
                         nomes_coordenadores,
-                        index=coordenadores_possiveis.index(nome_coordenador_default) if nome_coordenador_default in coordenadores_possiveis else 0,
-                        key="editr_nome_coordenador", 
+                        index=nomes_coordenadores.index(nome_coordenador_default) if nome_coordenador_default in nomes_coordenadores else 0,
+                        key="editr_nome_coordenador",
                         disabled=desabilitar
                     )
 
-                    # Por fim guarda o ObjectId correspondente ao nome
+                    # 5. Pega o ID do coordenador selecionado (se não for vazio)
+                    coordenador_id = None
+                    if coordenador_nome:
+                        coordenador_id = next(
+                            c["id"] for c in coordenadores_possiveis if c["nome"] == coordenador_nome
+                        )         
 
-                    # st.write(coordenadores_possiveis)
-                    coordenador_id = next(
-                        c["id"] for c in coordenadores_possiveis if c["nome"] == "Renato Farias de Araujo"
+
+
+
+                    # Projeto pagador
+                    # Lista de projetos (com opção vazia no início, se quiser)
+                    lista_projetos = [""] + sorted([p["nome_do_projeto"] for p in dados_projetos_ispn if p.get("nome_do_projeto", "")])
+                    # Nome atual do projeto pagador
+                    projeto_pagador_nome_atual = pessoa.get("projeto_pagador", "")
+                    projeto_pagador_nome_atual = id_para_nome_projeto.get(projeto_pagador_nome_atual, "")
+                    # Seleção com valor padrão
+                    index_padrao = lista_projetos.index(projeto_pagador_nome_atual) if projeto_pagador_nome_atual in lista_projetos else 0
+                    projeto_pagador_nome_edit = st.selectbox(
+                        "Contratado(a) pelo projeto:",
+                        lista_projetos,
+                        index=index_padrao,
+                        disabled=desabilitar
                     )
-                    # coordenador_id = coordenadores_possiveis[coordenadores_possiveis.index(coordenador)]["id"]
+                    # ID correspondente ao projeto selecionado
+                    projeto_pagador_edit = nome_para_id_projeto.get(projeto_pagador_nome_edit)
 
-                   
 
-                    
 
-                    
+
+                    # Datas de início e fim de contrato
+                    # Pega valores atuais do usuário
+                    data_inicio_atual = pessoa.get("data_inicio_contrato")
+                    data_fim_atual = pessoa.get("data_fim_contrato")
+
+                    # Converte string para datetime.date se necessário
+                    def str_para_date(data_str):
+                        if not data_str:
+                            return None
+                        if isinstance(data_str, datetime):
+                            return data_str.date()
+                        try:
+                            return datetime.strptime(data_str, "%d/%m/%Y").date()
+                        except:
+                            return None
+
+                    inicio_padrao = str_para_date(data_inicio_atual)
+                    fim_padrao = str_para_date(data_fim_atual)
+
+                    # Date inputs com valor padrão
+                    with st.container(horizontal=True):
+                        inicio_contrato = st.date_input(
+                            "Data de início do contrato:",
+                            value=inicio_padrao,
+                            format="DD/MM/YYYY"
+                        )
+                        fim_contrato = st.date_input(
+                            "Data de fim do contrato:",
+                            value=fim_padrao,
+                            format="DD/MM/YYYY"
+                        )
+
+
+
+
 
                     st.markdown("---")
 
@@ -486,17 +562,6 @@ def gerenciar_pessoas():
 
                     st.write("")
                     
-                    # # Busca o coordenador selecionado com base no nome e programa selecionado nos campos do formulário
-                    # coordenador = next((
-                    #     c for c in coordenadores_possiveis
-                    #     if c["nome"] == nome_coordenador and c["programa"] == programa_area
-                    # ), None)
-
-                    # # Se nenhum coordenador for encontrado com os critérios acima, exibe um aviso e interrompe a função
-                    # if not coordenador:
-                    #     st.warning("Coordenador não encontrado para o nome e programa selecionados.")
-                    #     return
-
                     st.divider()
 
                     # Permissões
@@ -609,6 +674,8 @@ def gerenciar_pessoas():
 
                     # Quando o botão "Salvar alterações" for pressionado
                     if st.form_submit_button("Salvar alterações", type="secondary", icon=":material/save:"):
+
+
                         # Atualiza o documento da pessoa no banco de dados MongoDB com os novos valores do formulário
                         pessoas.update_one(
                             {"_id": pessoa["_id"]},
@@ -616,7 +683,7 @@ def gerenciar_pessoas():
                                 "nome_completo": nome,
                                 "CPF": cpf,
                                 "RG": rg,
-                                "data_nascimento": data_nascimento,
+                                "data_nascimento": data_nascimento.strftime("%d/%m/%Y") if data_nascimento else None,
                                 "telefone": telefone,
                                 "e_mail": email,
                                 "gênero": genero,
@@ -628,8 +695,12 @@ def gerenciar_pessoas():
                                 "tipo de usuário": ", ".join(tipo_usuario) if tipo_usuario else "",
                                 # "e_mail_coordenador": coordenador["id"],
                                 "coordenador": coordenador_id,
-                                "status": status
-                            }}
+                                "status": status,
+                                "projeto_pagador": projeto_pagador_edit,
+                                "data_inicio_contrato": inicio_contrato.strftime("%d/%m/%Y") if inicio_contrato else None,
+                               "data_fim_contrato": fim_contrato.strftime("%d/%m/%Y") if fim_contrato else None,
+                                }
+                            }
                         )
 
 
@@ -650,6 +721,7 @@ def gerenciar_pessoas():
 container_botoes = st.container(horizontal=True, horizontal_alignment="right")
 
 # Botão de cadastro de novos colaboradores só para alguns tipos de usuário
+# Roteamento de tipo de usuário
 if set(st.session_state.tipo_usuario) & {"admin", "gestao_pessoas"}:
 
     # Botão para abrir o modal de cadastro

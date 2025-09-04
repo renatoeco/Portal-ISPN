@@ -248,6 +248,7 @@ def main():
 
     contagem_pls = col1.container()
 
+    # Roteamento de tipo de usuário
     if set(st.session_state.tipo_usuario) & {"admin", "gestao_pls"}:
         col2.button("Gerenciar PLs", icon=":material/settings:", use_container_width=True, on_click=dial_gerenciar_pls)
 

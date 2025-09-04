@@ -1,9 +1,6 @@
 import streamlit as st
 import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
-import time
+import plotly.express as px
 from datetime import date, timedelta
 from funcoes_auxiliares import conectar_mongo_portal_ispn
 import locale
@@ -252,7 +249,7 @@ else:
     qtd_sem_status = len(noticias_sem_status)
 
     if qtd_sem_status > 0:
-        st.warning(f"{qtd_sem_status} notícia(s) precisam ser triadas.", icon=":material/warning:")
+        st.warning(f"{qtd_sem_status} notícia(s) aguardando triagem.", icon=":material/warning:")
 
     st.write("")
 
@@ -314,34 +311,70 @@ else:
     if not df_filtrado.empty:
         df_filtrado_sorted = df_filtrado.sort_values(by='Data_Convertida')
 
-        # Cria figura
-        fig, ax = plt.subplots(figsize=(10, 1), dpi=400)
-        fig.patch.set_alpha(0)
-        ax.set_facecolor('none')
+        # Contagem de notícias por dia
+        contagem = (
+            df_filtrado_sorted
+            .groupby(df_filtrado_sorted['Data_Convertida'].dt.normalize())
+            .size()
+            .rename_axis('Data')
+            .reset_index(name='Quantidade')
+        )
 
-        # Usando hist plot manual (sem seaborn) para evitar dependência
-        # Contagem por dia
-        diario = df_filtrado_sorted.groupby(df_filtrado_sorted['Data_Convertida'].dt.date).size()
-        ax.bar(diario.index, diario.values)
+        # Criar série contínua de dias
+        data_min_real = contagem['Data'].min()
+        data_max_real = contagem['Data'].max()
+        todos_dias = pd.date_range(data_min_real, data_max_real, freq='D')
+        df_completo = pd.DataFrame({'Data': todos_dias})
 
-        ax.xaxis.set_major_formatter(mdates.DateFormatter('%d/%m/%y'))
-        ax.xaxis.set_major_locator(mdates.DayLocator())
+        contagem_completa = df_completo.merge(contagem, on='Data', how='left').fillna(0)
+        contagem_completa['Quantidade'] = contagem_completa['Quantidade'].astype(int)
+        contagem_completa['Texto'] = contagem_completa['Quantidade'].replace(0, "")
 
-        plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
-        plt.xticks(fontsize=5.5, rotation=45)
-        plt.xlabel('')
+        # Definir altura máxima em barras (eixo Y)
+        max_qtd = contagem_completa['Quantidade'].max()
+        y_limite = max_qtd * 1.20  # acima do maior valor para não encostar no topo
 
-        # Remove eixo Y
-        ax.yaxis.set_visible(False)
-        for spine in ax.spines.values():
-            spine.set_visible(False)
+        # Gráfico
+        fig = px.bar(
+            contagem_completa,
+            x="Data",
+            y="Quantidade",
+            text="Texto",
+            labels={"Data": "", "Quantidade": ""}
+        )
 
-        # Rótulos no topo das barras
-        for x, y in zip(diario.index, diario.values):
-            ax.text(x, y + 0.05, str(y), ha='center', va='bottom', fontsize=6)
+        fig.update_traces(
+            textposition="outside",
+            marker_color="#1f77b4",
+        )
 
-        plt.tight_layout()
-        st.pyplot(plt.gcf())
+        fig.update_layout(
+            xaxis=dict(
+                tickformat="%d/%m/%Y",
+                tickangle=-45,
+                dtick="D1",
+                showgrid=False
+            ),
+            yaxis=dict(
+                visible=False,
+                showgrid=False,
+                zeroline=False,
+                range=[0, y_limite]  # aqui limitamos a altura máxima
+            ),
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
+            margin=dict(l=0, r=0, t=0, b=0),
+            height=220
+        )
+
+        st.plotly_chart(fig, 
+                        use_container_width=True,
+                        config={
+                            "displayModeBar": False,  # remove a barra de ferramentas
+                            "staticPlot": True        # torna o gráfico 100% estático
+                        }
+                        )
+
 
     # TABELA ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////// 
     st.write("")
