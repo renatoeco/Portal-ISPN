@@ -1126,19 +1126,9 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
     )
 
 
-
-
-    # codigo_pai = col3.selectbox(
-    #     "Projeto pai*",
-    #     options=sorted_keys,
-    #     format_func=lambda x: projetos_pai_options.get(x, "Desconhecido"),
-    #     index=sorted_keys.index(codigo_pai_default) if codigo_pai_default in sorted_keys else 0,
-    #     placeholder=""
-    # )
-
     st.write("")
 
-    salvar = st.button("Salvar", key=f"salvar_{form_key}", icon=":material/save:")
+    salvar = st.button("Salvar", key=f"salvar_{form_key}", icon=":material/save:", width=300)
     if salvar:
         # --- Campos obrigatórios ---
         campos_obrigatorios = [
