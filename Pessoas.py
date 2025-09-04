@@ -65,8 +65,6 @@ for pessoa in dados_pessoas:
 ######################################################################################################
 
 
-
-
 # Define um diálogo (modal) para gerenciar colaboradores com abas de cadastro e edição
 @st.dialog("Gerenciar colaboradores", width='large')
 def gerenciar_pessoas():
@@ -99,6 +97,13 @@ def gerenciar_pessoas():
 
             col1, col2 = st.columns([1, 1])
             
+            escolaridade = col1.selectbox("Escolaridade:", ["Ensino fundamental", "Ensino médio", "Graduação", "Pós-graduação", 
+                                                            "Mestrado", "Doutorado"], index=None, placeholder="")
+            
+            raca = col2.selectbox("Raça:", ["Amarelo", "Branco", "Índigena", "Pardo", "Preto"], index=None, placeholder="")
+
+            col1, col2 = st.columns([1, 1])
+            
             # CPF e RG
             cpf = col1.text_input("CPF:", placeholder="000.000.000-00")
             rg = col2.text_input("RG e órgão emissor:")
@@ -113,20 +118,22 @@ def gerenciar_pessoas():
             
             # E-mail
             email = col3.text_input("E-mail:")
+            
+            col1, col2 = st.columns([1,1])
+            
+            escritorio = col1.selectbox("Escritório:", ["Brasília", "Santa Inês"], index=None, placeholder="")
+            
+            tipo_contratacao = col2.selectbox("Tipo de contratação:", ["PJ1", "PJ2", "CLT", "Estagiário"], index=None, placeholder="")
 
             col1, col2, col3 = st.columns([1, 1, 1])
             
-            opcoes_cargos = [
-                "Analista de advocacy", "Analista de comunicação", "Analista de dados", "Analista Administrativo/Financeiro",
+            cargo = col1.selectbox("Cargo:", ["Analista de advocacy", "Analista de comunicação", "Analista de dados", "Analista Administrativo/Financeiro",
                 "Analista de Recursos Humanos", "Analista socioambiental", "Analista socioambiental pleno", "Analista socioambiental sênior",
                 "Assessora de advocacy", "Assessor de Comunicação", "Auxiliar de Serviços Gerais", "Auxiliar Administrativo/financeiro",
                 "Assistente Administrativo/financeiro", "Assistente socioambiental", "Coordenador Administrativo/financeiro de escritório",
                 "Coordenador Geral administrativo/financeiro", "Coordenador Executivo", "Coordenador de Área", "Coordenador de Programa",
-                "Motorista", "Secretária(o)/Recepcionista", "Técnico de campo", "Técnico em informática"
-            ]
-
-            
-            cargo = col1.selectbox("Cargo:", opcoes_cargos, index=None, placeholder="")
+                "Motorista", "Secretária(o)/Recepcionista", "Técnico de campo", "Técnico em informática"], 
+                index=None, placeholder="")
 
             # Programa / Área
             # Lista ordenada dos programas/áreas para seleção
@@ -202,7 +209,6 @@ def gerenciar_pessoas():
 
             # Permissões
             st.write('**Permissões:**')
-
 
             # Roteamento de tipo de usuário especial
             # Só o admin pode atribuir permissão para outro admin
@@ -290,10 +296,6 @@ def gerenciar_pessoas():
 
             st.write('')
 
-
-
-
-
             # Ao submeter o formulário de cadastro -----------------------------------------------------------------
             if st.form_submit_button("Cadastrar", type="secondary", icon=":material/person_add:"):
                 
@@ -314,9 +316,13 @@ def gerenciar_pessoas():
                         "telefone": telefone,
                         "data_nascimento": data_nascimento.strftime("%d/%m/%Y") if data_nascimento else None,
                         "gênero": genero,
+                        "raca": raca,
+                        "escolaridade": escolaridade,  
                         "senha": "",
                         "tipo de usuário": "",
                         "cargo": cargo,
+                        "tipo_contratacao": tipo_contratacao,
+                        "escritorio": escritorio,
                         "programa_area": programa_area,
                         "banco": {
                             "nome_banco": nome_banco,
@@ -397,7 +403,17 @@ def gerenciar_pessoas():
                     # Gênero
                     # Gera lista única e ordenada de gêneros para seleção
                     lista_generos = ['Masculino', 'Feminino', 'Não binário', 'Outro']
-                    genero = col2.selectbox("Gênero:", lista_generos, key="editar_genero", disabled=desabilitar)
+                    genero = col2.selectbox("Gênero:", lista_generos, index=lista_generos.index(pessoa.get("gênero")), key="editar_genero", disabled=desabilitar)
+                    
+                    col1, col2 = st.columns([1, 1])
+                    
+                    lista_escolaridade = ["Ensino fundamental", "Ensino médio", "Graduação", "Pós-graduação", "Mestrado", "Doutorado", ""]
+            
+                    escolaridade = col1.selectbox("Escolaridade:", lista_escolaridade, index=lista_escolaridade.index(pessoa.get("escolaridade")))
+                    
+                    lista_raca = ["Amarelo", "Branco", "Índigena", "Pardo", "Preto", ""]
+                    
+                    raca = col2.selectbox("Raça:", lista_raca, index=lista_raca.index(pessoa.get("raca")))
 
                     col1, col2 = st.columns([1, 1])
 
@@ -417,7 +433,26 @@ def gerenciar_pessoas():
                     telefone = col2.text_input("Telefone:", value=pessoa.get("telefone", ""), disabled=desabilitar)
                     email = col3.text_input("E-mail:", value=pessoa.get("e_mail", ""), disabled=desabilitar)
                     
-                    col1, col2 = st.columns([1, 1])
+                    col1, col2 = st.columns([1,1])
+                    
+                    lista_escritorio = ["Brasília", "Santa Inês", ""]
+                    
+                    escritorio = col1.selectbox("Escritório:", lista_escritorio, index=lista_escritorio.index(pessoa.get("escritorio")))                  
+                    
+                    lista_tipo_contracao = ["PJ1", "PJ2", "CLT", "Estagiário", ""]
+                    
+                    tipo_contratacao = col2.selectbox("Tipo de contratação:", lista_tipo_contracao, index=lista_tipo_contracao.index(pessoa.get("tipo_contratacao")))                  
+                    
+                    col1, col2, col3 = st.columns([1, 1, 1])
+                    
+                    lista_cargos = ["Analista de advocacy", "Analista de comunicação", "Analista de dados", "Analista Administrativo/Financeiro",
+                    "Analista de Recursos Humanos", "Analista socioambiental", "Analista socioambiental pleno", "Analista socioambiental sênior",
+                    "Assessora de advocacy", "Assessor de Comunicação", "Auxiliar de Serviços Gerais", "Auxiliar Administrativo/financeiro",
+                    "Assistente Administrativo/financeiro", "Assistente socioambiental", "Coordenador Administrativo/financeiro de escritório",
+                    "Coordenador Geral administrativo/financeiro", "Coordenador Executivo", "Coordenador de Área", "Coordenador de Programa",
+                    "Motorista", "Secretária(o)/Recepcionista", "Técnico de campo", "Técnico em informática", ""]
+                    
+                    cargo = col1.selectbox("Cargo:", lista_cargos, index=lista_cargos.index(pessoa.get("cargo")))
 
                      # Programa / Área
                     # Pega o ObjectId atual salvo no banco
@@ -426,7 +461,7 @@ def gerenciar_pessoas():
                     programa_area_nome_atual = id_para_nome_programa.get(programa_area_atual, "")
 
                     # Selectbox mostra nomes dos programas
-                    programa_area_nome = col1.selectbox(
+                    programa_area_nome = col2.selectbox(
                         "Programa / Área:",
                         lista_programas_areas,
                         index=lista_programas_areas.index(programa_area_nome_atual) if programa_area_nome_atual in lista_programas_areas else 0,
@@ -436,10 +471,7 @@ def gerenciar_pessoas():
 
                     # Após seleção, pega o ObjectId correspondente ao nome
                     programa_area = nome_para_id_programa.get(programa_area_nome)
-
-
-
-
+                    
                     # Coordenador
 
                     # 1. Lista de nomes (adiciona opção vazia)
@@ -456,7 +488,7 @@ def gerenciar_pessoas():
                     nome_coordenador_default = coordenador_encontrado["nome"] if coordenador_encontrado else ""
 
                     # 4. Selectbox
-                    coordenador_nome = col2.selectbox(
+                    coordenador_nome = col3.selectbox(
                         "Nome do(a) coordenador(a):",
                         nomes_coordenadores,
                         index=nomes_coordenadores.index(nome_coordenador_default) if nome_coordenador_default in nomes_coordenadores else 0,
@@ -525,10 +557,6 @@ def gerenciar_pessoas():
                             value=fim_padrao,
                             format="DD/MM/YYYY"
                         )
-
-
-
-
 
                     st.markdown("---")
 
@@ -687,14 +715,18 @@ def gerenciar_pessoas():
                                 "telefone": telefone,
                                 "e_mail": email,
                                 "gênero": genero,
+                                "raca": raca,
+                                "escolaridade": escolaridade,
                                 "banco.nome_banco": nome_banco,
                                 "banco.agencia": agencia,
                                 "banco.conta": conta,
                                 "banco.tipo_conta": tipo_conta,
                                 "programa_area": programa_area,
-                                "tipo de usuário": ", ".join(tipo_usuario) if tipo_usuario else "",
-                                # "e_mail_coordenador": coordenador["id"],
                                 "coordenador": coordenador_id,
+                                "cargo":cargo,
+                                "tipo_contratacao": tipo_contratacao,
+                                "escritorio": escritorio,
+                                "tipo de usuário": ", ".join(tipo_usuario) if tipo_usuario else "",
                                 "status": status,
                                 "projeto_pagador": projeto_pagador_edit,
                                 "data_inicio_contrato": inicio_contrato.strftime("%d/%m/%Y") if inicio_contrato else None,
