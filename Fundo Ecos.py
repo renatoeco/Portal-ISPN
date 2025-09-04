@@ -182,19 +182,19 @@ def mostrar_detalhes(codigo_proj: str):
     }
 
     # Código do projeto
-    codigo_projeto = st.session_state.get("codigo_projeto", "")
+    codigo_projeto = projeto['codigo']
+
+    # Sigla do projeto
+    sigla_projeto = projeto['sigla']
 
     # Título do projeto
     titulo_projeto = st.session_state.get("titulo_projeto", "")
 
+    st.subheader(f'{codigo_projeto} {sigla_projeto}')
+    st.write('')
 
     aba_detalhes, aba_indicadores = st.tabs([":material/assignment: Detalhes", ":material/show_chart: Indicadores"])
 
-
-
-    # col1, col2, col3 = st.columns([3,1,1])
-
-    # abrir_lancamento = col3.toggle("Gerenciar indicadores")
 
     with aba_detalhes:
         st.write(titulo_projeto)
@@ -606,7 +606,7 @@ def mostrar_detalhes(codigo_proj: str):
 
 
 
-
+# Formulário de cadastro e edição de projetos
 # @st.cache_data(ttl=600, show_spinner=False)
 def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_ispn_dict):
     form_key = f"form_projeto_{str(projeto.get('_id', 'novo'))}"
@@ -1126,19 +1126,9 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
     )
 
 
-
-
-    # codigo_pai = col3.selectbox(
-    #     "Projeto pai*",
-    #     options=sorted_keys,
-    #     format_func=lambda x: projetos_pai_options.get(x, "Desconhecido"),
-    #     index=sorted_keys.index(codigo_pai_default) if codigo_pai_default in sorted_keys else 0,
-    #     placeholder=""
-    # )
-
     st.write("")
 
-    salvar = st.button("Salvar", key=f"salvar_{form_key}", icon=":material/save:")
+    salvar = st.button("Salvar", key=f"salvar_{form_key}", icon=":material/save:", width=300)
     if salvar:
         # --- Campos obrigatórios ---
         campos_obrigatorios = [
@@ -1570,6 +1560,14 @@ for i, projeto in enumerate(todos_projetos):
     valores_formatados.append(valor_formatado)
 
 df_projetos["Valor"] = valores_formatados
+
+
+
+
+
+# ##################################################################
+# Início da interface
+# ##################################################################
 
 st.header("Fundo Ecos")
 
