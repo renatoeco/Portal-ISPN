@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd 
 import plotly.express as px
-from datetime import datetime
+import datetime
 import time
 from funcoes_auxiliares import conectar_mongo_portal_ispn
 
@@ -124,6 +124,12 @@ def gerenciar_pessoas():
             escritorio = col1.selectbox("Escritório:", ["Brasília", "Santa Inês"], index=None, placeholder="")
             
             tipo_contratacao = col2.selectbox("Tipo de contratação:", ["PJ1", "PJ2", "CLT", "Estagiário"], index=None, placeholder="")
+            
+            # if tipo_contratacao == ["PJ1", "PJ2"]:
+            #     col1, col2 = st.columns([1,1])
+                
+            #     cnpj = col1.text_input("CNPJ", placeholder="00.000.000/0000-00")
+            #     nome_empresa = col2.text_input("Nome da empresa", placeholder="")
 
             col1, col2, col3 = st.columns([1, 1, 1])
             
@@ -197,13 +203,23 @@ def gerenciar_pessoas():
             col1, col2 = st.columns([1, 2])
             
             # Férias
-            a_receber = col1.number_input("Dias de férias a receber:", step=1, min_value=0)
+            a_receber = col1.number_input("Dias de férias a receber:", step=1, min_value=22)
 
             # Variáveis de férias com valores iniciais
             residual_ano_anterior = 0
             valor_inicial_ano_atual = 0
             total_gozado = 0
             saldo_atual = residual_ano_anterior + valor_inicial_ano_atual
+            
+            st.divider()
+            
+            st.markdown("#### Anotações")
+            
+            hoje = datetime.datetime.today().strftime("%d/%m/%Y")
+
+            st.write(f"Data: {hoje}")
+            
+            anotacao_texto = st.text_area("Anotação", placeholder="")
             
             st.divider()
 
@@ -307,6 +323,12 @@ def gerenciar_pessoas():
  
                     # Ano atual para armazenar dados de férias
                     ano_atual = str(datetime.now().year)
+                    
+                    # nova_anotacao = {
+                    #     "data_anotacao": datetime.datetime.today(),
+                    #     "autor": st.session_state.get("nome", "Desconhecido"),
+                    #     "anotacao": anotacao_texto.strip()
+                    # }
 
                     # Monta o documento para inserção no MongoDB
                     novo_documento = {
@@ -349,7 +371,11 @@ def gerenciar_pessoas():
                         "projeto_pagador": projeto_pagador,
                         "data_inicio_contrato": inicio_contrato.strftime("%d/%m/%Y") if inicio_contrato else None,
                         "data_fim_contrato": fim_contrato.strftime("%d/%m/%Y") if fim_contrato else None,
-
+                        "anotacoes": {
+                            "data_anotacao": datetime.datetime.today(),
+                            "autor": st.session_state.get("nome", "Desconhecido"),
+                            "anotacao": anotacao_texto.strip()
+                        }
                     }
 
                     # Insere o novo colaborador no banco
@@ -426,7 +452,7 @@ def gerenciar_pessoas():
                     # Data de nascimento, telefone e e-mail
                     data_nascimento_str = pessoa.get("data_nascimento", "")
                     if data_nascimento_str:
-                        data_nascimento = datetime.strptime(data_nascimento_str, "%d/%m/%Y")
+                        data_nascimento = datetime.datetime.strptime(data_nascimento_str, "%d/%m/%Y")
                     else:
                         data_nascimento = None
                     data_nascimento = col1.date_input("Data de nascimento:", format="DD/MM/YYYY", value=data_nascimento, disabled=desabilitar)
@@ -557,6 +583,14 @@ def gerenciar_pessoas():
                             value=fim_padrao,
                             format="DD/MM/YYYY"
                         )
+                        
+                    # Data de reajuste de contrato
+                    data_reajuste_str = pessoa.get("data_reajuste", "")
+                    if data_reajuste_str:
+                        data_reajuste = datetime.strptime(data_reajuste_str, "%d/%m/%Y")
+                    else:
+                        data_reajuste = None
+                    data_reajuste = st.date_input("Data de reajuste:", format="DD/MM/YYYY", value=data_reajuste, disabled=desabilitar)
 
                     st.markdown("---")
 
@@ -586,10 +620,39 @@ def gerenciar_pessoas():
                         disabled=desabilitar,
                         key="editar_tipo_conta"
                     )
-
-
-                    st.write("")
                     
+                    st.divider()
+                    
+                    anotacoes = pessoa.get("anotacoes", [])
+                    usuario_logado = st.session_state.get("nome", "Desconhecido")
+                    
+                    # Criar lista de opções com apenas anotações do próprio usuário
+                    opcoes = [
+                        f'{a["data_anotacao"].strftime("%d/%m/%Y") if isinstance(a["data_anotacao"], datetime.datetime) else a["data_anotacao"]} - {a["anotacao"][:30]}...'
+                        for a in anotacoes if a.get("autor") == usuario_logado
+                    ]
+                    
+                    # if not opcoes:
+                    #     st.write("_Você não possui anotações para editar._")
+                    # else:
+                    # Adiciona opção vazia no início
+                    opcoes_com_vazio = [""] + opcoes
+                    
+                    # Selecionar anotação (valor padrão vazio)
+                    selecionada = st.selectbox(
+                        "Selecione a anotação para editar",
+                        options=opcoes_com_vazio,
+                        index=0
+                    )
+                    
+                    if selecionada:  # só prosseguir se o usuário selecionar algo
+                        # Índice real dentro da lista completa de anotações
+                        index = [i for i, a in enumerate(anotacoes) if a.get("autor") == usuario_logado][opcoes.index(selecionada)]
+                        anotacao_atual = anotacoes[index]["anotacao"]
+                        
+                        # Campo para editar
+                        nova_texto = st.text_area("Editar anotação", value=anotacao_atual)
+                            
                     st.divider()
 
                     # Permissões
@@ -731,6 +794,8 @@ def gerenciar_pessoas():
                                 "projeto_pagador": projeto_pagador_edit,
                                 "data_inicio_contrato": inicio_contrato.strftime("%d/%m/%Y") if inicio_contrato else None,
                                "data_fim_contrato": fim_contrato.strftime("%d/%m/%Y") if fim_contrato else None,
+                               "data_reajuste": data_reajuste.strftime("%d/%m/%Y") if data_nascimento else None,
+                                f"anotacoes.{index}.anotacao": nova_texto.strip(),
                                 }
                             }
                         )
