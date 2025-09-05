@@ -310,15 +310,9 @@ def mostrar_detalhes(codigo_proj: str):
         )
         df_resumo["Total"] = df_resumo["Total"].fillna("")
 
-
-
-
-
-
         # Interface dos indicadores
 
         editar = st.toggle(":material/edit: Gerenciar indicadores")
-
 
         # listas de controle
         indicadores_float = [
