@@ -60,6 +60,20 @@ div[data-testid="stDialog"] div[role="dialog"]:has(.big-dialog) {
     unsafe_allow_html=True,
 )
 
+
+# st.markdown(
+#     """
+# <style>
+# div[data-testid="stDialog"] div[role="dialog"]:has(.big-dialog-detalhes) {
+#     width: 70vw;
+    
+# }
+# </style>
+# """,
+#     unsafe_allow_html=True,
+# )
+
+
 ######################################################################################################
 # FUNÇÕES
 ######################################################################################################
@@ -116,7 +130,7 @@ def converter_uf_codigo_para_nome(valor):
 
 @st.dialog("Detalhes do projeto", width="large")
 def mostrar_detalhes(codigo_proj: str):
-    st.html("<span class='big-dialog'></span>")
+    
 
     projeto = projetos_por_codigo.get(codigo_proj, {})
 
@@ -261,6 +275,7 @@ def mostrar_detalhes(codigo_proj: str):
         if not lancamentos:
             st.info("Não há lançamentos de indicadores para este projeto.")
         else:
+            st.html("<span class='big-dialog'></span>")
             for lan in lancamentos:
                 ind_id = lan.get("id_do_indicador")
     
@@ -1357,8 +1372,7 @@ def extrair_itens_distintos(series: pd.Series) -> pd.Series:
         s = s[(s != "") & (s.str.lower() != "nan")]
         return s
         
-
-@st.cache_data(ttl=600, show_spinner=False)                   
+               
 def parse_valor(valor):
     """Converte valor string para float, retornando 0.0 se não for possível."""
     if isinstance(valor, (int, float)):
