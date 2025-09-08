@@ -254,7 +254,6 @@ def gerenciar_pessoas():
                 # disabled=desabilitar
             )
 
-
             with st.expander("Ver tipos de permissões"):
 
                 col1, col2 = st.columns([1, 1])
@@ -529,9 +528,6 @@ def gerenciar_pessoas():
                             c["id"] for c in coordenadores_possiveis if c["nome"] == coordenador_nome
                         )         
 
-
-
-
                     # Projeto pagador
                     # Lista de projetos (com opção vazia no início, se quiser)
                     lista_projetos = [""] + sorted([p["nome_do_projeto"] for p in dados_projetos_ispn if p.get("nome_do_projeto", "")])
@@ -548,9 +544,6 @@ def gerenciar_pessoas():
                     )
                     # ID correspondente ao projeto selecionado
                     projeto_pagador_edit = nome_para_id_projeto.get(projeto_pagador_nome_edit)
-
-
-
 
                     # Datas de início e fim de contrato
                     # Pega valores atuais do usuário
@@ -760,9 +753,6 @@ def gerenciar_pessoas():
 
                     st.write('')
 
-
-
-
                     # Quando o botão "Salvar alterações" for pressionado
                     if st.form_submit_button("Salvar alterações", type="secondary", icon=":material/save:"):
 
@@ -800,10 +790,6 @@ def gerenciar_pessoas():
                             }
                         )
 
-
-
-
-
                         # Exibe mensagem de sucesso, aguarda 2 segundos e atualiza a página
                         st.success("Informações atualizadas com sucesso!", icon=":material/check_circle:")
                         time.sleep(2)
@@ -814,91 +800,181 @@ def gerenciar_pessoas():
 # MAIN
 ######################################################################################################
 
-# Container horizontal de botões
-container_botoes = st.container(horizontal=True, horizontal_alignment="right")
 
-# Botão de cadastro de novos colaboradores só para alguns tipos de usuário
-# Roteamento de tipo de usuário
-if set(st.session_state.tipo_usuario) & {"admin", "gestao_pessoas"}:
+aba_pessoas, aba_contratos = st.tabs([":material/person: Colaboradores", ":material/contract: Contratos"])
 
-    # Botão para abrir o modal de cadastro
-    container_botoes.button("Gerenciar colaboradores", on_click=gerenciar_pessoas, icon=":material/group:")
+with aba_pessoas:
+
+    # Container horizontal de botões
+    container_botoes = st.container(horizontal=True, horizontal_alignment="right")
+
+    # Botão de cadastro de novos colaboradores só para alguns tipos de usuário
+    # Roteamento de tipo de usuário
+    if set(st.session_state.tipo_usuario) & {"admin", "gestao_pessoas"}:
+
+        # Botão para abrir o modal de cadastro
+        container_botoes.button("Gerenciar colaboradores", on_click=gerenciar_pessoas, icon=":material/group:")
+        st.write('')
+
+    # Criar DataFrame
+    df_pessoas = pd.DataFrame(pessoas_lista)
+
+    # Filtra apenas os ativos para exibir
+    # df_pessoas = df_pessoas[df_pessoas["Status"].str.lower() == "ativo"]
+
+    # Remove colunas indesejadas
+    df_pessoas = df_pessoas.drop(columns=["Tipo de usuário"])
+
+
+
+    # ????????????????????????????????????????????
+    # st.write(df_pessoas)
+
+    programas = [p["nome_programa_area"] for p in dados_programas]
+
+    # Organizar o dataframe por ordem alfabética de nome
+    df_pessoas = df_pessoas.sort_values(by="Nome")
+
+
+    # Filtros
+    with st.container(horizontal=True):
+
+        programa = st.selectbox("Programa / Área", ["Todos"] + programas)
+        # doador = st.selectbox("Doador", ["Todos", "USAID", "GEF", "UE", "Laudes Foundation"])
+        projeto = st.selectbox("Projeto", ["Todos", "Projeto 1", "Projeto 2", "Projeto 3", "Projeto 4", "Projeto 5"])
+        status = st.selectbox("Status", ["ativo", "inativo"], index=0)
+
+
+    # Filtrar DataFrame
+    if programa == "Todos":
+        df_pessoas = df_pessoas[df_pessoas["Status"] == status]
+    else:
+        df_pessoas = df_pessoas[(df_pessoas["Programa/Área"] == programa)& (df_pessoas["Status"] == status)]
+
+
+    # Exibir DataFrame
+    st.subheader(f'{len(df_pessoas)} colaboradores(as)')
     st.write('')
+    st.dataframe(df_pessoas, hide_index=True)
 
-# Criar DataFrame
-df_pessoas = pd.DataFrame(pessoas_lista)
+    # Gráficos
+    col1, col2 = st.columns(2)
 
-# Filtra apenas os ativos para exibir
-# df_pessoas = df_pessoas[df_pessoas["Status"].str.lower() == "ativo"]
+    # Agrupar e ordenar
+    programa_counts = df_pessoas['Programa/Área'].value_counts().reset_index()
+    programa_counts.columns = ['Programa/Área', 'Quantidade']
 
-# Remove colunas indesejadas
-df_pessoas = df_pessoas.drop(columns=["Tipo de usuário"])
+    # Criar gráfico ordenado do maior para o menor
+    fig = px.bar(
+        programa_counts,
+        x='Programa/Área',
+        y='Quantidade',
+        color='Programa/Área',
+        title='Distribuição de Pessoas por Programa/Área'
+    )
+    col1.plotly_chart(fig)
+
+    # Projeto
+    fig = px.bar(df_pessoas, x='Projeto', color='Projeto', title='Distribuição de Pessoas por Projeto')
+    col2.plotly_chart(fig)
+
+    # Cargo
+    fig = px.pie(df_pessoas, names='Cargo', title='Distribuição de Pessoas por Cargo')
+    col2.plotly_chart(fig)
+
+    # Gênero
+    fig = px.pie(df_pessoas, names='Gênero', title='Distribuição de Pessoas por Gênero')
+    col1.plotly_chart(fig)
+
+    # Raça
+    fig = px.pie(df_pessoas, names='Raça', title='Distribuição de Pessoas por Raça')
+    col2.plotly_chart(fig)
+
+    # Escolaridade
+    fig = px.pie(df_pessoas, names='Escolaridade', title='Distribuição de Pessoas por Escolaridade')
+    col1.plotly_chart(fig)
 
 
+if set(st.session_state.tipo_usuario) & {"admin", "gestao_pessoas"}:
+    with aba_contratos:
 
-# ????????????????????????????????????????????
-# st.write(df_pessoas)
+        # Buscar os dados das pessoas no MongoDB
+        dados_pessoas = list(
+            pessoas.find({}, {"nome_completo": 1, "contratos": 1})
+        )
 
-programas = [p["nome_programa_area"] for p in dados_programas]
+        # Transformar para a nova estrutura (pega o primeiro contrato válido da lista)
+        lista_tratada = []
+        for pessoa in dados_pessoas:
+            nome = pessoa.get("nome_completo", "Sem nome")
+            contratos = pessoa.get("contratos", [])
 
-# Organizar o dataframe por ordem alfabética de nome
-df_pessoas = df_pessoas.sort_values(by="Nome")
+            if contratos:
+                # 🔹 Pode adaptar aqui se quiser pegar só o contrato ativo
+                contrato = contratos[0]  
 
+                lista_tratada.append({
+                    "Nome": nome,
+                    "Início do contrato": contrato.get("data_inicio"),
+                    "Fim do contrato": contrato.get("data_fim")
+                })
 
-# Filtros
-with st.container(horizontal=True):
+        # Criar dataframe com os dados
+        df_equipe = pd.DataFrame(lista_tratada)
 
-    programa = st.selectbox("Programa / Área", ["Todos"] + programas)
-    # doador = st.selectbox("Doador", ["Todos", "USAID", "GEF", "UE", "Laudes Foundation"])
-    projeto = st.selectbox("Projeto", ["Todos", "Projeto 1", "Projeto 2", "Projeto 3", "Projeto 4", "Projeto 5"])
-    status = st.selectbox("Status", ["ativo", "inativo"], index=0)
+        if not df_equipe.empty:
+            # Converter para datetime (aceitando strings no formato brasileiro ou ISO)
+            df_equipe["Início do contrato"] = pd.to_datetime(
+                df_equipe["Início do contrato"], dayfirst=True, errors="coerce"
+            )
+            df_equipe["Fim do contrato"] = pd.to_datetime(
+                df_equipe["Fim do contrato"], dayfirst=True, errors="coerce"
+            )
 
+            # 🔹 Manter apenas quem tem início e fim preenchidos
+            df_equipe = df_equipe[
+                df_equipe["Início do contrato"].notna() & df_equipe["Fim do contrato"].notna()
+            ]
 
-# Filtrar DataFrame
-if programa == "Todos":
-    df_pessoas = df_pessoas[df_pessoas["Status"] == status]
-else:
-    df_pessoas = df_pessoas[(df_pessoas["Programa/Área"] == programa)& (df_pessoas["Status"] == status)]
+            # Ordenar por data de fim (decrescente)
+            df_equipe = df_equipe.sort_values(by="Fim do contrato", ascending=False)
 
+            # Definir ordem do eixo Y de acordo com a ordenação
+            categorias_y = df_equipe["Nome"].tolist()
 
-# Exibir DataFrame
-st.subheader(f'{len(df_pessoas)} colaboradores(as)')
-st.write('')
-st.dataframe(df_pessoas, hide_index=True)
+            # Calcular altura do gráfico dinamicamente
+            altura_base = 200
+            altura_extra = 40 * len(df_equipe)  # 40px por colaborador
+            altura = altura_base + altura_extra
 
-# Gráficos
-col1, col2 = st.columns(2)
+            # Criar gráfico de timeline
+            fig = px.timeline(
+                df_equipe,
+                x_start="Início do contrato",
+                x_end="Fim do contrato",
+                y="Nome",
+                color_discrete_sequence=["#4C78A8"],
+                height=altura
+            )
 
-# Agrupar e ordenar
-programa_counts = df_pessoas['Programa/Área'].value_counts().reset_index()
-programa_counts.columns = ['Programa/Área', 'Quantidade']
+            # Forçar a ordem no eixo Y
+            fig.update_yaxes(categoryorder="array", categoryarray=categorias_y)
 
-# Criar gráfico ordenado do maior para o menor
-fig = px.bar(
-    programa_counts,
-    x='Programa/Área',
-    y='Quantidade',
-    color='Programa/Área',
-    title='Distribuição de Pessoas por Programa/Área'
-)
-col1.plotly_chart(fig)
+            # Linha vertical de hoje
+            fig.add_vline(
+                x=datetime.date.today(),
+                line_width=1,
+                line_dash="dash",
+                line_color="gray"
+            )
 
-# Projeto
-fig = px.bar(df_pessoas, x='Projeto', color='Projeto', title='Distribuição de Pessoas por Projeto')
-col2.plotly_chart(fig)
+            # Layout do gráfico
+            fig.update_layout(
+                yaxis_title=None,
+                xaxis_title="Duração do contrato",
+                showlegend=False
+            )
 
-# Cargo
-fig = px.pie(df_pessoas, names='Cargo', title='Distribuição de Pessoas por Cargo')
-col2.plotly_chart(fig)
-
-# Gênero
-fig = px.pie(df_pessoas, names='Gênero', title='Distribuição de Pessoas por Gênero')
-col1.plotly_chart(fig)
-
-# Raça
-fig = px.pie(df_pessoas, names='Raça', title='Distribuição de Pessoas por Raça')
-col2.plotly_chart(fig)
-
-# Escolaridade
-fig = px.pie(df_pessoas, names='Escolaridade', title='Distribuição de Pessoas por Escolaridade')
-col1.plotly_chart(fig)
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("Nenhum contrato válido encontrado.")

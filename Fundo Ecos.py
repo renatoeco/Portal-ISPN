@@ -267,6 +267,8 @@ def mostrar_detalhes(codigo_proj: str):
 
     with aba_indicadores:
 
+        st.html("<span class='big-dialog'></span>")
+        
         # Tratamento dos dados
 
         lancamentos = list(db["lancamentos_indicadores"].find({"projeto": proj_id}))
@@ -275,7 +277,7 @@ def mostrar_detalhes(codigo_proj: str):
         if not lancamentos:
             st.info("Não há lançamentos de indicadores para este projeto.")
         else:
-            st.html("<span class='big-dialog'></span>")
+            
             for lan in lancamentos:
                 ind_id = lan.get("id_do_indicador")
     
