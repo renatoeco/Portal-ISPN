@@ -188,14 +188,9 @@ def login():
     # st.image("images/logo_ISPN_horizontal_ass.png", width=300)
     
     # Exibe o logo
-    st.markdown(
-        """
-        <div style="text-align: center;">
-            <img src="https://ispn.org.br/site/wp-content/uploads/2021/04/logo_ISPN_2021.png" width="300"/>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    container_logo = st.container(horizontal=True, horizontal_alignment="center")
+    container_logo.image("images/logo_ISPN_horizontal_ass.png", width=300)
+
 
 
     # Pula 10 linhas
