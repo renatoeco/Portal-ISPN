@@ -984,7 +984,6 @@ if set(st.session_state.tipo_usuario) & {"admin", "gestao_pessoas"}:
             contratos = pessoa.get("contratos", [])
 
             if contratos:
-                # 🔹 Pode adaptar aqui se quiser pegar só o contrato ativo
                 contrato = contratos[0]  
 
                 lista_tratada.append({
@@ -1010,6 +1009,16 @@ if set(st.session_state.tipo_usuario) & {"admin", "gestao_pessoas"}:
                 df_equipe["Início do contrato"].notna() & df_equipe["Fim do contrato"].notna()
             ]
 
+            # Calcular dias restantes
+            hoje = pd.Timestamp(datetime.date.today())  # garante formato datetime64
+            df_equipe["Dias restantes"] = (df_equipe["Fim do contrato"] - hoje).dt.days
+
+
+            # Criar coluna de cor: vermelho se < 90 dias, azul caso contrário
+            df_equipe["Cor"] = df_equipe["Dias restantes"].apply(
+                lambda x: "red" if x < 90 else "#4C78A8"
+            )
+
             # Ordenar por data de fim (decrescente)
             df_equipe = df_equipe.sort_values(by="Fim do contrato", ascending=False)
 
@@ -1027,7 +1036,8 @@ if set(st.session_state.tipo_usuario) & {"admin", "gestao_pessoas"}:
                 x_start="Início do contrato",
                 x_end="Fim do contrato",
                 y="Nome",
-                color_discrete_sequence=["#4C78A8"],
+                color="Cor",  # 🔹 Agora usa a coluna de cor
+                color_discrete_map="identity",  # Mantém as cores exatas que definimos
                 height=altura
             )
 
@@ -1036,7 +1046,7 @@ if set(st.session_state.tipo_usuario) & {"admin", "gestao_pessoas"}:
 
             # Linha vertical de hoje
             fig.add_vline(
-                x=datetime.date.today(),
+                x=hoje,
                 line_width=1,
                 line_dash="dash",
                 line_color="gray"
