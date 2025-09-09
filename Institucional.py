@@ -555,7 +555,8 @@ linha = st.container(horizontal=True)
 
 for estrategia_item in lista_estrategias_ordenada:
     with linha.container(border=True):
-        st.markdown(f"**{estrategia_item.get('titulo')}**")
+        st.write(f"**{estrategia_item.get('titulo')}**")
+        st.write(estrategia_item.get('texto'))
 
        
 
