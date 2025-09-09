@@ -5,6 +5,7 @@ import random
 import smtplib  
 from email.mime.text import MIMEText  
 from funcoes_auxiliares import conectar_mongo_portal_ispn  # Função personalizada para conectar ao MongoDB
+import bcrypt
 
 # Configurar o streamlit para tela wide
 st.set_page_config(layout="wide")
@@ -40,7 +41,7 @@ def enviar_email(destinatario, codigo):
     senha = st.secrets["senhas"]["senha_email"]
 
     # Conteúdo do e_mail
-    assunto = f"Código de Verificação - Portal ISPN: {codigo}"
+    assunto = f"Código de Verificação - Colab ISPN: {codigo}"
     corpo = f"""
     <html>
         <body>
@@ -137,34 +138,36 @@ def recuperar_senha_dialog():
             confirmar_senha = st.text_input("Confirme a senha", type="password")
             enviar_nova_senha = st.form_submit_button("Salvar")
 
+
             if enviar_nova_senha:
                 if nova_senha == confirmar_senha and nova_senha.strip():
                     email = st.session_state.email_verificado
 
-                    # Localiza o usuário pelo e_mail
                     usuario = colaboradores.find_one({"e_mail": email})
 
                     if usuario:
                         try:
-                            # Atualiza a senha no banco de dados
+                            # Gera hash seguro da senha
+                            hash_senha = bcrypt.hashpw(nova_senha.encode("utf-8"), bcrypt.gensalt())
+
+                            # Atualiza no banco o hash, não a senha em texto puro
                             result = colaboradores.update_one(
                                 {"e_mail": email},
-                                {"$set": {"senha": nova_senha}}
+                                {"$set": {"senha": hash_senha}}
                             )
 
                             if result.matched_count > 0:
                                 st.success("Senha redefinida com sucesso!")
 
-                                # Limpa as variáveis da sessão
+                                # Limpa variáveis de sessão
                                 for key in ["codigo_enviado", "codigo_verificacao", "email_verificado", "codigo_validado"]:
                                     st.session_state.pop(key, None)
 
-                                # Inicializa o session_state.tipo_usuario
+                                # Inicializa tipo de usuário
                                 tipo_usuario = [x.strip() for x in usuario.get("tipo de usuário", "").split(",")]
                                 st.session_state["tipo_usuario"] = tipo_usuario
 
-
-                                # Marca usuário como logado e reinicia o app
+                                # Marca usuário como logado e reinicia
                                 st.session_state.logged_in = True
                                 time.sleep(2)
                                 st.rerun()
@@ -176,6 +179,62 @@ def recuperar_senha_dialog():
                         st.error("Nenhum usuário encontrado com esse e-mail.")
                 else:
                     st.error("As senhas não coincidem ou estão vazias.")
+
+
+
+
+            # if enviar_nova_senha:
+            #     if nova_senha == confirmar_senha and nova_senha.strip():
+            #         email = st.session_state.email_verificado
+
+            #         # Localiza o usuário pelo e_mail
+            #         usuario = colaboradores.find_one({"e_mail": email})
+
+            #         if usuario:
+            #             try:
+            #                 # Atualiza a senha no banco de dados
+
+            #                 # Gera hash seguro da senha
+            #                 hash_senha = bcrypt.hashpw(nova_senha.encode("utf-8"), bcrypt.gensalt())
+
+            #                 # Atualiza a senha no banco (hash, não texto puro!)
+            #                 result = colaboradores.update_one(
+            #                     {"e_mail": email},
+            #                     {"$set": {"senha": hash_senha}}
+            #                 )
+
+
+
+
+            #                 # result = colaboradores.update_one(
+            #                 #     {"e_mail": email},
+            #                 #     {"$set": {"senha": nova_senha}}
+            #                 # )
+
+            #                 if result.matched_count > 0:
+            #                     st.success("Senha redefinida com sucesso!")
+
+            #                     # Limpa as variáveis da sessão
+            #                     for key in ["codigo_enviado", "codigo_verificacao", "email_verificado", "codigo_validado"]:
+            #                         st.session_state.pop(key, None)
+
+            #                     # Inicializa o session_state.tipo_usuario
+            #                     tipo_usuario = [x.strip() for x in usuario.get("tipo de usuário", "").split(",")]
+            #                     st.session_state["tipo_usuario"] = tipo_usuario
+
+
+            #                     # Marca usuário como logado e reinicia o app
+            #                     st.session_state.logged_in = True
+            #                     time.sleep(2)
+            #                     st.rerun()
+            #                 else:
+            #                     st.error("Erro ao redefinir a senha. Tente novamente.")
+            #             except Exception as e:
+            #                 st.error(f"Erro ao atualizar a senha: {e}")
+            #         else:
+            #             st.error("Nenhum usuário encontrado com esse e-mail.")
+            #     else:
+            #         st.error("As senhas não coincidem ou estão vazias.")
 
 
 
@@ -285,45 +344,182 @@ def login():
             st.write('')
 
             with st.form("login_form", border=False):
-                # Novo campo de e-mail
+                # Campo de e-mail
                 email_input = st.text_input("E-mail", width=300)
 
                 # Campo de senha
                 password = st.text_input("Senha", type="password", width=300)
 
                 if st.form_submit_button("Entrar"):
+                    # Busca apenas pelo e-mail
                     usuario_encontrado = colaboradores.find_one({
-                        "e_mail": {"$regex": f"^{email_input.strip()}$", "$options": "i"},
-                        "senha": password
+                        "e_mail": {"$regex": f"^{email_input.strip()}$", "$options": "i"}
                     })
 
                     # Salva o email para possível recuperação de senha
                     st.session_state["email_para_recuperar"] = email_input.strip()
 
                     if usuario_encontrado:
-                        if usuario_encontrado.get("status", "").lower() != "ativo":
-                            st.error("Usuário inativo. Entre em contato com o renato@ispn.org.br.")
-                            return
+                        senha_hash = usuario_encontrado.get("senha")
 
-                        tipo_usuario = [x.strip() for x in usuario_encontrado.get("tipo de usuário", "").split(",")]
+                        # Forma segura: só aceita hashes válidos (bytes)
+                        if isinstance(senha_hash, bytes) and bcrypt.checkpw(password.encode("utf-8"), senha_hash):
+                            if usuario_encontrado.get("status", "").lower() != "ativo":
+                                st.error("Usuário inativo. Entre em contato com o renato@ispn.org.br.")
+                                st.stop()
 
-                        # Autentica
-                        st.session_state["logged_in"] = True
-                        st.session_state["tipo_usuario"] = tipo_usuario
-                        st.session_state["nome"] = usuario_encontrado.get("nome_completo")
-                        st.session_state["cpf"] = usuario_encontrado.get("CPF")
-                        st.session_state["id_usuario"] = usuario_encontrado.get("_id")
-                        st.rerun()
+                            tipo_usuario = [x.strip() for x in usuario_encontrado.get("tipo de usuário", "").split(",")]
+
+                            # Autentica
+                            st.session_state["logged_in"] = True
+                            st.session_state["tipo_usuario"] = tipo_usuario
+                            st.session_state["nome"] = usuario_encontrado.get("nome_completo")
+                            st.session_state["cpf"] = usuario_encontrado.get("CPF")
+                            st.session_state["id_usuario"] = usuario_encontrado.get("_id")
+                            st.rerun()
+                        else:
+                            # Senha inválida ou não hashada corretamente
+                            st.error("E-mail ou senha inválidos!", width=300)
                     else:
                         st.error("E-mail ou senha inválidos!", width=300)
 
             # Botão para recuperar senha
             st.write('')
             st.write('')
-            st.button("Esqueci a senha", key="forgot_password", type="tertiary", on_click=recuperar_senha_dialog)
+            st.markdown("<div style='color: red'><b>Atenção:</b> todas as senhas precisam ser redefinidas, devido à implementação de criptografia.</div>", unsafe_allow_html=True)
+            st.markdown("<div style='color: red'>Clique em \"Esqueci a senha\".</div>", unsafe_allow_html=True)
+
+            st.write('')
+            st.button(
+                "Esqueci a senha", 
+                key="forgot_password", 
+                type="tertiary", 
+                on_click=recuperar_senha_dialog
+            )
 
             # Informação adicional
-            st.markdown("<div style='color: #007ad3;'><br>É o seu primeiro acesso?<br>Clique em \"Esqueci a senha\".</div>", unsafe_allow_html=True)
+            st.markdown(
+                "<div style='color: #007ad3;'><br>É o seu primeiro acesso?<br>Clique em \"Esqueci a senha\".</div>",
+                unsafe_allow_html=True
+            )
+
+
+
+
+
+
+
+
+
+
+
+
+        # with st.container():
+
+        #     st.write('')
+        #     st.write('')
+        #     st.write('')
+
+        #     with st.form("login_form", border=False):
+                
+        #         # Novo campo de e-mail
+        #         email_input = st.text_input("E-mail", width=300)
+
+        #         # Campo de senha
+        #         password = st.text_input("Senha", type="password", width=300)
+
+        #         if st.form_submit_button("Entrar"):
+        #             # Busca apenas pelo e-mail (ignora senha)
+        #             usuario_encontrado = colaboradores.find_one({
+        #                 "e_mail": {"$regex": f"^{email_input.strip()}$", "$options": "i"}
+        #             })
+
+        #             # Salva o email para possível recuperação de senha
+        #             st.session_state["email_para_recuperar"] = email_input.strip()
+
+        #             if usuario_encontrado:
+        #                 senha_hash = usuario_encontrado.get("senha")
+
+        #                 # Verifica senha com bcrypt
+        #                 if senha_hash and bcrypt.checkpw(password.encode("utf-8"), senha_hash):
+        #                     if usuario_encontrado.get("status", "").lower() != "ativo":
+        #                         st.error("Usuário inativo. Entre em contato com o renato@ispn.org.br.")
+        #                         st.stop()
+
+        #                     tipo_usuario = [x.strip() for x in usuario_encontrado.get("tipo de usuário", "").split(",")]
+
+        #                     # Autentica
+        #                     st.session_state["logged_in"] = True
+        #                     st.session_state["tipo_usuario"] = tipo_usuario
+        #                     st.session_state["nome"] = usuario_encontrado.get("nome_completo")
+        #                     st.session_state["cpf"] = usuario_encontrado.get("CPF")
+        #                     st.session_state["id_usuario"] = usuario_encontrado.get("_id")
+        #                     st.rerun()
+        #                 else:
+        #                     st.error("E-mail ou senha inválidos!", width=300)
+        #             else:
+        #                 st.error("E-mail ou senha inválidos!", width=300)
+
+        #     # Botão para recuperar senha
+        #     st.write('')
+        #     st.write('')
+        #     st.button("Esqueci a senha", key="forgot_password", type="tertiary", on_click=recuperar_senha_dialog)
+
+        #     # Informação adicional
+        #     st.markdown(
+        #         "<div style='color: #007ad3;'><br>É o seu primeiro acesso?<br>Clique em \"Esqueci a senha\".</div>",
+        #         unsafe_allow_html=True
+        #     )
+
+
+
+
+        # with st.container():
+
+        #     st.write('')
+        #     st.write('')
+        #     st.write('')
+
+        #     with st.form("login_form", border=False):
+        #         # Novo campo de e-mail
+        #         email_input = st.text_input("E-mail", width=300)
+
+        #         # Campo de senha
+        #         password = st.text_input("Senha", type="password", width=300)
+
+        #         if st.form_submit_button("Entrar"):
+        #             usuario_encontrado = colaboradores.find_one({
+        #                 "e_mail": {"$regex": f"^{email_input.strip()}$", "$options": "i"},
+        #                 "senha": password
+        #             })
+
+        #             # Salva o email para possível recuperação de senha
+        #             st.session_state["email_para_recuperar"] = email_input.strip()
+
+        #             if usuario_encontrado:
+        #                 if usuario_encontrado.get("status", "").lower() != "ativo":
+        #                     st.error("Usuário inativo. Entre em contato com o renato@ispn.org.br.")
+        #                     return
+
+        #                 tipo_usuario = [x.strip() for x in usuario_encontrado.get("tipo de usuário", "").split(",")]
+
+        #                 # Autentica
+        #                 st.session_state["logged_in"] = True
+        #                 st.session_state["tipo_usuario"] = tipo_usuario
+        #                 st.session_state["nome"] = usuario_encontrado.get("nome_completo")
+        #                 st.session_state["cpf"] = usuario_encontrado.get("CPF")
+        #                 st.session_state["id_usuario"] = usuario_encontrado.get("_id")
+        #                 st.rerun()
+        #             else:
+        #                 st.error("E-mail ou senha inválidos!", width=300)
+
+        #     # Botão para recuperar senha
+        #     st.write('')
+        #     st.write('')
+        #     st.button("Esqueci a senha", key="forgot_password", type="tertiary", on_click=recuperar_senha_dialog)
+
+        #     # Informação adicional
+        #     st.markdown("<div style='color: #007ad3;'><br>É o seu primeiro acesso?<br>Clique em \"Esqueci a senha\".</div>", unsafe_allow_html=True)
 
 
 
