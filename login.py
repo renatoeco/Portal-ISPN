@@ -560,19 +560,19 @@ else:
     # Mostra menu de navegação se estiver logado
     pg = st.navigation([
         "Institucional.py", 
-        # "Estratégia.py", 
-        # "Programas e Áreas.py", 
-        # "Pessoas.py",
-        # "Doadores.py", 
+        "Estratégia.py", 
+        "Programas e Áreas.py", 
+        "Pessoas.py",
+        "Doadores.py", 
         "Indicadores.py",
-        # "Projetos.py", 
+        "Projetos.py", 
         "Fundo Ecos.py",
-        # "Redes e Articulações.py", 
-        # "Monitor de PLs.py",
-        # "Clipping de Notícias.py", 
-        # "Viagens.py",
-        # "Férias e recessos.py",
-        # "Manuais.py",
+        "Redes e Articulações.py", 
+        "Monitor de PLs.py",
+        "Clipping de Notícias.py", 
+        "Viagens.py",
+        "Férias e recessos.py",
+        "Manuais.py",
     ])
 
     # Executa a página selecionada
