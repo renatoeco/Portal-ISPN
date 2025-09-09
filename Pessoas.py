@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd 
 import plotly.express as px
 import datetime
+from bson import ObjectId
 import time
 from funcoes_auxiliares import conectar_mongo_portal_ispn
 
@@ -74,8 +75,19 @@ def gerenciar_pessoas():
     id_para_nome_programa = {p["_id"]: p["nome_programa_area"] for p in dados_programas}
 
     # Mapeia codigo de projeto <-> ObjectId
-    nome_para_id_projeto = {p["nome_do_projeto"]: p["_id"] for p in dados_projetos_ispn}
-    id_para_nome_projeto = {p["_id"]: p["nome_do_projeto"] for p in dados_projetos_ispn}
+    # nome -> id
+    nome_para_id_projeto = {
+        p.get("nome_do_projeto"): str(p["_id"])
+        for p in dados_projetos_ispn
+        if p.get("nome_do_projeto") and "_id" in p
+    }
+
+    # id -> nome
+    id_para_nome_projeto = {
+        str(p["_id"]): p.get("nome_do_projeto", "")
+        for p in dados_projetos_ispn
+        if "_id" in p
+    }
     
     # Cria duas abas: cadastro e edição
     aba_cadastrar, aba_editar = st.tabs([":material/person_add: Cadastrar novo(a)", ":material/edit: Editar"])
@@ -146,6 +158,8 @@ def gerenciar_pessoas():
             lista_programas_areas = sorted(nome_para_id_programa.keys())
             programa_area_nome = col2.selectbox("Programa / Área:", lista_programas_areas, index=None, placeholder="")
             programa_area = nome_para_id_programa.get(programa_area_nome)
+            
+            
 
 
             # Coordenador/a
@@ -175,8 +189,15 @@ def gerenciar_pessoas():
 
             # Projeto pagador
             lista_projetos = sorted({p["nome_do_projeto"] for p in dados_projetos_ispn if p.get("nome_do_projeto", "") != ""})
-            projeto_pagador_nome = st.selectbox("Contratado(a) pelo projeto:", lista_projetos, index=None)
-            projeto_pagador = nome_para_id_projeto.get(projeto_pagador_nome)
+            projeto_pagador_nome = st.multiselect(
+                "Contratado(a) pelo projeto:",
+                lista_projetos,
+                # default=tipo_usuario_default,
+                key="cadastrar_projeto_pagador",
+                # disabled=desabilitar
+            )
+            
+            projeto_pagador = [nome_para_id_projeto.get(nome) for nome in projeto_pagador_nome]
 
             # Datas de início e fim de contrato
             with st.container(horizontal=True):
@@ -321,7 +342,7 @@ def gerenciar_pessoas():
                 else:
  
                     # Ano atual para armazenar dados de férias
-                    ano_atual = str(datetime.now().year)
+                    ano_atual = str(datetime.datetime.now().year)
                     
                     # nova_anotacao = {
                     #     "data_anotacao": datetime.datetime.today(),
@@ -338,9 +359,9 @@ def gerenciar_pessoas():
                         "data_nascimento": data_nascimento.strftime("%d/%m/%Y") if data_nascimento else None,
                         "gênero": genero,
                         "raca": raca,
-                        "escolaridade": escolaridade,  
+                        "escolaridade": escolaridade,
                         "senha": "",
-                        "tipo de usuário": "",
+                        "tipo de usuário": ", ".join(tipo_usuario) if tipo_usuario else "",
                         "cargo": cargo,
                         "tipo_contratacao": tipo_contratacao,
                         "escritorio": escritorio,
@@ -353,7 +374,7 @@ def gerenciar_pessoas():
                         },
                         "férias": {
                             "anos": {
-                                ano_atual: {
+                                str(ano_atual): {
                                     "residual_ano_anterior": residual_ano_anterior,
                                     "valor_inicial_ano_atual": valor_inicial_ano_atual,
                                     "total_gozado": total_gozado,
@@ -365,16 +386,25 @@ def gerenciar_pessoas():
                         },
                         "status": "ativo",
                         "e_mail": email,
-                        # "e_mail_coordenador": coordenador["id"],
                         "coordenador": coordenador_id,
-                        "projeto_pagador": projeto_pagador,
-                        "data_inicio_contrato": inicio_contrato.strftime("%d/%m/%Y") if inicio_contrato else None,
-                        "data_fim_contrato": fim_contrato.strftime("%d/%m/%Y") if fim_contrato else None,
-                        "anotacoes": {
-                            "data_anotacao": datetime.datetime.today(),
-                            "autor": st.session_state.get("nome", "Desconhecido"),
-                            "anotacao": anotacao_texto.strip()
-                        }
+                        "data_reajuste": "",  # novo campo
+                        "contratos": [
+                            {
+                                "data_inicio": inicio_contrato.strftime("%d/%m/%Y") if inicio_contrato else "",
+                                "data_fim": fim_contrato.strftime("%d/%m/%Y") if fim_contrato else "",
+                                "codigo_projeto": "",
+                                "status_contrato": "",
+                                "projeto_pagador": projeto_pagador if projeto_pagador else [],
+                                "termos_aditivos": [],
+                            }
+                        ],
+                        "anotacoes": [
+                            {
+                                "data_anotacao": datetime.datetime.today().strftime("%d/%m/%Y %H:%M"),
+                                "autor": st.session_state.get("nome", "Desconhecido"),
+                                "anotacao": anotacao_texto.strip() if anotacao_texto else ""
+                            }
+                        ]
                     }
 
                     # Insere o novo colaborador no banco
@@ -528,62 +558,95 @@ def gerenciar_pessoas():
                             c["id"] for c in coordenadores_possiveis if c["nome"] == coordenador_nome
                         )         
 
-                    # Projeto pagador
-                    # Lista de projetos (com opção vazia no início, se quiser)
-                    lista_projetos = [""] + sorted([p["nome_do_projeto"] for p in dados_projetos_ispn if p.get("nome_do_projeto", "")])
-                    # Nome atual do projeto pagador
-                    projeto_pagador_nome_atual = pessoa.get("projeto_pagador", "")
-                    projeto_pagador_nome_atual = id_para_nome_projeto.get(projeto_pagador_nome_atual, "")
-                    # Seleção com valor padrão
-                    index_padrao = lista_projetos.index(projeto_pagador_nome_atual) if projeto_pagador_nome_atual in lista_projetos else 0
-                    projeto_pagador_nome_edit = st.selectbox(
-                        "Contratado(a) pelo projeto:",
+                    # ==============================
+                    # Lista de todos os projetos disponíveis (com opção vazia no início)
+                    # ==============================
+                    lista_projetos = [""] + sorted([
+                        p["nome_do_projeto"] for p in dados_projetos_ispn if p.get("nome_do_projeto", "")
+                    ])
+
+                    # ==============================
+                    # Pega dados do primeiro contrato (se existir)
+                    # ==============================
+                    contratos = pessoa.get("contratos", [])
+                    contrato_atual = contratos[0] if contratos else {}
+
+                    # ------------------------------
+                    # Projetos pagadores atuais
+                    # ------------------------------
+                    # IDs salvos no contrato (sempre convertendo para str)
+                    projetos_pagadores_ids_atuais = []
+                    for pid in contrato_atual.get("projeto_pagador", []):
+                        if isinstance(pid, dict) and "$oid" in pid:
+                            projetos_pagadores_ids_atuais.append(str(pid["$oid"]))
+                        elif pid:
+                            projetos_pagadores_ids_atuais.append(str(pid))
+
+                    # Converte IDs para nomes
+                    projetos_pagadores_nomes_atuais = [
+                        id_para_nome_projeto.get(pid, "")
+                        for pid in projetos_pagadores_ids_atuais
+                        if pid in id_para_nome_projeto
+                    ]
+
+                    # Multiselect
+                    projetos_pagadores_nomes_edit = st.multiselect(
+                        "Contratado(a) pelo(s) projeto(s):",
                         lista_projetos,
-                        index=index_padrao,
-                        disabled=desabilitar
+                        default=projetos_pagadores_nomes_atuais,
                     )
-                    # ID correspondente ao projeto selecionado
-                    projeto_pagador_edit = nome_para_id_projeto.get(projeto_pagador_nome_edit)
 
+                    # Nomes selecionados → IDs como ObjectId
+                    projetos_pagadores_edit = [
+                        ObjectId(nome_para_id_projeto.get(nome))
+                        for nome in projetos_pagadores_nomes_edit
+                        if nome and nome_para_id_projeto.get(nome)
+                    ]
+
+                    # ==============================
                     # Datas de início e fim de contrato
-                    # Pega valores atuais do usuário
-                    data_inicio_atual = pessoa.get("data_inicio_contrato")
-                    data_fim_atual = pessoa.get("data_fim_contrato")
+                    # ==============================
+                      
+                      
+                    data_inicio_atual = contrato_atual.get("data_inicio")
+                    data_fim_atual = contrato_atual.get("data_fim")
 
-                    # Converte string para datetime.date se necessário
                     def str_para_date(data_str):
                         if not data_str:
                             return None
-                        if isinstance(data_str, datetime):
-                            return data_str.date()
+                        if isinstance(data_str, datetime.date):  # aceita tanto date quanto datetime
+                            return data_str
                         try:
-                            return datetime.strptime(data_str, "%d/%m/%Y").date()
-                        except:
+                            return datetime.datetime.strptime(data_str, "%d/%m/%Y").date()
+                        except Exception:
                             return None
+
 
                     inicio_padrao = str_para_date(data_inicio_atual)
                     fim_padrao = str_para_date(data_fim_atual)
 
-                    # Date inputs com valor padrão
-                    with st.container(horizontal=True):
-                        inicio_contrato = st.date_input(
-                            "Data de início do contrato:",
-                            value=inicio_padrao,
-                            format="DD/MM/YYYY"
-                        )
-                        fim_contrato = st.date_input(
-                            "Data de fim do contrato:",
-                            value=fim_padrao,
-                            format="DD/MM/YYYY"
-                        )
-                        
+                    col1, col2, col3 = st.columns([1,1,1])
+                    
+                    inicio_contrato = col1.date_input(
+                        "Data de início do contrato:",
+                        value=inicio_padrao,
+                        format="DD/MM/YYYY"
+                    )
+                    
+                    fim_contrato = col2.date_input(
+                        "Data de fim do contrato:",
+                        value=fim_padrao,
+                        format="DD/MM/YYYY"
+                    )
+                    
                     # Data de reajuste de contrato
                     data_reajuste_str = pessoa.get("data_reajuste", "")
                     if data_reajuste_str:
-                        data_reajuste = datetime.strptime(data_reajuste_str, "%d/%m/%Y")
+                        data_reajuste = datetime.datetime.strptime(data_reajuste_str, "%d/%m/%Y")
                     else:
                         data_reajuste = None
-                    data_reajuste = st.date_input("Data de reajuste:", format="DD/MM/YYYY", value=data_reajuste, disabled=desabilitar)
+                        
+                    data_reajuste = col3.date_input("Data de reajuste:", format="DD/MM/YYYY", value=data_reajuste, disabled=desabilitar)
 
                     st.markdown("---")
 
@@ -632,21 +695,24 @@ def gerenciar_pessoas():
                     opcoes_com_vazio = [""] + opcoes
                     
                     # Selecionar anotação (valor padrão vazio)
-                    selecionada = st.selectbox(
-                        "Selecione a anotação para editar",
-                        options=opcoes_com_vazio,
-                        index=0
-                    )
+                    # selecionada = st.selectbox(
+                    #     "Selecione a anotação para editar",
+                    #     options=opcoes_com_vazio,
+                    #     index=0
+                    # )
                     
-                    if selecionada:  # só prosseguir se o usuário selecionar algo
-                        # Índice real dentro da lista completa de anotações
-                        index = [i for i, a in enumerate(anotacoes) if a.get("autor") == usuario_logado][opcoes.index(selecionada)]
-                        anotacao_atual = anotacoes[index]["anotacao"]
+                    #nova_texto = ""
+                    
+                    # if selecionada:  # só prosseguir se o usuário selecionar algo
+                    #     # Índice real dentro da lista completa de anotações
+                    #     index = [i for i, a in enumerate(anotacoes) if a.get("autor") == usuario_logado][opcoes.index(selecionada)]
+                    #     anotacao_atual = anotacoes[index]["anotacao"]
                         
-                        # Campo para editar
-                        nova_texto = st.text_area("Editar anotação", value=anotacao_atual)
+                        
+                    #     # Campo para editar
+                    #     nova_texto = st.text_area("Anotação", value=anotacao_atual or "")
                             
-                    st.divider()
+                    #st.divider()
 
                     # Permissões
                     st.write('**Permissões**')
@@ -781,14 +847,27 @@ def gerenciar_pessoas():
                                 "escritorio": escritorio,
                                 "tipo de usuário": ", ".join(tipo_usuario) if tipo_usuario else "",
                                 "status": status,
-                                "projeto_pagador": projeto_pagador_edit,
-                                "data_inicio_contrato": inicio_contrato.strftime("%d/%m/%Y") if inicio_contrato else None,
-                               "data_fim_contrato": fim_contrato.strftime("%d/%m/%Y") if fim_contrato else None,
-                               "data_reajuste": data_reajuste.strftime("%d/%m/%Y") if data_nascimento else None,
-                                f"anotacoes.{index}.anotacao": nova_texto.strip(),
+                                "data_reajuste": data_reajuste.strftime("%d/%m/%Y") if data_reajuste else None,
+                                "contratos": [
+                                    {
+                                        "data_inicio": inicio_contrato.strftime("%d/%m/%Y") if inicio_contrato else "",
+                                        "data_fim": fim_contrato.strftime("%d/%m/%Y") if fim_contrato else "",
+                                        "codigo_projeto": "",
+                                        "status_contrato": "",
+                                        "termos_aditivos": [],
+                                        "projeto_pagador": projetos_pagadores_edit if projetos_pagadores_edit else [],
+                                                }
+                                            ]
+                                        },
+                                # anotacoes agora é lista → se já existe, usa $push para adicionar nova
+                                # "$push": {
+                                #     "anotacoes": {
+                                #         "data_anotacao": datetime.datetime.today().strftime("%d/%m/%Y %H:%M"),
+                                #         "autor": st.session_state.get("nome", "Desconhecido"),
+                                #         "anotacao": nova_texto.strip() if nova_texto else ""
+                                #     }
                                 }
-                            }
-                        )
+                            )
 
                         # Exibe mensagem de sucesso, aguarda 2 segundos e atualiza a página
                         st.success("Informações atualizadas com sucesso!", icon=":material/check_circle:")
@@ -898,6 +977,11 @@ with aba_pessoas:
 if set(st.session_state.tipo_usuario) & {"admin", "gestao_pessoas"}:
     with aba_contratos:
 
+        # Buscar os dados das pessoas no MongoDB
+        dados_pessoas = list(
+            pessoas.find({}, {"nome_completo": 1, "contratos": 1})
+        )
+
         # Transformar para a nova estrutura (pega o primeiro contrato válido da lista)
         lista_tratada = []
         for pessoa in dados_pessoas:
@@ -905,7 +989,6 @@ if set(st.session_state.tipo_usuario) & {"admin", "gestao_pessoas"}:
             contratos = pessoa.get("contratos", [])
 
             if contratos:
-                # 🔹 Pode adaptar aqui se quiser pegar só o contrato ativo
                 contrato = contratos[0]  
 
                 lista_tratada.append({
@@ -931,6 +1014,16 @@ if set(st.session_state.tipo_usuario) & {"admin", "gestao_pessoas"}:
                 df_equipe["Início do contrato"].notna() & df_equipe["Fim do contrato"].notna()
             ]
 
+            # Calcular dias restantes
+            hoje = pd.Timestamp(datetime.date.today())  # garante formato datetime64
+            df_equipe["Dias restantes"] = (df_equipe["Fim do contrato"] - hoje).dt.days
+
+
+            # Criar coluna de cor: vermelho se < 90 dias, azul caso contrário
+            df_equipe["Cor"] = df_equipe["Dias restantes"].apply(
+                lambda x: "red" if x < 90 else "#4C78A8"
+            )
+
             # Ordenar por data de fim (decrescente)
             df_equipe = df_equipe.sort_values(by="Fim do contrato", ascending=False)
 
@@ -948,7 +1041,8 @@ if set(st.session_state.tipo_usuario) & {"admin", "gestao_pessoas"}:
                 x_start="Início do contrato",
                 x_end="Fim do contrato",
                 y="Nome",
-                color_discrete_sequence=["#4C78A8"],
+                color="Cor",  # 🔹 Agora usa a coluna de cor
+                color_discrete_map="identity",  # Mantém as cores exatas que definimos
                 height=altura
             )
 
@@ -957,7 +1051,7 @@ if set(st.session_state.tipo_usuario) & {"admin", "gestao_pessoas"}:
 
             # Linha vertical de hoje
             fig.add_vline(
-                x=datetime.date.today(),
+                x=hoje,
                 line_width=1,
                 line_dash="dash",
                 line_color="gray"

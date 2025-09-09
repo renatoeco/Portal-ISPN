@@ -193,18 +193,33 @@ for colab_doc in colaboradores_raw:
     programa_area_id = colab_doc.get("programa_area")
     programa_area = mapa_id_para_nome_programa.get(str(programa_area_id), "Não informado")
 
-    projeto_pagador = colab_doc.get("projeto_pagador", "")
+    # Contratos
+    contratos = colab_doc.get("contratos", [])
+    if contratos:
+        # Pegamos o primeiro contrato para exibição (ou você pode iterar se quiser múltiplos)
+        contrato = contratos[0]
 
-    projeto_pagador_sigla = mapa_id_para_sigla_projeto.get(str(projeto_pagador), "Não informado")
+        data_inicio_contrato = contrato.get("data_inicio", "")
+        data_fim_contrato = contrato.get("data_fim", "")
 
-    data_inicio_contrato = colab_doc.get("data_inicio_contrato")
-    data_fim_contrato = colab_doc.get("data_fim_contrato")
+        # Converte datas string para datetime, se necessário
+        if isinstance(data_inicio_contrato, datetime.datetime):
+            data_inicio_contrato = data_inicio_contrato.strftime("%d/%m/%Y")
+        if isinstance(data_fim_contrato, datetime.datetime):
+            data_fim_contrato = data_fim_contrato.strftime("%d/%m/%Y")
 
-    if isinstance(data_inicio_contrato, datetime.datetime):
-        data_inicio_contrato = data_inicio_contrato.strftime("%d/%m/%Y")
-
-    if isinstance(data_fim_contrato, datetime.datetime):
-        data_fim_contrato = data_fim_contrato.strftime("%d/%m/%Y")
+        # Projeto pagador
+        projeto_pagador_list = contrato.get("projeto_pagador", [])
+        if projeto_pagador_list:
+            # Pega o primeiro ObjectId do contrato
+            projeto_pagador_id = str(projeto_pagador_list[0])  # <-- aqui só convertemos para string
+            projeto_pagador_sigla = mapa_id_para_sigla_projeto.get(projeto_pagador_id, "Não informado")
+        else:
+            projeto_pagador_sigla = "Não informado"
+    else:
+        data_inicio_contrato = ""
+        data_fim_contrato = ""
+        projeto_pagador_sigla = "Não informado"
 
     lista_equipe.append({
         "Nome": nome,
@@ -328,6 +343,10 @@ for i, aba in enumerate(abas):
         
         df_equipe_exibir_filtrado['Início do contrato'] = pd.to_datetime(df_equipe_exibir_filtrado['Início do contrato'], dayfirst=True)
         df_equipe_exibir_filtrado['Fim do contrato'] = pd.to_datetime(df_equipe_exibir_filtrado['Fim do contrato'], dayfirst=True)
+        
+        # Ordena em ordem decrescente pelo fim do contrato
+        df_equipe_exibir_filtrado = df_equipe_exibir_filtrado.sort_values(by='Fim do contrato', ascending=False)
+        
         fig = px.timeline(
             df_equipe_exibir_filtrado,
             x_start="Início do contrato",
