@@ -898,11 +898,6 @@ with aba_pessoas:
 if set(st.session_state.tipo_usuario) & {"admin", "gestao_pessoas"}:
     with aba_contratos:
 
-        # Buscar os dados das pessoas no MongoDB
-        dados_pessoas = list(
-            pessoas.find({}, {"nome_completo": 1, "contratos": 1})
-        )
-
         # Transformar para a nova estrutura (pega o primeiro contrato válido da lista)
         lista_tratada = []
         for pessoa in dados_pessoas:
