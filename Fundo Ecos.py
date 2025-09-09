@@ -2036,7 +2036,7 @@ with lista:
         "Página",
         min_value=1,
         max_value=total_paginas,
-        value=st.session_state["pagina_topo"],
+        # value=st.session_state["pagina_topo"],
         step=1,
         key="pagina_topo",
         on_change=atualizar_topo
