@@ -71,20 +71,26 @@ for pessoa in dados_pessoas:
 def gerenciar_pessoas():
     
     # Mapeia nomes de programa <-> ObjectId
-    nome_para_id_programa = {p["nome_programa_area"]: p["_id"] for p in dados_programas}
-    id_para_nome_programa = {p["_id"]: p["nome_programa_area"] for p in dados_programas}
+    nome_para_id_programa = {
+        p["nome_programa_area"]: p["_id"]
+        for p in dados_programas if p.get("nome_programa_area")
+    }
+    id_para_nome_programa = {
+        p["_id"]: p["nome_programa_area"]
+        for p in dados_programas if p.get("nome_programa_area")
+    }
 
     # Mapeia codigo de projeto <-> ObjectId
-    # nome -> id
+    # nome -> ObjectId
     nome_para_id_projeto = {
-        p.get("nome_do_projeto"): str(p["_id"])
+        p.get("nome_do_projeto"): p["_id"]   # <<< sem str()
         for p in dados_projetos_ispn
         if p.get("nome_do_projeto") and "_id" in p
     }
 
-    # id -> nome
+    # id (ObjectId) -> nome
     id_para_nome_projeto = {
-        str(p["_id"]): p.get("nome_do_projeto", "")
+        p["_id"]: p.get("nome_do_projeto", "")
         for p in dados_projetos_ispn
         if "_id" in p
     }
@@ -187,23 +193,29 @@ def gerenciar_pessoas():
 
 
 
-            # Projeto pagador
-            lista_projetos = sorted({p["nome_do_projeto"] for p in dados_projetos_ispn if p.get("nome_do_projeto", "") != ""})
+            # Projeto pagador (lista de nomes para exibir)
+            lista_projetos = sorted({
+                p["nome_do_projeto"]
+                for p in dados_projetos_ispn
+                if p.get("nome_do_projeto", "") != ""
+            })
+
+            # Exibe multiselect com nomes
             projeto_pagador_nome = st.multiselect(
                 "Contratado(a) pelo projeto:",
                 lista_projetos,
-                # default=tipo_usuario_default,
                 key="cadastrar_projeto_pagador",
-                # disabled=desabilitar
             )
-            
+
+            # Converte os nomes escolhidos de volta para ObjectId
             projeto_pagador = [nome_para_id_projeto.get(nome) for nome in projeto_pagador_nome]
 
             # Datas de início e fim de contrato
             with st.container(horizontal=True):
                 inicio_contrato = st.date_input("Data de início do contrato:", format="DD/MM/YYYY", value=None)
                 fim_contrato = st.date_input("Data de fim do contrato:", format="DD/MM/YYYY", value=None)
-
+                
+            status_contrato = st.selectbox("Status do contrato:", ["Em vigência", "Encerrado", "Cancelado", "Fonte de recurso temporária"], index=0, placeholder="")
 
             st.markdown("---")
             
@@ -393,7 +405,7 @@ def gerenciar_pessoas():
                                 "data_inicio": inicio_contrato.strftime("%d/%m/%Y") if inicio_contrato else "",
                                 "data_fim": fim_contrato.strftime("%d/%m/%Y") if fim_contrato else "",
                                 "codigo_projeto": "",
-                                "status_contrato": "",
+                                "status_contrato": status_contrato,
                                 "projeto_pagador": projeto_pagador if projeto_pagador else [],
                                 "termos_aditivos": [],
                             }
@@ -574,31 +586,32 @@ def gerenciar_pessoas():
                     # ------------------------------
                     # Projetos pagadores atuais
                     # ------------------------------
-                    # IDs salvos no contrato (sempre convertendo para str)
                     projetos_pagadores_ids_atuais = []
                     for pid in contrato_atual.get("projeto_pagador", []):
+                        # Se vier no formato {"$oid": "..."}
                         if isinstance(pid, dict) and "$oid" in pid:
-                            projetos_pagadores_ids_atuais.append(str(pid["$oid"]))
-                        elif pid:
-                            projetos_pagadores_ids_atuais.append(str(pid))
+                            projetos_pagadores_ids_atuais.append(ObjectId(pid["$oid"]))
+                        # Se já vier como ObjectId
+                        elif isinstance(pid, ObjectId):
+                            projetos_pagadores_ids_atuais.append(pid)
 
-                    # Converte IDs para nomes
+                    # Converte ObjectIds -> nomes para exibir no multiselect
                     projetos_pagadores_nomes_atuais = [
                         id_para_nome_projeto.get(pid, "")
                         for pid in projetos_pagadores_ids_atuais
                         if pid in id_para_nome_projeto
                     ]
 
-                    # Multiselect
+                    # Multiselect mostrando nomes
                     projetos_pagadores_nomes_edit = st.multiselect(
                         "Contratado(a) pelo(s) projeto(s):",
                         lista_projetos,
                         default=projetos_pagadores_nomes_atuais,
                     )
 
-                    # Nomes selecionados → IDs como ObjectId
+                    # Nomes escolhidos -> ObjectId para salvar no Mongo
                     projetos_pagadores_edit = [
-                        ObjectId(nome_para_id_projeto.get(nome))
+                        nome_para_id_projeto.get(nome)
                         for nome in projetos_pagadores_nomes_edit
                         if nome and nome_para_id_projeto.get(nome)
                     ]
@@ -638,6 +651,10 @@ def gerenciar_pessoas():
                         value=fim_padrao,
                         format="DD/MM/YYYY"
                     )
+                    
+                    lista_status_contrato = ["Em vigência", "Encerrado", "Cancelado", "Fonte de recurso temporária", ""]
+                    
+                    status_contrato = st.selectbox("Status do contrato:", lista_status_contrato, index=lista_status_contrato.index(contrato_atual.get("status_contrato")))                  
                     
                     # Data de reajuste de contrato
                     data_reajuste_str = pessoa.get("data_reajuste", "")
@@ -853,7 +870,7 @@ def gerenciar_pessoas():
                                         "data_inicio": inicio_contrato.strftime("%d/%m/%Y") if inicio_contrato else "",
                                         "data_fim": fim_contrato.strftime("%d/%m/%Y") if fim_contrato else "",
                                         "codigo_projeto": "",
-                                        "status_contrato": "",
+                                        "status_contrato": status_contrato,
                                         "termos_aditivos": [],
                                         "projeto_pagador": projetos_pagadores_edit if projetos_pagadores_edit else [],
                                                 }
