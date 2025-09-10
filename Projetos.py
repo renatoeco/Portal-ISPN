@@ -450,32 +450,49 @@ with tab2:
         st.write("_Nenhum projeto encontrado_")
     else:
         projeto_id = projeto_id[0]
+                
+        from bson import ObjectId
+        # Filtrar pessoas que pertencem a esse projeto
+        equipe = []
+        for _, pessoa in df_pessoas.iterrows():
+            contratos = pessoa.get("contratos", [])
+            if not isinstance(contratos, list):  # garante lista
+                contratos = []
 
-        # 2- Filtrar pessoas que pertencem a esse projeto
-        df_equipe = df_pessoas[df_pessoas["projeto_pagador"] == projeto_id].copy()
+            for contrato in contratos:
+                projetos = contrato.get("projeto_pagador", [])
+                if not isinstance(projetos, list):  # garante lista
+                    projetos = []
 
+                for proj in projetos:
+                    # proj pode ser ObjectId ou dict {"$oid": "..."}
+                    if isinstance(proj, ObjectId):
+                        proj_id = str(proj)
+                    elif isinstance(proj, dict) and "$oid" in proj:
+                        proj_id = proj["$oid"]
+                    else:
+                        proj_id = str(proj)
+
+                    if proj_id == str(projeto_id):
+                        equipe.append({
+                            "Nome": pessoa.get("nome_completo", ""),
+                            "Início do contrato": contrato.get("data_inicio", ""),
+                            "Fim do contrato": contrato.get("data_fim", "")
+                        })
+                        break  # já achou nesse contrato
+                else:
+                    continue
+                break  # já achou nessa pessoa
+
+        df_equipe = pd.DataFrame(equipe)
 
         if df_equipe.empty:
             st.write("_Não há equipe cadastrada para este projeto_")
         else:
-            # 3- Selecionar colunas que quer mostrar
-            df_equipe = df_equipe[["nome_completo", "data_inicio_contrato", "data_fim_contrato"]]  # ajuste nomes das colunas conforme seu df_pessoas
-            df_equipe.rename(columns={
-                "nome_completo": "Nome",
-                "data_inicio_contrato": "Início do contrato",
-                "data_fim_contrato": "Fim do contrato"
-            }, inplace=True)
-
-            # 4- Ordenar pelo fim do contrato e ajustar índice
             df_equipe.sort_values(by="Fim do contrato", ascending=True, inplace=True)
-            df_equipe.index += 1
-
-            # Resetar índice e adicionar +1 ao índice
             df_equipe.reset_index(drop=True, inplace=True)
             df_equipe.index += 1
-
-            # 5- Exibir no Streamlit
-            st.dataframe(df_equipe)
+            st.dataframe(df_equipe, hide_index=True)
 
 
     st.write('')
