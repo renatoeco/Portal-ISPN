@@ -64,7 +64,15 @@ for pessoa in dados_pessoas:
 # FUNÇÕES
 ######################################################################################################
 
-
+# Cargo
+opcoes_cargos = [
+    "Analista de advocacy", "Analista de comunicação", "Analista de dados", "Analista Administrativo/Financeiro",
+    "Analista de Recursos Humanos", "Analista socioambiental", "Analista socioambiental pleno", "Analista socioambiental sênior",
+    "Assessora de advocacy", "Assessor de Comunicação", "Auxiliar de Serviços Gerais", "Auxiliar Administrativo/financeiro",
+    "Assistente Administrativo/financeiro", "Assistente socioambiental", "Coordenador Administrativo/financeiro de escritório",
+    "Coordenador Geral administrativo/financeiro", "Coordenador Executivo", "Coordenador de Área", "Coordenador de Programa",
+    "Motorista", "Secretária(o)/Recepcionista", "Técnico de campo", "Técnico em informática"
+]
 
 
 # Define um diálogo (modal) para gerenciar colaboradores com abas de cadastro e edição
@@ -114,25 +122,8 @@ def gerenciar_pessoas():
             # E-mail
             email = col3.text_input("E-mail:")
 
-            col1, col2, col3 = st.columns([1, 1, 1])
+            col1, col2 = st.columns(2)
             
-            opcoes_cargos = [
-                "Analista de advocacy", "Analista de comunicação", "Analista de dados", "Analista Administrativo/Financeiro",
-                "Analista de Recursos Humanos", "Analista socioambiental", "Analista socioambiental pleno", "Analista socioambiental sênior",
-                "Assessora de advocacy", "Assessor de Comunicação", "Auxiliar de Serviços Gerais", "Auxiliar Administrativo/financeiro",
-                "Assistente Administrativo/financeiro", "Assistente socioambiental", "Coordenador Administrativo/financeiro de escritório",
-                "Coordenador Geral administrativo/financeiro", "Coordenador Executivo", "Coordenador de Área", "Coordenador de Programa",
-                "Motorista", "Secretária(o)/Recepcionista", "Técnico de campo", "Técnico em informática"
-            ]
-
-            
-            cargo = col1.selectbox("Cargo:", opcoes_cargos, index=None, placeholder="")
-
-            # Programa / Área
-            # Lista ordenada dos programas/áreas para seleção
-            lista_programas_areas = sorted(nome_para_id_programa.keys())
-            programa_area_nome = col2.selectbox("Programa / Área:", lista_programas_areas, index=None, placeholder="")
-            programa_area = nome_para_id_programa.get(programa_area_nome)
 
 
             # Coordenador/a
@@ -149,7 +140,7 @@ def gerenciar_pessoas():
             # Extrai nomes únicos dos coordenadores ordenados
             nomes_coordenadores = sorted({c["nome"] for c in coordenadores_possiveis})
             # Seleção do nome do coordenador no formulário
-            coordenador = col3.selectbox("Nome do(a) coordenador(a):", nomes_coordenadores, index=None, placeholder="")
+            coordenador = col1.selectbox("Nome do(a) coordenador(a):", nomes_coordenadores, index=None, placeholder="")
 
             # Por fim, pega o id do coordenador
             coordenador_id = None
@@ -158,6 +149,18 @@ def gerenciar_pessoas():
                     coordenador_id = c["id"]
                     break
 
+
+            # Programa / Área
+            # Lista ordenada dos programas/áreas para seleção
+            lista_programas_areas = sorted(nome_para_id_programa.keys())
+            programa_area_nome = col2.selectbox("Programa / Área:", lista_programas_areas, index=None, placeholder="")
+            programa_area = nome_para_id_programa.get(programa_area_nome)
+
+
+            col1, col2 = st.columns([3, 2])
+
+            # Cargo
+            cargo = col1.selectbox("Cargo:", opcoes_cargos, index=None, placeholder="")
 
 
             # Projeto pagador
@@ -417,26 +420,10 @@ def gerenciar_pessoas():
                     telefone = col2.text_input("Telefone:", value=pessoa.get("telefone", ""), disabled=desabilitar)
                     email = col3.text_input("E-mail:", value=pessoa.get("e_mail", ""), disabled=desabilitar)
                     
+
+
+
                     col1, col2 = st.columns([1, 1])
-
-                     # Programa / Área
-                    # Pega o ObjectId atual salvo no banco
-                    programa_area_atual = pessoa.get("programa_area")
-                    # Converte o ObjectId para nome legível
-                    programa_area_nome_atual = id_para_nome_programa.get(programa_area_atual, "")
-
-                    # Selectbox mostra nomes dos programas
-                    programa_area_nome = col1.selectbox(
-                        "Programa / Área:",
-                        lista_programas_areas,
-                        index=lista_programas_areas.index(programa_area_nome_atual) if programa_area_nome_atual in lista_programas_areas else 0,
-                        key="editar_programa", 
-                        disabled=desabilitar
-                    )
-
-                    # Após seleção, pega o ObjectId correspondente ao nome
-                    programa_area = nome_para_id_programa.get(programa_area_nome)
-
 
 
 
@@ -456,7 +443,7 @@ def gerenciar_pessoas():
                     nome_coordenador_default = coordenador_encontrado["nome"] if coordenador_encontrado else ""
 
                     # 4. Selectbox
-                    coordenador_nome = col2.selectbox(
+                    coordenador_nome = col1.selectbox(
                         "Nome do(a) coordenador(a):",
                         nomes_coordenadores,
                         index=nomes_coordenadores.index(nome_coordenador_default) if nome_coordenador_default in nomes_coordenadores else 0,
@@ -471,6 +458,69 @@ def gerenciar_pessoas():
                             c["id"] for c in coordenadores_possiveis if c["nome"] == coordenador_nome
                         )         
 
+
+
+
+
+                    # Programa / Área
+                    # Pega o ObjectId atual salvo no banco
+                    programa_area_atual = pessoa.get("programa_area")
+                    # Converte o ObjectId para nome legível
+                    programa_area_nome_atual = id_para_nome_programa.get(programa_area_atual, "")
+
+                    # Selectbox mostra nomes dos programas
+                    programa_area_nome = col2.selectbox(
+                        "Programa / Área:",
+                        lista_programas_areas,
+                        index=lista_programas_areas.index(programa_area_nome_atual) if programa_area_nome_atual in lista_programas_areas else 0,
+                        key="editar_programa", 
+                        disabled=desabilitar
+                    )
+
+                    # Após seleção, pega o ObjectId correspondente ao nome
+                    programa_area = nome_para_id_programa.get(programa_area_nome)
+
+
+
+
+                    col1, col2 = st.columns([3, 2])
+
+
+                    # Lista de cargos com opção vazia no início
+                    opcoes_cargos_com_vazio = [""] + opcoes_cargos
+
+                    # Valor vindo do banco de dados
+                    cargo_salvo = pessoa.get("cargo", "")
+
+                    # Tenta encontrar o índice do cargo na lista
+                    try:
+                        index_cargo = opcoes_cargos_com_vazio.index(cargo_salvo)
+                    except ValueError:
+                        index_cargo = 0  # seleciona a opção vazia
+
+                    # Selectbox com o valor padrão
+                    cargo = col1.selectbox("Cargo:", opcoes_cargos_com_vazio, index=index_cargo)
+
+
+
+
+                    # # Cargo
+
+                    # # Valor vindo do banco de dados
+                    # cargo_salvo = pessoa.get("cargo", "")  # por exemplo, "Analista de dados"
+
+                    # # Tenta encontrar o índice do cargo na lista
+                    # try:
+                    #     index_cargo = opcoes_cargos.index(cargo_salvo)
+                    # except ValueError:
+                    #     index_cargo = 0  # se não encontrar, seleciona o primeiro item
+
+                    # # Selectbox com o valor padrão
+                    # cargo = col1.selectbox("Cargo:", opcoes_cargos, index=index_cargo)
+
+
+
+                    # cargo = col1.selectbox("Cargo:", opcoes_cargos, index=None, placeholder="")
 
 
 
@@ -692,6 +742,7 @@ def gerenciar_pessoas():
                                 "banco.conta": conta,
                                 "banco.tipo_conta": tipo_conta,
                                 "programa_area": programa_area,
+                                "cargo": cargo,
                                 "tipo de usuário": ", ".join(tipo_usuario) if tipo_usuario else "",
                                 # "e_mail_coordenador": coordenador["id"],
                                 "coordenador": coordenador_id,
