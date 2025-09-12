@@ -820,326 +820,646 @@ def gerenciar_pessoas():
 
        
     elif nome_selecionado == "--Adicionar colaborador--":
-        # Formulário para cadastro, limpa os campos após envio
-        with st.form("form_cadastro_colaborador", clear_on_submit=True, border=False):
-          
-            st.markdown("#### Informações Gerais")
 
-            # Layout com colunas para inputs lado a lado
-            col1, col2 = st.columns([1, 1])
-            
-            # Nome
-            nome = col1.text_input("Nome completo:")
-            
-            # Gênero
-            genero = col2.selectbox("Gênero:", ["Masculino", "Feminino", "Não binário", "Outro"], index=None, placeholder="")
+         # SelectBox fora do formulário
+        tipo_contratacao = st.selectbox(
+            "Tipo de contratação:",
+            ["","PJ1", "PJ2", "CLT", "Estagiário"],
+            index=0,
+        )
 
-            col1, col2 = st.columns([1, 1])
-            
-            escolaridade = col1.selectbox("Escolaridade:", ["Ensino fundamental", "Ensino médio", "Graduação", "Pós-graduação", 
-                                                            "Mestrado", "Doutorado"], index=None, placeholder="")
-            
-            raca = col2.selectbox("Raça:", ["Amarelo", "Branco", "Índigena", "Pardo", "Preto"], index=None, placeholder="")
+        if tipo_contratacao in ["PJ1", "PJ2"]:
 
-            col1, col2 = st.columns([1, 1])
+            # Formulário para cadastro, limpa os campos após envio
+            with st.form("form_cadastro_colaborador", clear_on_submit=True, border=False):
             
-            # CPF e RG
-            cpf = col1.text_input("CPF:", placeholder="000.000.000-00")
-            rg = col2.text_input("RG e órgão emissor:")
+                st.markdown("#### Informações Gerais")
 
-            col1, col2, col3 = st.columns([1, 2, 2])
-            
-            # Data de nascimento
-            data_nascimento = col1.date_input("Data de nascimento:", format="DD/MM/YYYY", value=None)
-            
-            # Telefone
-            telefone = col2.text_input("Telefone:")
-            
-            # E-mail
-            email = col3.text_input("E-mail:")
-            
-            col1, col2 = st.columns([1,1])
-            
-            escritorio = col1.selectbox("Escritório:", ["Brasília", "Santa Inês"], index=None, placeholder="")
-            
-            tipo_contratacao = col2.selectbox("Tipo de contratação:", ["PJ1", "PJ2", "CLT", "Estagiário"], index=None, placeholder="")
-            
-            # if tipo_contratacao == ["PJ1", "PJ2"]:
-            #     col1, col2 = st.columns([1,1])
+                # Layout com colunas para inputs lado a lado
+                col1, col2 = st.columns([1, 1])
                 
-            #     cnpj = col1.text_input("CNPJ", placeholder="00.000.000/0000-00")
-            #     nome_empresa = col2.text_input("Nome da empresa", placeholder="")
-
-            col1, col2, col3 = st.columns([1, 1, 1])
-            
-            cargo = col1.selectbox("Cargo:", ["Analista de advocacy", "Analista de comunicação", "Analista de dados", "Analista Administrativo/Financeiro",
-                "Analista de Recursos Humanos", "Analista socioambiental", "Analista socioambiental pleno", "Analista socioambiental sênior",
-                "Assessora de advocacy", "Assessor de Comunicação", "Auxiliar de Serviços Gerais", "Auxiliar Administrativo/financeiro",
-                "Assistente Administrativo/financeiro", "Assistente socioambiental", "Coordenador Administrativo/financeiro de escritório",
-                "Coordenador Geral administrativo/financeiro", "Coordenador Executivo", "Coordenador de Área", "Coordenador de Programa",
-                "Motorista", "Secretária(o)/Recepcionista", "Técnico de campo", "Técnico em informática"], 
-                index=None, placeholder="")
-
-            # Programa / Área
-            # Lista ordenada dos programas/áreas para seleção
-            
-            programa_area_nome = col2.selectbox("Programa / Área:", lista_programas_areas, index=None, placeholder="")
-            programa_area = nome_para_id_programa.get(programa_area_nome)
-            
-            
-
-
-            # Coordenador/a
-            
-            # Extrai nomes únicos dos coordenadores ordenados
-            nomes_coordenadores = sorted({c["nome"] for c in coordenadores_possiveis})
-            # Seleção do nome do coordenador no formulário
-            coordenador = col3.selectbox("Nome do(a) coordenador(a):", nomes_coordenadores, index=None, placeholder="")
-
-            # Por fim, pega o id do coordenador
-            coordenador_id = None
-            for c in coordenadores_possiveis:
-                if c["nome"] == coordenador:
-                    coordenador_id = c["id"]
-                    break
-
-
-            st.divider()
-
-            st.markdown("#### Contrato")
-
-            # Projeto pagador (lista de nomes para exibir)
-            lista_projetos = sorted({
-                p["nome_do_projeto"]
-                for p in dados_projetos_ispn
-                if p.get("nome_do_projeto", "") != ""
-            })
-
-            # Exibe multiselect com nomes
-            projeto_pagador_nome = st.multiselect(
-                "Contratado(a) pelo projeto:",
-                lista_projetos,
-                key="cadastrar_projeto_pagador",
-            )
-
-            # Converte os nomes escolhidos de volta para ObjectId
-            projeto_pagador = [nome_para_id_projeto.get(nome) for nome in projeto_pagador_nome]
-
-            # Datas de início e fim de contrato
-            with st.container(horizontal=True):
-                inicio_contrato = st.date_input("Data de início do contrato:", format="DD/MM/YYYY", value=None)
-                fim_contrato = st.date_input("Data de fim do contrato:", format="DD/MM/YYYY", value=None)
+                # Nome
+                nome = col1.text_input("Nome completo:")
                 
-            status_contrato = st.selectbox("Status do contrato:", ["Em vigência", "Encerrado", "Cancelado", "Fonte de recurso temporária"], index=0, placeholder="")
+                # Gênero
+                genero = col2.selectbox("Gênero:", ["Masculino", "Feminino", "Não binário", "Outro"], index=None, placeholder="")
 
-            st.markdown("---")
-            
-            # Dados Bancários
-            st.markdown("#### Dados bancários")
-            
-            col1, col2 = st.columns([1, 1])
-            nome_banco = col1.text_input("Nome do banco:")
-            agencia = col2.text_input("Agência:")
-            
-            col1, col2 = st.columns([1, 1])
-            conta = col1.text_input("Conta:")
-            tipo_conta = col2.selectbox("Tipo de conta:", ["Conta Corrente", "Conta Poupança", "Conta Salário"], index=None, placeholder="")
+                col1, col2 = st.columns([1, 1])
+                
+                escolaridade = col1.selectbox("Escolaridade:", ["Ensino fundamental", "Ensino médio", "Graduação", "Pós-graduação", 
+                                                                "Mestrado", "Doutorado"], index=None, placeholder="")
+                
+                raca = col2.selectbox("Raça:", ["Amarelo", "Branco", "Índigena", "Pardo", "Preto"], index=None, placeholder="")
 
-            st.markdown("---")
-            st.markdown("#### Férias")
-            
-            col1, col2 = st.columns([1, 2])
-            
-            # Férias
-            a_receber = col1.number_input("Dias de férias a receber:", step=1, min_value=22)
-
-            # Variáveis de férias com valores iniciais
-            residual_ano_anterior = 0
-            valor_inicial_ano_atual = 0
-            total_gozado = 0
-            saldo_atual = residual_ano_anterior + valor_inicial_ano_atual
-            
-            st.divider()
-            
-            st.markdown("#### Anotações")
-            
-            hoje = datetime.datetime.today().strftime("%d/%m/%Y")
-
-            st.write(f"Data: {hoje}")
-            
-            anotacao_texto = st.text_area("Anotação", placeholder="")
-            
-            st.divider()
-
-            # Permissões
-            st.write('**Permissões:**')
-
-            # Roteamento de tipo de usuário especial
-            # Só o admin pode atribuir permissão para outro admin
-            if set(st.session_state.tipo_usuario) & {"admin"}:
-
-                # Opções possíveis para o campo "tipo de usuário"
-                opcoes_tipo_usuario = [
-                    "coordenador(a)", "admin", "gestao_pessoas", "gestao_ferias", "supervisao_ferias", 
-                    "gestao_noticias", "gestao_pls", "gestao_projetos_doadores", 
-                    "gestao_fundo_ecos", "gestao_viagens", "gestao_manuais"
-                ]
-
-            else: # Se não for admin, não aparece a permissão admin disponível
-                # Opções possíveis para o campo "tipo de usuário"
-                opcoes_tipo_usuario = [
-                    "coordenador(a)", "gestao_pessoas", "gestao_ferias", "supervisao_ferias", 
-                    "gestao_noticias", "gestao_pls", "gestao_projetos_doadores", 
-                    "gestao_fundo_ecos", "gestao_viagens", "gestao_manuais"
-                ]
-
-            # Multiselect para tipo de usuário com valores padrão preenchidos
-            tipo_usuario = st.multiselect(
-                "Tipo de usuário:",
-                options=opcoes_tipo_usuario,
-                # default=tipo_usuario_default,
-                key="cadastrar_tipo_usuario",
-            )
-
-            with st.expander("Ver tipos de permissões"):
+                col1, col2 = st.columns([1, 1])
+                
+                # CPF e RG
+                cpf = col1.text_input("CPF:", placeholder="000.000.000-00")
+                rg = col2.text_input("RG e órgão emissor:")
 
                 col1, col2 = st.columns([1, 1])
 
+                cnpj = col1.text_input("CNPJ:", placeholder="00.000.000/0000-00")
+                nome_empresa = col2.text_input("Nome da empresa:")
 
-                # admin
-                col1, col2 = st.columns([1, 2])
-                col1.write("**admin**")
-                col2.write("Tem todas as permissões.")
-
-                # gestao_pessoas
-                col1, col2 = st.columns([1, 2])
-                col1.write("**gestao_pessoas**")
-                col2.write("Faz a gestão de pessoas.")
-
-                # gestao_ferias
-                col1, col2 = st.columns([1, 2])
-                col1.write("**gestao_ferias**")
-                col2.write("Faz o registro de férias.")
-
-                # supervisao_ferias
-                col1, col2 = st.columns([1, 2])
-                col1.write("**supervisao_ferias**")
-                col2.write("Visualiza detalhes das férias de todos(as).")
-
-                # gestao_noticias
-                col1, col2 = st.columns([1, 2])
-                col1.write("**gestao_noticias**")
-                col2.write("Faz triagem de notícias.")
-
-                # gestao_pls
-                col1, col2 = st.columns([1, 2])
-                col1.write("**gestao_pls**")
-                col2.write("Faz a gestão dos Projetos de Lei monitorados.")
-
-                # gestao_projetos_doadores
-                col1, col2 = st.columns([1, 2])
-                col1.write("**gestao_projetos_doadores**")
-                col2.write("Faz a gestão de projetos e doadores.")
-
-                # gestao_fundo_ecos
-                col1, col2 = st.columns([1, 2])
-                col1.write("**gestao_fundo_ecos**")
-                col2.write("Faz a gestão dos projetos e editais do Fundo Ecos.")
-
-                # gestao_viagens
-                col1, col2 = st.columns([1, 2])
-                col1.write("**gestao_viagens**")
-                col2.write("Pode ver os dados de todas as viagens.")
-
-                # gestao_manuais
-                col1, col2 = st.columns([1, 2])
-                col1.write("**gestao_manuais**")
-                col2.write("Faz a gestão da página de manuais.")
-
-            st.write('')
-
-            # Ao submeter o formulário de cadastro -----------------------------------------------------------------
-            if st.form_submit_button("Cadastrar", type="secondary", icon=":material/person_add:"):
+                col1, col2, col3 = st.columns([1, 2, 2])
                 
-                # Validação de campos obrigatórios
-                if not nome or not email or not programa_area or not coordenador:
-                    st.warning("Preencha os campos obrigatórios.")
+                # Data de nascimento
+                data_nascimento = col1.date_input("Data de nascimento:", format="DD/MM/YYYY", value=None)
                 
-                else:
-
-                    # Ano atual para armazenar dados de férias
-                    ano_atual = str(datetime.datetime.now().year)
+                # Telefone
+                telefone = col2.text_input("Telefone:")
+                
+                # E-mail
+                email = col3.text_input("E-mail:")
+                
+                col1, col2 = st.columns([1,1])
+                
+                escritorio = col1.selectbox("Escritório:", ["Brasília", "Santa Inês"], index=None, placeholder="")
+                
+                #tipo_contratacao = col2.selectbox("Tipo de contratação:", ["PJ1", "PJ2", "CLT", "Estagiário"], index=None, placeholder="")
+                
+                # if tipo_contratacao == ["PJ1", "PJ2"]:
+                #     col1, col2 = st.columns([1,1])
                     
-                    # nova_anotacao = {
-                    #     "data_anotacao": datetime.datetime.today(),
-                    #     "autor": st.session_state.get("nome", "Desconhecido"),
-                    #     "anotacao": anotacao_texto.strip()
-                    # }
+                #     cnpj = col1.text_input("CNPJ", placeholder="00.000.000/0000-00")
+                #     nome_empresa = col2.text_input("Nome da empresa", placeholder="")
 
-                    # Monta o documento para inserção no MongoDB
-                    novo_documento = {
-                        "nome_completo": nome,
-                        "CPF": cpf,
-                        "RG": rg,
-                        "telefone": telefone,
-                        "data_nascimento": data_nascimento.strftime("%d/%m/%Y") if data_nascimento else None,
-                        "gênero": genero,
-                        "raca": raca,
-                        "escolaridade": escolaridade,
-                        "senha": "",
-                        "tipo de usuário": ", ".join(tipo_usuario) if tipo_usuario else "",
-                        "cargo": cargo,
-                        "tipo_contratacao": tipo_contratacao,
-                        "escritorio": escritorio,
-                        "programa_area": programa_area,
-                        "banco": {
-                            "nome_banco": nome_banco,
-                            "agencia": agencia,
-                            "conta": conta,
-                            "tipo_conta": tipo_conta
-                        },
-                        "férias": {
-                            "anos": {
-                                str(ano_atual): {
-                                    "residual_ano_anterior": residual_ano_anterior,
-                                    "valor_inicial_ano_atual": valor_inicial_ano_atual,
-                                    "total_gozado": total_gozado,
-                                    "saldo_atual": saldo_atual,
-                                    "solicitacoes": [],
-                                    "a_receber": a_receber
+                col1, col2, col3 = st.columns([1, 1, 1])
+                
+                cargo = col1.selectbox("Cargo:", ["Analista de advocacy", "Analista de comunicação", "Analista de dados", "Analista Administrativo/Financeiro",
+                    "Analista de Recursos Humanos", "Analista socioambiental", "Analista socioambiental pleno", "Analista socioambiental sênior",
+                    "Assessora de advocacy", "Assessor de Comunicação", "Auxiliar de Serviços Gerais", "Auxiliar Administrativo/financeiro",
+                    "Assistente Administrativo/financeiro", "Assistente socioambiental", "Coordenador Administrativo/financeiro de escritório",
+                    "Coordenador Geral administrativo/financeiro", "Coordenador Executivo", "Coordenador de Área", "Coordenador de Programa",
+                    "Motorista", "Secretária(o)/Recepcionista", "Técnico de campo", "Técnico em informática"], 
+                    index=None, placeholder="")
+
+                # Programa / Área
+                # Lista ordenada dos programas/áreas para seleção
+                
+                programa_area_nome = col2.selectbox("Programa / Área:", lista_programas_areas, index=None, placeholder="")
+                programa_area = nome_para_id_programa.get(programa_area_nome)
+                
+                
+
+
+                # Coordenador/a
+                
+                # Extrai nomes únicos dos coordenadores ordenados
+                nomes_coordenadores = sorted({c["nome"] for c in coordenadores_possiveis})
+                # Seleção do nome do coordenador no formulário
+                coordenador = col3.selectbox("Nome do(a) coordenador(a):", nomes_coordenadores, index=None, placeholder="")
+
+                # Por fim, pega o id do coordenador
+                coordenador_id = None
+                for c in coordenadores_possiveis:
+                    if c["nome"] == coordenador:
+                        coordenador_id = c["id"]
+                        break
+
+
+                st.divider()
+
+                st.markdown("#### Contrato")
+
+                # Projeto pagador (lista de nomes para exibir)
+                lista_projetos = sorted({
+                    p["nome_do_projeto"]
+                    for p in dados_projetos_ispn
+                    if p.get("nome_do_projeto", "") != ""
+                })
+
+                # Exibe multiselect com nomes
+                projeto_pagador_nome = st.multiselect(
+                    "Contratado(a) pelo projeto:",
+                    lista_projetos,
+                    key="cadastrar_projeto_pagador",
+                )
+
+                # Converte os nomes escolhidos de volta para ObjectId
+                projeto_pagador = [nome_para_id_projeto.get(nome) for nome in projeto_pagador_nome]
+
+                # Datas de início e fim de contrato
+                with st.container(horizontal=True):
+                    inicio_contrato = st.date_input("Data de início do contrato:", format="DD/MM/YYYY", value=None)
+                    fim_contrato = st.date_input("Data de fim do contrato:", format="DD/MM/YYYY", value=None)
+                    
+                status_contrato = st.selectbox("Status do contrato:", ["Em vigência", "Encerrado", "Cancelado", "Fonte de recurso temporária"], index=0, placeholder="")
+
+                st.markdown("---")
+                
+                # Dados Bancários
+                st.markdown("#### Dados bancários")
+                
+                col1, col2 = st.columns([1, 1])
+                nome_banco = col1.text_input("Nome do banco:")
+                agencia = col2.text_input("Agência:")
+                
+                col1, col2 = st.columns([1, 1])
+                conta = col1.text_input("Conta:")
+                tipo_conta = col2.selectbox("Tipo de conta:", ["Conta Corrente", "Conta Poupança", "Conta Salário"], index=None, placeholder="")
+
+                st.markdown("---")
+                st.markdown("#### Férias")
+                
+                col1, col2 = st.columns([1, 2])
+                
+                # Férias
+                a_receber = col1.number_input("Dias de férias a receber:", step=1, min_value=22)
+
+                # Variáveis de férias com valores iniciais
+                residual_ano_anterior = 0
+                valor_inicial_ano_atual = 0
+                total_gozado = 0
+                saldo_atual = residual_ano_anterior + valor_inicial_ano_atual
+                
+                st.divider()
+                
+                st.markdown("#### Anotações")
+                
+                hoje = datetime.datetime.today().strftime("%d/%m/%Y")
+
+                st.write(f"Data: {hoje}")
+                
+                anotacao_texto = st.text_area("Anotação", placeholder="")
+                
+                st.divider()
+
+                # Permissões
+                st.write('**Permissões:**')
+
+                # Roteamento de tipo de usuário especial
+                # Só o admin pode atribuir permissão para outro admin
+                if set(st.session_state.tipo_usuario) & {"admin"}:
+
+                    # Opções possíveis para o campo "tipo de usuário"
+                    opcoes_tipo_usuario = [
+                        "coordenador(a)", "admin", "gestao_pessoas", "gestao_ferias", "supervisao_ferias", 
+                        "gestao_noticias", "gestao_pls", "gestao_projetos_doadores", 
+                        "gestao_fundo_ecos", "gestao_viagens", "gestao_manuais"
+                    ]
+
+                else: # Se não for admin, não aparece a permissão admin disponível
+                    # Opções possíveis para o campo "tipo de usuário"
+                    opcoes_tipo_usuario = [
+                        "coordenador(a)", "gestao_pessoas", "gestao_ferias", "supervisao_ferias", 
+                        "gestao_noticias", "gestao_pls", "gestao_projetos_doadores", 
+                        "gestao_fundo_ecos", "gestao_viagens", "gestao_manuais"
+                    ]
+
+                # Multiselect para tipo de usuário com valores padrão preenchidos
+                tipo_usuario = st.multiselect(
+                    "Tipo de usuário:",
+                    options=opcoes_tipo_usuario,
+                    # default=tipo_usuario_default,
+                    key="cadastrar_tipo_usuario",
+                )
+
+                with st.expander("Ver tipos de permissões"):
+
+                    col1, col2 = st.columns([1, 1])
+
+
+                    # admin
+                    col1, col2 = st.columns([1, 2])
+                    col1.write("**admin**")
+                    col2.write("Tem todas as permissões.")
+
+                    # gestao_pessoas
+                    col1, col2 = st.columns([1, 2])
+                    col1.write("**gestao_pessoas**")
+                    col2.write("Faz a gestão de pessoas.")
+
+                    # gestao_ferias
+                    col1, col2 = st.columns([1, 2])
+                    col1.write("**gestao_ferias**")
+                    col2.write("Faz o registro de férias.")
+
+                    # supervisao_ferias
+                    col1, col2 = st.columns([1, 2])
+                    col1.write("**supervisao_ferias**")
+                    col2.write("Visualiza detalhes das férias de todos(as).")
+
+                    # gestao_noticias
+                    col1, col2 = st.columns([1, 2])
+                    col1.write("**gestao_noticias**")
+                    col2.write("Faz triagem de notícias.")
+
+                    # gestao_pls
+                    col1, col2 = st.columns([1, 2])
+                    col1.write("**gestao_pls**")
+                    col2.write("Faz a gestão dos Projetos de Lei monitorados.")
+
+                    # gestao_projetos_doadores
+                    col1, col2 = st.columns([1, 2])
+                    col1.write("**gestao_projetos_doadores**")
+                    col2.write("Faz a gestão de projetos e doadores.")
+
+                    # gestao_fundo_ecos
+                    col1, col2 = st.columns([1, 2])
+                    col1.write("**gestao_fundo_ecos**")
+                    col2.write("Faz a gestão dos projetos e editais do Fundo Ecos.")
+
+                    # gestao_viagens
+                    col1, col2 = st.columns([1, 2])
+                    col1.write("**gestao_viagens**")
+                    col2.write("Pode ver os dados de todas as viagens.")
+
+                    # gestao_manuais
+                    col1, col2 = st.columns([1, 2])
+                    col1.write("**gestao_manuais**")
+                    col2.write("Faz a gestão da página de manuais.")
+
+                st.write('')
+
+                # Ao submeter o formulário de cadastro -----------------------------------------------------------------
+                if st.form_submit_button("Cadastrar", type="secondary", icon=":material/person_add:"):
+                    
+                    # Validação de campos obrigatórios
+                    if not nome or not email or not programa_area or not coordenador:
+                        st.warning("Preencha os campos obrigatórios.")
+                    
+                    else:
+
+                        # Ano atual para armazenar dados de férias
+                        ano_atual = str(datetime.datetime.now().year)
+                        
+                        # nova_anotacao = {
+                        #     "data_anotacao": datetime.datetime.today(),
+                        #     "autor": st.session_state.get("nome", "Desconhecido"),
+                        #     "anotacao": anotacao_texto.strip()
+                        # }
+
+                        # Monta o documento para inserção no MongoDB
+                        novo_documento = {
+                            "nome_completo": nome,
+                            "CPF": cpf,
+                            "RG": rg,
+                            "cnpj": cnpj,
+                            "nome_empresa": nome_empresa,
+                            "telefone": telefone,
+                            "data_nascimento": data_nascimento.strftime("%d/%m/%Y") if data_nascimento else None,
+                            "gênero": genero,
+                            "raca": raca,
+                            "escolaridade": escolaridade,
+                            "senha": "",
+                            "tipo de usuário": ", ".join(tipo_usuario) if tipo_usuario else "",
+                            "cargo": cargo,
+                            "tipo_contratacao": tipo_contratacao,
+                            "escritorio": escritorio,
+                            "programa_area": programa_area,
+                            "banco": {
+                                "nome_banco": nome_banco,
+                                "agencia": agencia,
+                                "conta": conta,
+                                "tipo_conta": tipo_conta
+                            },
+                            "férias": {
+                                "anos": {
+                                    str(ano_atual): {
+                                        "residual_ano_anterior": residual_ano_anterior,
+                                        "valor_inicial_ano_atual": valor_inicial_ano_atual,
+                                        "total_gozado": total_gozado,
+                                        "saldo_atual": saldo_atual,
+                                        "solicitacoes": [],
+                                        "a_receber": a_receber
+                                    }
                                 }
-                            }
-                        },
-                        "status": "ativo",
-                        "e_mail": email,
-                        "coordenador": coordenador_id,
-                        "data_reajuste": "",  # novo campo
-                        "contratos": [
-                            {
-                                "data_inicio": inicio_contrato.strftime("%d/%m/%Y") if inicio_contrato else "",
-                                "data_fim": fim_contrato.strftime("%d/%m/%Y") if fim_contrato else "",
-                                "codigo_projeto": "",
-                                "status_contrato": status_contrato,
-                                "projeto_pagador": projeto_pagador if projeto_pagador else [],
-                                "termos_aditivos": [],
-                            }
-                        ],
-                        "anotacoes": [
-                            {
-                                "data_anotacao": datetime.datetime.today().strftime("%d/%m/%Y %H:%M"),
-                                "autor": st.session_state.get("nome", "Desconhecido"),
-                                "anotacao": anotacao_texto.strip() if anotacao_texto else ""
-                            }
-                        ]
-                    }
+                            },
+                            "status": "ativo",
+                            "e_mail": email,
+                            "coordenador": coordenador_id,
+                            "data_reajuste": "",  # novo campo
+                            "contratos": [
+                                {
+                                    "data_inicio": inicio_contrato.strftime("%d/%m/%Y") if inicio_contrato else "",
+                                    "data_fim": fim_contrato.strftime("%d/%m/%Y") if fim_contrato else "",
+                                    "codigo_projeto": "",
+                                    "status_contrato": status_contrato,
+                                    "projeto_pagador": projeto_pagador if projeto_pagador else [],
+                                    "termos_aditivos": [],
+                                }
+                            ],
+                            "anotacoes": [
+                                {
+                                    "data_anotacao": datetime.datetime.today().strftime("%d/%m/%Y %H:%M"),
+                                    "autor": st.session_state.get("nome", "Desconhecido"),
+                                    "anotacao": anotacao_texto.strip() if anotacao_texto else ""
+                                }
+                            ]
+                        }
 
-                    # Insere o novo colaborador no banco
-                    pessoas.insert_one(novo_documento)
-                    st.success(f"Colaborador(a) **{nome}** cadastrado(a) com sucesso!", icon=":material/thumb_up:")
-                    time.sleep(2)
-                    st.rerun()  # Recarrega a página para atualizar dados
+                        # Insere o novo colaborador no banco
+                        pessoas.insert_one(novo_documento)
+                        st.success(f"Colaborador(a) **{nome}** cadastrado(a) com sucesso!", icon=":material/thumb_up:")
+                        time.sleep(2)
+                        st.rerun()  # Recarrega a página para atualizar dados
+
+        
+        elif tipo_contratacao in ["CLT", "Estagiário"]:
+            # Formulário para cadastro, limpa os campos após envio
+            with st.form("form_cadastro_colaborador", clear_on_submit=True, border=False):
+            
+                st.markdown("#### Informações Gerais")
+
+                # Layout com colunas para inputs lado a lado
+                col1, col2 = st.columns([1, 1])
+                
+                # Nome
+                nome = col1.text_input("Nome completo:")
+                
+                # Gênero
+                genero = col2.selectbox("Gênero:", ["Masculino", "Feminino", "Não binário", "Outro"], index=None, placeholder="")
+
+                col1, col2 = st.columns([1, 1])
+                
+                escolaridade = col1.selectbox("Escolaridade:", ["Ensino fundamental", "Ensino médio", "Graduação", "Pós-graduação", 
+                                                                "Mestrado", "Doutorado"], index=None, placeholder="")
+                
+                raca = col2.selectbox("Raça:", ["Amarelo", "Branco", "Índigena", "Pardo", "Preto"], index=None, placeholder="")
+
+                col1, col2 = st.columns([1, 1])
+                
+                # CPF e RG
+                cpf = col1.text_input("CPF:", placeholder="000.000.000-00")
+                rg = col2.text_input("RG e órgão emissor:")
+
+                col1, col2, col3 = st.columns([1, 2, 2])
+                
+                # Data de nascimento
+                data_nascimento = col1.date_input("Data de nascimento:", format="DD/MM/YYYY", value=None)
+                
+                # Telefone
+                telefone = col2.text_input("Telefone:")
+                
+                # E-mail
+                email = col3.text_input("E-mail:")
+                
+                #col1, col2 = st.columns([1,1])
+                
+                escritorio = st.selectbox("Escritório:", ["Brasília", "Santa Inês"], index=None, placeholder="")
+
+                col1, col2, col3 = st.columns([1, 1, 1])
+                
+                cargo = col1.selectbox("Cargo:", ["Analista de advocacy", "Analista de comunicação", "Analista de dados", "Analista Administrativo/Financeiro",
+                    "Analista de Recursos Humanos", "Analista socioambiental", "Analista socioambiental pleno", "Analista socioambiental sênior",
+                    "Assessora de advocacy", "Assessor de Comunicação", "Auxiliar de Serviços Gerais", "Auxiliar Administrativo/financeiro",
+                    "Assistente Administrativo/financeiro", "Assistente socioambiental", "Coordenador Administrativo/financeiro de escritório",
+                    "Coordenador Geral administrativo/financeiro", "Coordenador Executivo", "Coordenador de Área", "Coordenador de Programa",
+                    "Motorista", "Secretária(o)/Recepcionista", "Técnico de campo", "Técnico em informática"], 
+                    index=None, placeholder="")
+
+                # Programa / Área
+                # Lista ordenada dos programas/áreas para seleção
+                
+                programa_area_nome = col2.selectbox("Programa / Área:", lista_programas_areas, index=None, placeholder="")
+                programa_area = nome_para_id_programa.get(programa_area_nome)
+
+                # Coordenador/a
+                
+                # Extrai nomes únicos dos coordenadores ordenados
+                nomes_coordenadores = sorted({c["nome"] for c in coordenadores_possiveis})
+                # Seleção do nome do coordenador no formulário
+                coordenador = col3.selectbox("Nome do(a) coordenador(a):", nomes_coordenadores, index=None, placeholder="")
+
+                # Por fim, pega o id do coordenador
+                coordenador_id = None
+                for c in coordenadores_possiveis:
+                    if c["nome"] == coordenador:
+                        coordenador_id = c["id"]
+                        break
+
+
+                st.divider()
+
+                st.markdown("#### Contrato")
+
+                # Projeto pagador (lista de nomes para exibir)
+                lista_projetos = sorted({
+                    p["nome_do_projeto"]
+                    for p in dados_projetos_ispn
+                    if p.get("nome_do_projeto", "") != ""
+                })
+
+                # Exibe multiselect com nomes
+                projeto_pagador_nome = st.multiselect(
+                    "Contratado(a) pelo projeto:",
+                    lista_projetos,
+                    key="cadastrar_projeto_pagador",
+                )
+
+                # Converte os nomes escolhidos de volta para ObjectId
+                projeto_pagador = [nome_para_id_projeto.get(nome) for nome in projeto_pagador_nome]
+
+                # Datas de início e fim de contrato
+                with st.container(horizontal=True):
+                    inicio_contrato = st.date_input("Data de início do contrato:", format="DD/MM/YYYY", value=None)
+                    fim_contrato = st.date_input("Data de fim do contrato:", format="DD/MM/YYYY", value=None)
+                    
+                status_contrato = st.selectbox("Status do contrato:", ["Em vigência", "Encerrado", "Cancelado", "Fonte de recurso temporária"], index=0, placeholder="")
+
+                st.markdown("---")
+                
+                # Dados Bancários
+                st.markdown("#### Dados bancários")
+                
+                col1, col2 = st.columns([1, 1])
+                nome_banco = col1.text_input("Nome do banco:")
+                agencia = col2.text_input("Agência:")
+                
+                col1, col2 = st.columns([1, 1])
+                conta = col1.text_input("Conta:")
+                tipo_conta = col2.selectbox("Tipo de conta:", ["Conta Corrente", "Conta Poupança", "Conta Salário"], index=None, placeholder="")
+
+                st.markdown("---")
+                st.markdown("#### Férias")
+                
+                col1, col2 = st.columns([1, 2])
+                
+                # Férias
+                a_receber = col1.number_input("Dias de férias a receber:", step=1, min_value=22)
+
+                # Variáveis de férias com valores iniciais
+                residual_ano_anterior = 0
+                valor_inicial_ano_atual = 0
+                total_gozado = 0
+                saldo_atual = residual_ano_anterior + valor_inicial_ano_atual
+                
+                st.divider()
+                
+                st.markdown("#### Anotações")
+                
+                hoje = datetime.datetime.today().strftime("%d/%m/%Y")
+
+                st.write(f"Data: {hoje}")
+                
+                anotacao_texto = st.text_area("Anotação", placeholder="")
+                
+                st.divider()
+
+                # Permissões
+                st.write('**Permissões:**')
+
+                # Roteamento de tipo de usuário especial
+                # Só o admin pode atribuir permissão para outro admin
+                if set(st.session_state.tipo_usuario) & {"admin"}:
+
+                    # Opções possíveis para o campo "tipo de usuário"
+                    opcoes_tipo_usuario = [
+                        "coordenador(a)", "admin", "gestao_pessoas", "gestao_ferias", "supervisao_ferias", 
+                        "gestao_noticias", "gestao_pls", "gestao_projetos_doadores", 
+                        "gestao_fundo_ecos", "gestao_viagens", "gestao_manuais"
+                    ]
+
+                else: # Se não for admin, não aparece a permissão admin disponível
+                    # Opções possíveis para o campo "tipo de usuário"
+                    opcoes_tipo_usuario = [
+                        "coordenador(a)", "gestao_pessoas", "gestao_ferias", "supervisao_ferias", 
+                        "gestao_noticias", "gestao_pls", "gestao_projetos_doadores", 
+                        "gestao_fundo_ecos", "gestao_viagens", "gestao_manuais"
+                    ]
+
+                # Multiselect para tipo de usuário com valores padrão preenchidos
+                tipo_usuario = st.multiselect(
+                    "Tipo de usuário:",
+                    options=opcoes_tipo_usuario,
+                    # default=tipo_usuario_default,
+                    key="cadastrar_tipo_usuario",
+                )
+
+                with st.expander("Ver tipos de permissões"):
+
+                    col1, col2 = st.columns([1, 1])
+
+
+                    # admin
+                    col1, col2 = st.columns([1, 2])
+                    col1.write("**admin**")
+                    col2.write("Tem todas as permissões.")
+
+                    # gestao_pessoas
+                    col1, col2 = st.columns([1, 2])
+                    col1.write("**gestao_pessoas**")
+                    col2.write("Faz a gestão de pessoas.")
+
+                    # gestao_ferias
+                    col1, col2 = st.columns([1, 2])
+                    col1.write("**gestao_ferias**")
+                    col2.write("Faz o registro de férias.")
+
+                    # supervisao_ferias
+                    col1, col2 = st.columns([1, 2])
+                    col1.write("**supervisao_ferias**")
+                    col2.write("Visualiza detalhes das férias de todos(as).")
+
+                    # gestao_noticias
+                    col1, col2 = st.columns([1, 2])
+                    col1.write("**gestao_noticias**")
+                    col2.write("Faz triagem de notícias.")
+
+                    # gestao_pls
+                    col1, col2 = st.columns([1, 2])
+                    col1.write("**gestao_pls**")
+                    col2.write("Faz a gestão dos Projetos de Lei monitorados.")
+
+                    # gestao_projetos_doadores
+                    col1, col2 = st.columns([1, 2])
+                    col1.write("**gestao_projetos_doadores**")
+                    col2.write("Faz a gestão de projetos e doadores.")
+
+                    # gestao_fundo_ecos
+                    col1, col2 = st.columns([1, 2])
+                    col1.write("**gestao_fundo_ecos**")
+                    col2.write("Faz a gestão dos projetos e editais do Fundo Ecos.")
+
+                    # gestao_viagens
+                    col1, col2 = st.columns([1, 2])
+                    col1.write("**gestao_viagens**")
+                    col2.write("Pode ver os dados de todas as viagens.")
+
+                    # gestao_manuais
+                    col1, col2 = st.columns([1, 2])
+                    col1.write("**gestao_manuais**")
+                    col2.write("Faz a gestão da página de manuais.")
+
+                st.write('')
+
+                # Ao submeter o formulário de cadastro -----------------------------------------------------------------
+                if st.form_submit_button("Cadastrar", type="secondary", icon=":material/person_add:"):
+                    
+                    # Validação de campos obrigatórios
+                    if not nome or not email or not programa_area or not coordenador:
+                        st.warning("Preencha os campos obrigatórios.")
+                    
+                    else:
+
+                        # Ano atual para armazenar dados de férias
+                        ano_atual = str(datetime.datetime.now().year)
+                        
+                        # Monta o documento para inserção no MongoDB
+                        novo_documento = {
+                            "nome_completo": nome,
+                            "CPF": cpf,
+                            "RG": rg,
+                            "telefone": telefone,
+                            "data_nascimento": data_nascimento.strftime("%d/%m/%Y") if data_nascimento else None,
+                            "gênero": genero,
+                            "raca": raca,
+                            "escolaridade": escolaridade,
+                            "senha": "",
+                            "tipo de usuário": ", ".join(tipo_usuario) if tipo_usuario else "",
+                            "cargo": cargo,
+                            "tipo_contratacao": tipo_contratacao,
+                            "escritorio": escritorio,
+                            "programa_area": programa_area,
+                            "banco": {
+                                "nome_banco": nome_banco,
+                                "agencia": agencia,
+                                "conta": conta,
+                                "tipo_conta": tipo_conta
+                            },
+                            "férias": {
+                                "anos": {
+                                    str(ano_atual): {
+                                        "residual_ano_anterior": residual_ano_anterior,
+                                        "valor_inicial_ano_atual": valor_inicial_ano_atual,
+                                        "total_gozado": total_gozado,
+                                        "saldo_atual": saldo_atual,
+                                        "solicitacoes": [],
+                                        "a_receber": a_receber
+                                    }
+                                }
+                            },
+                            "status": "ativo",
+                            "e_mail": email,
+                            "coordenador": coordenador_id,
+                            "data_reajuste": "",  # novo campo
+                            "contratos": [
+                                {
+                                    "data_inicio": inicio_contrato.strftime("%d/%m/%Y") if inicio_contrato else "",
+                                    "data_fim": fim_contrato.strftime("%d/%m/%Y") if fim_contrato else "",
+                                    "codigo_projeto": "",
+                                    "status_contrato": status_contrato,
+                                    "projeto_pagador": projeto_pagador if projeto_pagador else [],
+                                    "termos_aditivos": [],
+                                }
+                            ],
+                            "anotacoes": [
+                                {
+                                    "data_anotacao": datetime.datetime.today().strftime("%d/%m/%Y %H:%M"),
+                                    "autor": st.session_state.get("nome", "Desconhecido"),
+                                    "anotacao": anotacao_texto.strip() if anotacao_texto else ""
+                                }
+                            ]
+                        }
+
+                        # Insere o novo colaborador no banco
+                        pessoas.insert_one(novo_documento)
+                        st.success(f"Colaborador(a) **{nome}** cadastrado(a) com sucesso!", icon=":material/thumb_up:")
+                        time.sleep(2)
+                        st.rerun()  # Recarrega a página para atualizar dados
    
-
 
 ######################################################################################################
 # MAIN
