@@ -120,45 +120,67 @@ def gerenciar_pessoas():
     
     if nome_selecionado not in ("", "--Adicionar colaborador--"):
         
+        # Busca colaborador selecionado no banco
+        pessoa = next((p for p in dados_pessoas if p["nome_completo"] == nome_selecionado), None)
+        
+        # tipo_contratacao_opcoes = ["","PJ1", "PJ2", "CLT", "Estagiário"]
+        
+        # # SelectBox fora do formulário
+        # tipo_contratacao = st.selectbox(
+        #     "Tipo de contratação:",
+        #     tipo_contratacao_opcoes,
+        #     index=tipo_contratacao_opcoes.index(pessoa.get("tipo_contratacao")), key="tipo_contratacao_edit",
+        # )
+        
         # Cria duas abas: cadastro e edição
         aba_info, aba_contratos, aba_anotacoes, aba_previdencia  = st.tabs([":material/info: Informações gerais", ":material/contract: Contratos",":material/notes: Anotações", ":material/finance_mode: Previdência"])
     
         with aba_info:
 
-        
-            # Busca colaborador selecionado no banco
-            pessoa = next((p for p in dados_pessoas if p["nome_completo"] == nome_selecionado), None)
-
             if pessoa:
-                # Formulário para edição dos dados
+                # ===============================
+                # Tipo de contratação (fora do form)
+                # ===============================
+                lista_tipo_contracao = ["PJ1", "PJ2", "CLT", "Estagiário", ""]
+                tipo_contratacao = st.selectbox(
+                    "Tipo de contratação:",
+                    lista_tipo_contracao,
+                    index=lista_tipo_contracao.index(pessoa.get("tipo_contratacao", "")) 
+                    if pessoa.get("tipo_contratacao", "") in lista_tipo_contracao else 0,
+                    key="tipo_contratacao_edit"
+                )
+
+                # ===============================
+                # Formulário principal
+                # ===============================
                 with st.form("form_editar_colaborador", border=False):
-                    # st.write(f"Editando informações de **{pessoa['nome_completo']}**")
                     st.write('')
 
-
-                    # Começando com o status do colaborador
+                    # -------------------------------
+                    # Status
+                    # -------------------------------
                     cols = st.columns([1, 2])
-
                     status_opcoes = ["ativo", "inativo"]
-                    status = cols[0].selectbox("Status do(a) colaborador(a):", status_opcoes, index=status_opcoes.index(pessoa.get("status", "ativo")), key="editar_status")
-
-                    # if status == "ativo":
-                    #     desabilitar = False
-                    # else:
-                    #     desabilitar = True
+                    status = cols[0].selectbox(
+                        "Status do(a) colaborador(a):", 
+                        status_opcoes, 
+                        index=status_opcoes.index(pessoa.get("status", "ativo")), 
+                        key="editar_status"
+                    )
 
                     st.markdown("---")
 
-
+                    # -------------------------------
+                    # Campos existentes
+                    # -------------------------------
                     col1, col2 = st.columns([1, 1])
-                    
-                    # Nome completo
                     nome = col1.text_input("Nome completo:", value=pessoa.get("nome_completo", ""))
-                    
-                    # Gênero
-                    # Gera lista única e ordenada de gêneros para seleção
                     lista_generos = ['Masculino', 'Feminino', 'Não binário', 'Outro']
-                    genero = col2.selectbox("Gênero:", lista_generos, index=lista_generos.index(pessoa.get("gênero")), key="editar_genero")
+                    genero = col2.selectbox(
+                        "Gênero:", lista_generos, 
+                        index=lista_generos.index(pessoa.get("gênero")), 
+                        key="editar_genero"
+                    )
                     
                     col1, col2 = st.columns([1, 1])
                     
@@ -175,6 +197,15 @@ def gerenciar_pessoas():
                     # CPF e RG 
                     cpf = col1.text_input("CPF:", value=pessoa.get("CPF", ""))
                     rg = col2.text_input("RG e órgão emissor:", value=pessoa.get("RG", ""))
+                    
+                    # ===============================
+                    # CAMPOS ADICIONAIS SE FOR PJ
+                    # ===============================
+                    cnpj, nome_empresa = None, None
+                    if tipo_contratacao in ["PJ1", "PJ2"]:
+                        col1, col2 = st.columns([1,1])
+                        cnpj = col1.text_input("CNPJ:", value=pessoa.get("cnpj", ""), placeholder="00.000.000/0000-00")
+                        nome_empresa = col2.text_input("Nome da empresa:", value=pessoa.get("nome_empresa", ""))
 
                     col1, col2, col3 = st.columns([1, 2, 2])
                     
@@ -188,15 +219,11 @@ def gerenciar_pessoas():
                     telefone = col2.text_input("Telefone:", value=pessoa.get("telefone", ""))
                     email = col3.text_input("E-mail:", value=pessoa.get("e_mail", ""))
                     
-                    col1, col2 = st.columns([1,1])
-                    
                     lista_escritorio = ["Brasília", "Santa Inês", ""]
                     
-                    escritorio = col1.selectbox("Escritório:", lista_escritorio, index=lista_escritorio.index(pessoa.get("escritorio")))                  
+                    escritorio = st.selectbox("Escritório:", lista_escritorio, index=lista_escritorio.index(pessoa.get("escritorio")))                  
                     
                     lista_tipo_contracao = ["PJ1", "PJ2", "CLT", "Estagiário", ""]
-                    
-                    tipo_contratacao = col2.selectbox("Tipo de contratação:", lista_tipo_contracao, index=lista_tipo_contracao.index(pessoa.get("tipo_contratacao")))                  
                     
                     col1, col2, col3 = st.columns([1, 1, 1])
                     
@@ -395,61 +422,57 @@ def gerenciar_pessoas():
 
                     st.write('')
 
-                    # Quando o botão "Salvar alterações" for pressionado
+                    # -------------------------------
+                    # Botão salvar
+                    # -------------------------------
                     if st.form_submit_button("Salvar alterações", type="secondary", icon=":material/save:"):
 
+                        dados_update = {
+                            "nome_completo": nome,
+                            "CPF": cpf,
+                            "RG": rg,
+                            "data_nascimento": data_nascimento.strftime("%d/%m/%Y") if data_nascimento else None,
+                            "telefone": telefone,
+                            "e_mail": email,
+                            "gênero": genero,
+                            "raca": raca,
+                            "escolaridade": escolaridade,
+                            "banco.nome_banco": nome_banco,
+                            "banco.agencia": agencia,
+                            "banco.conta": conta,
+                            "banco.tipo_conta": tipo_conta,
+                            "programa_area": programa_area,
+                            "coordenador": coordenador_id,
+                            "cargo": cargo,
+                            "tipo_contratacao": tipo_contratacao,  # vem de fora do form
+                            "escritorio": escritorio,
+                            "tipo de usuário": ", ".join(tipo_usuario) if tipo_usuario else "",
+                            "status": status,
+                        }
 
-                        # Atualiza o documento da pessoa no banco de dados MongoDB com os novos valores do formulário
-                        pessoas.update_one(
-                            {"_id": pessoa["_id"]},
-                            {"$set": {
-                                "nome_completo": nome,
-                                "CPF": cpf,
-                                "RG": rg,
-                                "data_nascimento": data_nascimento.strftime("%d/%m/%Y") if data_nascimento else None,
-                                "telefone": telefone,
-                                "e_mail": email,
-                                "gênero": genero,
-                                "raca": raca,
-                                "escolaridade": escolaridade,
-                                "banco.nome_banco": nome_banco,
-                                "banco.agencia": agencia,
-                                "banco.conta": conta,
-                                "banco.tipo_conta": tipo_conta,
-                                "programa_area": programa_area,
-                                "coordenador": coordenador_id,
-                                "cargo":cargo,
-                                "tipo_contratacao": tipo_contratacao,
-                                "escritorio": escritorio,
-                                "tipo de usuário": ", ".join(tipo_usuario) if tipo_usuario else "",
-                                "status": status,
-                                #"data_reajuste": data_reajuste.strftime("%d/%m/%Y") if data_reajuste else None,
-                                "contratos": [
-                                    {
-                                        "data_inicio": inicio_contrato.strftime("%d/%m/%Y") if inicio_contrato else "",
-                                        "data_fim": fim_contrato.strftime("%d/%m/%Y") if fim_contrato else "",
-                                        "codigo_projeto": "",
-                                        "status_contrato": status_contrato,
-                                        "termos_aditivos": [],
-                                        #"projeto_pagador": projetos_pagadores_edit if projetos_pagadores_edit else [],
-                                                }
-                                            ]
-                                        },
-                                # anotacoes agora é lista → se já existe, usa $push para adicionar nova
-                                # "$push": {
-                                #     "anotacoes": {
-                                #         "data_anotacao": datetime.datetime.today().strftime("%d/%m/%Y %H:%M"),
-                                #         "autor": st.session_state.get("nome", "Desconhecido"),
-                                #         "anotacao": nova_texto.strip() if nova_texto else ""
-                                #     }
+                        if tipo_contratacao in ["PJ1", "PJ2"]:
+                            # adiciona ou atualiza campos extras
+                            dados_update["cnpj"] = cnpj
+                            dados_update["nome_empresa"] = nome_empresa
+
+                            pessoas.update_one(
+                                {"_id": pessoa["_id"]},
+                                {"$set": dados_update}  # mantém + adiciona cnpj/nome_empresa
+                            )
+                        else:
+                            # remove campos extras se existirem
+                            pessoas.update_one(
+                                {"_id": pessoa["_id"]},
+                                {
+                                    "$set": dados_update,
+                                    "$unset": {"cnpj": "", "nome_empresa": ""}
                                 }
                             )
 
-                        # Exibe mensagem de sucesso, aguarda 2 segundos e atualiza a página
                         st.success("Informações atualizadas com sucesso!", icon=":material/check_circle:")
                         time.sleep(2)
                         st.rerun()
-
+                        
 
         with aba_contratos:
 
