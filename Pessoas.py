@@ -810,14 +810,14 @@ def gerenciar_pessoas():
                     except:
                         data_atual = datetime.datetime.today()
 
-                st.divider()
+                #st.divider()
 
                 novo_valor = st.number_input("Valor da contribuição", value=int(contribuicao_atual.get("valor", 0)), step=50, min_value=0)
 
                 col1, col2 = st.columns([2,1])
 
                 with col1:
-                    if st.button("Salvar edição", icon=":material/edit:"):
+                    if st.button("Salvar edição", icon=":material/edit:", key="contribuicao_previdencia"):
                         previdencia[index]["valor"] = novo_valor
 
                         pessoas.update_one(
