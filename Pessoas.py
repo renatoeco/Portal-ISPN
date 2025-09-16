@@ -133,7 +133,7 @@ def gerenciar_pessoas():
         # )
         
         # Cria duas abas: cadastro e edição
-        aba_info, aba_contratos, aba_anotacoes, aba_previdencia  = st.tabs([":material/info: Informações gerais", ":material/contract: Contratos",":material/notes: Anotações", ":material/finance_mode: Previdência"])
+        aba_info, aba_contratos, aba_previdencia, aba_anotacoes  = st.tabs([":material/info: Informações gerais", ":material/contract: Contratos", ":material/finance_mode: Previdência", ":material/notes: Anotações"])
     
         with aba_info:
 
@@ -651,97 +651,6 @@ def gerenciar_pessoas():
                         st.rerun()
         
 
-        with aba_anotacoes:
-            
-            if pessoa:
-                anotacoes = pessoa.get("anotacoes", [])
-            else:
-                anotacoes = []
-                
-            usuario_logado = st.session_state.get("nome", "Desconhecido")
-
-            # Criar lista de opções com apenas anotações do próprio usuário
-            opcoes = [
-                f'{a["data_anotacao"].strftime("%d/%m/%Y") if isinstance(a["data_anotacao"], datetime.datetime) else a["data_anotacao"]} - {a["autor"][:30]}'
-                for a in anotacoes if a.get("autor") == usuario_logado
-            ]
-
-            # Sempre terá a opção de adicionar
-            opcoes_com_vazio = ["", "--Adicionar anotação--"] + opcoes if opcoes else ["", "--Adicionar anotação--"]
-
-            # Selecionar anotação existente ou opção de adicionar
-            selecionada = st.selectbox(
-                "Selecione uma anotação",
-                options=opcoes_com_vazio,
-                index=0
-            )
-
-            # ============================
-            # Adicionar nova anotação
-            # ============================
-            if selecionada == "--Adicionar anotação--":
-                
-                anotacao_texto = st.text_area("Digite a anotação", key="nova_anotacao_texto")
-
-                if st.button("Adicionar anotação", icon=":material/check:"):
-                    if anotacao_texto.strip():
-                        nova_anotacao = {
-                            "data_anotacao": datetime.datetime.today().strftime("%d/%m/%Y %H:%M"),
-                            "autor": usuario_logado,
-                            "anotacao": anotacao_texto.strip()
-                        }
-
-                        # Adiciona a nova anotação à lista existente
-                        anotacoes.append(nova_anotacao)
-
-                        # Atualiza no Mongo
-                        pessoas.update_one(
-                            {"_id": ObjectId(pessoa["_id"])},
-                            {"$set": {"anotacoes": anotacoes}}
-                        )
-
-                        st.success("Nova anotação adicionada com sucesso!")
-                        time.sleep(2)
-                        st.rerun()
-                    else:
-                        st.warning("O campo da anotação não pode estar vazio.")
-
-            # ============================
-            # Edição de anotação existente
-            # ============================
-            elif selecionada:
-                # Índice real dentro da lista completa de anotações
-                index = [i for i, a in enumerate(anotacoes) if a.get("autor") == usuario_logado][opcoes.index(selecionada)]
-                anotacao_atual = anotacoes[index]["anotacao"]
-
-                nova_texto = st.text_area("Editar anotação", value=anotacao_atual or "")
-
-                col1, col2 = st.columns([3,1])
-
-                with col1:
-                    if st.button("Salvar edição", icon=":material/edit:"):
-                        anotacoes[index]["anotacao"] = nova_texto.strip()
-                        pessoas.update_one(
-                            {"_id": ObjectId(pessoa["_id"])},
-                            {"$set": {"anotacoes": anotacoes}}
-                        )
-                        st.success("Anotação atualizada com sucesso!")
-                        time.sleep(2)
-                        st.rerun()
-
-                with col2:
-                    if st.button("Excluir anotação", icon=":material/delete:"):
-                        # Remove a anotação selecionada
-                        anotacoes.pop(index)
-                        pessoas.update_one(
-                            {"_id": ObjectId(pessoa["_id"])},
-                            {"$set": {"anotacoes": anotacoes}}
-                        )
-                        st.success("Anotação excluída com sucesso!")
-                        time.sleep(2)
-                        st.rerun()
-        
-
         with aba_previdencia:
 
             if pessoa:
@@ -838,6 +747,96 @@ def gerenciar_pessoas():
                         )
 
                         st.success("Contribuição excluída com sucesso!")
+                        time.sleep(2)
+                        st.rerun()
+
+        with aba_anotacoes:
+            
+            if pessoa:
+                anotacoes = pessoa.get("anotacoes", [])
+            else:
+                anotacoes = []
+                
+            usuario_logado = st.session_state.get("nome", "Desconhecido")
+
+            # Criar lista de opções com apenas anotações do próprio usuário
+            opcoes = [
+                f'{a["data_anotacao"].strftime("%d/%m/%Y") if isinstance(a["data_anotacao"], datetime.datetime) else a["data_anotacao"]} - {a["autor"][:30]}'
+                for a in anotacoes if a.get("autor") == usuario_logado
+            ]
+
+            # Sempre terá a opção de adicionar
+            opcoes_com_vazio = ["", "--Adicionar anotação--"] + opcoes if opcoes else ["", "--Adicionar anotação--"]
+
+            # Selecionar anotação existente ou opção de adicionar
+            selecionada = st.selectbox(
+                "Selecione uma anotação",
+                options=opcoes_com_vazio,
+                index=0
+            )
+
+            # ============================
+            # Adicionar nova anotação
+            # ============================
+            if selecionada == "--Adicionar anotação--":
+                
+                anotacao_texto = st.text_area("Digite a anotação", key="nova_anotacao_texto")
+
+                if st.button("Adicionar anotação", icon=":material/check:"):
+                    if anotacao_texto.strip():
+                        nova_anotacao = {
+                            "data_anotacao": datetime.datetime.today().strftime("%d/%m/%Y %H:%M"),
+                            "autor": usuario_logado,
+                            "anotacao": anotacao_texto.strip()
+                        }
+
+                        # Adiciona a nova anotação à lista existente
+                        anotacoes.append(nova_anotacao)
+
+                        # Atualiza no Mongo
+                        pessoas.update_one(
+                            {"_id": ObjectId(pessoa["_id"])},
+                            {"$set": {"anotacoes": anotacoes}}
+                        )
+
+                        st.success("Nova anotação adicionada com sucesso!")
+                        time.sleep(2)
+                        st.rerun()
+                    else:
+                        st.warning("O campo da anotação não pode estar vazio.")
+
+            # ============================
+            # Edição de anotação existente
+            # ============================
+            elif selecionada:
+                # Índice real dentro da lista completa de anotações
+                index = [i for i, a in enumerate(anotacoes) if a.get("autor") == usuario_logado][opcoes.index(selecionada)]
+                anotacao_atual = anotacoes[index]["anotacao"]
+
+                nova_texto = st.text_area("Editar anotação", value=anotacao_atual or "")
+
+                col1, col2 = st.columns([3,1])
+
+                with col1:
+                    if st.button("Salvar edição", icon=":material/edit:"):
+                        anotacoes[index]["anotacao"] = nova_texto.strip()
+                        pessoas.update_one(
+                            {"_id": ObjectId(pessoa["_id"])},
+                            {"$set": {"anotacoes": anotacoes}}
+                        )
+                        st.success("Anotação atualizada com sucesso!")
+                        time.sleep(2)
+                        st.rerun()
+
+                with col2:
+                    if st.button("Excluir anotação", icon=":material/delete:"):
+                        # Remove a anotação selecionada
+                        anotacoes.pop(index)
+                        pessoas.update_one(
+                            {"_id": ObjectId(pessoa["_id"])},
+                            {"$set": {"anotacoes": anotacoes}}
+                        )
+                        st.success("Anotação excluída com sucesso!")
                         time.sleep(2)
                         st.rerun()
 
