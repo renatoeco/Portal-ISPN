@@ -16,6 +16,23 @@ st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
 st.header("Pessoas")
 st.write('')  # Espaço vazio
 
+
+######################################################################################################
+# CSS PARA DIALOGO MAIOR
+######################################################################################################
+st.markdown(
+    """
+<style>
+div[data-testid="stDialog"] div[role="dialog"]:has(.big-dialog) {
+    width: 60vw;
+    
+}
+</style>
+""",
+    unsafe_allow_html=True,
+)
+
+
 ######################################################################################################
 # CONEXÃO COM O BANCO DE DADOS MONGODB
 ######################################################################################################
@@ -73,6 +90,8 @@ for pessoa in dados_pessoas:
                 )
                 nomes_projetos_pagadores.append(nome_proj)
 
+
+
     # ----------------------
     # Montar registro da pessoa
     # ----------------------
@@ -86,8 +105,12 @@ for pessoa in dados_pessoas:
         "Telefone": pessoa.get("telefone", ""),
         "Gênero": pessoa.get("gênero", ""),
         "Raça": pessoa.get("raca", ""),
-        "Status": pessoa.get("status", "")
+        "Status": pessoa.get("status", ""),
+        "Tipo Contratação": pessoa.get("tipo_contratacao", ""),
+        "Escritório": pessoa.get("escritorio", ""),
     })
+
+
 
 # Criar DataFrame de Pessoas
 df_pessoas = pd.DataFrame(pessoas_lista)
@@ -115,10 +138,13 @@ opcoes_cargos = [
 ]
 
 
-# Define um diálogo (modal) para gerenciar colaboradores com abas de cadastro e edição
+# Define um diálogo (modal) para gerenciar colaboradores
 @st.dialog("Gerenciar colaboradores", width='large')
 def gerenciar_pessoas():
-    
+
+    # Aumentar largura do diálogo
+    st.html("<span class='big-dialog'></span>")
+
     # Mapeia nomes de programa <-> ObjectId
     nome_para_id_programa = {
         p["nome_programa_area"]: p["_id"]
@@ -164,29 +190,40 @@ def gerenciar_pessoas():
         if "coordenador" in p  # só inclui quem tem o campo 'coordenador'
     ])
 
-   
-    nome_selecionado = st.selectbox("Selecione o(a) colaborador(a) para ver informações:", nomes_existentes, index=0)
+
+
+
+
+    # INÍCIO
+    # SelectBox do nome do colaborador ----------------------------------------------------------
     
+    with st.container(horizontal=True, horizontal_alignment="center"):
+        nome_selecionado = st.selectbox("Selecione o(a) colaborador(a):", nomes_existentes, index=0, width=400)
+
+    st.write('')
+
+    # Editar colaborador
     if nome_selecionado not in ("", "--Adicionar colaborador--"):
         
         # Busca colaborador selecionado no banco
         pessoa = next((p for p in dados_pessoas if p["nome_completo"] == nome_selecionado), None)
         
-        # tipo_contratacao_opcoes = ["","PJ1", "PJ2", "CLT", "Estagiário"]
         
-        # # SelectBox fora do formulário
-        # tipo_contratacao = st.selectbox(
-        #     "Tipo de contratação:",
-        #     tipo_contratacao_opcoes,
-        #     index=tipo_contratacao_opcoes.index(pessoa.get("tipo_contratacao")), key="tipo_contratacao_edit",
-        # )
-        
-        # Cria duas abas: cadastro e edição
+        # Cria abas
         aba_info, aba_contratos, aba_previdencia, aba_anotacoes  = st.tabs([":material/info: Informações gerais", ":material/contract: Contratos", ":material/finance_mode: Previdência", ":material/notes: Anotações"])
     
+
+        # ABA INFORMAÇÕES GERAIS ################################################################
         with aba_info:
 
             if pessoa:
+
+
+                # ===============================
+                # Formulário principal
+                # ===============================
+
+
                 # ===============================
                 # Tipo de contratação (fora do form)
                 # ===============================
@@ -196,94 +233,85 @@ def gerenciar_pessoas():
                     lista_tipo_contracao,
                     index=lista_tipo_contracao.index(pessoa.get("tipo_contratacao", "")) 
                     if pessoa.get("tipo_contratacao", "") in lista_tipo_contracao else 0,
-                    key="tipo_contratacao_edit"
+                    key="tipo_contratacao_edit",
+                    width=300
                 )
 
-                # ===============================
-                # Formulário principal
-                # ===============================
-                with st.form("form_editar_colaborador", border=False):
-                    st.write('')
 
-                    # -------------------------------
-                    # Status
-                    # -------------------------------
-                    cols = st.columns([1, 2])
+                with st.form("form_editar_colaborador", border=False):
+
+
+
+
+                    # -----------------------------------------------------------------
+                    # Nome completo e status
+                    # -----------------------------------------------------------------
+                    
+
+                    cols = st.columns([3,2])
+                    nome = cols[0].text_input("Nome completo:", value=pessoa.get("nome_completo", ""))
+
                     status_opcoes = ["ativo", "inativo"]
-                    status = cols[0].selectbox(
+                    status = cols[1].selectbox(
                         "Status do(a) colaborador(a):", 
                         status_opcoes, 
                         index=status_opcoes.index(pessoa.get("status", "ativo")), 
                         key="editar_status"
                     )
 
-                    st.markdown("---")
-
-                    # -------------------------------
-                    # Campos existentes
-                    # -------------------------------
-                    col1, col2 = st.columns([1, 1])
-                    nome = col1.text_input("Nome completo:", value=pessoa.get("nome_completo", ""))
+                    # -----------------------------------------------------------------
+                    # Gênero, Raça e Data de Nascimento
+                    # -----------------------------------------------------------------
+                    
+                    cols = st.columns(3)
+                    
                     lista_generos = ['Masculino', 'Feminino', 'Não binário', 'Outro']
-                    genero = col2.selectbox(
+                    genero = cols[0].selectbox(
                         "Gênero:", lista_generos, 
                         index=lista_generos.index(pessoa.get("gênero")), 
                         key="editar_genero"
                     )
                     
-                    col1, col2 = st.columns([1, 1])
-                    
-                    lista_escolaridade = ["Ensino fundamental", "Ensino médio", "Graduação", "Pós-graduação", "Mestrado", "Doutorado", ""]
-            
-                    escolaridade = col1.selectbox("Escolaridade:", lista_escolaridade, index=lista_escolaridade.index(pessoa.get("escolaridade")))
-                    
                     lista_raca = ["Amarelo", "Branco", "Índigena", "Pardo", "Preto", ""]
+                    raca = cols[1].selectbox("Raça:", lista_raca, index=lista_raca.index(pessoa.get("raca")))                    
                     
-                    raca = col2.selectbox("Raça:", lista_raca, index=lista_raca.index(pessoa.get("raca")))
-
-                    col1, col2 = st.columns([1, 1])
-
-                    # CPF e RG 
-                    cpf = col1.text_input("CPF:", value=pessoa.get("CPF", ""))
-                    rg = col2.text_input("RG e órgão emissor:", value=pessoa.get("RG", ""))
-                    
-                    # ===============================
-                    # CAMPOS ADICIONAIS SE FOR PJ
-                    # ===============================
-                    cnpj, nome_empresa = None, None
-                    if tipo_contratacao in ["PJ1", "PJ2"]:
-                        col1, col2 = st.columns([1,1])
-                        cnpj = col1.text_input("CNPJ:", value=pessoa.get("cnpj", ""), placeholder="00.000.000/0000-00")
-                        nome_empresa = col2.text_input("Nome da empresa:", value=pessoa.get("nome_empresa", ""))
-
-                    col1, col2, col3 = st.columns([1, 2, 2])
-                    
-                    # Data de nascimento, telefone e e-mail
                     data_nascimento_str = pessoa.get("data_nascimento", "")
                     if data_nascimento_str:
                         data_nascimento = datetime.datetime.strptime(data_nascimento_str, "%d/%m/%Y")
                     else:
                         data_nascimento = None
-                    data_nascimento = col1.date_input("Data de nascimento:", format="DD/MM/YYYY", value=data_nascimento)
-                    telefone = col2.text_input("Telefone:", value=pessoa.get("telefone", ""))
-                    email = col3.text_input("E-mail:", value=pessoa.get("e_mail", ""))
+                    data_nascimento = cols[2].date_input("Data de nascimento:", format="DD/MM/YYYY", value=data_nascimento)
                     
+                    
+                    
+
+                    # -----------------------------------------------------------------
+                    # CPF, RG, telefone e email
+                    # -----------------------------------------------------------------
+
+
+                    cols = st.columns(4)
+
+                    cpf = cols[0].text_input("CPF:", value=pessoa.get("CPF", ""))
+                    rg = cols[1].text_input("RG e órgão emissor:", value=pessoa.get("RG", ""))
+
+                    telefone = cols[2].text_input("Telefone:", value=pessoa.get("telefone", ""))
+                    email = cols[3].text_input("E-mail:", value=pessoa.get("e_mail", ""))
+
+
+
+                    # -----------------------------------------------------------------
+                    # Escolaridade, escritório, programa
+                    # -----------------------------------------------------------------
+
+                    cols = st.columns(3)
+
+                    lista_escolaridade = ["Ensino fundamental", "Ensino médio", "Graduação", "Pós-graduação", "Mestrado", "Doutorado", ""]
+                    escolaridade = cols[0].selectbox("Escolaridade:", lista_escolaridade, index=lista_escolaridade.index(pessoa.get("escolaridade")))
+
                     lista_escritorio = ["Brasília", "Santa Inês", ""]
-                    
-                    escritorio = st.selectbox("Escritório:", lista_escritorio, index=lista_escritorio.index(pessoa.get("escritorio")))                  
-                    
-                    lista_tipo_contracao = ["PJ1", "PJ2", "CLT", "Estagiário", ""]
-                    
-                    col1, col2, col3 = st.columns([1, 1, 1])
-                    
-                    lista_cargos = ["Analista de advocacy", "Analista de comunicação", "Analista de dados", "Analista Administrativo/Financeiro",
-                    "Analista de Recursos Humanos", "Analista socioambiental", "Analista socioambiental pleno", "Analista socioambiental sênior",
-                    "Assessora de advocacy", "Assessor de Comunicação", "Auxiliar de Serviços Gerais", "Auxiliar Administrativo/financeiro",
-                    "Assistente Administrativo/financeiro", "Assistente socioambiental", "Coordenador Administrativo/financeiro de escritório",
-                    "Coordenador Geral administrativo/financeiro", "Coordenador Executivo", "Coordenador de Área", "Coordenador de Programa",
-                    "Motorista", "Secretária(o)/Recepcionista", "Técnico de campo", "Técnico em informática", ""]
-                    
-                    cargo = col1.selectbox("Cargo:", lista_cargos, index=lista_cargos.index(pessoa.get("cargo")))
+                    escritorio = cols[1].selectbox("Escritório:", lista_escritorio, index=lista_escritorio.index(pessoa.get("escritorio")))                  
+
 
                     # Programa / Área
                     # Pega o ObjectId atual salvo no banco
@@ -292,7 +320,7 @@ def gerenciar_pessoas():
                     programa_area_nome_atual = id_para_nome_programa.get(programa_area_atual, "")
 
                     # Selectbox mostra nomes dos programas
-                    programa_area_nome = col2.selectbox(
+                    programa_area_nome = cols[2].selectbox(
                         "Programa / Área:",
                         lista_programas_areas,
                         index=lista_programas_areas.index(programa_area_nome_atual) if programa_area_nome_atual in lista_programas_areas else 0,
@@ -301,7 +329,33 @@ def gerenciar_pessoas():
 
                     # Após seleção, pega o ObjectId correspondente ao nome
                     programa_area = nome_para_id_programa.get(programa_area_nome)
+
+
+
+                    # -----------------------------------------------------------------
+                    # Cargo e nome do coordenador
+                    # -----------------------------------------------------------------
+
+                    cols = st.columns([3, 2])
+
+                    # Garante que a lista tenha um valor vazio como placeholder
+                    opcoes_cargos_com_vazio = [""] + opcoes_cargos  
+
+                    valor_cargo = pessoa.get("cargo") or ""  
+                    if valor_cargo not in opcoes_cargos_com_vazio:
+                        valor_cargo = ""  
+
+                    cargo = cols[0].selectbox(
+                        "Cargo:",
+                        opcoes_cargos_com_vazio,
+                        index=opcoes_cargos_com_vazio.index(valor_cargo)
+                    )
+
+
                     
+                    # cargo = cols[0].selectbox("Cargo:", opcoes_cargos, index=opcoes_cargos.index(pessoa.get("cargo")))
+
+
                     # Coordenador
 
                     # 1. Lista de nomes (adiciona opção vazia)
@@ -318,7 +372,7 @@ def gerenciar_pessoas():
                     nome_coordenador_default = coordenador_encontrado["nome"] if coordenador_encontrado else ""
 
                     # 4. Selectbox
-                    coordenador_nome = col3.selectbox(
+                    coordenador_nome = cols[1].selectbox(
                         "Nome do(a) coordenador(a):",
                         nomes_coordenadores,
                         index=nomes_coordenadores.index(nome_coordenador_default) if nome_coordenador_default in nomes_coordenadores else 0,
@@ -330,12 +384,29 @@ def gerenciar_pessoas():
                     if coordenador_nome:
                         coordenador_id = next(
                             c["id"] for c in coordenadores_possiveis if c["nome"] == coordenador_nome
-                        )         
+                        )        
+
+
+
+                    # ===============================
+                    # CAMPOS ADICIONAIS SE FOR PJ
+                    # ===============================
+                    cnpj, nome_empresa = None, None
+                    if tipo_contratacao in ["PJ1", "PJ2"]:
+                        col1, col2 = st.columns([1,2])
+                        cnpj = col1.text_input("CNPJ:", value=pessoa.get("cnpj", ""), placeholder="00.000.000/0000-00")
+                        nome_empresa = col2.text_input("Nome da empresa:", value=pessoa.get("nome_empresa", ""))
+
+
 
                     
                     st.markdown("---")
 
                     # Dados bancários
+
+                    st.write("**Dados bancários**")
+
+
                     col1, col2 = st.columns([1, 1])
                     nome_banco = col1.text_input("Nome do banco:", value=pessoa.get("banco", {}).get("nome_banco", ""))
                     agencia = col2.text_input("Agência:", value=pessoa.get("banco", {}).get("agencia", ""))
@@ -524,6 +595,8 @@ def gerenciar_pessoas():
                         
 
         with aba_contratos:
+
+
 
             # ==============================
             # Lista de projetos disponíveis (para multiselect)
@@ -897,7 +970,17 @@ def gerenciar_pessoas():
                         time.sleep(2)
                         st.rerun()
 
-       
+
+
+
+
+
+
+
+
+
+
+    #    Adicionar colaborador --------------------------------------------------------------------------------
     elif nome_selecionado == "--Adicionar colaborador--":
 
          # SelectBox fora do formulário
@@ -905,68 +988,86 @@ def gerenciar_pessoas():
             "Tipo de contratação:",
             ["","PJ1", "PJ2", "CLT", "Estagiário"],
             index=0,
+            width=300
         )
 
-        if tipo_contratacao in ["PJ1", "PJ2"]:
 
-            # Formulário para cadastro, limpa os campos após envio
-            with st.form("form_cadastro_colaborador", clear_on_submit=True, border=False):
+        # Formulário para cadastro
+        with st.form("form_cadastro_colaborador", border=False):
+
+
+
+            # -------------------------------------------------
+            # Nome e status
+            # -------------------------------------------------
+
+            # Layout com colunas para inputs lado a lado
+            col1, col2 = st.columns([3, 2])
             
-                st.markdown("#### Informações Gerais")
+            # Nome
+            nome = col1.text_input("Nome completo:", key="cadastrar_nome")
 
-                # Layout com colunas para inputs lado a lado
-                col1, col2 = st.columns([1, 1])
-                
-                # Nome
-                nome = col1.text_input("Nome completo:")
-                
-                # Gênero
-                genero = col2.selectbox("Gênero:", ["Masculino", "Feminino", "Não binário", "Outro"], index=None, placeholder="")
+            status_opcoes = ["ativo", "inativo"]
+            status = col2.selectbox(
+                "Status do(a) colaborador(a):", 
+                status_opcoes, 
+                index=0, 
+                key="cadastrar_status"
+            )
 
-                col1, col2 = st.columns([1, 1])
-                
-                escolaridade = col1.selectbox("Escolaridade:", ["Ensino fundamental", "Ensino médio", "Graduação", "Pós-graduação", 
-                                                                "Mestrado", "Doutorado"], index=None, placeholder="")
-                
-                raca = col2.selectbox("Raça:", ["Amarelo", "Branco", "Índigena", "Pardo", "Preto"], index=None, placeholder="")
 
-                col1, col2 = st.columns([1, 1])
-                
-                # CPF e RG
-                cpf = col1.text_input("CPF:", placeholder="000.000.000-00")
-                rg = col2.text_input("RG e órgão emissor:")
+            # -------------------------------------------------
+            # Gênero, raça e data de nascimento
+            # -------------------------------------------------
+            cols = st.columns(3)
 
-                col1, col2 = st.columns([1, 1])
+            genero = cols[0].selectbox("Gênero:", ["Masculino", "Feminino", "Não binário", "Outro"], index=None, placeholder="")
 
-                cnpj = col1.text_input("CNPJ:", placeholder="00.000.000/0000-00")
-                nome_empresa = col2.text_input("Nome da empresa:")
+            raca = cols[1].selectbox("Raça:", ["Amarelo", "Branco", "Índigena", "Pardo", "Preto"], index=None, placeholder="")
 
-                col1, col2, col3 = st.columns([1, 2, 2])
-                
-                # Data de nascimento
-                data_nascimento = col1.date_input("Data de nascimento:", format="DD/MM/YYYY", value=None)
-                
-                # Telefone
-                telefone = col2.text_input("Telefone:")
-                
-                # E-mail
-                email = col3.text_input("E-mail:")
-                
-                col1, col2 = st.columns([1,1])
-                
-                escritorio = col1.selectbox("Escritório:", ["Brasília", "Santa Inês"], index=None, placeholder="")
-                
-                #tipo_contratacao = col2.selectbox("Tipo de contratação:", ["PJ1", "PJ2", "CLT", "Estagiário"], index=None, placeholder="")
-                
-                # if tipo_contratacao == ["PJ1", "PJ2"]:
-                #     col1, col2 = st.columns([1,1])
-                    
-                #     cnpj = col1.text_input("CNPJ", placeholder="00.000.000/0000-00")
-                #     nome_empresa = col2.text_input("Nome da empresa", placeholder="")
+            data_nascimento = cols[2].date_input("Data de nascimento:", format="DD/MM/YYYY", value=None, min_value=datetime.date(1920, 1, 1))
 
-            col1, col2 = st.columns(2)
-            
 
+            # -------------------------------------------------
+            # CPF, RG, Telefone e email
+            # -------------------------------------------------
+
+            cols = st.columns(4)
+
+
+            cpf = cols[0].text_input("CPF:", placeholder="000.000.000-00")
+            rg = cols[1].text_input("RG e órgão emissor:")
+            telefone = cols[2].text_input("Telefone:")
+            email = cols[3].text_input("E-mail:")
+
+
+            # -------------------------------------------------
+            # Escolaridade, escritório e programa/área
+            # -------------------------------------------------
+
+            cols = st.columns(3)
+
+            escolaridade = cols[0].selectbox("Escolaridade:", ["Ensino fundamental", "Ensino médio", "Graduação", "Pós-graduação", 
+                                                            "Mestrado", "Doutorado"], index=None, placeholder="")
+
+            escritorio = cols[1].selectbox("Escritório:", ["Brasília", "Santa Inês"], index=None, placeholder="")
+
+            # Programa / Área
+            # Lista ordenada dos programas/áreas para seleção
+            lista_programas_areas = sorted(nome_para_id_programa.keys())
+            programa_area_nome = cols[2].selectbox("Programa / Área:", lista_programas_areas, index=None, placeholder="")
+            programa_area = nome_para_id_programa.get(programa_area_nome)
+
+
+
+            # -------------------------------------------------
+            # Cargo e nome do coordenador
+            # -------------------------------------------------
+
+            cols = st.columns([3, 2])
+
+            # Cargo
+            cargo = cols[0].selectbox("Cargo:", opcoes_cargos, index=None, placeholder="")
 
             # Coordenador/a
             # Lista de coordenadores existentes (id, nome, programa)
@@ -982,7 +1083,7 @@ def gerenciar_pessoas():
             # Extrai nomes únicos dos coordenadores ordenados
             nomes_coordenadores = sorted({c["nome"] for c in coordenadores_possiveis})
             # Seleção do nome do coordenador no formulário
-            coordenador = col1.selectbox("Nome do(a) coordenador(a):", nomes_coordenadores, index=None, placeholder="")
+            coordenador = cols[1].selectbox("Nome do(a) coordenador(a):", nomes_coordenadores, index=None, placeholder="")
 
             # Por fim, pega o id do coordenador
             coordenador_id = None
@@ -991,62 +1092,30 @@ def gerenciar_pessoas():
                     coordenador_id = c["id"]
                     break
 
+            # ===============================
+            # CAMPOS ADICIONAIS SE FOR PJ
+            # ===============================
+    
+            # -------------------------------------------------
+            # CNPJ e Nome da empresa
+            # -------------------------------------------------
+    
+            if tipo_contratacao in ["PJ1", "PJ2"]:
+                cnpj, nome_empresa = None, None
+  
+                cols = st.columns([2, 3])
 
-            # Programa / Área
-            # Lista ordenada dos programas/áreas para seleção
-            lista_programas_areas = sorted(nome_para_id_programa.keys())
-            programa_area_nome = col2.selectbox("Programa / Área:", lista_programas_areas, index=None, placeholder="")
-            programa_area = nome_para_id_programa.get(programa_area_nome)
+                cnpj = cols[0].text_input("CNPJ:", placeholder="00.000.000/0000-00")
+                nome_empresa = cols[1].text_input("Nome da empresa:")
 
-
-            col1, col2 = st.columns([3, 2])
-
-            # Cargo
-            cargo = col1.selectbox("Cargo:", opcoes_cargos, index=None, placeholder="")
-
-            # Programa / Área
-            # Lista ordenada dos programas/áreas para seleção
-            lista_programas_areas = sorted(nome_para_id_programa.keys())
-            programa_area_nome = col2.selectbox("Programa / Área:", lista_programas_areas, index=None, placeholder="")
-            programa_area = nome_para_id_programa.get(programa_area_nome)
-
-
-            col1, col2 = st.columns([3, 2])
-
-            # Cargo
-            cargo = col1.selectbox("Cargo:", opcoes_cargos, index=None, placeholder="")
-
-            st.divider()
-
-            st.markdown("#### Contrato")
-
-            # Projeto pagador (lista de nomes para exibir)
-            lista_projetos = sorted({
-                p["nome_do_projeto"]
-                for p in dados_projetos_ispn
-                if p.get("nome_do_projeto", "") != ""
-            })
-
-            # Exibe multiselect com nomes
-            projeto_pagador_nome = st.multiselect(
-                "Contratado(a) pelo projeto:",
-                lista_projetos,
-                key="cadastrar_projeto_pagador",
-            )
-
-            # Converte os nomes escolhidos de volta para ObjectId
-            projeto_pagador = [nome_para_id_projeto.get(nome) for nome in projeto_pagador_nome]
-
-            # Datas de início e fim de contrato
-            with st.container(horizontal=True):
-                inicio_contrato = st.date_input("Data de início do contrato:", format="DD/MM/YYYY", value=None)
-                fim_contrato = st.date_input("Data de fim do contrato:", format="DD/MM/YYYY", value=None)
-                
-            status_contrato = st.selectbox("Status do contrato:", ["Em vigência", "Encerrado", "Cancelado", "Fonte de recurso temporária"], index=0, placeholder="")
+            
 
             st.markdown("---")
-            
+
+            # -------------------------------------------------
             # Dados Bancários
+            # -------------------------------------------------
+
             st.markdown("#### Dados bancários")
             
             col1, col2 = st.columns([1, 1])
@@ -1056,6 +1125,11 @@ def gerenciar_pessoas():
             col1, col2 = st.columns([1, 1])
             conta = col1.text_input("Conta:")
             tipo_conta = col2.selectbox("Tipo de conta:", ["Conta Corrente", "Conta Poupança", "Conta Salário"], index=None, placeholder="")
+
+
+            # -------------------------------------------------
+            # Férias
+            # -------------------------------------------------
 
             st.markdown("---")
             st.markdown("#### Férias")
@@ -1070,7 +1144,12 @@ def gerenciar_pessoas():
             valor_inicial_ano_atual = 0
             total_gozado = 0
             saldo_atual = residual_ano_anterior + valor_inicial_ano_atual
-            
+
+
+            # -------------------------------------------------
+            # Anotações
+            # -------------------------------------------------
+
             st.divider()
             
             st.markdown("#### Anotações")
@@ -1227,17 +1306,17 @@ def gerenciar_pessoas():
                         "status": "ativo",
                         "e_mail": email,
                         "coordenador": coordenador_id,
-                        "data_reajuste": "",  # novo campo
-                        "contratos": [
-                            {
-                                "data_inicio": inicio_contrato.strftime("%d/%m/%Y") if inicio_contrato else "",
-                                "data_fim": fim_contrato.strftime("%d/%m/%Y") if fim_contrato else "",
-                                "codigo_projeto": "",
-                                "status_contrato": status_contrato,
-                                "projeto_pagador": projeto_pagador if projeto_pagador else [],
-                                "termos_aditivos": [],
-                            }
-                        ],
+                        # "data_reajuste": "",  # novo campo
+                        # "contratos": [
+                        #     {
+                        #         "data_inicio": inicio_contrato.strftime("%d/%m/%Y") if inicio_contrato else "",
+                        #         "data_fim": fim_contrato.strftime("%d/%m/%Y") if fim_contrato else "",
+                        #         "codigo_projeto": "",
+                        #         "status_contrato": status_contrato,
+                        #         "projeto_pagador": projeto_pagador if projeto_pagador else [],
+                        #         "termos_aditivos": [],
+                        #     }
+                        # ],
                         "anotacoes": [
                             {
                                 "data_anotacao": datetime.datetime.today().strftime("%d/%m/%Y %H:%M"),
@@ -1253,378 +1332,389 @@ def gerenciar_pessoas():
                     time.sleep(2)
                     st.rerun()  # Recarrega a página para atualizar dados
 
-        
-        elif tipo_contratacao in ["CLT", "Estagiário"]:
-            # Formulário para cadastro, limpa os campos após envio
-            with st.form("form_cadastro_colaborador", clear_on_submit=True, border=False):
+
+
+
+
+
+
+
+
+
+
+
+
+        # elif tipo_contratacao in ["CLT", "Estagiário"]:
+        #     # Formulário para cadastro, limpa os campos após envio
+        #     with st.form("form_cadastro_colaborador", clear_on_submit=True, border=False):
             
-                st.markdown("#### Informações Gerais")
+        #         st.markdown("#### Informações Gerais")
 
-                # Layout com colunas para inputs lado a lado
-                col1, col2 = st.columns([1, 1])
+        #         # Layout com colunas para inputs lado a lado
+        #         col1, col2 = st.columns([1, 1])
                 
-                # Nome
-                nome = col1.text_input("Nome completo:")
+        #         # Nome
+        #         nome = col1.text_input("Nome completo:")
                 
-                # Gênero
-                genero = col2.selectbox("Gênero:", ["Masculino", "Feminino", "Não binário", "Outro"], index=None, placeholder="")
+        #         # Gênero
+        #         genero = col2.selectbox("Gênero:", ["Masculino", "Feminino", "Não binário", "Outro"], index=None, placeholder="")
 
-                col1, col2 = st.columns([1, 1])
+        #         col1, col2 = st.columns([1, 1])
                 
-                escolaridade = col1.selectbox("Escolaridade:", ["Ensino fundamental", "Ensino médio", "Graduação", "Pós-graduação", 
-                                                                "Mestrado", "Doutorado"], index=None, placeholder="")
+        #         escolaridade = col1.selectbox("Escolaridade:", ["Ensino fundamental", "Ensino médio", "Graduação", "Pós-graduação", 
+        #                                                         "Mestrado", "Doutorado"], index=None, placeholder="")
                 
-                raca = col2.selectbox("Raça:", ["Amarelo", "Branco", "Índigena", "Pardo", "Preto"], index=None, placeholder="")
+        #         raca = col2.selectbox("Raça:", ["Amarelo", "Branco", "Índigena", "Pardo", "Preto"], index=None, placeholder="")
 
-                col1, col2 = st.columns([1, 1])
+        #         col1, col2 = st.columns([1, 1])
                 
-                # CPF e RG
-                cpf = col1.text_input("CPF:", placeholder="000.000.000-00")
-                rg = col2.text_input("RG e órgão emissor:")
+        #         # CPF e RG
+        #         cpf = col1.text_input("CPF:", placeholder="000.000.000-00")
+        #         rg = col2.text_input("RG e órgão emissor:")
 
-                col1, col2, col3 = st.columns([1, 2, 2])
+        #         col1, col2, col3 = st.columns([1, 2, 2])
                 
-                # Data de nascimento, telefone e e-mail
-                data_nascimento_str = pessoa.get("data_nascimento", "")
-                if data_nascimento_str:
-                    data_nascimento = datetime.strptime(data_nascimento_str, "%d/%m/%Y")
-                else:
-                    data_nascimento = None
-                data_nascimento = col1.date_input("Data de nascimento:", format="DD/MM/YYYY", value=data_nascimento, disabled=desabilitar)
-                telefone = col2.text_input("Telefone:", value=pessoa.get("telefone", ""), disabled=desabilitar)
-                email = col3.text_input("E-mail:", value=pessoa.get("e_mail", ""), disabled=desabilitar)
+        #         # Data de nascimento, telefone e e-mail
+        #         data_nascimento_str = pessoa.get("data_nascimento", "")
+        #         if data_nascimento_str:
+        #             data_nascimento = datetime.strptime(data_nascimento_str, "%d/%m/%Y")
+        #         else:
+        #             data_nascimento = None
+        #         data_nascimento = col1.date_input("Data de nascimento:", format="DD/MM/YYYY", value=data_nascimento, disabled=desabilitar)
+        #         telefone = col2.text_input("Telefone:", value=pessoa.get("telefone", ""), disabled=desabilitar)
+        #         email = col3.text_input("E-mail:", value=pessoa.get("e_mail", ""), disabled=desabilitar)
                 
 
 
 
-                col1, col2 = st.columns([1, 1])
+        #         col1, col2 = st.columns([1, 1])
 
 
 
-                # Coordenador
+        #         # Coordenador
 
-                # 1. Lista de nomes (adiciona opção vazia)
-                nomes_coordenadores = [""] + [c["nome"] for c in coordenadores_possiveis]
+        #         # 1. Lista de nomes (adiciona opção vazia)
+        #         nomes_coordenadores = [""] + [c["nome"] for c in coordenadores_possiveis]
 
-                # 2. Tenta encontrar coordenador atual
-                coordenador_atual_id = pessoa.get("coordenador")
-                coordenador_encontrado = next(
-                    (c for c in coordenadores_possiveis if str(c["id"]) == str(coordenador_atual_id)),
-                    None
-                )
+        #         # 2. Tenta encontrar coordenador atual
+        #         coordenador_atual_id = pessoa.get("coordenador")
+        #         coordenador_encontrado = next(
+        #             (c for c in coordenadores_possiveis if str(c["id"]) == str(coordenador_atual_id)),
+        #             None
+        #         )
 
-                # 3. Define valor default (se não achar, fica vazio)
-                nome_coordenador_default = coordenador_encontrado["nome"] if coordenador_encontrado else ""
+        #         # 3. Define valor default (se não achar, fica vazio)
+        #         nome_coordenador_default = coordenador_encontrado["nome"] if coordenador_encontrado else ""
 
-                # 4. Selectbox
-                coordenador_nome = col1.selectbox(
-                    "Nome do(a) coordenador(a):",
-                    nomes_coordenadores,
-                    index=nomes_coordenadores.index(nome_coordenador_default) if nome_coordenador_default in nomes_coordenadores else 0,
-                    key="editr_nome_coordenador",
-                    disabled=desabilitar
-                )
+        #         # 4. Selectbox
+        #         coordenador_nome = col1.selectbox(
+        #             "Nome do(a) coordenador(a):",
+        #             nomes_coordenadores,
+        #             index=nomes_coordenadores.index(nome_coordenador_default) if nome_coordenador_default in nomes_coordenadores else 0,
+        #             key="editr_nome_coordenador",
+        #             disabled=desabilitar
+        #         )
 
-                # 5. Pega o ID do coordenador selecionado (se não for vazio)
-                coordenador_id = None
-                if coordenador_nome:
-                    coordenador_id = next(
-                        c["id"] for c in coordenadores_possiveis if c["nome"] == coordenador_nome
-                    )         
-
-
-
-
-
-                # Programa / Área
-                # Pega o ObjectId atual salvo no banco
-                programa_area_atual = pessoa.get("programa_area")
-                # Converte o ObjectId para nome legível
-                programa_area_nome_atual = id_para_nome_programa.get(programa_area_atual, "")
-
-                # Selectbox mostra nomes dos programas
-                programa_area_nome = col2.selectbox(
-                    "Programa / Área:",
-                    lista_programas_areas,
-                    index=lista_programas_areas.index(programa_area_nome_atual) if programa_area_nome_atual in lista_programas_areas else 0,
-                    key="editar_programa", 
-                    disabled=desabilitar
-                )
-
-                # Após seleção, pega o ObjectId correspondente ao nome
-                programa_area = nome_para_id_programa.get(programa_area_nome)
+        #         # 5. Pega o ID do coordenador selecionado (se não for vazio)
+        #         coordenador_id = None
+        #         if coordenador_nome:
+        #             coordenador_id = next(
+        #                 c["id"] for c in coordenadores_possiveis if c["nome"] == coordenador_nome
+        #             )         
 
 
 
 
-                col1, col2 = st.columns([3, 2])
 
+        #         # Programa / Área
+        #         # Pega o ObjectId atual salvo no banco
+        #         programa_area_atual = pessoa.get("programa_area")
+        #         # Converte o ObjectId para nome legível
+        #         programa_area_nome_atual = id_para_nome_programa.get(programa_area_atual, "")
 
-                # Lista de cargos com opção vazia no início
-                opcoes_cargos_com_vazio = [""] + opcoes_cargos
+        #         # Selectbox mostra nomes dos programas
+        #         programa_area_nome = col2.selectbox(
+        #             "Programa / Área:",
+        #             lista_programas_areas,
+        #             index=lista_programas_areas.index(programa_area_nome_atual) if programa_area_nome_atual in lista_programas_areas else 0,
+        #             key="editar_programa", 
+        #             disabled=desabilitar
+        #         )
 
-                # Valor vindo do banco de dados
-                cargo_salvo = pessoa.get("cargo", "")
-
-                # Tenta encontrar o índice do cargo na lista
-                try:
-                    index_cargo = opcoes_cargos_com_vazio.index(cargo_salvo)
-                except ValueError:
-                    index_cargo = 0  # seleciona a opção vazia
-
-                # Selectbox com o valor padrão
-                cargo = col1.selectbox("Cargo:", opcoes_cargos_com_vazio, index=index_cargo)
-
-
-
-
-                # # Cargo
-
-                # # Valor vindo do banco de dados
-                # cargo_salvo = pessoa.get("cargo", "")  # por exemplo, "Analista de dados"
-
-                # # Tenta encontrar o índice do cargo na lista
-                # try:
-                #     index_cargo = opcoes_cargos.index(cargo_salvo)
-                # except ValueError:
-                #     index_cargo = 0  # se não encontrar, seleciona o primeiro item
-
-                # # Selectbox com o valor padrão
-                # cargo = col1.selectbox("Cargo:", opcoes_cargos, index=index_cargo)
+        #         # Após seleção, pega o ObjectId correspondente ao nome
+        #         programa_area = nome_para_id_programa.get(programa_area_nome)
 
 
 
-                # cargo = col1.selectbox("Cargo:", opcoes_cargos, index=None, placeholder="")
+
+        #         col1, col2 = st.columns([3, 2])
+
+
+        #         # Lista de cargos com opção vazia no início
+        #         opcoes_cargos_com_vazio = [""] + opcoes_cargos
+
+        #         # Valor vindo do banco de dados
+        #         cargo_salvo = pessoa.get("cargo", "")
+
+        #         # Tenta encontrar o índice do cargo na lista
+        #         try:
+        #             index_cargo = opcoes_cargos_com_vazio.index(cargo_salvo)
+        #         except ValueError:
+        #             index_cargo = 0  # seleciona a opção vazia
+
+        #         # Selectbox com o valor padrão
+        #         cargo = col1.selectbox("Cargo:", opcoes_cargos_com_vazio, index=index_cargo)
 
 
 
-                # Projeto pagador
-                # Lista de projetos (com opção vazia no início, se quiser)
-                lista_projetos = [""] + sorted([p["nome_do_projeto"] for p in dados_projetos_ispn if p.get("nome_do_projeto", "")])
-                # Nome atual do projeto pagador
-                projeto_pagador_nome_atual = pessoa.get("projeto_pagador", "")
-                projeto_pagador_nome_atual = id_para_nome_projeto.get(projeto_pagador_nome_atual, "")
-                # Seleção com valor padrão
-                index_padrao = lista_projetos.index(projeto_pagador_nome_atual) if projeto_pagador_nome_atual in lista_projetos else 0
-                projeto_pagador_nome_edit = st.selectbox(
-                    "Contratado(a) pelo projeto:",
-                    lista_projetos,
-                    index=index_padrao,
-                    # disabled=desabilitar
-                )
-                # ID correspondente ao projeto selecionado
-                projeto_pagador_edit = nome_para_id_projeto.get(projeto_pagador_nome_edit)
 
-                # Converte os nomes escolhidos de volta para ObjectId
-                projeto_pagador = [nome_para_id_projeto.get(nome) for nome in projeto_pagador_nome]
+        #         # # Cargo
 
-                # Datas de início e fim de contrato
-                with st.container(horizontal=True):
-                    inicio_contrato = st.date_input("Data de início do contrato:", format="DD/MM/YYYY", value=None)
-                    fim_contrato = st.date_input("Data de fim do contrato:", format="DD/MM/YYYY", value=None)
+        #         # # Valor vindo do banco de dados
+        #         # cargo_salvo = pessoa.get("cargo", "")  # por exemplo, "Analista de dados"
+
+        #         # # Tenta encontrar o índice do cargo na lista
+        #         # try:
+        #         #     index_cargo = opcoes_cargos.index(cargo_salvo)
+        #         # except ValueError:
+        #         #     index_cargo = 0  # se não encontrar, seleciona o primeiro item
+
+        #         # # Selectbox com o valor padrão
+        #         # cargo = col1.selectbox("Cargo:", opcoes_cargos, index=index_cargo)
+
+
+
+        #         # cargo = col1.selectbox("Cargo:", opcoes_cargos, index=None, placeholder="")
+
+
+
+        #         # Projeto pagador
+        #         # Lista de projetos (com opção vazia no início, se quiser)
+        #         lista_projetos = [""] + sorted([p["nome_do_projeto"] for p in dados_projetos_ispn if p.get("nome_do_projeto", "")])
+        #         # Nome atual do projeto pagador
+        #         projeto_pagador_nome_atual = pessoa.get("projeto_pagador", "")
+        #         projeto_pagador_nome_atual = id_para_nome_projeto.get(projeto_pagador_nome_atual, "")
+        #         # Seleção com valor padrão
+        #         index_padrao = lista_projetos.index(projeto_pagador_nome_atual) if projeto_pagador_nome_atual in lista_projetos else 0
+        #         projeto_pagador_nome_edit = st.selectbox(
+        #             "Contratado(a) pelo projeto:",
+        #             lista_projetos,
+        #             index=index_padrao,
+        #             # disabled=desabilitar
+        #         )
+        #         # ID correspondente ao projeto selecionado
+        #         projeto_pagador_edit = nome_para_id_projeto.get(projeto_pagador_nome_edit)
+
+        #         # Converte os nomes escolhidos de volta para ObjectId
+        #         projeto_pagador = [nome_para_id_projeto.get(nome) for nome in projeto_pagador_nome]
+
+        #         # Datas de início e fim de contrato
+        #         with st.container(horizontal=True):
+        #             inicio_contrato = st.date_input("Data de início do contrato:", format="DD/MM/YYYY", value=None)
+        #             fim_contrato = st.date_input("Data de fim do contrato:", format="DD/MM/YYYY", value=None)
                     
-                status_contrato = st.selectbox("Status do contrato:", ["Em vigência", "Encerrado", "Cancelado", "Fonte de recurso temporária"], index=0, placeholder="")
+        #         status_contrato = st.selectbox("Status do contrato:", ["Em vigência", "Encerrado", "Cancelado", "Fonte de recurso temporária"], index=0, placeholder="")
 
-                st.markdown("---")
+        #         st.markdown("---")
                 
-                # Dados Bancários
-                st.markdown("#### Dados bancários")
+        #         # Dados Bancários
+        #         st.markdown("#### Dados bancários")
                 
-                col1, col2 = st.columns([1, 1])
-                nome_banco = col1.text_input("Nome do banco:")
-                agencia = col2.text_input("Agência:")
+        #         col1, col2 = st.columns([1, 1])
+        #         nome_banco = col1.text_input("Nome do banco:")
+        #         agencia = col2.text_input("Agência:")
                 
-                col1, col2 = st.columns([1, 1])
-                conta = col1.text_input("Conta:")
-                tipo_conta = col2.selectbox("Tipo de conta:", ["Conta Corrente", "Conta Poupança", "Conta Salário"], index=None, placeholder="")
+        #         col1, col2 = st.columns([1, 1])
+        #         conta = col1.text_input("Conta:")
+        #         tipo_conta = col2.selectbox("Tipo de conta:", ["Conta Corrente", "Conta Poupança", "Conta Salário"], index=None, placeholder="")
 
-                st.markdown("---")
-                st.markdown("#### Férias")
+        #         st.markdown("---")
+        #         st.markdown("#### Férias")
                 
-                col1, col2 = st.columns([1, 2])
+        #         col1, col2 = st.columns([1, 2])
                 
-                # Férias
-                a_receber = col1.number_input("Dias de férias a receber:", step=1, min_value=22)
+        #         # Férias
+        #         a_receber = col1.number_input("Dias de férias a receber:", step=1, min_value=22)
 
-                # Variáveis de férias com valores iniciais
-                residual_ano_anterior = 0
-                valor_inicial_ano_atual = 0
-                total_gozado = 0
-                saldo_atual = residual_ano_anterior + valor_inicial_ano_atual
+        #         # Variáveis de férias com valores iniciais
+        #         residual_ano_anterior = 0
+        #         valor_inicial_ano_atual = 0
+        #         total_gozado = 0
+        #         saldo_atual = residual_ano_anterior + valor_inicial_ano_atual
                 
-                st.divider()
+        #         st.divider()
                 
-                st.markdown("#### Anotações")
+        #         st.markdown("#### Anotações")
                 
-                hoje = datetime.datetime.today().strftime("%d/%m/%Y")
+        #         hoje = datetime.datetime.today().strftime("%d/%m/%Y")
 
-                st.write(f"Data: {hoje}")
+        #         st.write(f"Data: {hoje}")
                 
-                anotacao_texto = st.text_area("Anotação", placeholder="")
+        #         anotacao_texto = st.text_area("Anotação", placeholder="")
                 
-                st.divider()
+        #         st.divider()
 
-                # Permissões
-                st.write('**Permissões:**')
+        #         # Permissões
+        #         st.write('**Permissões:**')
 
-                # Roteamento de tipo de usuário especial
-                # Só o admin pode atribuir permissão para outro admin
-                if set(st.session_state.tipo_usuario) & {"admin"}:
+        #         # Roteamento de tipo de usuário especial
+        #         # Só o admin pode atribuir permissão para outro admin
+        #         if set(st.session_state.tipo_usuario) & {"admin"}:
 
-                    # Opções possíveis para o campo "tipo de usuário"
-                    opcoes_tipo_usuario = [
-                        "coordenador(a)", "admin", "gestao_pessoas", "gestao_ferias", "supervisao_ferias", 
-                        "gestao_noticias", "gestao_pls", "gestao_projetos_doadores", 
-                        "gestao_fundo_ecos", "gestao_viagens", "gestao_manuais"
-                    ]
+        #             # Opções possíveis para o campo "tipo de usuário"
+        #             opcoes_tipo_usuario = [
+        #                 "coordenador(a)", "admin", "gestao_pessoas", "gestao_ferias", "supervisao_ferias", 
+        #                 "gestao_noticias", "gestao_pls", "gestao_projetos_doadores", 
+        #                 "gestao_fundo_ecos", "gestao_viagens", "gestao_manuais"
+        #             ]
 
-                else: # Se não for admin, não aparece a permissão admin disponível
-                    # Opções possíveis para o campo "tipo de usuário"
-                    opcoes_tipo_usuario = [
-                        "coordenador(a)", "gestao_pessoas", "gestao_ferias", "supervisao_ferias", 
-                        "gestao_noticias", "gestao_pls", "gestao_projetos_doadores", 
-                        "gestao_fundo_ecos", "gestao_viagens", "gestao_manuais"
-                    ]
+        #         else: # Se não for admin, não aparece a permissão admin disponível
+        #             # Opções possíveis para o campo "tipo de usuário"
+        #             opcoes_tipo_usuario = [
+        #                 "coordenador(a)", "gestao_pessoas", "gestao_ferias", "supervisao_ferias", 
+        #                 "gestao_noticias", "gestao_pls", "gestao_projetos_doadores", 
+        #                 "gestao_fundo_ecos", "gestao_viagens", "gestao_manuais"
+        #             ]
 
-                # Multiselect para tipo de usuário com valores padrão preenchidos
-                tipo_usuario = st.multiselect(
-                    "Tipo de usuário:",
-                    options=opcoes_tipo_usuario,
-                    # default=tipo_usuario_default,
-                    key="cadastrar_tipo_usuario",
-                )
+        #         # Multiselect para tipo de usuário com valores padrão preenchidos
+        #         tipo_usuario = st.multiselect(
+        #             "Tipo de usuário:",
+        #             options=opcoes_tipo_usuario,
+        #             # default=tipo_usuario_default,
+        #             key="cadastrar_tipo_usuario",
+        #         )
 
-                with st.expander("Ver tipos de permissões"):
+        #         with st.expander("Ver tipos de permissões"):
 
-                    col1, col2 = st.columns([1, 1])
+        #             col1, col2 = st.columns([1, 1])
 
 
-                    # admin
-                    col1, col2 = st.columns([1, 2])
-                    col1.write("**admin**")
-                    col2.write("Tem todas as permissões.")
+        #             # admin
+        #             col1, col2 = st.columns([1, 2])
+        #             col1.write("**admin**")
+        #             col2.write("Tem todas as permissões.")
 
-                    # gestao_pessoas
-                    col1, col2 = st.columns([1, 2])
-                    col1.write("**gestao_pessoas**")
-                    col2.write("Faz a gestão de pessoas.")
+        #             # gestao_pessoas
+        #             col1, col2 = st.columns([1, 2])
+        #             col1.write("**gestao_pessoas**")
+        #             col2.write("Faz a gestão de pessoas.")
 
-                    # gestao_ferias
-                    col1, col2 = st.columns([1, 2])
-                    col1.write("**gestao_ferias**")
-                    col2.write("Faz o registro de férias.")
+        #             # gestao_ferias
+        #             col1, col2 = st.columns([1, 2])
+        #             col1.write("**gestao_ferias**")
+        #             col2.write("Faz o registro de férias.")
 
-                    # supervisao_ferias
-                    col1, col2 = st.columns([1, 2])
-                    col1.write("**supervisao_ferias**")
-                    col2.write("Visualiza detalhes das férias de todos(as).")
+        #             # supervisao_ferias
+        #             col1, col2 = st.columns([1, 2])
+        #             col1.write("**supervisao_ferias**")
+        #             col2.write("Visualiza detalhes das férias de todos(as).")
 
-                    # gestao_noticias
-                    col1, col2 = st.columns([1, 2])
-                    col1.write("**gestao_noticias**")
-                    col2.write("Faz triagem de notícias.")
+        #             # gestao_noticias
+        #             col1, col2 = st.columns([1, 2])
+        #             col1.write("**gestao_noticias**")
+        #             col2.write("Faz triagem de notícias.")
 
-                    # gestao_pls
-                    col1, col2 = st.columns([1, 2])
-                    col1.write("**gestao_pls**")
-                    col2.write("Faz a gestão dos Projetos de Lei monitorados.")
+        #             # gestao_pls
+        #             col1, col2 = st.columns([1, 2])
+        #             col1.write("**gestao_pls**")
+        #             col2.write("Faz a gestão dos Projetos de Lei monitorados.")
 
-                    # gestao_projetos_doadores
-                    col1, col2 = st.columns([1, 2])
-                    col1.write("**gestao_projetos_doadores**")
-                    col2.write("Faz a gestão de projetos e doadores.")
+        #             # gestao_projetos_doadores
+        #             col1, col2 = st.columns([1, 2])
+        #             col1.write("**gestao_projetos_doadores**")
+        #             col2.write("Faz a gestão de projetos e doadores.")
 
-                    # gestao_fundo_ecos
-                    col1, col2 = st.columns([1, 2])
-                    col1.write("**gestao_fundo_ecos**")
-                    col2.write("Faz a gestão dos projetos e editais do Fundo Ecos.")
+        #             # gestao_fundo_ecos
+        #             col1, col2 = st.columns([1, 2])
+        #             col1.write("**gestao_fundo_ecos**")
+        #             col2.write("Faz a gestão dos projetos e editais do Fundo Ecos.")
 
-                    # gestao_viagens
-                    col1, col2 = st.columns([1, 2])
-                    col1.write("**gestao_viagens**")
-                    col2.write("Pode ver os dados de todas as viagens.")
+        #             # gestao_viagens
+        #             col1, col2 = st.columns([1, 2])
+        #             col1.write("**gestao_viagens**")
+        #             col2.write("Pode ver os dados de todas as viagens.")
 
-                    # gestao_manuais
-                    col1, col2 = st.columns([1, 2])
-                    col1.write("**gestao_manuais**")
-                    col2.write("Faz a gestão da página de manuais.")
+        #             # gestao_manuais
+        #             col1, col2 = st.columns([1, 2])
+        #             col1.write("**gestao_manuais**")
+        #             col2.write("Faz a gestão da página de manuais.")
 
-                st.write('')
+        #         st.write('')
 
-                # Ao submeter o formulário de cadastro -----------------------------------------------------------------
-                if st.form_submit_button("Cadastrar", type="secondary", icon=":material/person_add:"):
+        #         # Ao submeter o formulário de cadastro -----------------------------------------------------------------
+        #         if st.form_submit_button("Cadastrar", type="secondary", icon=":material/person_add:"):
                     
-                    # Validação de campos obrigatórios
-                    if not nome or not email or not programa_area or not coordenador:
-                        st.warning("Preencha os campos obrigatórios.")
+        #             # Validação de campos obrigatórios
+        #             if not nome or not email or not programa_area or not coordenador:
+        #                 st.warning("Preencha os campos obrigatórios.")
                     
-                    else:
+        #             else:
 
-                        # Ano atual para armazenar dados de férias
-                        ano_atual = str(datetime.datetime.now().year)
+        #                 # Ano atual para armazenar dados de férias
+        #                 ano_atual = str(datetime.datetime.now().year)
                         
-                        # Monta o documento para inserção no MongoDB
-                        novo_documento = {
-                            "nome_completo": nome,
-                            "CPF": cpf,
-                            "RG": rg,
-                            "telefone": telefone,
-                            "data_nascimento": data_nascimento.strftime("%d/%m/%Y") if data_nascimento else None,
-                            "gênero": genero,
-                            "raca": raca,
-                            "escolaridade": escolaridade,
-                            "senha": "",
-                            "tipo de usuário": ", ".join(tipo_usuario) if tipo_usuario else "",
-                            "cargo": cargo,
-                            "tipo_contratacao": tipo_contratacao,
-                            "escritorio": escritorio,
-                            "programa_area": programa_area,
-                            "banco": {
-                                "nome_banco": nome_banco,
-                                "agencia": agencia,
-                                "conta": conta,
-                                "tipo_conta": tipo_conta
-                            },
-                            "férias": {
-                                "anos": {
-                                    str(ano_atual): {
-                                        "residual_ano_anterior": residual_ano_anterior,
-                                        "valor_inicial_ano_atual": valor_inicial_ano_atual,
-                                        "total_gozado": total_gozado,
-                                        "saldo_atual": saldo_atual,
-                                        "solicitacoes": [],
-                                        "a_receber": a_receber
-                                    }
-                                }
-                            },
-                            "status": "ativo",
-                            "e_mail": email,
-                            "coordenador": coordenador_id,
-                            "data_reajuste": "",  # novo campo
-                            "contratos": [
-                                {
-                                    "data_inicio": inicio_contrato.strftime("%d/%m/%Y") if inicio_contrato else "",
-                                    "data_fim": fim_contrato.strftime("%d/%m/%Y") if fim_contrato else "",
-                                    "codigo_projeto": "",
-                                    "status_contrato": status_contrato,
-                                    "projeto_pagador": projeto_pagador if projeto_pagador else [],
-                                    "termos_aditivos": [],
-                                }
-                            ],
-                            "anotacoes": [
-                                {
-                                    "data_anotacao": datetime.datetime.today().strftime("%d/%m/%Y %H:%M"),
-                                    "autor": st.session_state.get("nome", "Desconhecido"),
-                                    "anotacao": anotacao_texto.strip() if anotacao_texto else ""
-                                }
-                            ]
-                        }
+        #                 # Monta o documento para inserção no MongoDB
+        #                 novo_documento = {
+        #                     "nome_completo": nome,
+        #                     "CPF": cpf,
+        #                     "RG": rg,
+        #                     "telefone": telefone,
+        #                     "data_nascimento": data_nascimento.strftime("%d/%m/%Y") if data_nascimento else None,
+        #                     "gênero": genero,
+        #                     "raca": raca,
+        #                     "escolaridade": escolaridade,
+        #                     "senha": "",
+        #                     "tipo de usuário": ", ".join(tipo_usuario) if tipo_usuario else "",
+        #                     "cargo": cargo,
+        #                     "tipo_contratacao": tipo_contratacao,
+        #                     "escritorio": escritorio,
+        #                     "programa_area": programa_area,
+        #                     "banco": {
+        #                         "nome_banco": nome_banco,
+        #                         "agencia": agencia,
+        #                         "conta": conta,
+        #                         "tipo_conta": tipo_conta
+        #                     },
+        #                     "férias": {
+        #                         "anos": {
+        #                             str(ano_atual): {
+        #                                 "residual_ano_anterior": residual_ano_anterior,
+        #                                 "valor_inicial_ano_atual": valor_inicial_ano_atual,
+        #                                 "total_gozado": total_gozado,
+        #                                 "saldo_atual": saldo_atual,
+        #                                 "solicitacoes": [],
+        #                                 "a_receber": a_receber
+        #                             }
+        #                         }
+        #                     },
+        #                     "status": "ativo",
+        #                     "e_mail": email,
+        #                     "coordenador": coordenador_id,
+        #                     "data_reajuste": "",  # novo campo
+        #                     "contratos": [
+        #                         {
+        #                             "data_inicio": inicio_contrato.strftime("%d/%m/%Y") if inicio_contrato else "",
+        #                             "data_fim": fim_contrato.strftime("%d/%m/%Y") if fim_contrato else "",
+        #                             "codigo_projeto": "",
+        #                             "status_contrato": status_contrato,
+        #                             "projeto_pagador": projeto_pagador if projeto_pagador else [],
+        #                             "termos_aditivos": [],
+        #                         }
+        #                     ],
+        #                     "anotacoes": [
+        #                         {
+        #                             "data_anotacao": datetime.datetime.today().strftime("%d/%m/%Y %H:%M"),
+        #                             "autor": st.session_state.get("nome", "Desconhecido"),
+        #                             "anotacao": anotacao_texto.strip() if anotacao_texto else ""
+        #                         }
+        #                     ]
+        #                 }
 
-                        # Insere o novo colaborador no banco
-                        pessoas.insert_one(novo_documento)
-                        st.success(f"Colaborador(a) **{nome}** cadastrado(a) com sucesso!", icon=":material/thumb_up:")
-                        time.sleep(2)
-                        st.rerun()  # Recarrega a página para atualizar dados
+        #                 # Insere o novo colaborador no banco
+        #                 pessoas.insert_one(novo_documento)
+        #                 st.success(f"Colaborador(a) **{nome}** cadastrado(a) com sucesso!", icon=":material/thumb_up:")
+        #                 time.sleep(2)
+        #                 st.rerun()  # Recarrega a página para atualizar dados
    
 
 ######################################################################################################
@@ -1637,7 +1727,7 @@ container_botoes = st.container(horizontal=True, horizontal_alignment="right")
 # Roteamento de tipo de usuário
 if set(st.session_state.tipo_usuario) & {"admin", "gestao_pessoas"}:
 
-    # Botão para abrir o modal de cadastro
+    # Botão para abrir o diálogo de gerenciamento de colaboradores
     container_botoes.button("Gerenciar colaboradores", on_click=gerenciar_pessoas, icon=":material/group:")
     st.write('')
 
@@ -1733,6 +1823,48 @@ with aba_pessoas:
 
 
 
+
+
+
+
+
+
+    # GRÁFICO DE PESSOAS POR ESCRITÓRIO ------------------------------------------------
+
+
+    # substitui valores vazios ou NaN por "Não informado"
+    df_pessoas_filtrado['Escritório_tratado'] = df_pessoas_filtrado['Escritório'].replace("", "Não informado")
+    df_pessoas_filtrado['Escritório_tratado'] = df_pessoas_filtrado['Escritório_tratado'].fillna("Não informado")
+
+    # criar gráfico de pizza
+    fig = px.pie(
+        df_pessoas_filtrado,
+        names='Escritório_tratado',
+        title='Pessoas por Escritório',
+        hole=0
+    )
+
+    # adiciona valores dentro das fatias e arredonda percentuais
+    fig.update_traces(
+        textposition='inside',
+        textinfo='percent+label',
+        texttemplate='%{percent:.0%} %{label}'
+    )
+
+    # remove legenda
+    fig.update_layout(showlegend=False)
+
+    # exibir gráfico estático
+    col2.plotly_chart(
+        fig,
+        use_container_width=True,
+        config={'staticPlot': True}
+    )
+
+
+
+
+
     # GRÁFICO DE PESSOAS POR PROJETO ------------------------------------------------
 
     # st.write(df_pessoas_filtrado)
@@ -1757,7 +1889,7 @@ with aba_pessoas:
         y='Quantidade',
         color='Projeto Pagador',  # cada projeto uma cor
         text='Quantidade',
-        title='Distribuição de Pessoas por Projeto',
+        title='Pessoas por Projeto',
         labels={"Projeto Pagador": "", "Quantidade": ""}
     )
 
@@ -1774,11 +1906,125 @@ with aba_pessoas:
     fig.update_layout(showlegend=False)
 
     # desativa interação
+    col1.plotly_chart(
+        fig,
+        use_container_width=True,
+        config={'staticPlot': True}
+    )
+
+
+
+    # GRÁFICO DE PESSOAS POR TIPO DE CONTRATAÇÃO -----------------------------------------------------------
+
+
+    # substitui valores vazios ou NaN por "Não informado"
+    df_pessoas_filtrado['Tipo Contratação_tratado'] = df_pessoas_filtrado['Tipo Contratação'].replace("", "Não informado")
+    df_pessoas_filtrado['Tipo Contratação_tratado'] = df_pessoas_filtrado['Tipo Contratação_tratado'].fillna("Não informado")
+
+    # criar gráfico de pizza
+    fig = px.pie(
+        df_pessoas_filtrado,
+        names='Tipo Contratação_tratado',
+        title='Pessoas por Tipo de Contratação',
+        hole=0
+    )
+
+    # adiciona valores dentro das fatias e arredonda percentuais
+    fig.update_traces(
+        textposition='inside',
+        textinfo='percent+label',
+        texttemplate='%{percent:.0%} %{label}'
+    )
+
+    # remove legenda
+    fig.update_layout(showlegend=False)
+
+    # plota gráfico estático
     col2.plotly_chart(
         fig,
         use_container_width=True,
         config={'staticPlot': True}
     )
+
+
+
+
+
+    # Gráfico de pessoas por Cargo ------------------------------------------------
+
+    # Cargo
+
+
+
+    # substitui valores vazios ou NaN por "Não informado"
+    df_pessoas_filtrado['Cargo_tratado'] = df_pessoas_filtrado['Cargo'].replace("", "Não informado")
+    df_pessoas_filtrado['Cargo_tratado'] = df_pessoas_filtrado['Cargo_tratado'].fillna("Não informado")
+
+    # Agrupar e ordenar do maior para o menor
+    cargo_counts = df_pessoas_filtrado['Cargo_tratado'].value_counts().reset_index()
+    cargo_counts.columns = ['Cargo', 'Quantidade']
+
+    # Criar gráfico de barras
+    fig = px.bar(
+        cargo_counts,
+        x='Cargo',
+        y='Quantidade',
+        color='Cargo',
+        text='Quantidade',
+        title='Pessoas por Cargo',
+        labels={"Cargo": "", "Quantidade": ""}  # remove labels dos eixos
+    )
+
+    # posiciona os textos acima das barras
+    fig.update_traces(textposition='outside')
+
+    # remove os números do eixo Y
+    fig.update_yaxes(showticklabels=False)
+
+    # aumenta o limite superior do eixo Y para não cortar os textos
+    fig.update_yaxes(range=[0, cargo_counts['Quantidade'].max() * 1.15])
+
+    # remove legenda
+    fig.update_layout(showlegend=False)
+
+    # exibir gráfico estático
+    col1.plotly_chart(
+        fig,
+        use_container_width=True,
+        config={'staticPlot': True}
+    )
+
+
+
+
+
+    # Pessoas por Escolaridade -------------------------------------------------------
+    df_pessoas_filtrado['Escolaridade_tratado'] = df_pessoas_filtrado['Escolaridade'].replace("", "Não informado")
+    df_pessoas_filtrado['Escolaridade_tratado'] = df_pessoas_filtrado['Escolaridade_tratado'].fillna("Não informado")
+
+    fig = px.pie(
+        df_pessoas_filtrado,
+        names='Escolaridade_tratado',
+        title='Pessoas por Escolaridade',
+        hole=0
+    )
+
+    fig.update_traces(
+        textposition='inside',
+        textinfo='percent+label',
+        texttemplate='%{percent:.0%} %{label}'
+    )
+
+    fig.update_layout(showlegend=False)
+
+    col2.plotly_chart(
+        fig,
+        use_container_width=True,
+        # config={'staticPlot': True}
+    )
+
+
+
 
 
 
@@ -1823,48 +2069,14 @@ with aba_pessoas:
 
 
 
-
-    # Gráfico de pessoas por Cargo ------------------------------------------------
-
-    # Cargo
-
-
-    # substitui valores vazios ou NaN por "Não informado"
-    df_pessoas_filtrado['Cargo_tratado'] = df_pessoas_filtrado['Cargo'].replace("", "Não informado")
-    df_pessoas_filtrado['Cargo_tratado'] = df_pessoas_filtrado['Cargo_tratado'].fillna("Não informado")
-
-    fig = px.pie(
-        df_pessoas_filtrado,
-        names='Cargo_tratado',  # usa a coluna tratada
-        title='Pessoas por Cargo',
-        hole=0
-    )
-
-    # adiciona valores dentro das fatias
-    fig.update_traces(textposition='inside', textinfo='percent+label', texttemplate='%{percent:.0%} %{label}')
-
-    # remove legenda
-    fig.update_layout(showlegend=False)
-
-    # desativa interação
-    col2.plotly_chart(
-        fig,
-        use_container_width=True,
-        config={'staticPlot': True}
-    )
-
-
-
-
-
-    # --- Raça ---
+    # Pessoas por Raça ----------------------------------------------------
     df_pessoas_filtrado['Raça_tratado'] = df_pessoas_filtrado['Raça'].replace("", "Não informado")
     df_pessoas_filtrado['Raça_tratado'] = df_pessoas_filtrado['Raça_tratado'].fillna("Não informado")
 
     fig = px.pie(
         df_pessoas_filtrado,
         names='Raça_tratado',
-        title='Distribuição de Pessoas por Raça',
+        title='Pessoas por Raça',
         hole=0
     )
 
@@ -1881,33 +2093,6 @@ with aba_pessoas:
         use_container_width=True,
         # config={'staticPlot': True}
     )
-
-
-    # --- Escolaridade ---
-    df_pessoas_filtrado['Escolaridade_tratado'] = df_pessoas_filtrado['Escolaridade'].replace("", "Não informado")
-    df_pessoas_filtrado['Escolaridade_tratado'] = df_pessoas_filtrado['Escolaridade_tratado'].fillna("Não informado")
-
-    fig = px.pie(
-        df_pessoas_filtrado,
-        names='Escolaridade_tratado',
-        title='Distribuição de Pessoas por Escolaridade',
-        hole=0
-    )
-
-    fig.update_traces(
-        textposition='inside',
-        textinfo='percent+label',
-        texttemplate='%{percent:.0%} %{label}'
-    )
-
-    fig.update_layout(showlegend=False)
-
-    col1.plotly_chart(
-        fig,
-        use_container_width=True,
-        # config={'staticPlot': True}
-    )
-
 
 
 
