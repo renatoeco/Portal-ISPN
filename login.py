@@ -350,7 +350,7 @@ def login():
                 # Campo de senha
                 password = st.text_input("Senha", type="password", width=300)
 
-                if st.form_submit_button("Entrar", type="primary"):
+                if st.form_submit_button("Entrar"):
                     # Busca apenas pelo e-mail
                     usuario_encontrado = colaboradores.find_one({
                         "e_mail": {"$regex": f"^{email_input.strip()}$", "$options": "i"}
@@ -393,7 +393,7 @@ def login():
             st.button(
                 "Esqueci a senha", 
                 key="forgot_password", 
-                type="secondary", 
+                type="tertiary", 
                 on_click=recuperar_senha_dialog
             )
 
