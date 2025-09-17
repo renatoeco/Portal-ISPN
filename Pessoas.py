@@ -1631,22 +1631,21 @@ def gerenciar_pessoas():
 # MAIN
 ######################################################################################################
 
+# Botão de gerenciar colaboradores só para alguns tipos de usuário
+# Container horizontal de botões
+container_botoes = st.container(horizontal=True, horizontal_alignment="right")
+# Roteamento de tipo de usuário
+if set(st.session_state.tipo_usuario) & {"admin", "gestao_pessoas"}:
+
+    # Botão para abrir o modal de cadastro
+    container_botoes.button("Gerenciar colaboradores", on_click=gerenciar_pessoas, icon=":material/group:")
+    st.write('')
 
 aba_pessoas, aba_contratos = st.tabs([":material/person: Colaboradores", ":material/contract: Contratos"])
 
 with aba_pessoas:
 
     st.write('')
-    # Container horizontal de botões
-    container_botoes = st.container(horizontal=True, horizontal_alignment="left")
-
-    # Botão de gerenciar colaboradores só para alguns tipos de usuário
-    # Roteamento de tipo de usuário
-    if set(st.session_state.tipo_usuario) & {"admin", "gestao_pessoas"}:
-
-        # Botão para abrir o modal de cadastro
-        container_botoes.button("Gerenciar colaboradores", on_click=gerenciar_pessoas, icon=":material/group:")
-        st.write('')
 
     # Programas
     programas = [p["nome_programa_area"] for p in dados_programas]
@@ -1685,14 +1684,19 @@ with aba_pessoas:
     st.write('')
 
     # Remove as colunas indesejadas
-    df_pessoas_filtrado = df_pessoas_filtrado.drop(columns=["Status", "Gênero"], errors="ignore")
+    # df_pessoas_filtrado = df_pessoas_filtrado.drop(columns=["Status", "Gênero"], errors="ignore")
 
     st.dataframe(
         df_pessoas_filtrado.rename(columns={"Projeto Pagador": "Projeto"}), 
         hide_index=True)
 
-    # Gráficos
+
+
+
+    # Gráficos 
     col1, col2 = st.columns(2)
+
+    # GRÁFICO DE PESSOAS POR PROGRAMA/ÁREA -----------------------------------------------------------
 
     # Agrupar e ordenar
     programa_counts = df_pessoas_filtrado['Programa/Área'].value_counts().reset_index()
@@ -1704,29 +1708,209 @@ with aba_pessoas:
         x='Programa/Área',
         y='Quantidade',
         color='Programa/Área',
-        title='Distribuição de Pessoas por Programa/Área'
+        text='Quantidade',
+        title='Pessoas por Programa/Área',
+        labels={"Programa/Área": "", "Quantidade": ""}  # remove os labels dos eixos
     )
-    col1.plotly_chart(fig)
+
+    # posiciona os textos acima das barras
+    fig.update_traces(textposition='outside')
+
+    # remove os números do eixo Y
+    fig.update_yaxes(showticklabels=False)
+
+    # aumenta o limite superior do eixo Y para não cortar os textos
+    fig.update_yaxes(range=[0, programa_counts['Quantidade'].max() * 1.15])
+
+    # remove legenda
+    fig.update_layout(showlegend=False)
+
+    col1.plotly_chart(fig,
+                    config={
+                        'staticPlot': True  # desativa pan, zoom e todas as interações
+                    })
+
+
+
+
+    # GRÁFICO DE PESSOAS POR PROJETO ------------------------------------------------
+
+    # st.write(df_pessoas_filtrado)
 
     # Projeto
-    fig = px.bar(df_pessoas_filtrado, x='Projeto', color='Projeto', title='Distribuição de Pessoas por Projeto')
-    col2.plotly_chart(fig)
+
+
+    # separa os nomes que estão na mesma célula por vírgula e transforma em linhas separadas
+    df_explodido = df_pessoas_filtrado.assign(
+        **{'Projeto Pagador': df_pessoas_filtrado['Projeto Pagador'].str.split(',\s*')}
+    ).explode('Projeto Pagador')
+
+    # remove espaços extras
+    df_explodido['Projeto Pagador'] = df_explodido['Projeto Pagador'].str.strip()
+
+    # agora cria o resumo por projeto
+    resumo = df_explodido.groupby('Projeto Pagador').size().reset_index(name='Quantidade')
+
+    fig = px.bar(
+        resumo,
+        x='Projeto Pagador',
+        y='Quantidade',
+        color='Projeto Pagador',  # cada projeto uma cor
+        text='Quantidade',
+        title='Distribuição de Pessoas por Projeto',
+        labels={"Projeto Pagador": "", "Quantidade": ""}
+    )
+
+    # textos acima das barras
+    fig.update_traces(textposition='outside')
+
+    # remove números do eixo Y
+    fig.update_yaxes(showticklabels=False)
+
+    # aumenta limite superior para não cortar textos
+    fig.update_yaxes(range=[0, resumo['Quantidade'].max() * 1.15])
+
+    # remove legenda
+    fig.update_layout(showlegend=False)
+
+    # desativa interação
+    col2.plotly_chart(
+        fig,
+        use_container_width=True,
+        config={'staticPlot': True}
+    )
+
+
+
+    # Gráfico de pessoas por Gênero ------------------------------------------------
+
+    # define cores com transparência
+    cores = {
+        'Masculino': 'rgba(76, 120, 168, 0.5)',       # azul 50%
+        'Feminino': 'rgba(255, 0, 0, 0.3)',           # vermelho 30%
+        'Não binário': 'rgba(255, 255, 0, 0.5)',      # amarelo 50%
+        'Outro': 'rgba(128, 128, 128, 1)'             # cinza opaco
+    }
+
+    fig = px.pie(
+        df_pessoas_filtrado,
+        names='Gênero',
+        title='Pessoas por Gênero',
+        color='Gênero',
+        color_discrete_map=cores
+    )
+
+    # adiciona valores dentro das fatias e arredonda para inteiro
+    fig.update_traces(
+        textposition='inside',
+        textinfo='percent+label',
+        texttemplate='%{percent:.0%} %{label}'  # percent arredondado para inteiro
+    )
+
+    # remove legenda
+    fig.update_layout(showlegend=False)
+
+    # desativa interação
+    col1.plotly_chart(
+        fig,
+        use_container_width=True,
+        config={'staticPlot': True}
+    )
+
+
+
+
+
+
+
+
+    # Gráfico de pessoas por Cargo ------------------------------------------------
 
     # Cargo
-    fig = px.pie(df_pessoas_filtrado, names='Cargo', title='Distribuição de Pessoas por Cargo')
-    col2.plotly_chart(fig)
 
-    # Gênero
-    fig = px.pie(df_pessoas_filtrado, names='Gênero', title='Distribuição de Pessoas por Gênero')
-    col1.plotly_chart(fig)
 
-    # Raça
-    fig = px.pie(df_pessoas_filtrado, names='Raça', title='Distribuição de Pessoas por Raça')
-    col2.plotly_chart(fig)
+    # substitui valores vazios ou NaN por "Não informado"
+    df_pessoas_filtrado['Cargo_tratado'] = df_pessoas_filtrado['Cargo'].replace("", "Não informado")
+    df_pessoas_filtrado['Cargo_tratado'] = df_pessoas_filtrado['Cargo_tratado'].fillna("Não informado")
 
-    # Escolaridade
-    fig = px.pie(df_pessoas_filtrado, names='Escolaridade', title='Distribuição de Pessoas por Escolaridade')
-    col1.plotly_chart(fig)
+    fig = px.pie(
+        df_pessoas_filtrado,
+        names='Cargo_tratado',  # usa a coluna tratada
+        title='Pessoas por Cargo',
+        hole=0
+    )
+
+    # adiciona valores dentro das fatias
+    fig.update_traces(textposition='inside', textinfo='percent+label', texttemplate='%{percent:.0%} %{label}')
+
+    # remove legenda
+    fig.update_layout(showlegend=False)
+
+    # desativa interação
+    col2.plotly_chart(
+        fig,
+        use_container_width=True,
+        config={'staticPlot': True}
+    )
+
+
+
+
+
+    # --- Raça ---
+    df_pessoas_filtrado['Raça_tratado'] = df_pessoas_filtrado['Raça'].replace("", "Não informado")
+    df_pessoas_filtrado['Raça_tratado'] = df_pessoas_filtrado['Raça_tratado'].fillna("Não informado")
+
+    fig = px.pie(
+        df_pessoas_filtrado,
+        names='Raça_tratado',
+        title='Distribuição de Pessoas por Raça',
+        hole=0
+    )
+
+    fig.update_traces(
+        textposition='inside',
+        textinfo='percent+label',
+        texttemplate='%{percent:.0%} %{label}'
+    )
+
+    fig.update_layout(showlegend=False)
+
+    col2.plotly_chart(
+        fig,
+        use_container_width=True,
+        # config={'staticPlot': True}
+    )
+
+
+    # --- Escolaridade ---
+    df_pessoas_filtrado['Escolaridade_tratado'] = df_pessoas_filtrado['Escolaridade'].replace("", "Não informado")
+    df_pessoas_filtrado['Escolaridade_tratado'] = df_pessoas_filtrado['Escolaridade_tratado'].fillna("Não informado")
+
+    fig = px.pie(
+        df_pessoas_filtrado,
+        names='Escolaridade_tratado',
+        title='Distribuição de Pessoas por Escolaridade',
+        hole=0
+    )
+
+    fig.update_traces(
+        textposition='inside',
+        textinfo='percent+label',
+        texttemplate='%{percent:.0%} %{label}'
+    )
+
+    fig.update_layout(showlegend=False)
+
+    col1.plotly_chart(
+        fig,
+        use_container_width=True,
+        # config={'staticPlot': True}
+    )
+
+
+
+
 
 
 if set(st.session_state.tipo_usuario) & {"admin", "gestao_pessoas"}:

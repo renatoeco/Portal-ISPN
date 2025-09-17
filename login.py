@@ -386,8 +386,8 @@ def login():
             # Botão para recuperar senha
             st.write('')
             st.write('')
-            st.markdown("<div style='color: red'><b>Atenção:</b> todas as senhas precisam ser redefinidas, devido à implementação de criptografia.</div>", unsafe_allow_html=True)
-            st.markdown("<div style='color: red'>Clique em \"Esqueci a senha\".</div>", unsafe_allow_html=True)
+            # st.markdown("<div style='color: red'><b>Atenção:</b> todas as senhas precisam ser redefinidas, devido à implementação de criptografia.</div>", unsafe_allow_html=True)
+            # st.markdown("<div style='color: red'>Clique em \"Esqueci a senha\".</div>", unsafe_allow_html=True)
 
             st.write('')
             st.button(

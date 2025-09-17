@@ -376,13 +376,9 @@ def editar_info_institucional_dialog():
 # Define o layout da página como largura total
 st.set_page_config(layout="wide")
 
-# Exibe o logo do ISPN centralizado na tela
-st.markdown(
-    "<div style='display: flex; justify-content: center;'>"
-    "<img src='https://ispn.org.br/site/wp-content/uploads/2021/04/logo_ISPN_2021.png' alt='ISPN Logo'>"
-    "</div>",
-    unsafe_allow_html=True
-)
+# Exibe o logo
+container_logo = st.container(horizontal=True, horizontal_alignment="center")
+container_logo.image("images/logo_ISPN_horizontal_ass.png", width=300)
 
 # Recupera e exibe a frase de força cadastrada (ou mensagem padrão se não houver)
 frase_doc = institucional.find_one({"frase_forca": {"$exists": True}})
