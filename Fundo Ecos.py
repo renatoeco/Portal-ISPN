@@ -60,6 +60,20 @@ div[data-testid="stDialog"] div[role="dialog"]:has(.big-dialog) {
     unsafe_allow_html=True,
 )
 
+
+# st.markdown(
+#     """
+# <style>
+# div[data-testid="stDialog"] div[role="dialog"]:has(.big-dialog-detalhes) {
+#     width: 70vw;
+    
+# }
+# </style>
+# """,
+#     unsafe_allow_html=True,
+# )
+
+
 ######################################################################################################
 # FUNÇÕES
 ######################################################################################################
@@ -116,7 +130,7 @@ def converter_uf_codigo_para_nome(valor):
 
 @st.dialog("Detalhes do projeto", width="large")
 def mostrar_detalhes(codigo_proj: str):
-    st.html("<span class='big-dialog'></span>")
+    
 
     projeto = projetos_por_codigo.get(codigo_proj, {})
 
@@ -193,6 +207,7 @@ def mostrar_detalhes(codigo_proj: str):
     st.subheader(f'{codigo_projeto} {sigla_projeto}')
     st.write('')
 
+    # Código do projeto
     aba_detalhes, aba_indicadores = st.tabs([":material/assignment: Detalhes", ":material/show_chart: Indicadores"])
 
 
@@ -252,6 +267,8 @@ def mostrar_detalhes(codigo_proj: str):
 
     with aba_indicadores:
 
+        st.html("<span class='big-dialog'></span>")
+        
         # Tratamento dos dados
 
         lancamentos = list(db["lancamentos_indicadores"].find({"projeto": proj_id}))
@@ -260,6 +277,7 @@ def mostrar_detalhes(codigo_proj: str):
         if not lancamentos:
             st.info("Não há lançamentos de indicadores para este projeto.")
         else:
+            
             for lan in lancamentos:
                 ind_id = lan.get("id_do_indicador")
     
@@ -309,15 +327,9 @@ def mostrar_detalhes(codigo_proj: str):
         )
         df_resumo["Total"] = df_resumo["Total"].fillna("")
 
-
-
-
-
-
         # Interface dos indicadores
 
         editar = st.toggle(":material/edit: Gerenciar indicadores")
-
 
         # listas de controle
         indicadores_float = [
@@ -603,7 +615,6 @@ def mostrar_detalhes(codigo_proj: str):
                             st.success("Lançamento excluído com sucesso!")
                             st.cache_data.clear()
                             st.rerun()
-
 
 
 # Formulário de cadastro e edição de projetos
@@ -910,7 +921,7 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         # Data início
         data_inicio_date = col2.date_input(
             "Data início do contrato*",
-            value=datetime.datetime.strptime(projeto.get("data_inicio_do_contrato", ""), "%d/%m/%Y").date()
+            value=datetime.strptime(projeto.get("data_inicio_do_contrato", ""), "%d/%m/%Y").date()
             if projeto.get("data_inicio_do_contrato") else None,
             format="DD/MM/YYYY"
         )
@@ -919,7 +930,7 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         # Data fim
         data_fim_date = col3.date_input(
             "Data fim do contrato*",
-            value=datetime.datetime.strptime(projeto.get("data_final_do_contrato", ""), "%d/%m/%Y").date()
+            value=datetime.strptime(projeto.get("data_final_do_contrato", ""), "%d/%m/%Y").date()
             if projeto.get("data_final_do_contrato") else None,
             format="DD/MM/YYYY"
         )
@@ -928,7 +939,7 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         # Data relatório
         data_relatorio_date = col4.date_input(
             "Data relatório final",
-            value=datetime.datetime.strptime(projeto.get("data_relatorio_monitoramento_final", ""), "%d/%m/%Y").date()
+            value=datetime.strptime(projeto.get("data_relatorio_monitoramento_final", ""), "%d/%m/%Y").date()
             if projeto.get("data_relatorio_monitoramento_final") else None,
             format="DD/MM/YYYY"
         )
@@ -1090,17 +1101,27 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
     else:
         index_ajustado = 0  # opção vazia selecionada por padrão
 
-    programa_key = f"programa_{str(projeto.get('_id', 'novo'))}"
     programa = col2.selectbox(
         "Programa*",
         options=opcoes_programa,
         format_func=lambda x: programas_options.get(x, "") if x else "",  # mostra vazio para a opção ""
         index=index_ajustado,
-        placeholder="Selecione...",
-        key=programa_key
+        placeholder="Selecione..."
     )
 
 
+
+
+
+
+
+    # programa = col2.selectbox(
+    #     "Programa*",
+    #     options=programa_keys,
+    #     format_func=lambda x: programas_options.get(x, ""),
+    #     index=programa_keys.index(programa_default) if programa_default in programa_keys else 0,
+    #     placeholder=""
+    # )
 
     projetos_pai_options = {
         str(k): v for k, v in projetos_ispn_dict.items() if v.strip()
@@ -1353,8 +1374,7 @@ def extrair_itens_distintos(series: pd.Series) -> pd.Series:
         s = s[(s != "") & (s.str.lower() != "nan")]
         return s
         
-
-@st.cache_data(ttl=600, show_spinner=False)                   
+               
 def parse_valor(valor):
     """Converte valor string para float, retornando 0.0 se não for possível."""
     if isinstance(valor, (int, float)):

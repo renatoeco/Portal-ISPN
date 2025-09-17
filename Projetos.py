@@ -489,24 +489,10 @@ with tab2:
         if df_equipe.empty:
             st.write("_Não há equipe cadastrada para este projeto_")
         else:
-            # 3- Selecionar colunas que quer mostrar
-            df_equipe = df_equipe[["nome_completo", "data_inicio_contrato", "data_fim_contrato"]]  # ajuste nomes das colunas conforme seu df_pessoas
-            df_equipe.rename(columns={
-                "nome_completo": "Nome",
-                "data_inicio_contrato": "Início do contrato",
-                "data_fim_contrato": "Fim do contrato"
-            }, inplace=True)
-
-            # 4- Ordenar pelo fim do contrato e ajustar índice
             df_equipe.sort_values(by="Fim do contrato", ascending=True, inplace=True)
-            df_equipe.index += 1
-
-            # Resetar índice e adicionar +1 ao índice
             df_equipe.reset_index(drop=True, inplace=True)
             df_equipe.index += 1
-
-            # 5- Exibir no Streamlit
-            st.dataframe(df_equipe)
+            st.dataframe(df_equipe, hide_index=True)
 
 
     st.write('')
