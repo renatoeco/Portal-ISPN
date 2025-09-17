@@ -599,30 +599,38 @@ def gerenciar_pessoas():
                 inicio_contrato = col1.date_input(
                     "Data de início do contrato:",
                     value=str_para_date(contrato_atual.get("data_inicio")),
-                    format="DD/MM/YYYY"
+                    format="DD/MM/YYYY",
+                    key=f"inicio_{index}"
                 )
                 fim_contrato = col2.date_input(
                     "Data de fim do contrato:",
                     value=str_para_date(contrato_atual.get("data_fim")),
-                    format="DD/MM/YYYY"
+                    format="DD/MM/YYYY",
+                    key=f"fim_{index}"
                 )
 
                 lista_status_contrato = ["Em vigência", "Encerrado", "Cancelado", "Fonte de recurso temporária", ""]
+                status_contrato_valor_inicial = contrato_atual.get("status_contrato", "")
+                if status_contrato_valor_inicial not in lista_status_contrato:
+                    status_contrato_valor_inicial = ""
                 status_contrato = st.selectbox(
                     "Status do contrato:",
                     lista_status_contrato,
-                    index=lista_status_contrato.index(contrato_atual.get("status_contrato", ""))
+                    index=lista_status_contrato.index(status_contrato_valor_inicial),
+                    key=f"status_{index}"
                 )
 
-                data_reajuste = contrato_atual.get("data_reajuste")
-                if data_reajuste:
-                    data_reajuste = str_para_date(data_reajuste)
-
-                data_reajuste = col3.date_input("Data de reajuste:", format="DD/MM/YYYY", value=data_reajuste)
+                data_reajuste_inicial = str_para_date(contrato_atual.get("data_reajuste"))
+                data_reajuste = col3.date_input(
+                    "Data de reajuste:",
+                    value=data_reajuste_inicial,
+                    format="DD/MM/YYYY",
+                    key=f"reajuste_{index}"
+                )
 
                 col1b, col2b = st.columns([4,1])
                 with col1b:
-                    if st.button("Salvar edição"):
+                    if st.button("Salvar edição", key=f"salvar_{index}"):
                         contratos[index].update({
                             "data_inicio": inicio_contrato.strftime("%d/%m/%Y") if inicio_contrato else "",
                             "data_fim": fim_contrato.strftime("%d/%m/%Y") if fim_contrato else "",
@@ -640,7 +648,7 @@ def gerenciar_pessoas():
                         st.rerun()
 
                 with col2b:
-                    if st.button("Excluir contrato", type="secondary"):
+                    if st.button("Excluir contrato", type="secondary", key=f"excluir_{index}"):
                         contratos.pop(index)
                         pessoas.update_one(
                             {"_id": ObjectId(pessoa["_id"])},
