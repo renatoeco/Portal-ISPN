@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import math
+from datetime import datetime
 import time
 from funcoes_auxiliares import conectar_mongo_portal_ispn
 
@@ -26,7 +26,7 @@ redes = db["redes_articulacoes"]
 @st.dialog("Detalhes da rede", width="large")
 def mostrar_detalhes(rede_doc):
     st.subheader(rede_doc.get("rede_articulacao", ""))
-    tabs = st.tabs(["Informações gerais", "Observações"])
+    tabs = st.tabs(["Informações gerais", "Anotações"])
 
     # Aba 1: Informações gerais
     with tabs[0]:
@@ -35,50 +35,73 @@ def mostrar_detalhes(rede_doc):
         st.write("**Ponto Focal:**", rede_doc.get("ponto_focal", ""))
         st.write("**Grau de Prioridade:**", rede_doc.get("prioridade", ""))
         st.write("**Dedicação:**", rede_doc.get("dedicacao", ""))
-        st.write("**Observações:**", rede_doc.get("observacoes", ""))
         st.write("**Programa:**", rede_doc.get("programa", ""))
 
-    # Aba 2: Observações
+    # Aba 2: Anotações
     with tabs[1]:
-        obs_list = rede_doc.get("observacoes") or []  # lista ou []
-        
-        # se não tem observações, opções = apenas adicionar
-        if not obs_list:
-            opcoes = ["--Adicionar observação--"]
+        anotacoes_list = rede_doc.get("anotacoes") or []  # lista de anotações (array de dicts)
+
+        # opções do selectbox
+        if not anotacoes_list:
+            opcoes = ["--Adicionar anotação--"]
         else:
-            # Se obs_list for None ou string, transforma em lista
-            if isinstance(obs_list, str):
-                obs_list = [obs_list]
-            elif obs_list is None:
-                obs_list = []
+            opcoes = ["", "--Adicionar anotação--"] + [
+                f"{a.get('data_anotacao','')} - {a.get('autor_anotacao','')}"
+                for a in anotacoes_list
+            ]
 
-            opcoes = ["--Adicionar observação--"] + obs_list
+        opcao_sel = st.selectbox("Selecione uma anotação:", options=opcoes)
 
-        
-        opcao_sel = st.selectbox("Selecione uma observação:", options=opcoes)
-
-        if opcao_sel == "--Adicionar observação--":
-            nova_obs = st.text_area("Nova observação")
-            if st.button("Salvar observação"):
+        # Adicionar nova anotação
+        if opcao_sel == "--Adicionar anotação--":
+            nova_anotacao = st.text_area("Nova anotação", height="content")
+            if st.button("Salvar anotação"):
+                nova_entry = {
+                    "data_anotacao": datetime.now().strftime("%d/%m/%Y - %H:%M"),
+                    "autor_anotacao": st.session_state.get("nome", "Desconhecido"),
+                    "anotacao": nova_anotacao
+                }
                 redes.update_one(
                     {"_id": rede_doc["_id"]},
-                    {"$push": {"observacoes": nova_obs}}
+                    {"$push": {"anotacoes": nova_entry}}
                 )
-                st.success("Observação salva com sucesso.")
+                st.success("Anotação salva com sucesso.")
+                time.sleep(2)
                 st.rerun()
-        else:
-            # aqui pega o índice pelo match no array real
-            idx = opcoes.index(opcao_sel) - 1  # menos 1 por causa do "--Adicionar--"
-            obs_atual = obs_list[idx]
-            texto_editado = st.text_area("Observação:", value=obs_atual, height="content")
-            if st.button("Salvar alterações"):
-                obs_list[idx] = texto_editado
-                redes.update_one(
-                    {"_id": rede_doc["_id"]},
-                    {"$set": {"observacoes": obs_list}}
-                )
-                st.success("Observação atualizada.")
-                st.rerun()
+
+        # Editar anotação existente
+        elif opcao_sel != "":
+            idx = opcoes.index(opcao_sel) - 2  # compensar opções extras
+            anotacao_atual = anotacoes_list[idx]
+
+            texto_editado = st.text_area("Editar anotação:", value=anotacao_atual.get("anotacao", ""), height="content")
+            
+            col1, col2 = st.columns([3.5,1])
+            
+            with col1:
+                if st.button("Salvar alterações"):
+                    anotacoes_list[idx]["anotacao"] = texto_editado
+                    redes.update_one(
+                        {"_id": rede_doc["_id"]},
+                        {"$set": {"anotacoes": anotacoes_list}}
+                    )
+                    st.success("Anotação atualizada.")
+                    time.sleep(2)
+                    st.rerun()
+
+            with col2:
+                if st.button("Excluir anotação"):
+                    # remove da lista
+                    anotacoes_list.pop(idx)
+                    redes.update_one(
+                        {"_id": rede_doc["_id"]},
+                        {"$set": {"anotacoes": anotacoes_list}}
+                    )
+                    st.success("Anotação excluída.")
+                    time.sleep(2)
+                    st.rerun()
+
+
 
 
 def atualizar_topo_redes():
@@ -97,6 +120,8 @@ def atualizar_rodape_redes():
 
 st.header("Redes e Articulações")
 st.write("")
+st.write("")
+st.write("")
 
 # --- Carrega dados do MongoDB ---
 dados_redes = list(redes.find())
@@ -112,29 +137,79 @@ df_redes = df_redes.rename(columns={
 df_redes = df_redes[["Rede/Articulação", "Ponto Focal", "Grau de Prioridade", "Dedicação", "Programa"]]
 
 
+# --- Preparar listas únicas para filtros ---
+# Garante que cada ponto focal aparece separado e único
+pontos_unicos = (
+    df_redes["Ponto Focal"]
+    .dropna()
+    .astype(str)
+    .str.split(",")               # separa caso seja string "A, B"
+    .explode()                    # transforma em linhas
+    .str.strip()                  # tira espaços extras
+    .unique()
+    .tolist()
+)
+
+programas_unicos = (df_redes["Programa"].dropna().astype(str).str.split(",").explode().str.strip().unique().tolist()
+)
+
 # --- Filtros ---
 with st.expander("Filtros", expanded=True, icon=":material/filter_alt:"):
     colf1, colf2, colf3, colf4, colf5 = st.columns(5)
-    rede_sel = colf1.selectbox("Rede", options=[""] + sorted(df_redes["Rede/Articulação"].dropna().unique().tolist()))
-    prioridade_sel = colf2.selectbox("Grau de Prioridade", options=[""] + ["Estratégico", "Médio", "Baixo"])
-    ponto_sel = colf3.selectbox("Ponto Focal", options=[""] + sorted(df_redes["Ponto Focal"].dropna().unique().tolist()))
-    dedicacao_sel = colf4.selectbox("Dedicação", options=[""] + sorted(df_redes["Dedicação"].dropna().unique().tolist()))
-    programa_sel = colf5.selectbox("Programa", options=[""] + sorted(df_redes["Programa"].dropna().unique().tolist()))
+    
+    rede_sel = colf1.multiselect(
+        "Rede",
+        options=sorted(df_redes["Rede/Articulação"].dropna().unique().tolist()), placeholder=""
+    )
+    ponto_sel = colf2.multiselect(
+        "Ponto Focal",
+        options=sorted(pontos_unicos), placeholder=""
+    )
+    prioridade_sel = colf3.multiselect(
+        "Grau de Prioridade",
+        options=["Estratégico", "Médio", "Baixo"], placeholder=""
+    )
+    dedicacao_sel = colf4.multiselect(
+        "Dedicação",
+        options=sorted(df_redes["Dedicação"].dropna().unique().tolist()), placeholder=""
+    )
+    programa_sel = colf5.multiselect(
+        "Programa",
+        options=sorted(programas_unicos), placeholder=""
+    )
+
 
 st.write("")
+st.divider()
 
 # --- Aplica filtros ---
 df_filtrado = df_redes.copy()
-if rede_sel != "":
-    df_filtrado = df_filtrado[df_filtrado["Rede/Articulação"] == rede_sel]
-if prioridade_sel != "":
-    df_filtrado = df_filtrado[df_filtrado["Grau de Prioridade"] == prioridade_sel]
-if ponto_sel != "":
-    df_filtrado = df_filtrado[df_filtrado["Ponto Focal"] == ponto_sel]
-if dedicacao_sel != "":
-    df_filtrado = df_filtrado[df_filtrado["Dedicação"] == dedicacao_sel]
-if programa_sel != "":
-    df_filtrado = df_filtrado[df_filtrado["Programa"] == programa_sel]
+
+# Filtro direto
+if rede_sel:
+    df_filtrado = df_filtrado[df_filtrado["Rede/Articulação"].isin(rede_sel)]
+
+if prioridade_sel:
+    df_filtrado = df_filtrado[df_filtrado["Grau de Prioridade"].isin(prioridade_sel)]
+
+if dedicacao_sel:
+    df_filtrado = df_filtrado[df_filtrado["Dedicação"].isin(dedicacao_sel)]
+
+# Filtro Ponto Focal (explode na lógica)
+if ponto_sel:
+    df_filtrado = df_filtrado[
+        df_filtrado["Ponto Focal"]
+        .astype(str)
+        .apply(lambda x: any(p in x for p in ponto_sel))
+    ]
+
+# Filtro Programa (explode na lógica)
+if programa_sel:
+    df_filtrado = df_filtrado[
+        df_filtrado["Programa"]
+        .astype(str)
+        .apply(lambda x: any(p in x for p in programa_sel))
+    ]
 
 # --- Ordenação customizada pelo Grau de Prioridade ---
 ordem_prioridade = ["Estratégico", "Médio", "Baixo"]
@@ -146,47 +221,48 @@ df_filtrado["Grau de Prioridade"] = pd.Categorical(
 
 df_exibir = (
     df_filtrado
-    .sort_values(by=["Grau de Prioridade", "Rede/Articulação"])
+    .sort_values(by=["Rede/Articulação"])
     .reset_index(drop=True)
 )
 
-# --- Paginação ---
-itens_por_pagina = 20
-total_linhas = len(df_exibir)
-total_paginas = max(math.ceil(total_linhas / itens_por_pagina), 1)
 
-if "pagina_atual_redes" not in st.session_state:
-    st.session_state["pagina_atual_redes"] = 1
-if "pagina_topo_redes" not in st.session_state:
-    st.session_state["pagina_topo_redes"] = st.session_state["pagina_atual_redes"]
-if "pagina_rodape_redes" not in st.session_state:
-    st.session_state["pagina_rodape_redes"] = st.session_state["pagina_atual_redes"]
+# # --- Paginação ---
+# itens_por_pagina = 20
+# total_linhas = len(df_exibir)
+# total_paginas = max(math.ceil(total_linhas / itens_por_pagina), 1)
+
+# if "pagina_atual_redes" not in st.session_state:
+#     st.session_state["pagina_atual_redes"] = 1
+# if "pagina_topo_redes" not in st.session_state:
+#     st.session_state["pagina_topo_redes"] = st.session_state["pagina_atual_redes"]
+# if "pagina_rodape_redes" not in st.session_state:
+#     st.session_state["pagina_rodape_redes"] = st.session_state["pagina_atual_redes"]
 
 # --- Controle topo ---
-col1, col2, col3 = st.columns([5, 2, 1])
+#col1, col2, col3 = st.columns([5, 2, 1])
 
-col3.number_input(
-    "Página",
-    min_value=1,
-    max_value=total_paginas,
-    key="pagina_topo_redes",
-    on_change=atualizar_topo_redes
-)
+# col3.number_input(
+#     "Página",
+#     min_value=1,
+#     max_value=total_paginas,
+#     key="pagina_topo_redes",
+#     on_change=atualizar_topo_redes
+# )
 
-inicio = (st.session_state["pagina_atual_redes"] - 1) * itens_por_pagina
-fim = inicio + itens_por_pagina
-df_paginado = df_exibir.iloc[inicio:fim]
+# inicio = (st.session_state["pagina_atual_redes"] - 1) * itens_por_pagina
+# fim = inicio + itens_por_pagina
+# df_paginado = df_exibir.iloc[inicio:fim]
 
-col3.write(f"Mostrando **{inicio + 1}** a **{min(fim, total_linhas)}** de **{total_linhas}** redes")
-st.write("")
-st.divider()
+# col3.write(f"Mostrando **{inicio + 1}** a **{min(fim, total_linhas)}** de **{total_linhas}** redes")
+# st.write("")
+# st.divider()
 
 # --- Layout da tabela customizada ---
 colunas_visiveis = list(df_exibir.columns)
 headers = colunas_visiveis + ["Detalhes"]
 
 # Ajuste dos tamanhos de coluna (ponto focal mais estreito)
-col_sizes = [3, 2, 2, 2, 1, 1]
+col_sizes = [3, 3, 2, 1, 1, 1]
 
 # Cabeçalho
 header_cols = st.columns(col_sizes)
@@ -196,7 +272,7 @@ for col, header in zip(header_cols, headers):
 st.divider()
 
 # Linhas
-for i, row in df_paginado.iterrows():
+for i, row in df_exibir.iterrows():
     cols = st.columns(col_sizes)
     for j, key in enumerate(colunas_visiveis):
         cols[j].write(row[key])
@@ -207,21 +283,21 @@ for i, row in df_paginado.iterrows():
             mostrar_detalhes(rede_doc)
     st.divider()
 
-# --- Controle rodapé ---
-col1, col2, col3 = st.columns([5, 2, 1])
+# # --- Controle rodapé ---
+# col1, col2, col3 = st.columns([5, 2, 1])
 
-col3.number_input(
-    "Página",
-    min_value=1,
-    max_value=total_paginas,
-    value=st.session_state["pagina_rodape_redes"],
-    step=1,
-    key="pagina_rodape_redes",
-    on_change=atualizar_rodape_redes
-)
+# col3.number_input(
+#     "Página",
+#     min_value=1,
+#     max_value=total_paginas,
+#     value=st.session_state["pagina_rodape_redes"],
+#     step=1,
+#     key="pagina_rodape_redes",
+#     on_change=atualizar_rodape_redes
+# )
 
-col3.write(f"Mostrando **{inicio + 1}** a **{min(fim, total_linhas)}** de **{total_linhas}** redes")
-st.write("")
+# col3.write(f"Mostrando **{inicio + 1}** a **{min(fim, total_linhas)}** de **{total_linhas}** redes")
+# st.write("")
 
 
 
