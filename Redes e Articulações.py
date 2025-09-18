@@ -180,7 +180,6 @@ with st.expander("Filtros", expanded=True, icon=":material/filter_alt:"):
 
 
 st.write("")
-st.divider()
 
 # --- Aplica filtros ---
 df_filtrado = df_redes.copy()
@@ -262,7 +261,7 @@ colunas_visiveis = list(df_exibir.columns)
 headers = colunas_visiveis + ["Detalhes"]
 
 # Ajuste dos tamanhos de coluna (ponto focal mais estreito)
-col_sizes = [3, 3, 2, 1, 1, 1]
+col_sizes = [3, 3, 2, 1, 1, 2]
 
 # Cabeçalho
 header_cols = st.columns(col_sizes)
