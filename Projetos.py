@@ -446,45 +446,45 @@ with tab2:
     projeto_id = df_projetos_ispn.loc[
         df_projetos_ispn["nome_do_projeto"] == projeto_selecionado, "_id"
     ].values
+
     if len(projeto_id) == 0:
         st.write("_Nenhum projeto encontrado_")
     else:
         projeto_id = projeto_id[0]
-                
-        from bson import ObjectId
-        # Filtrar pessoas que pertencem a esse projeto
-        equipe = []
-        for _, pessoa in df_pessoas.iterrows():
-            contratos = pessoa.get("contratos", [])
-            if not isinstance(contratos, list):  # garante lista
-                contratos = []
 
-            for contrato in contratos:
-                projetos = contrato.get("projeto_pagador", [])
-                if not isinstance(projetos, list):  # garante lista
-                    projetos = []
+        # 2- Explodir contratos
+        df_explodido = df_pessoas.explode("contratos")
 
-                for proj in projetos:
-                    # proj pode ser ObjectId ou dict {"$oid": "..."}
-                    if isinstance(proj, ObjectId):
-                        proj_id = str(proj)
-                    elif isinstance(proj, dict) and "$oid" in proj:
-                        proj_id = proj["$oid"]
-                    else:
-                        proj_id = str(proj)
+        # 3- Criar coluna apenas com os ids de projeto_pagador
+        df_explodido["projeto_pagador"] = df_explodido["contratos"].apply(
+            lambda x: x.get("projeto_pagador", []) if isinstance(x, dict) else []
+        )
 
-                    if proj_id == str(projeto_id):
-                        equipe.append({
-                            "Nome": pessoa.get("nome_completo", ""),
-                            "Início do contrato": contrato.get("data_inicio", ""),
-                            "Fim do contrato": contrato.get("data_fim", "")
-                        })
-                        break  # já achou nesse contrato
-                else:
-                    continue
-                break  # já achou nessa pessoa
+        # 4- Explodir projeto_pagador também (caso tenha mais de um por contrato)
+        df_explodido = df_explodido.explode("projeto_pagador")
 
-        df_equipe = pd.DataFrame(equipe)
+        # 5- Filtrar pessoas que pertencem a esse projeto
+        df_equipe = df_explodido[df_explodido["projeto_pagador"] == projeto_id].copy()
+
+
+
+
+
+
+    # # 1- Obter o _id do projeto selecionado
+    # projeto_id = df_projetos_ispn.loc[
+    #     df_projetos_ispn["nome_do_projeto"] == projeto_selecionado, "_id"
+    # ].values
+    # if len(projeto_id) == 0:
+    #     st.write("_Nenhum projeto encontrado_")
+    # else:
+    #     projeto_id = projeto_id[0]
+
+
+
+    #     # 2- Filtrar pessoas que pertencem a esse projeto
+    #     df_equipe = df_pessoas[df_pessoas["projeto_pagador"] == projeto_id].copy()
+
 
         if df_equipe.empty:
             st.write("_Não há equipe cadastrada para este projeto_")

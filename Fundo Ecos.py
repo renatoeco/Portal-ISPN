@@ -13,7 +13,6 @@ from bson import ObjectId
 import plotly.express as px
 from folium.plugins import MarkerCluster
 from streamlit_folium import st_folium
-from bson import ObjectId
 from funcoes_auxiliares import conectar_mongo_portal_ispn
 
 
@@ -61,17 +60,6 @@ div[data-testid="stDialog"] div[role="dialog"]:has(.big-dialog) {
 )
 
 
-# st.markdown(
-#     """
-# <style>
-# div[data-testid="stDialog"] div[role="dialog"]:has(.big-dialog-detalhes) {
-#     width: 70vw;
-    
-# }
-# </style>
-# """,
-#     unsafe_allow_html=True,
-# )
 
 
 ######################################################################################################

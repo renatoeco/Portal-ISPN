@@ -7,8 +7,10 @@ from email.mime.text import MIMEText
 from funcoes_auxiliares import conectar_mongo_portal_ispn  # Função personalizada para conectar ao MongoDB
 import bcrypt
 
+
 # Configurar o streamlit para tela wide
 st.set_page_config(layout="wide")
+
 
 ##############################################################################################################
 # CONEXÃO COM O BANCO DE DADOS (MONGODB)
@@ -350,7 +352,7 @@ def login():
                 # Campo de senha
                 password = st.text_input("Senha", type="password", width=300)
 
-                if st.form_submit_button("Entrar"):
+                if st.form_submit_button("Entrar", type="primary"):
                     # Busca apenas pelo e-mail
                     usuario_encontrado = colaboradores.find_one({
                         "e_mail": {"$regex": f"^{email_input.strip()}$", "$options": "i"}
@@ -386,14 +388,14 @@ def login():
             # Botão para recuperar senha
             st.write('')
             st.write('')
-            st.markdown("<div style='color: red'><b>Atenção:</b> todas as senhas precisam ser redefinidas, devido à implementação de criptografia.</div>", unsafe_allow_html=True)
-            st.markdown("<div style='color: red'>Clique em \"Esqueci a senha\".</div>", unsafe_allow_html=True)
+            # st.markdown("<div style='color: red'><b>Atenção:</b> todas as senhas precisam ser redefinidas, devido à implementação de criptografia.</div>", unsafe_allow_html=True)
+            # st.markdown("<div style='color: red'>Clique em \"Esqueci a senha\".</div>", unsafe_allow_html=True)
 
             st.write('')
             st.button(
                 "Esqueci a senha", 
                 key="forgot_password", 
-                type="tertiary", 
+                type="secondary", 
                 on_click=recuperar_senha_dialog
             )
 
@@ -537,43 +539,43 @@ if "logged_in" not in st.session_state or not st.session_state["logged_in"]:
 
 else:
 
-    # pg = st.navigation([
-    #     st.Page("Institucional.py", title="Institucional", icon=":material/account_balance:"),
-    #     st.Page("Estratégia.py", title="Estratégia", icon=":material/tactic:"),
-    #     st.Page("Indicadores.py", title="Indicadores", icon=":material/monitoring:"),
-    #     st.Page("Programas e Áreas.py", title="Programas e Áreas", icon=":material/team_dashboard:"),
-    #     st.Page("Pessoas.py", title="Pessoas", icon=":material/groups:"),
-    #     st.Page("Doadores.py", title="Doadores", icon=":material/all_inclusive:"),
-    #     st.Page("Projetos.py", title="Projetos", icon=":material/book:"),
-    #     st.Page("Fundo Ecos.py", title="Fundo Ecos", icon=":material/owl:"),
-    #     st.Page("Redes e Articulações.py", title="Redes e Articulações", icon=":material/network_node:"),
-    #     st.Page("Monitor de PLs.py", title="Monitor de PLs", icon=":material/balance:"),
-    #     st.Page("Clipping de Notícias.py", title="Clipping de Notícias", icon=":material/attach_file:"),
-    #     st.Page("Viagens.py", title="Viagens", icon=":material/travel:"),
-    #     st.Page("Férias e recessos.py", title="Férias e Recessos", icon=":material/beach_access:"),
-    #     st.Page("Manuais.py", title="Manuais", icon=":material/menu_book:"),
-    # ])
-    # pg.run()
-
-
-
-    # Mostra menu de navegação se estiver logado
     pg = st.navigation([
-        "Institucional.py", 
-        "Estratégia.py", 
-        "Programas e Áreas.py", 
-        "Pessoas.py",
-        "Doadores.py", 
-        "Indicadores.py",
-        "Projetos.py", 
-        "Fundo Ecos.py",
-        "Redes e Articulações.py", 
-        "Monitor de PLs.py",
-        "Clipping de Notícias.py", 
-        "Viagens.py",
-        "Férias e recessos.py",
-        "Manuais.py",
+        st.Page("Institucional.py", title="Institucional", icon=":material/account_balance:"),
+        st.Page("Estratégia.py", title="Estratégia", icon=":material/tactic:"),
+        st.Page("Indicadores.py", title="Indicadores", icon=":material/monitoring:"),
+        st.Page("Programas e Áreas.py", title="Programas e Áreas", icon=":material/team_dashboard:"),
+        st.Page("Pessoas.py", title="Pessoas", icon=":material/groups:"),
+        st.Page("Doadores.py", title="Doadores", icon=":material/all_inclusive:"),
+        st.Page("Projetos.py", title="Projetos", icon=":material/book:"),
+        st.Page("Fundo Ecos.py", title="Fundo Ecos", icon=":material/owl:"),
+        st.Page("Redes e Articulações.py", title="Redes e Articulações", icon=":material/network_node:"),
+        st.Page("Monitor de PLs.py", title="Monitor de PLs", icon=":material/balance:"),
+        st.Page("Clipping de Notícias.py", title="Clipping de Notícias", icon=":material/attach_file:"),
+        st.Page("Viagens.py", title="Viagens", icon=":material/travel:"),
+        st.Page("Férias e recessos.py", title="Férias e Recessos", icon=":material/beach_access:"),
+        st.Page("Manuais.py", title="Manuais", icon=":material/menu_book:"),
     ])
-
-    # Executa a página selecionada
     pg.run()
+
+
+
+    # # Mostra menu de navegação se estiver logado
+    # pg = st.navigation([
+    #     "Institucional.py", 
+    #     "Estratégia.py", 
+    #     "Programas e Áreas.py", 
+    #     "Pessoas.py",
+    #     "Doadores.py", 
+    #     "Indicadores.py",
+    #     "Projetos.py", 
+    #     "Fundo Ecos.py",
+    #     "Redes e Articulações.py", 
+    #     "Monitor de PLs.py",
+    #     "Clipping de Notícias.py", 
+    #     "Viagens.py",
+    #     "Férias e recessos.py",
+    #     "Manuais.py",
+    # ])
+
+    # # Executa a página selecionada
+    # pg.run()
