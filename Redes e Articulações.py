@@ -26,7 +26,7 @@ redes = db["redes_articulacoes"]
 @st.dialog("Detalhes da rede", width="large")
 def mostrar_detalhes(rede_doc):
     st.subheader(rede_doc.get("rede_articulacao", ""))
-    tabs = st.tabs(["Informações gerais", "Anotações"])
+    tabs = st.tabs([":material/info: Informações gerais", ":material/notes: Anotações"])
 
     # Aba 1: Informações gerais
     with tabs[0]:
@@ -39,69 +39,114 @@ def mostrar_detalhes(rede_doc):
 
     # Aba 2: Anotações
     with tabs[1]:
-        anotacoes_list = rede_doc.get("anotacoes") or []  # lista de anotações (array de dicts)
+        usuario_logado = st.session_state.get("nome", "Desconhecido")
+        anotacoes = rede_doc.get("anotacoes") or []
 
-        # opções do selectbox
-        if not anotacoes_list:
-            opcoes = ["--Adicionar anotação--"]
-        else:
-            opcoes = ["", "--Adicionar anotação--"] + [
-                f"{a.get('data_anotacao','')} - {a.get('autor_anotacao','')}"
-                for a in anotacoes_list
-            ]
+        # ---------------- EXPANDER PARA ADICIONAR ANOTAÇÃO ----------------
+        with st.expander("Adicionar nova anotação", expanded=False, icon=":material/add_notes:"):
+            nova_data = datetime.now().date()
+            novo_texto = st.text_area("Texto da anotação", key="nova_anotacao", height="content")
 
-        opcao_sel = st.selectbox("Selecione uma anotação:", options=opcoes)
-
-        # Adicionar nova anotação
-        if opcao_sel == "--Adicionar anotação--":
-            nova_anotacao = st.text_area("Nova anotação", height="content")
-            if st.button("Salvar anotação"):
-                nova_entry = {
-                    "data_anotacao": datetime.now().strftime("%d/%m/%Y - %H:%M"),
-                    "autor_anotacao": st.session_state.get("nome", "Desconhecido"),
-                    "anotacao": nova_anotacao
-                }
-                redes.update_one(
-                    {"_id": rede_doc["_id"]},
-                    {"$push": {"anotacoes": nova_entry}}
-                )
-                st.success("Anotação salva com sucesso.")
-                time.sleep(2)
-                st.rerun()
-
-        # Editar anotação existente
-        elif opcao_sel != "":
-            idx = opcoes.index(opcao_sel) - 2  # compensar opções extras
-            anotacao_atual = anotacoes_list[idx]
-
-            texto_editado = st.text_area("Editar anotação:", value=anotacao_atual.get("anotacao", ""), height="content")
-            
-            col1, col2 = st.columns([3.5,1])
-            
-            with col1:
-                if st.button("Salvar alterações"):
-                    anotacoes_list[idx]["anotacao"] = texto_editado
+            if st.button("Adicionar anotação", key="btn_add_anotacao", icon=":material/add_notes:"):
+                if novo_texto.strip():
+                    nova_entry = {
+                        "data_anotacao": datetime.now().strftime("%d/%m/%Y %H:%M"),
+                        "autor_anotacao": usuario_logado,
+                        "anotacao": novo_texto.strip()
+                    }
                     redes.update_one(
                         {"_id": rede_doc["_id"]},
-                        {"$set": {"anotacoes": anotacoes_list}}
+                        {"$push": {"anotacoes": nova_entry}}
                     )
-                    st.success("Anotação atualizada.")
+                    st.success("Anotação salva com sucesso.")
                     time.sleep(2)
                     st.rerun()
+                else:
+                    st.warning("O campo da anotação não pode estar vazio.")
 
-            with col2:
-                if st.button("Excluir anotação"):
-                    # remove da lista
-                    anotacoes_list.pop(idx)
-                    redes.update_one(
-                        {"_id": rede_doc["_id"]},
-                        {"$set": {"anotacoes": anotacoes_list}}
+        st.write("")
+        st.write("**Anotações existentes:**")
+
+        # ---------------- LISTA DE ANOTAÇÕES ----------------
+        # Ordena por data (decrescente)
+        anotacoes_ordenadas = []
+        for idx, a in enumerate(anotacoes):
+            data_str = a.get("data_anotacao", "")
+            data_dt = datetime.min
+            if data_str:
+                try:
+                    data_dt = datetime.strptime(data_str.split()[0], "%d/%m/%Y")
+                except:
+                    pass
+            anotacoes_ordenadas.append((idx, data_dt, a))
+
+        anotacoes_ordenadas.sort(key=lambda x: x[1], reverse=True)
+
+        # ---------------- RENDERIZA CADA ANOTAÇÃO ----------------
+        for original_idx, _, anotacao in anotacoes_ordenadas:
+            container_key = f"anotacao_{rede_doc['_id']}_{original_idx}"
+            toggle_key = f"toggle_edicao_{container_key}"
+            delete_key = f"delete_confirm_{container_key}"
+
+            with st.container(border=True):
+                modo_edicao = st.toggle("Editar", key=toggle_key, value=False)
+
+                if modo_edicao:
+                    # Data (apenas exibe já formatada)
+                    data_valor = anotacao.get("data_anotacao", "")
+                    data_formatada = data_valor.split()[0] if data_valor else datetime.now().strftime("%d/%m/%Y")
+
+                    st.write(f"**Data:** {data_formatada}")
+                    st.write(f"**Autor:** {anotacao.get('autor_anotacao', '')}")
+
+                    novo_texto = st.text_area(
+                        "Texto da anotação",
+                        value=anotacao.get("anotacao", ""),
+                        key=f"texto_{container_key}", height="content"
                     )
-                    st.success("Anotação excluída.")
-                    time.sleep(2)
-                    st.rerun()
 
+                    botoes = st.container(horizontal=True)
 
+                    if botoes.button("Salvar alterações", key=f"salvar_{container_key}", icon=":material/save:"):
+                        anotacoes[original_idx]["anotacao"] = novo_texto.strip()
+                        redes.update_one(
+                            {"_id": rede_doc["_id"]},
+                            {"$set": {"anotacoes": anotacoes}}
+                        )
+                        st.success("Anotação atualizada.")
+                        time.sleep(2)
+                        st.rerun()
+
+                    if botoes.button("Deletar anotação", key=f"deletar_{container_key}", icon=":material/delete:"):
+                        st.session_state[delete_key] = True
+
+                    if st.session_state.get(delete_key, False):
+                        st.warning("Tem certeza que deseja apagar esta anotação?")
+                        colA, colB = st.columns(2)
+                        if colA.button("Sim", key=f"confirmar_delete_{container_key}"):
+                            anotacoes.pop(original_idx)
+                            redes.update_one(
+                                {"_id": rede_doc["_id"]},
+                                {"$set": {"anotacoes": anotacoes}}
+                            )
+                            st.success("Anotação apagada com sucesso.")
+                            st.session_state[delete_key] = False
+                            time.sleep(2)
+                            st.rerun()
+                        if colB.button("Não", key=f"cancelar_delete_{container_key}"):
+                            st.session_state[delete_key] = False
+
+                else:
+                    # Modo visualização
+                    data_str = anotacao.get("data_anotacao", "")
+                    if data_str:
+                        data_str = data_str.split()[0]
+                    col1, col2 = st.columns([1, 3])
+                    with col1:
+                        st.write(f"**Data:** {data_str}")
+                    with col2:
+                        st.write(f"**Autor:** {anotacao.get('autor_anotacao', '')}")
+                    st.write(anotacao.get("anotacao", ""))
 
 
 def atualizar_topo_redes():
@@ -179,6 +224,8 @@ with st.expander("Filtros", expanded=True, icon=":material/filter_alt:"):
     )
 
 
+st.write("")
+st.write("")
 st.write("")
 
 # --- Aplica filtros ---
