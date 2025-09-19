@@ -152,6 +152,7 @@ with tab1:
     status_selecionado = col3.selectbox("Situação", options=situacoes_disponiveis, index=index_padrao, key='situacao')
     # status_selecionado = col3.selectbox("Situação", options=["Todas"] + situacoes_disponiveis, index=situacoes_disponiveis.index("Em andamento"), key='situacao')
 
+   
     # Filtro de ano de início
     # Converter para datetime
     # df_projetos_ispn['data_inicio_contrato'] = pd.to_datetime(df_projetos_ispn['data_inicio_contrato'])
@@ -400,6 +401,8 @@ with tab2:
     # Valor e contrapartida
     col1, col2 = st.columns(2)
  
+    st.write(df_projetos_ispn.loc[df_projetos_ispn['nome_do_projeto']])
+
     col1.metric("**Valor:**", df_projetos_ispn.loc[df_projetos_ispn['nome_do_projeto'] == projeto_selecionado, 'valor_com_moeda'].values[0])
     
     col2.metric(
@@ -688,144 +691,3 @@ with tab2:
 
 
 
-
-
-
-
-
-
-
-
-
-    # # Dados em formato de lista
-    # anotacoes = [
-    #     ["15/03/2023", "Início do projeto", "Ana"],
-    #     ["15/05/2023", "Primeiro pagamento realizado", "João"],
-    #     ["15/07/2023", "Entrega de relatório", "Pedro"]
-    # ]
-
-    # # Transformar em DataFrame
-    # df = pd.DataFrame(anotacoes, columns=["Data", "Anotação", "Autor"])
-
-    # # Mostrar com ui.table
-    # ui.table(data=df)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# with tab3:
-
-#     col1, col2, col3, col4 = st.columns(4)
-
-#     programa_selecionado = col1.selectbox("Programa", ["Todos os programas", "Cerrado", "Maranhão", "Povos Indígenas", "Sociobiodiversidade", "Iniciativas Comunitárias", "Administrativo"], key="programa")
-#     projeto_selecionado = col2.selectbox('Projeto', ['Ceres', 'USAID II', 'Vale Quebradeiras'], key="projeto")
-
-#     col3.selectbox("Projetos vigentes entre", ["2023", "2024", "2025"], key="iicio")
-#     col4.selectbox("até", ["2023", "2024", "2025"], key="fim")
-#     # col3.write('')
-#     # col3.write('')
-
-#     st.checkbox("Só entregas não concluídas", key="entregas")
-
-#     st.write('')
-#     col1, col2, col3 = st.columns(3)
-
-    
-#     col3.button("Reportar entrega", use_container_width=True)
-
-
-#     entregas = {
-#         "Entrega": ["Oficina de Advocacy", "Formação de Comunicadores", "Elaboração de Relatório", "Entrega de Relatório"],
-#         "Programa": ["Cerrado", "Maranhão", "Povos Indígenas", "Sociobiodiversidade"],
-#         "Projeto": ["Ceres", "USAID II", "Vale Quebradeiras", "Ceres"],
-#         "Início": ["15/03/2023", "15/05/2023", "15/07/2023", "15/08/2023"],
-#         "Fim": ["15/06/2023", "15/08/2023", "15/10/2023", "15/11/2023"],
-#         "Responsável": ["Ana", "Pedro", "João", "Ana"],
-#         "Situação": ["Em andamento", "Em andamento", "Concluído", "Em andamento"]
-#     }
-#     df_entregas = pd.DataFrame(entregas)
-
-#     lista, cronograma = st.tabs(["Lista de entregas", "Cronograma"])
-
-#     with lista:
-#         st.dataframe(df_entregas, hide_index=True)
-
-#     with cronograma:
-
-#         df_projeto = pd.DataFrame({
-#             "Entrega": ["Oficina de Advocacy", "Formação de Comunicadores", "Elaboração de Relatório", "Entrega de Relatório"],
-#             "Programa": ["Cerrado", "Maranhão", "Povos Indígenas", "Sociobiodiversidade"],
-#             "Projeto": ["Ceres", "USAID II", "Vale Quebradeiras", "Ceres"],
-#             "Início": ["março/2023", "maio/2023", "julho/2023", "agosto/2023"],
-#             "Fim": ["junho/2023", "agosto/2023", "outubro/2023", "novembro/2023"],
-#             "Responsável": ["Ana", "Pedro", "João", "Ana"],
-#             "Situação": ["Em andamento", "Em andamento", "Concluído", "Em andamento"]
-#         })
-#         # Mapeamento de meses em português para número
-#         meses = {
-#             "janeiro": "01", "fevereiro": "02", "março": "03", "abril": "04",
-#             "maio": "05", "junho": "06", "julho": "07", "agosto": "08",
-#             "setembro": "09", "outubro": "10", "novembro": "11", "dezembro": "12"
-#         }
-
-#         # Função para converter "mês/ano" para datetime
-#         def converter_data(data_str):
-#             mes, ano = data_str.split('/')
-#             mes_num = meses[mes.lower()]
-#             return pd.to_datetime(f"{ano}-{mes_num}-01")
-
-#         # Aplicando a conversão
-#         df_projeto['Início'] = df_projeto['Início'].apply(converter_data)
-#         df_projeto['Fim'] = df_projeto['Fim'].apply(converter_data)
-
-#         # Criando gráfico de Gantt com Plotly Express
-#         fig = px.timeline(
-#             df_projeto,
-#             x_start='Início',
-#             x_end='Fim',
-#             y='Entrega',
-#             color='Situação',
-#             # hover_data=['Valor'],
-#             height=250  # Diminuindo a altura do gráfico
-#         )
-
-#         fig.update_yaxes(categoryorder='total ascending')
-
-#         # Movendo a legenda para baixo
-#         fig.update_layout(
-#             legend=dict(
-#                 orientation="h",       # horizontal
-#                 yanchor="bottom",
-#                 y=-1,                # valor negativo posiciona abaixo do gráfico
-#                 xanchor="center",
-#                 x=0
-#             ),
-#             yaxis_title=None
-#         )
-
-#         # Streamlit
-#         st.plotly_chart(fig, key="cronograma", use_container_width=True)
-        
