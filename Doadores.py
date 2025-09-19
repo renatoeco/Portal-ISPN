@@ -126,7 +126,7 @@ mapa_doador = {d["_id"]: d["nome_doador"] for d in db["doadores"].find()}
 mapa_programa = {p["_id"]: p["nome_programa_area"] for p in db["programas_areas"].find()}
 
 # --- 3. Aplicar os mapeamentos ao df ---
-df["doador_nome"] = df["doador"].map(mapa_doador)
+df["nome_doador"] = df["doador"].map(mapa_doador)
 df["programa_nome"] = df["programa"].map(mapa_programa)
 
 
@@ -171,62 +171,78 @@ df["tipo_de_doador"] = df["tipo_de_doador"].str.capitalize()
 tab1, tab2 = st.tabs(["Visão geral", "Doadores"])
 
 with tab1:
-    st.write('')
+    st.write("")
 
+    # Converter datas de contrato
+    df["Início"] = pd.to_datetime(df["data_inicio_contrato"], errors="coerce", format="%d/%m/%Y")
+    df["Fim"] = pd.to_datetime(df["data_fim_contrato"], errors="coerce", format="%d/%m/%Y")
+
+    # Extrair anos válidos (como inteiros)
+    anos_inicio = df["Início"].dropna().dt.year.astype(int).unique()
+    anos_fim = df["Fim"].dropna().dt.year.astype(int).unique()
+    anos_disponiveis = sorted(set(anos_inicio) | set(anos_fim))
+
+    # Selectboxes dinâmicos
     col1, col2, col3 = st.columns(3)
-    col1.selectbox("Projetos vigentes entre", ["2023", "2024", "2025"])
-    col2.selectbox("e", ["2023", "2024", "2025"])
+    ano_inicio = col1.selectbox("Projetos vigentes entre", anos_disponiveis, index=0)
+    ano_fim = col2.selectbox("e", anos_disponiveis, index=len(anos_disponiveis)-1)
 
-    st.write('')
+    # Garantir que são inteiros
+    ano_inicio = int(ano_inicio)
+    ano_fim = int(ano_fim)
 
-    # Conversão e limpeza de dados
-    df["valor"] = pd.to_numeric(df["valor"], errors="coerce")
-    df = df.dropna(subset=["valor"])
-    df["doador"] = df["doador"].fillna("Desconhecido")
-    df["tipo_de_doador"] = df["tipo_de_doador"].fillna("Outro")
+    # Selecionar projetos vigentes entre os anos escolhidos
+    df_filtrado = df[
+        (df["Início"].dt.year <= ano_fim) &   # começou antes ou durante o intervalo
+        (df["Fim"].dt.year >= ano_inicio)     # terminou depois ou durante o intervalo
+    ].copy()
 
     # Agrupar por doador
-    resumo = df.groupby(["doador_nome", "tipo_de_doador"], as_index=False).agg({
+    resumo = df_filtrado.groupby(["nome_doador", "tipo_de_doador"], as_index=False).agg({
         "valor_brl": "sum",
         "_id": "count"
     }).rename(columns={
+        "nome_doador": "Doador",
+        "tipo_de_doador": "Tipo de Doador",
         "valor_brl": "Valor",
-        "_id": "Numero de projetos",
-        "doador": "Doadores",
-        "tipo_de_doador": "Tipo de Doador"
+        "_id": "Número de projetos"
     })
-
 
     # Gerar cores únicas por doador
     def gerar_cor():
         return "#{:06x}".format(random.randint(0, 0xFFFFFF))
     resumo["Cor"] = [gerar_cor() for _ in range(len(resumo))]
 
-    # Gráfico com Altair
+    # Formatar valores em reais
     resumo["Valor_br"] = resumo["Valor"].apply(
         lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
     )
 
-    st.write(resumo)
+    st.dataframe(resumo.drop(columns=["Cor"]), hide_index=True)
 
+    st.write("")
+    st.write("")
+    st.write("")
+
+    # Gráfico com Altair
     chart = alt.Chart(resumo).mark_circle(size=150).encode(
         x=alt.X(
-            'Numero de projetos:Q',
+            'Número de projetos:Q',
             title='Número de Projetos',
-            axis=alt.Axis(format='d'),
-            scale=alt.Scale(domain=[0, 10])  # Força o eixo X ir de 0 a 10
-        ),
+            axis=alt.Axis(format='d')
+        )
+        ,
         y=alt.Y(
             'Valor:Q',
             title='Valor (R$)',
             axis=alt.Axis(format=",.2f")
         ),
         size=alt.Size('Valor', legend=None),
-        color=alt.Color('doador_nome:N', scale=alt.Scale(domain=resumo['doador_nome'], range=resumo['Cor'])),
+        color=alt.Color('Doador:N', scale=alt.Scale(domain=resumo['Doador'], range=resumo['Cor'])),
         tooltip=[
-            'doador_nome',
+            'Doador',
             alt.Tooltip('Valor_br', type='nominal', title='Valor'),
-            'Numero de projetos'
+            'Número de projetos'
         ]
     ).properties(
         width=700,
@@ -234,11 +250,11 @@ with tab1:
         title='Doadores x Número de projetos e Valores'
     )
 
-
     st.altair_chart(chart, use_container_width=True)
 
-    st.write('')
-    st.write('')
+    st.write("")
+    st.write("")
+    st.write("")
 
     # Gráfico de pizza por tipo de doador
     tipo_valor = resumo.groupby("Tipo de Doador", as_index=False)["Valor"].sum()
@@ -281,20 +297,14 @@ with tab2:
     df["data_fim_contrato"] = df["data_fim_contrato"].fillna("")
 
     # Lista de doadores únicos
-    doadores_unicos = sorted(df["doador"].unique())
+    doadores_unicos = sorted(df["nome_doador"].dropna().unique())
 
-    # Filtros
+    # Select do doador
     col1, col2, col3 = st.columns(3)
     doador_selecionado = col1.selectbox("Selecione o doador", doadores_unicos)
-    col2.selectbox("Projetos vigentes entre", ["2023", "2024", "2025"], key="doador1")
-    col3.selectbox("e", ["2023", "2024", "2025"], key="doador2")
 
-    st.write('')
-
-    st.subheader(doador_selecionado)
-
-    # Filtrar dados do doador
-    df_doador = df[df["doador"] == doador_selecionado].copy()
+    # Filtrar apenas projetos do doador
+    df_doador = df[df["nome_doador"] == doador_selecionado].copy()
 
     # Converter datas
     def parse_data(data_str):
@@ -305,6 +315,23 @@ with tab2:
 
     df_doador["Início"] = df_doador["data_inicio_contrato"].apply(parse_data)
     df_doador["Fim"] = df_doador["data_fim_contrato"].apply(parse_data)
+
+    # --- FILTRO DE PROJETOS VIGENTES (igual aba 1) ---
+    anos_inicio = df_doador["Início"].dropna().dt.year.astype(int).unique()
+    anos_fim = df_doador["Fim"].dropna().dt.year.astype(int).unique()
+    anos_disponiveis = sorted(set(anos_inicio) | set(anos_fim))
+    
+    if anos_disponiveis:
+        ano_inicio = col2.selectbox("Projetos vigentes entre", anos_disponiveis, index=0)
+        ano_fim = col3.selectbox("e", anos_disponiveis, index=len(anos_disponiveis)-1)
+        ano_inicio, ano_fim = int(ano_inicio), int(ano_fim)
+        
+        # Filtrar projetos vigentes
+        df_doador = df_doador[
+            (df_doador["Início"].dt.year <= ano_fim) & 
+            (df_doador["Fim"].dt.year >= ano_inicio)
+        ].copy()
+
     df_doador["Projeto"] = df_doador["sigla"].fillna("Sem nome")
     df_doador["Situação"] = df_doador["status"].fillna("Desconhecido")
 
