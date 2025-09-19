@@ -1744,7 +1744,10 @@ if set(st.session_state.tipo_usuario) & {"admin", "gestao_pessoas"}:
     container_botoes.button("Gerenciar colaboradores", on_click=gerenciar_pessoas, icon=":material/group:")
     st.write('')
 
-aba_pessoas, aba_contratos = st.tabs([":material/person: Colaboradores", ":material/contract: Contratos"])
+
+
+aba_pessoas, aba_contratos, aba_reajustes, aba_aniversariantes = st.tabs([":material/person: Colaboradores", ":material/contract: Contratos", ":material/payments: Reajustes do mês", ":material/cake: Aniversariantes do mês"])
+
 
 with aba_pessoas:
 
@@ -1832,11 +1835,6 @@ with aba_pessoas:
                     config={
                         'staticPlot': True  # desativa pan, zoom e todas as interações
                     })
-
-
-
-
-
 
 
 
@@ -2117,92 +2115,157 @@ with aba_pessoas:
 
 
 
+
+#  ABA CONTRATOS ---------------------------------------------------------------------------------------
+
 # Roteamento de usuários
-if set(st.session_state.tipo_usuario) & {"admin", "gestao_pessoas"}:
-    with aba_contratos:
+# if set(st.session_state.tipo_usuario) & {"admin", "gestao_pessoas"}:
+with aba_contratos:
 
-        # Transformar para a nova estrutura (pega o primeiro contrato válido da lista)
-        lista_tratada = []
-        for pessoa in dados_pessoas:
-            nome = pessoa.get("nome_completo", "Sem nome")
-            contratos = pessoa.get("contratos", [])
+    # Função para converter datas (str -> datetime.date)
+    def parse_date(data_str):
+        if isinstance(data_str, str):
+            for fmt in ("%d/%m/%Y", "%Y-%m-%d"):
+                try:
+                    return datetime.datetime.strptime(data_str, fmt).date()
+                except:
+                    continue
+        return None
 
-            if contratos:
-                contrato = contratos[0]  
+    # Função para calcular dias restantes
+    def dias_restantes(data_fim):
+        if data_fim:
+            return (data_fim - datetime.date.today()).days
+        return None
 
-                lista_tratada.append({
-                    "Nome": nome,
-                    "Início do contrato": contrato.get("data_inicio"),
-                    "Fim do contrato": contrato.get("data_fim")
+    # Preparar lista de contratos com vencimento nos próximos 90 dias
+    contratos_90_dias = []
+
+    for pessoa in dados_pessoas:
+        for contrato in pessoa.get("contratos", []):
+            data_fim = parse_date(contrato.get("data_fim"))
+            if data_fim and dias_restantes(data_fim) <= 90:
+                contratos_90_dias.append({
+                    "pessoa": pessoa,
+                    "contrato": contrato,
+                    "dias_restantes": dias_restantes(data_fim)
                 })
 
-        # Criar dataframe com os dados
+    # -------------------- Renderizar lista de contratos --------------------
+    st.write('')
+    st.markdown('<h3 style="font-size: 1.5em;">Contratos com vencimento nos próximos 90 dias:</h3>', unsafe_allow_html=True)
+    st.write('')
+    st.write('')
+    st.write('')
+
+    
+
+    for item in contratos_90_dias:
+
+        col1, col2, col3 = st.columns([1, 1, 3])
+
+        pessoa = item["pessoa"]
+        contrato = item["contrato"]
+
+        # with st.container(border=True):
+        
+        col1.write(f"**{pessoa.get('nome_completo', 'Sem nome')}**")
+
+        col2.write(f"**Data de fim:** {contrato.get('data_fim', '')}")
+        col2.write(f"**Data de início:** {contrato.get('data_inicio', '')}")
+
+        # col2.write(f"**Mês de reajuste:** {contrato.get('data_reajuste', '')}")
+
+
+        projetos_ids = contrato.get("projeto_pagador", [])
+        col3.write('**Projeto:**')
+        if not projetos_ids:
+            col3.write("O projeto pagador não foi informado")
+        else:
+            for projeto_id in projetos_ids:
+                projeto = next(
+                    (p for p in dados_projetos_ispn if p["_id"] == projeto_id),
+                    None
+                )
+                if projeto:
+                    col3.write(f"{projeto.get('sigla', '')} - {projeto.get('nome_do_projeto', '')}")
+                else:
+                    col3.write(f"Projeto não encontrado para o ID: {projeto_id}")
+
+        if contrato.get("anotacoes_contrato"):
+            col3.write("**Anotações:**")
+            col3.write(contrato["anotacoes_contrato"])
+
+        st.divider()
+
+
+
+
+    # -------------------- Preparar e renderizar gráfico de timeline --------------------
+
+    st.write('')
+    st.markdown('<h3 style="font-size: 1.5em;">Cronograma dos contratos</h3>', unsafe_allow_html=True)
+
+
+    lista_tratada = []
+    for pessoa in dados_pessoas:
+        nome = pessoa.get("nome_completo", "Sem nome")
+        contratos = pessoa.get("contratos", [])
+
+        for contrato in contratos:
+            data_inicio = parse_date(contrato.get("data_inicio"))
+            data_fim = parse_date(contrato.get("data_fim"))
+            if data_inicio and data_fim:
+                lista_tratada.append({
+                    "Nome": nome,
+                    "Início do contrato": data_inicio,
+                    "Fim do contrato": data_fim,
+                    "Dias restantes": dias_restantes(data_fim)
+                })
+
+    if lista_tratada:
         df_equipe = pd.DataFrame(lista_tratada)
 
-        if not df_equipe.empty:
-            # Converter para datetime (aceitando strings no formato brasileiro ou ISO)
-            df_equipe["Início do contrato"] = pd.to_datetime(
-                df_equipe["Início do contrato"], dayfirst=True, errors="coerce"
-            )
-            df_equipe["Fim do contrato"] = pd.to_datetime(
-                df_equipe["Fim do contrato"], dayfirst=True, errors="coerce"
-            )
+        # Definir cor: vermelho se < 90 dias, azul caso contrário
+        df_equipe["Cor"] = df_equipe["Dias restantes"].apply(
+            lambda x: "rgba(255, 0, 0, 0.5)" if x < 90 else "rgba(76, 120, 168, 0.5)"
+        )
 
-            # 🔹 Manter apenas quem tem início e fim preenchidos
-            df_equipe = df_equipe[
-                df_equipe["Início do contrato"].notna() & df_equipe["Fim do contrato"].notna()
-            ]
+        # Ordenar por data de fim (decrescente)
+        df_equipe = df_equipe.sort_values(by="Fim do contrato", ascending=False)
+        categorias_y = df_equipe["Nome"].tolist()
 
-            # Calcular dias restantes
-            hoje = pd.Timestamp(datetime.date.today())  # garante formato datetime64
-            df_equipe["Dias restantes"] = (df_equipe["Fim do contrato"] - hoje).dt.days
+        # Calcular altura do gráfico dinamicamente
+        altura_base = 200
+        altura_extra = 40 * len(df_equipe)
+        altura = altura_base + altura_extra
+
+        # Criar gráfico de timeline
+        fig = px.timeline(
+            df_equipe,
+            x_start="Início do contrato",
+            x_end="Fim do contrato",
+            y="Nome",
+            color="Cor",
+            color_discrete_map="identity",
+            height=altura
+        )
+
+        fig.update_yaxes(categoryorder="array", categoryarray=categorias_y)
+
+        # Linha vertical de hoje
+        hoje = pd.Timestamp(datetime.date.today())
+        fig.add_vline(x=hoje, line_width=1, line_dash="dash", line_color="gray")
+
+        fig.update_layout(
+            yaxis_title=None,
+            xaxis_title="Duração do contrato",
+            showlegend=False
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("Nenhum contrato válido encontrado.")
 
 
-            # Criar coluna de cor: vermelho se < 90 dias, azul caso contrário
-            df_equipe["Cor"] = df_equipe["Dias restantes"].apply(
-                lambda x: "red" if x < 90 else "#4C78A8"
-            )
 
-            # Ordenar por data de fim (decrescente)
-            df_equipe = df_equipe.sort_values(by="Fim do contrato", ascending=False)
-
-            # Definir ordem do eixo Y de acordo com a ordenação
-            categorias_y = df_equipe["Nome"].tolist()
-
-            # Calcular altura do gráfico dinamicamente
-            altura_base = 200
-            altura_extra = 40 * len(df_equipe)  # 40px por colaborador
-            altura = altura_base + altura_extra
-
-            # Criar gráfico de timeline
-            fig = px.timeline(
-                df_equipe,
-                x_start="Início do contrato",
-                x_end="Fim do contrato",
-                y="Nome",
-                color="Cor",  # 🔹 Agora usa a coluna de cor
-                color_discrete_map="identity",  # Mantém as cores exatas que definimos
-                height=altura
-            )
-
-            # Forçar a ordem no eixo Y
-            fig.update_yaxes(categoryorder="array", categoryarray=categorias_y)
-
-            # Linha vertical de hoje
-            fig.add_vline(
-                x=hoje,
-                line_width=1,
-                line_dash="dash",
-                line_color="gray"
-            )
-
-            # Layout do gráfico
-            fig.update_layout(
-                yaxis_title=None,
-                xaxis_title="Duração do contrato",
-                showlegend=False
-            )
-
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("Nenhum contrato válido encontrado.")
