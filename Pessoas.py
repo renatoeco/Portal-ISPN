@@ -985,7 +985,7 @@ def gerenciar_pessoas():
 
 
             # ---------------- LISTA DE ANOTAÇÕES EXISTENTES ----------------
-            st.write("**Anotações existentes:**")
+            st.write("**Anotações:**")
 
             # Ordena as anotações por data decrescente
             anotacoes_ordenadas = []
@@ -1003,26 +1003,26 @@ def gerenciar_pessoas():
             anotacoes_ordenadas.sort(key=lambda x: x[1], reverse=True)
 
 
+            # CARD DE CADA ANOTAÇÃO ---------------------------------------------------------------
+
             for original_idx, _, anotacao in anotacoes_ordenadas:
                 container_key = f"anotacao_{pessoa['_id']}_{original_idx}"
                 toggle_key = f"toggle_edicao_anotacao_{container_key}"
+                delete_key = f"delete_confirm_{container_key}"
 
                 with st.container(border=True):
-                    modo_edicao = st.toggle("Editar anotação", key=toggle_key, value=False)
+                    modo_edicao = st.toggle("Editar", key=toggle_key, value=False)
 
                     if modo_edicao:
-                        # Editar data (somente dd/mm/yyyy)
+                        # Editar data
                         data_valor = anotacao.get("data_anotacao")
                         data_dt = datetime.date.today()
                         if isinstance(data_valor, str) and data_valor:
                             try:
-                                # Pega apenas a parte da data, descarta hora
                                 data_dt = datetime.datetime.strptime(data_valor.split()[0], "%d/%m/%Y").date()
                             except:
                                 pass
 
-
-                        # Editar data           
                         nova_data = st.date_input(
                             "Data da anotação",
                             value=data_dt,
@@ -1031,15 +1031,19 @@ def gerenciar_pessoas():
                             width=150
                         )
 
-                        # Editar texto
                         novo_texto = st.text_area(
                             "Texto da anotação",
                             value=anotacao.get("anotacao", ""),
                             key=f"texto_{container_key}"
                         )
 
+
+                        # BOTÕES
+
+                        linha_botoes = st.container(horizontal=True)
+
                         # Botão salvar
-                        if st.button("Salvar alterações", key=f"salvar_{container_key}", icon=":material/save:"):
+                        if linha_botoes.button("Salvar alterações", key=f"salvar_{container_key}", icon=":material/save:"):
                             anotacoes[original_idx]["data_anotacao"] = nova_data.strftime("%d/%m/%Y")
                             anotacoes[original_idx]["anotacao"] = novo_texto.strip()
                             pessoas.update_one(
@@ -1048,8 +1052,72 @@ def gerenciar_pessoas():
                             )
                             st.success("Anotação atualizada com sucesso!")
 
-                    # Modo visualização
+                        # Botão deletar
+                        if linha_botoes.button("Deletar anotação", key=f"deletar_{container_key}", icon=":material/delete:"):
+                            st.session_state[delete_key] = True
+
+                        # Confirmação de exclusão
+
+
+                        if st.session_state.get(delete_key, False):
+                            st.warning("Você tem certeza que deseja apagar essa anotação?")
+
+                            # Container horizontal para os dois botões
+                            botoes_confirmacao = st.container(horizontal=True)
+
+                            # Botão "Sim"
+                            if botoes_confirmacao.button("Sim, quero apagar", key=f"confirmar_delete_{container_key}", icon=":material/check:"):
+                                try:
+                                    anotacoes.pop(original_idx)
+                                    pessoas.update_one(
+                                        {"_id": ObjectId(pessoa["_id"])},
+                                        {"$set": {"anotacoes": anotacoes}}
+                                    )
+                                    st.success("Anotação apagada com sucesso!")
+                                    st.session_state[delete_key] = False
+
+                                except Exception as e:
+                                    st.error(f"Erro ao apagar anotação: {e}")
+                                    st.session_state[delete_key] = False
+
+                            # Botão "Não"
+                            if botoes_confirmacao.button("Não", key=f"cancelar_delete_{container_key}", icon=":material/close:"):
+                                st.session_state[delete_key] = False
+
+
+
+
+
+
+
+
+
+
+
+
+                        # if st.session_state.get(delete_key, False):
+                        #     linha_botoes.warning("Você tem certeza que deseja apagar essa anotação?")
+                        #     if linha_botoes.button("Sim, quero apagar", key=f"confirmar_delete_{container_key}", icon=":material/check:"):
+                        #         try:
+                        #             # Remove do array local
+                        #             anotacoes.pop(original_idx)
+                        #             # Atualiza no banco
+                        #             pessoas.update_one(
+                        #                 {"_id": ObjectId(pessoa["_id"])},
+                        #                 {"$set": {"anotacoes": anotacoes}}
+                        #             )
+                        #             st.success("Anotação apagada com sucesso!")
+                        #             st.session_state[delete_key] = False
+                        #         except Exception as e:
+                        #             st.error(f"Erro ao apagar anotação: {e}")
+                        #             st.session_state[delete_key] = False
+
+                        #     # Cancelamento da exclusão
+                        #     if linha_botoes.button("Não", key=f"cancelar_delete_{container_key}", icon=":material/close:"):
+                        #         st.session_state[delete_key] = False    
+
                     else:
+                        # Visualização normal
                         data_str = anotacao.get('data_anotacao', '')
                         if data_str:
                             data_str = data_str.split()[0]  # remove hora
@@ -1059,6 +1127,84 @@ def gerenciar_pessoas():
                         with col2:
                             st.write(f"**Autor:** {anotacao.get('autor', '')}")
                         st.write(anotacao.get("anotacao", ""))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            # for original_idx, _, anotacao in anotacoes_ordenadas:
+            #     container_key = f"anotacao_{pessoa['_id']}_{original_idx}"
+            #     toggle_key = f"toggle_edicao_anotacao_{container_key}"
+
+            #     with st.container(border=True):
+            #         modo_edicao = st.toggle("Editar", key=toggle_key, value=False)
+
+            #         if modo_edicao:
+            #             # Editar data (somente dd/mm/yyyy)
+            #             data_valor = anotacao.get("data_anotacao")
+            #             data_dt = datetime.date.today()
+            #             if isinstance(data_valor, str) and data_valor:
+            #                 try:
+            #                     # Pega apenas a parte da data, descarta hora
+            #                     data_dt = datetime.datetime.strptime(data_valor.split()[0], "%d/%m/%Y").date()
+            #                 except:
+            #                     pass
+
+
+            #             # Editar data           
+            #             nova_data = st.date_input(
+            #                 "Data da anotação",
+            #                 value=data_dt,
+            #                 format="DD/MM/YYYY",
+            #                 key=f"data_{container_key}", 
+            #                 width=150
+            #             )
+
+            #             # Editar texto
+            #             novo_texto = st.text_area(
+            #                 "Texto da anotação",
+            #                 value=anotacao.get("anotacao", ""),
+            #                 key=f"texto_{container_key}"
+            #             )
+
+            #             # Botão salvar
+            #             if st.button("Salvar alterações", key=f"salvar_{container_key}", icon=":material/save:"):
+            #                 anotacoes[original_idx]["data_anotacao"] = nova_data.strftime("%d/%m/%Y")
+            #                 anotacoes[original_idx]["anotacao"] = novo_texto.strip()
+            #                 pessoas.update_one(
+            #                     {"_id": ObjectId(pessoa["_id"])},
+            #                     {"$set": {"anotacoes": anotacoes}}
+            #                 )
+            #                 st.success("Anotação atualizada com sucesso!")
+
+            #         # Modo visualização
+            #         else:
+            #             data_str = anotacao.get('data_anotacao', '')
+            #             if data_str:
+            #                 data_str = data_str.split()[0]  # remove hora
+            #             col1, col2 = st.columns([1,3])
+            #             with col1:
+            #                 st.write(f"**Data:** {data_str}")
+            #             with col2:
+            #                 st.write(f"**Autor:** {anotacao.get('autor', '')}")
+            #             st.write(anotacao.get("anotacao", ""))
 
 
 
@@ -1583,9 +1729,16 @@ with aba_pessoas:
 
 
     # separa os nomes que estão na mesma célula por vírgula e transforma em linhas separadas
+
     df_explodido = df_pessoas_filtrado.assign(
-        **{'Projeto Pagador': df_pessoas_filtrado['Projeto Pagador'].str.split(',\s*')}
+        **{'Projeto Pagador': df_pessoas_filtrado['Projeto Pagador'].str.split(r',\s*')}
     ).explode('Projeto Pagador')
+
+
+
+    # df_explodido = df_pessoas_filtrado.assign(
+    #     **{'Projeto Pagador': df_pessoas_filtrado['Projeto Pagador'].str.split(',\s*')}
+    # ).explode('Projeto Pagador')
 
     # remove espaços extras
     df_explodido['Projeto Pagador'] = df_explodido['Projeto Pagador'].str.strip()
