@@ -129,6 +129,13 @@ dados_projetos_ispn = [projeto for projeto in dados_projetos_ispn if projeto["si
 # FUNÇÕES
 ######################################################################################################
 
+# Obter mês atual em português
+meses_pt = [
+    "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+]
+
+
 # Cargo
 opcoes_cargos = [
     "Analista de advocacy", "Analista de comunicação", "Analista de dados", "Analista Administrativo/Financeiro",
@@ -2275,11 +2282,7 @@ with aba_reajustes:
 
 
 
-    # Obter mês atual em português
-    meses_pt = [
-        "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-        "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
-    ]
+
     mes_atual_str = meses_pt[datetime.date.today().month - 1]
 
     st.markdown(f'<h3 style="font-size: 1.5em;">Contratos com reajuste em {mes_atual_str}:</h3>', unsafe_allow_html=True)
@@ -2316,3 +2319,35 @@ with aba_reajustes:
     if not encontrados:
         st.info("Nenhum contrato com reajuste no mês atual.")
 
+
+
+
+
+with aba_aniversariantes:
+
+    # Obter mês atual
+    mes_atual = datetime.date.today().month
+
+    st.markdown(f'<h3 style="font-size: 1.5em;">Aniversariantes do mês:</h3>', unsafe_allow_html=True)
+    st.write("")
+    st.write("")
+
+    encontrados = False  # Flag para saber se achou algum aniversariante
+
+    for pessoa in dados_pessoas:
+        nome = pessoa.get("nome_completo", "Sem nome")
+        data_nascimento_str = pessoa.get("data_nascimento", None)
+
+        if data_nascimento_str:
+            try:
+                # Converter string dd/mm/yyyy para datetime.date
+                data_nascimento = datetime.datetime.strptime(data_nascimento_str, "%d/%m/%Y").date()
+                if data_nascimento.month == mes_atual:
+                    st.write(f"**{nome}** - {data_nascimento.strftime('%d/%m')}")
+                    encontrados = True
+            except:
+                continue
+
+    if not encontrados:
+        st.info("Nenhum aniversariante encontrado neste mês.")
+    
