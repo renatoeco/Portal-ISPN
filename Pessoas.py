@@ -5,6 +5,8 @@ import datetime
 from bson import ObjectId
 import time
 from funcoes_auxiliares import conectar_mongo_portal_ispn
+import smtplib
+from email.mime.text import MIMEText
 
 # Configura a página do Streamlit para layout mais amplo
 st.set_page_config(layout="wide")
@@ -138,6 +140,81 @@ opcoes_cargos = [
 ]
 
 
+
+# Função para enviar e-mail de registro da previdência
+def enviar_email(destinatario: str, nome: str, valor_contribuicao: float) -> bool:
+    """
+    Envia um e-mail de notificação de contribuição à previdência.
+
+    Parâmetros:
+    - destinatario: e-mail do destinatário
+    - nome: nome do beneficiário
+    - valor_contribuicao: valor da contribuição (float)
+
+    Retorna:
+    - True se enviado com sucesso, False caso ocorra erro
+    """
+
+    # Dados de autenticação do secrets.toml
+    remetente = st.secrets["senhas"]["endereco_email"]
+    senha = st.secrets["senhas"]["senha_email"]
+
+    # Formata o valor da contribuição no padrão brasileiro
+    valor_str = format(valor_contribuicao, ",.2f").replace(",", "X").replace(".", ",").replace("X", ".")
+
+    # Assunto do e-mail
+    assunto = "Confirmação de Contribuição - Previdência Privada"
+
+    # Corpo HTML do e-mail
+
+    corpo = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Confirmação de Contribuição</title>
+    </head>
+    <body style="font-size: 16px; font-family: Arial, sans-serif; background-color: #ffffff; padding: 20px; color: #333;">
+
+        <!-- Cabeçalho com Logo -->
+        <div style="text-align: center; margin-bottom: 30px;">
+            <img src="https://ispn.org.br/site/wp-content/uploads/2021/04/logo_ISPN_2021.png"
+                alt="ISPN Logo"
+                style="max-width: 150px; margin-bottom: 40px; margin-top: 10px;">
+            <h3 style="color: #004d40;">Confirmação de Contribuição à Previdência Privada</h3>
+        </div>
+
+        <!-- Conteúdo principal -->
+        <br>
+        <p>Olá <strong>{nome}</strong>,</p>
+        <p>Sua contribuição à previdência privada foi registrada.</p>
+        <p>Sua próxima nota fiscal deve ser emitida com o <strong>valor adicional de R$ {valor_str}</strong>.</p>
+        <p>Att.</p>
+        <p>DP do ISPN</p>
+
+    </body>
+    </html>
+    """
+
+    # Cria a mensagem MIME
+    msg = MIMEText(corpo, "html", "utf-8")
+    msg["Subject"] = assunto
+    msg["From"] = remetente
+    msg["To"] = destinatario
+
+    # Tenta enviar via SMTP SSL
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(remetente, senha)
+            server.sendmail(remetente, destinatario, msg.as_string())
+        return True
+    except Exception as e:
+        st.error(f"Erro ao enviar e-mail: {e}")
+        return False
+
+
+
+
 # Define um diálogo (modal) para gerenciar colaboradores
 @st.dialog("Gerenciar colaboradores", width='large')
 def gerenciar_pessoas():
@@ -208,6 +285,8 @@ def gerenciar_pessoas():
         # Busca colaborador selecionado no banco
         pessoa = next((p for p in dados_pessoas if p["nome_completo"] == nome_selecionado), None)
         
+        # ????????????????
+        st.write(pessoa["e_mail"])
         
         # Cria abas
         aba_info, aba_contratos, aba_previdencia, aba_anotacoes  = st.tabs([":material/info: Informações gerais", ":material/contract: Contratos", ":material/finance_mode: Previdência", ":material/notes: Anotações"])
@@ -705,7 +784,7 @@ def gerenciar_pessoas():
 
 
 
-
+            st.write('')
             st.write('**Contratos:**')
 
 
@@ -848,108 +927,297 @@ def gerenciar_pessoas():
 
 
 
-        
+
 
         with aba_previdencia:
 
-            if pessoa:
-                previdencia = pessoa.get("previdencia", [])
-            else:
-                previdencia = []
+            # Obtém a lista de contribuições do banco, ou cria lista vazia se não existir
+            previdencia = pessoa.get("previdencia", []) if pessoa else []
 
-            # Criar lista de opções com apenas anotações do próprio usuário
-            opcoes = [
-                f'{p["data_contribuicao"].strftime("%d/%m/%Y") if isinstance(p["data_contribuicao"], datetime.datetime) else p["data_contribuicao"]} - {p["valor"]}'
-                for p in previdencia
-            ]
+            # Expander para adicionar nova contribuição -----------------------------------------------------------
+            with st.expander("Adicionar nova contribuição", expanded=True, icon=":material/add_circle:"):
 
-            # Sempre terá a opção de adicionar
-            opcoes_com_vazio = ["", "--Adicionar contribuição--"] + opcoes if opcoes else ["", "--Adicionar contribuição--"]
+                # Usa colunas para organizar campos lado a lado
+                cols = st.columns(2)
 
-            # Selecionar contribuição existente ou opção de adicionar
-            selecionada = st.selectbox(
-                "Selecione uma contribuição",
-                options=opcoes_com_vazio,
-                index=0,
-                key="select_box_previdencia"
-            )
+                # Campo para escolher data da contribuição, valor padrão é hoje
+                nova_data = cols[0].date_input(
+                    "Data da contribuição",
+                    value=datetime.date.today(),
+                    format="DD/MM/YYYY",
+                    key="data_nova_contribuicao"
+                )
 
-            # ============================
-            # Adicionar nova contribuição
-            # ============================
-            if selecionada == "--Adicionar contribuição--":
-                
-                valor_contribuicao = st.number_input("Valor da contribuição:", step=50, min_value=0)
+                # Campo para valor da contribuição com duas casas decimais, mínimo 0.0
+                valor_contribuicao = cols[1].number_input(
+                    "Valor subsidiado pelo ISPN",
+                    min_value=0.0,
+                    format="%.2f",
+                    key="valor_nova_contribuicao"
+                )
 
-                if st.button("Adicionar contribuição", icon=":material/check:"):
-                    if valor_contribuicao:
+                # Inicializa flag de controle se não existir
+                if "contribuicao_adicionada" not in st.session_state:
+                    st.session_state.contribuicao_adicionada = False
+
+                # Botão para adicionar contribuição
+                if st.button("Adicionar contribuição", icon=":material/savings:", key="botao_add_contribuicao"):
+                    if valor_contribuicao > 0:
+                        # Cria dicionário da nova contribuição formatando a data
                         nova_contribuicao = {
-                            "data_contribuicao": datetime.datetime.today().strftime("%d/%m/%Y"),
+                            "data_contribuicao": nova_data.strftime("%d/%m/%Y"),
                             "valor": valor_contribuicao,
                         }
-
-                        # Adiciona a nova contribuição à lista existente
                         previdencia.append(nova_contribuicao)
-
-                        # Atualiza no Mongo
                         pessoas.update_one(
                             {"_id": ObjectId(pessoa["_id"])},
                             {"$set": {"previdencia": previdencia}}
                         )
-
                         st.success("Nova contribuição adicionada com sucesso!")
-                        time.sleep(2)
-                        st.rerun()
+                        st.session_state.contribuicao_adicionada = True  # ativa o botão de enviar e-mail
+
+                # Mostrar quote e botão de enviar e-mail somente se a contribuição foi adicionada
+                if st.session_state.contribuicao_adicionada:
+
+
+                    pessoa_nome = pessoa.get("nome_completo", "Usuário").split()[0]
+                    valor_contribuicao_str = format(valor_contribuicao, ",.2f").replace(",", "X").replace(".", ",").replace("X", ".")
+
+                    st.write(f"Deseja enviar um email para **{pessoa_nome}** com a confirmação do registro e do valor?")
+
+
+                    st.markdown(f"""
+                    > Olá {pessoa_nome}. Sua contribuição à previdência privada foi registrada.  
+                    > Sua próxima nota fiscal deve ser emitida com o acréscimo de R$ {valor_contribuicao_str}.  
+                    > Att.  
+                    > DP do ISPN  
+                    """)
+
+                    # Botão de enviar e-mail
+                    if st.button("Enviar e-mail", key="botao_enviar_email_dialog", icon=":material/email:"):
+                        destinatario = pessoa.get("e_mail")
+                        nome = pessoa.get("nome_completo", "").split()[0]
+
+                        if not destinatario:
+                            st.warning("O e-mail do destinatário não está disponível.")
+                        else:
+                            try:
+                                enviar_email(destinatario, nome, valor_contribuicao)
+                                st.success(f"E-mail enviado com sucesso para {destinatario}!")
+                                st.session_state.contribuicao_adicionada = False  # opcional: desativa botão após envio
+                            except Exception as e:
+                                st.error(f"Erro ao enviar e-mail: {e}")
+
+
+
+
+
+
+
+        # with aba_previdencia:
+
+        #     # Obtém a lista de contribuições do banco, ou cria lista vazia se não existir
+        #     if pessoa:
+        #         previdencia = pessoa.get("previdencia", [])
+        #     else:
+        #         previdencia = []
+
+        #     # Expander para adicionar nova contribuição -----------------------------------------------------------
+        #     with st.expander("Adicionar nova contribuição", expanded=True, icon=":material/add_circle:"):
+
+        #         # Usa colunas para organizar campos lado a lado
+        #         cols = st.columns(2)
+
+        #         # Campo para escolher data da contribuição, valor padrão é hoje
+        #         nova_data = cols[0].date_input("Data da contribuição", value=datetime.date.today(), format="DD/MM/YYYY", key="data_nova_contribuicao")
+
+        #         # Campo para valor da contribuição com duas casas decimais, mínimo 0.0
+        #         valor_contribuicao = cols[1].number_input(
+        #             "Valor subsidiado pelo ISPN",
+        #             min_value=0.0,
+        #             format="%.2f",
+        #             key="valor_nova_contribuicao"
+        #         )
+
+        #         # Botão para adicionar contribuição
+        #         if st.button("Adicionar contribuição", icon=":material/savings:", key="botao_add_contribuicao"):
+        #             # Verifica se o valor é maior que zero
+        #             if valor_contribuicao > 0:
+        #                 # Cria dicionário da nova contribuição formatando a data
+        #                 nova_contribuicao = {
+        #                     "data_contribuicao": nova_data.strftime("%d/%m/%Y"),
+        #                     "valor": valor_contribuicao,
+        #                     # "usuario": usuario_logado
+        #                 }
+        #                 # Adiciona a nova contribuição à lista
+        #                 previdencia.append(nova_contribuicao)
+        #                 # Atualiza o registro no banco MongoDB
+        #                 pessoas.update_one(
+        #                     {"_id": ObjectId(pessoa["_id"])},
+        #                     {"$set": {"previdencia": previdencia}}
+        #                 )
+        #                 st.success("Nova contribuição adicionada com sucesso!")
+
+        #                 pessoa_nome = " ".join(pessoa["nome_completo"].split(" ")[:1])
+        #                 st.write(f"Deseja enviar um email para **{pessoa_nome}** com a nova contribuição?")
+
+        #                 valor_contribuicao_str = format(valor_contribuicao, ",.2f").replace(",", "X").replace(".", ",").replace("X", ".")
+
+        #                 st.markdown(f"""
+        #                 > Olá {pessoa_nome}. Sua contribuição à previdência privada foi registrada.  
+        #                 > Sua próxima nota fiscal deve ser emitida com o acréscimo de R$ {valor_contribuicao_str}.  
+        #                 > Att.  
+        #                 > DP do ISPN  
+        #                 """)
+
+        #                 if st.button("Enviar e-mail", key="botao_enviar_email", icon=":material/email:"):
+        #                     destinatario = pessoa(["e_mail"])
+        #                     nome = pessoa(['nome_completo'])
+                            
+        #                     # st.write(f"Destinatário: {destinatario}")
+        #                     # st.write(f"Nome: {nome}")
+        #                     # st.write(f"Valor da contribuição: {valor_contribuicao}")
+                            
+        #                     if not destinatario:
+        #                         st.warning("O e-mail do destinatário não está disponível.")
+        #                     else:
+        #                         try:
+        #                             enviar_email(destinatario, nome, valor_contribuicao)
+        #                             st.success(f"E-mail enviado com sucesso para {destinatario}!")
+        #                         except Exception as e:
+        #                             st.error(f"Erro ao enviar e-mail: {e}")
+
+
+        #             else:
+        #                 st.warning("O valor da contribuição deve ser maior que zero.")
+
+
+
+            # LISTA DE CONTRIBUIÇÕES  -------------------------------------------------------------------------------------
+            st.write("")
+            st.write("**Contribuições registradas:**")
+
+            # Prepara lista de contribuições com datas convertidas para ordenação
+            contrib_ordenadas = []
+            for idx, c in enumerate(previdencia):
+                data_str = c.get("data_contribuicao", "")
+                try:
+                    # Tenta converter string da data para datetime
+                    data_dt = datetime.datetime.strptime(data_str, "%d/%m/%Y")
+                except:
+                    # Em caso de erro, usa valor mínimo para ordenar no fim
+                    data_dt = datetime.datetime.min
+                contrib_ordenadas.append((idx, data_dt, c))
+            # Ordena contribuições por data da mais recente para a mais antiga
+            contrib_ordenadas.sort(key=lambda x: x[1], reverse=True)
+
+            # Para cada contribuição ordenada, cria um container próprio para visualização/edição
+            for original_idx, _, contribuicao in contrib_ordenadas:
+                # Keys únicas para controle dos widgets (toggle, botões)
+                container_key = f"contrib_{pessoa['_id']}_{original_idx}"
+                toggle_key = f"toggle_edicao_contribuicao_{container_key}"
+                delete_key = f"delete_confirm_{container_key}"
+
+                # Container com borda para destacar a contribuição
+                with st.container(border=True):
+                    # Toggle para alternar entre modo edição e visualização
+                    modo_edicao = st.toggle("Editar", key=toggle_key, value=False)
+
+
+                    # MODO EDIÇÃO DA CONTRIBUIÇÃO
+                    if modo_edicao:
+                        # Modo edição: campos editáveis para data e valor
+
+                        # Tenta converter string da data para tipo date, com fallback para hoje
+                        data_valor = contribuicao.get("data_contribuicao")
+                        data_dt = datetime.date.today()
+                        if isinstance(data_valor, str) and data_valor:
+                            try:
+                                data_dt = datetime.datetime.strptime(data_valor, "%d/%m/%Y").date()
+                            except:
+                                pass
+
+                        with st.container(horizontal=True):
+
+                            # Campo para editar data da contribuição
+                            nova_data = st.date_input(
+                                "Data da contribuição",
+                                value=data_dt,
+                                format="DD/MM/YYYY",
+                                key=f"data_{container_key}"
+                            )
+
+                            # Campo para editar valor da contribuição, valor inicial do registro atual
+                            novo_valor = st.number_input(
+                                "Valor subsidiado pelo ISPN",
+                                value=float(contribuicao.get("valor", 0)),
+                                min_value=0.0,
+                                format="%.2f",
+                                key=f"valor_{container_key}"
+                            )
+
+                        # Container horizontal para botões salvar e deletar
+                        linha_botoes = st.container(horizontal=True)
+
+                        # Botão para salvar alterações feitas
+                        if linha_botoes.button("Salvar alterações", key=f"salvar_{container_key}", icon=":material/save:"):
+                            # Atualiza os dados na lista
+                            previdencia[original_idx]["data_contribuicao"] = nova_data.strftime("%d/%m/%Y")
+                            previdencia[original_idx]["valor"] = novo_valor
+                            # Atualiza o banco de dados com as alterações
+                            pessoas.update_one(
+                                {"_id": ObjectId(pessoa["_id"])},
+                                {"$set": {"previdencia": previdencia}}
+                            )
+                            st.success("Contribuição atualizada com sucesso!")
+
+                        # Botão para iniciar processo de exclusão
+                        if linha_botoes.button("Deletar contribuição", key=f"deletar_{container_key}", icon=":material/delete:"):
+                            st.session_state[delete_key] = True
+
+                        # Se o usuário indicou que quer deletar, mostra confirmação
+                        if st.session_state.get(delete_key, False):
+                            st.warning("Você tem certeza que deseja apagar essa contribuição?")
+
+                            botoes_confirmacao = st.container(horizontal=True)
+
+                            # Botão confirma exclusão
+                            if botoes_confirmacao.button("Sim, quero apagar", key=f"confirmar_delete_{container_key}", icon=":material/check:"):
+                                try:
+                                    # Remove a contribuição da lista
+                                    previdencia.pop(original_idx)
+                                    # Atualiza o banco removendo-a
+                                    pessoas.update_one(
+                                        {"_id": ObjectId(pessoa["_id"])},
+                                        {"$set": {"previdencia": previdencia}}
+                                    )
+                                    st.success("Contribuição apagada com sucesso!")
+                                    st.session_state[delete_key] = False
+                                except Exception as e:
+                                    st.error(f"Erro ao apagar contribuição: {e}")
+                                    st.session_state[delete_key] = False
+
+                            # Botão cancela exclusão
+                            if botoes_confirmacao.button("Não", key=f"cancelar_delete_{container_key}", icon=":material/close:"):
+                                st.session_state[delete_key] = False
+
+
+                    # MODO VISUALIZAÇÃO DA CONTRIBUIÇÃO
                     else:
-                        st.warning("O campo do valor deve ser preenchido.")
-
-            # ============================
-            # Edição de contribuição existente
-            # ============================
-            elif selecionada:
-                index = opcoes.index(selecionada)  # posição na lista
-                contribuicao_atual = previdencia[index]
-
-                # Editar campos
-                data_atual = contribuicao_atual.get("data_contribuicao")
-                if isinstance(data_atual, str):
-                    try:
-                        data_atual = datetime.datetime.strptime(data_atual, "%d/%m/%Y")
-                    except:
-                        data_atual = datetime.datetime.today()
-
-                #st.divider()
-
-                novo_valor = st.number_input("Valor da contribuição", value=int(contribuicao_atual.get("valor", 0)), step=50, min_value=0)
-
-                col1, col2 = st.columns([2,1])
-
-                with col1:
-                    if st.button("Salvar edição", icon=":material/edit:", key="contribuicao_previdencia"):
-                        previdencia[index]["valor"] = novo_valor
-
-                        pessoas.update_one(
-                            {"_id": ObjectId(pessoa["_id"])},
-                            {"$set": {"previdencia": previdencia}}
-                        )
-
-                        st.success("Contribuição atualizada com sucesso!")
-                        time.sleep(2)
-                        st.rerun()
-
-                with col2:
-                    if st.button("Excluir contribuição", icon=":material/delete:"):
-                        previdencia.pop(index)
-                        pessoas.update_one(
-                            {"_id": ObjectId(pessoa["_id"])},
-                            {"$set": {"previdencia": previdencia}}
-                        )
-
-                        st.success("Contribuição excluída com sucesso!")
-                        time.sleep(2)
-                        st.rerun()
+                        # Modo visualização: exibe data, usuário e valor da contribuição organizados em colunas
+                        col1, col2 = st.columns([1, 3])
+                        with col1:
+                            st.write(f"**Data:** {contribuicao.get('data_contribuicao', '')}")
+                        with col2:
+                            st.write(f"**Valor:** R$ {format(contribuicao.get('valor', 0), ',.2f').replace(',', 'X').replace('.', ',').replace('X', '.')}")
 
 
+
+
+
+
+
+        # ABA ANOTAÇÕES -------------------------------------------------------------------------------------------------
         with aba_anotacoes:
 
             usuario_logado = st.session_state.get("nome", "Desconhecido")
@@ -985,6 +1253,7 @@ def gerenciar_pessoas():
 
 
             # ---------------- LISTA DE ANOTAÇÕES EXISTENTES ----------------
+            st.write('')
             st.write("**Anotações:**")
 
             # Ordena as anotações por data decrescente
@@ -1085,37 +1354,6 @@ def gerenciar_pessoas():
                                 st.session_state[delete_key] = False
 
 
-
-
-
-
-
-
-
-
-
-
-                        # if st.session_state.get(delete_key, False):
-                        #     linha_botoes.warning("Você tem certeza que deseja apagar essa anotação?")
-                        #     if linha_botoes.button("Sim, quero apagar", key=f"confirmar_delete_{container_key}", icon=":material/check:"):
-                        #         try:
-                        #             # Remove do array local
-                        #             anotacoes.pop(original_idx)
-                        #             # Atualiza no banco
-                        #             pessoas.update_one(
-                        #                 {"_id": ObjectId(pessoa["_id"])},
-                        #                 {"$set": {"anotacoes": anotacoes}}
-                        #             )
-                        #             st.success("Anotação apagada com sucesso!")
-                        #             st.session_state[delete_key] = False
-                        #         except Exception as e:
-                        #             st.error(f"Erro ao apagar anotação: {e}")
-                        #             st.session_state[delete_key] = False
-
-                        #     # Cancelamento da exclusão
-                        #     if linha_botoes.button("Não", key=f"cancelar_delete_{container_key}", icon=":material/close:"):
-                        #         st.session_state[delete_key] = False    
-
                     else:
                         # Visualização normal
                         data_str = anotacao.get('data_anotacao', '')
@@ -1127,87 +1365,6 @@ def gerenciar_pessoas():
                         with col2:
                             st.write(f"**Autor:** {anotacao.get('autor', '')}")
                         st.write(anotacao.get("anotacao", ""))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-            # for original_idx, _, anotacao in anotacoes_ordenadas:
-            #     container_key = f"anotacao_{pessoa['_id']}_{original_idx}"
-            #     toggle_key = f"toggle_edicao_anotacao_{container_key}"
-
-            #     with st.container(border=True):
-            #         modo_edicao = st.toggle("Editar", key=toggle_key, value=False)
-
-            #         if modo_edicao:
-            #             # Editar data (somente dd/mm/yyyy)
-            #             data_valor = anotacao.get("data_anotacao")
-            #             data_dt = datetime.date.today()
-            #             if isinstance(data_valor, str) and data_valor:
-            #                 try:
-            #                     # Pega apenas a parte da data, descarta hora
-            #                     data_dt = datetime.datetime.strptime(data_valor.split()[0], "%d/%m/%Y").date()
-            #                 except:
-            #                     pass
-
-
-            #             # Editar data           
-            #             nova_data = st.date_input(
-            #                 "Data da anotação",
-            #                 value=data_dt,
-            #                 format="DD/MM/YYYY",
-            #                 key=f"data_{container_key}", 
-            #                 width=150
-            #             )
-
-            #             # Editar texto
-            #             novo_texto = st.text_area(
-            #                 "Texto da anotação",
-            #                 value=anotacao.get("anotacao", ""),
-            #                 key=f"texto_{container_key}"
-            #             )
-
-            #             # Botão salvar
-            #             if st.button("Salvar alterações", key=f"salvar_{container_key}", icon=":material/save:"):
-            #                 anotacoes[original_idx]["data_anotacao"] = nova_data.strftime("%d/%m/%Y")
-            #                 anotacoes[original_idx]["anotacao"] = novo_texto.strip()
-            #                 pessoas.update_one(
-            #                     {"_id": ObjectId(pessoa["_id"])},
-            #                     {"$set": {"anotacoes": anotacoes}}
-            #                 )
-            #                 st.success("Anotação atualizada com sucesso!")
-
-            #         # Modo visualização
-            #         else:
-            #             data_str = anotacao.get('data_anotacao', '')
-            #             if data_str:
-            #                 data_str = data_str.split()[0]  # remove hora
-            #             col1, col2 = st.columns([1,3])
-            #             with col1:
-            #                 st.write(f"**Data:** {data_str}")
-            #             with col2:
-            #                 st.write(f"**Autor:** {anotacao.get('autor', '')}")
-            #             st.write(anotacao.get("anotacao", ""))
-
-
-
 
 
 
