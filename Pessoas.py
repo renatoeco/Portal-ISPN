@@ -2269,3 +2269,50 @@ with aba_contratos:
 
 
 
+
+
+with aba_reajustes:
+
+
+
+    # Obter mês atual em português
+    meses_pt = [
+        "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+        "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+    ]
+    mes_atual_str = meses_pt[datetime.date.today().month - 1]
+
+    st.markdown(f'<h3 style="font-size: 1.5em;">Contratos com reajuste em {mes_atual_str}:</h3>', unsafe_allow_html=True)
+    st.write(f"")
+    st.write(f"")
+
+    encontrados = False  # Flag para saber se achou algum contrato
+
+    for pessoa in dados_pessoas:
+        nome = pessoa.get("nome_completo", "Sem nome")
+        contratos = pessoa.get("contratos", [])
+
+        # Filtrar contratos "Em vigência" com reajuste no mês atual
+        contratos_reajuste = [
+            c for c in contratos
+            if c.get("status_contrato") == "Em vigência" and c.get("data_reajuste") == mes_atual_str
+        ]
+
+        for contrato in contratos_reajuste:
+            projetos_ids = contrato.get("projeto_pagador", [])
+            if projetos_ids:
+                for projeto_id in projetos_ids:
+                    projeto = next(
+                        (p for p in dados_projetos_ispn if p["_id"] == projeto_id),
+                        None
+                    )
+                    if projeto:
+                        st.write(f"**{nome}** - {projeto.get('sigla', projeto.get('nome_do_projeto',''))}")
+                        encontrados = True
+            else:
+                st.write(f"**{nome}** - Projeto pagador não informado")
+                encontrados = True
+
+    if not encontrados:
+        st.info("Nenhum contrato com reajuste no mês atual.")
+
