@@ -49,17 +49,19 @@ moedas = {
 }
 
 
-
-# Função para limpar e formatar o valor com notação de moeda
+# Função para limpar e formatar o valor com notação de moeda (duas casas decimais)
 def formatar_valor(row):
     moeda = moedas.get(row['moeda'].lower(), '')
     try:
         valor = row['valor'] if row['valor'] else 0
+        # Converter string brasileira para float
         valor_num = float(str(valor).replace('.', '').replace(',', '.'))
-        valor_formatado = f"{valor_num:,.0f}".replace(",", ".")
+        # Formatar com ponto como separador de milhares e vírgula para decimais
+        valor_formatado = f"{valor_num:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
         return f"{moeda} {valor_formatado}"
     except:
-        return f"{moeda} 0"
+        return f"{moeda} 0,00"
+
 
 
 # Converter objectid para string
@@ -188,8 +190,6 @@ with tab1:
 
    
     # Filtro de ano de início
-    # Converter para datetime
-    # df_projetos_ispn['data_inicio_contrato'] = pd.to_datetime(df_projetos_ispn['data_inicio_contrato'])
     # Pegar o menor e maior anos
     anos_disponiveis_inicio = sorted(df_projetos_ispn['data_inicio_contrato'].dt.year.unique())        
     anos_disponiveis_inicio = [ano for ano in anos_disponiveis_inicio if not pd.isna(ano)]        # Remove anos vazios
@@ -201,8 +201,6 @@ with tab1:
     ano_inicio_selecionado = col4.selectbox("Vigentes entre", options=anos_disponiveis_inicio, index=0, key="ano_inicio")
 
     # Filtro de ano de fim
-    # Converter para datetime
-    # df_projetos_ispn['data_fim_contrato'] = pd.to_datetime(df_projetos_ispn['data_fim_contrato'])
     # Pegar o menor e maior anos
     anos_disponiveis_fim = sorted(df_projetos_ispn['data_fim_contrato'].dt.year.unique())        
     anos_disponiveis_fim = [ano for ano in anos_disponiveis_fim if not pd.isna(ano)]        # Remove anos vazios
@@ -380,11 +378,135 @@ with tab1:
 with tab2:
     st.write('')
 
+
+    container_selecao = st.container(horizontal=True, horizontal_alignment='distribute')
+
     # Seleção do projeto
     projetos_selectbox = [""] + sorted(df_projetos_ispn["sigla"].unique().tolist())
-    projeto_selecionado = st.selectbox('Selecione o projeto', projetos_selectbox, width=300)
+    projeto_selecionado = container_selecao.selectbox('Selecione um projeto', projetos_selectbox, width=300)
 
 
+
+    # Botão para cadastrar projeto ------------------------------------
+
+    # Função do diálogo
+    @st.dialog("Cadastrar novo projeto")
+    def dialog_cadastrar_projeto(): 
+
+        # Aumentar largura do diálogo
+        st.html("<span class='big-dialog'></span>")
+
+        with st.form("form_cadastrar_projeto"):
+            # --- Colunas ---
+            col1, col2, col3 = st.columns([1,1,1])
+
+            # --- Código ---
+            codigo = col1.text_input("Código", value="")
+
+            # --- Sigla ---
+            sigla = col2.text_input("Sigla", value="")
+
+            # --- Nome do projeto ---
+            nome_do_projeto = col3.text_input("Nome do Projeto", value="")
+
+            # --- Moeda ---
+            moeda_options = ["", "Dólares", "Reais", "Euros"]
+            moeda = col1.selectbox("Moeda", options=moeda_options, index=0)
+
+            # --- Valor ---
+            valor = col2.number_input("Valor", value=0.00, step=0.01, min_value=0.0, format="%.2f")
+
+            # --- Contrapartida ---
+            contrapartida = col3.number_input("Contrapartida", value=0.00, step=0.01, min_value=0.0, format="%.2f")
+
+            # --- Coordenador ---
+            coordenador_options = [""] + df_pessoas["_id"].astype(str).tolist()
+            coordenador = col1.selectbox(
+                "Coordenador",
+                options=coordenador_options,
+                format_func=lambda x: "" if x=="" else df_pessoas.loc[df_pessoas["_id"].astype(str)==x, "nome_completo"].values[0],
+                index=0
+            )
+
+            # --- Doador ---
+            doador_options = [""] + list(mapa_doador.keys())
+            doador = col2.selectbox(
+                "Doador",
+                options=doador_options,
+                format_func=lambda x: "" if x=="" else mapa_doador[x],
+                index=0
+            )
+
+            # --- Programa / Área ---
+            programa_options = [""] + list(mapa_programa.keys())
+            programa = col3.selectbox(
+                "Programa / Área",
+                options=programa_options,
+                format_func=lambda x: "" if x=="" else mapa_programa[x],
+                index=0
+            )
+
+            # --- Status ---
+            status_options = ["", "Em andamento", "Finalizado", "Pausado"]
+            status = col1.selectbox("Status", options=status_options, index=0)
+
+            # --- Datas ---
+            data_inicio = col2.date_input("Data Início", value=datetime.date.today(), format="DD/MM/YYYY")
+            data_fim = col3.date_input("Data Fim", value=datetime.date.today(), format="DD/MM/YYYY")
+
+            # --- Objetivo Geral ---
+            objetivo_geral = st.text_area("Objetivo Geral", value="")
+            st.write('')
+
+            # --- Botão de salvar ---
+            submit = st.form_submit_button("Cadastrar", icon=":material/save:", width=200, type="primary")
+            if submit:
+                # --- Validar unicidade de sigla e código ---
+                sigla_existente = (df_projetos_ispn["sigla"] == sigla).any()
+                codigo_existente = (df_projetos_ispn["codigo"] == codigo).any()
+
+                if sigla_existente:
+                    st.warning(f"A sigla '{sigla}' já está cadastrada em outro projeto. Escolha outra.")
+                elif codigo_existente:
+                    st.warning(f"O código '{codigo}' já está cadastrado em outro projeto. Escolha outro.")
+                else:
+                    # --- Criar ObjectIds ---
+                    projeto_id = bson.ObjectId()
+                    coordenador_objid = bson.ObjectId(coordenador) if coordenador else None
+                    doador_objid = bson.ObjectId(doador) if doador else None
+                    programa_objid = bson.ObjectId(programa) if programa else None
+
+                    # --- Montar documento ---
+                    doc = {
+                        "_id": projeto_id,
+                        "codigo": codigo,
+                        "sigla": sigla,
+                        "nome_do_projeto": nome_do_projeto,
+                        "moeda": moeda,
+                        "valor": float_to_br(valor),
+                        "valor_da_contrapartida_em_r$": float_to_br(contrapartida),
+                        "coordenador": coordenador_objid,
+                        "doador": doador_objid,
+                        "programa": programa_objid,
+                        "status": status,
+                        "data_inicio_contrato": data_inicio.strftime("%d/%m/%Y"),
+                        "data_fim_contrato": data_fim.strftime("%d/%m/%Y"),
+                        "objetivo_geral": objetivo_geral
+                    }
+
+                    # --- Inserir no MongoDB ---
+                    projetos_ispn.insert_one(doc)
+                    st.success("Projeto cadastrado com sucesso!")
+                    time.sleep(2)
+                    st.rerun()
+
+    # Botão para cadastrar projeto
+    if container_selecao.button("Cadastrar projeto", icon=":material/add:", width=300):
+        dialog_cadastrar_projeto()
+
+
+
+    # Carrega informações do projeto
     projeto_info = df_projetos_ispn.loc[df_projetos_ispn["sigla"] == projeto_selecionado]
 
 
@@ -419,9 +541,6 @@ with tab2:
 
                 with st.form("form_editar_projeto"):
 
-
-
-
                     col1, col2 = st.columns(2)
                     
                     
@@ -436,9 +555,7 @@ with tab2:
 
 
 
-
                     col1, col2, col3 = st.columns(3)
-
 
                     # Status
                     status_options = ["", "Em andamento", "Finalizado", "Pausado"]
@@ -458,14 +575,14 @@ with tab2:
                     data_inicio = col2.date_input(
                         "Data Início",
                         value=pd.to_datetime(projeto_info.get("data_inicio_contrato"), format="%d/%m/%Y", errors="coerce").date()
-                        if projeto_info.get("data_inicio_contrato") else datetime.date.today(),
+                        if projeto_info.get("data_inicio_contrato") else "datetime.date.today()",
                         format="DD/MM/YYYY"
                     )
 
                     data_fim = col3.date_input(
                         "Data Fim",
                         value=pd.to_datetime(projeto_info.get("data_fim_contrato"), format="%d/%m/%Y", errors="coerce").date()
-                        if projeto_info.get("data_fim_contrato") else datetime.date.today(),
+                        if projeto_info.get("data_fim_contrato") else "datetime.date.today()",
                         format="DD/MM/YYYY"
                     )
 
@@ -537,52 +654,53 @@ with tab2:
                         "Objetivo Geral",
                         value=str(projeto_info.get("objetivo_geral", "")) if pd.notna(projeto_info.get("objetivo_geral")) else ""
                     )
+                    st.write('')
 
                     # Botão de salvar
-                    submit = st.form_submit_button("Salvar", icon=":material/save:", type="primary")
+                    submit = st.form_submit_button("Salvar", icon=":material/save:", type="primary", width=200)
                     if submit:
                         # Converter coordenador, doador e programa para ObjectId antes de salvar
                         coordenador_objid = bson.ObjectId(coordenador) if coordenador else None
                         doador_objid = bson.ObjectId(doador) if doador else None
                         programa_objid = bson.ObjectId(programa) if programa else None
 
-                        update_doc = {
-                            "codigo": codigo,
-                            "sigla": sigla,
-                            "nome_do_projeto": nome_do_projeto,
-                            "moeda": moeda,
-                            "valor": float_to_br(valor),  # garante string no formato brasileiro
-                            "valor_da_contrapartida_em_r$": float_to_br(contrapartida),
-                            "coordenador": coordenador_objid,
-                            "doador": doador_objid,
-                            "programa": programa_objid,
-                            "status": status,
-                            "data_inicio_contrato": data_inicio.strftime("%d/%m/%Y"),
-                            "data_fim_contrato": data_fim.strftime("%d/%m/%Y"),
-                            "objetivo_geral": objetivo_geral
-                        }
 
-                        # Atualizar no MongoDB
-                        projetos_ispn.update_one({"_id": projeto_info["_id"]}, {"$set": update_doc})
-                        st.success("Projeto atualizado com sucesso!")
+                        # Checar duplicidade de sigla
+                        sigla_existente = ((df_projetos_ispn["sigla"] == sigla) & (df_projetos_ispn["_id"] != projeto_info["_id"])).any()
 
-                        # Espera 3 segundos e recarrega a página
-                        time.sleep(3)
-                        st.rerun()
+                        # Checar duplicidade de código
+                        codigo_existente = ((df_projetos_ispn["codigo"] == codigo) & (df_projetos_ispn["_id"] != projeto_info["_id"])).any()
 
+                        if sigla_existente:
+                            st.warning(f"A sigla '{sigla}' já está cadastrada em outro projeto. Escolha outra.")
+                        elif codigo_existente:
+                            st.warning(f"O código '{codigo}' já está cadastrado em outro projeto. Escolha outro.")
+                        else:
+                            # Se não houver duplicidade, salva no banco
+                            update_doc = {
+                                "codigo": codigo,
+                                "sigla": sigla,
+                                "nome_do_projeto": nome_do_projeto,
+                                "moeda": moeda,
+                                "valor": float_to_br(valor),
+                                "valor_da_contrapartida_em_r$": float_to_br(contrapartida),
+                                "coordenador": coordenador_objid,
+                                "doador": doador_objid,
+                                "programa": programa_objid,
+                                "status": status,
+                                "data_inicio_contrato": data_inicio.strftime("%d/%m/%Y"),
+                                "data_fim_contrato": data_fim.strftime("%d/%m/%Y"),
+                                "objetivo_geral": objetivo_geral
+                            }
 
-
-
-
+                            projetos_ispn.update_one({"_id": projeto_info["_id"]}, {"$set": update_doc})
+                            st.success("Projeto atualizado com sucesso!")
+                            time.sleep(3)
+                            st.rerun()
 
 
             # with st.container(horizontal=True):
             st.button('Gerenciar projeto', width=300, icon=":material/contract_edit:", on_click=dialog_editar_projeto)
-
-
-
-
-
 
 
 
@@ -726,13 +844,7 @@ with tab2:
             hide_index=True
         )
 
-
-
-
     st.write('')
-
-
-
 
 
 
@@ -916,7 +1028,4 @@ with tab2:
     else:
         st.write("_Não há anotações cadastradas para este projeto._")
 
-
-
-
-
+        
