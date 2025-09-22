@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import time
+import re
 from funcoes_auxiliares import conectar_mongo_portal_ispn
 
 
@@ -16,6 +17,25 @@ st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
 
 db = conectar_mongo_portal_ispn()
 redes = db["redes_articulacoes"]
+pessoas = db["pessoas"]
+
+
+######################################################################################################
+# CSS PARA DIALOGO MAIOR
+######################################################################################################
+
+
+st.markdown(
+    """
+<style>
+div[data-testid="stDialog"] div[role="dialog"]:has(.big-dialog) {
+    width: 60vw;
+    
+}
+</style>
+""",
+    unsafe_allow_html=True,
+)
 
 
 ######################################################################################################
@@ -25,21 +45,133 @@ redes = db["redes_articulacoes"]
 
 @st.dialog("Detalhes da rede", width="large")
 def mostrar_detalhes(rede_doc):
+    st.html("<span class='big-dialog'></span>")
     st.subheader(rede_doc.get("rede_articulacao", ""))
     tabs = st.tabs([":material/info: Informações gerais", ":material/notes: Anotações"])
 
+    # =====================
     # Aba 1: Informações gerais
+    # =====================
     with tabs[0]:
-        st.write("**Rede/Articulação**", rede_doc.get("rede_articulacao", ""))
-        st.write("**Tema:**", rede_doc.get("tema", ""))
-        st.write("**Ponto Focal:**", rede_doc.get("ponto_focal", ""))
-        st.write("**Grau de Prioridade:**", rede_doc.get("prioridade", ""))
-        st.write("**Dedicação:**", rede_doc.get("dedicacao", ""))
-        st.write("**Programa:**", rede_doc.get("programa", ""))
+        modo_edicao = st.toggle("Editar", value=False)
+
+        if not modo_edicao:
+            # Exibição simples
+
+            col1, col2, col3 = st.columns(3)
+
+            col1.write(f"**Rede/Articulação:** {rede_doc.get('rede_articulacao', '')}")
+            col2.write(f"**Ponto Focal:** {rede_doc.get('ponto_focal', '')}")
+            col3.write(f"**Tema:** {rede_doc.get('tema', '')}")
+
+            col1, col2, col3 = st.columns(3)
+
+            col1.write(f"**Grau de Prioridade:** {rede_doc.get('prioridade', '')}")
+            col2.write(f"**Dedicação:** {rede_doc.get('dedicacao', '')}")
+            col3.write(f"**Programa:** {rede_doc.get('programa', '')}")
+
+
+        else:
+            # =====================
+            # Opções dinâmicas do banco
+            # =====================
+            # Opções únicas nos campos correspondentes
+            prioridades_opcoes = sorted({r.get("prioridade") for r in redes.find() if r.get("prioridade")})
+            dedicacao_opcoes = sorted({r.get("dedicacao") for r in redes.find() if r.get("dedicacao")})
+
+            # Explode direto dos temas (sem DataFrame)
+            temas_opcoes = sorted({
+                t.strip()
+                for r in redes.find()
+                if r.get("tema")
+                for t in re.split(r",|;", r.get("tema"))
+                if t.strip()
+            })
+
+            # Pessoas (campo nome_completo)
+            pessoas_opcoes = sorted({p.get("nome_completo") for p in pessoas.find() if p.get("nome_completo")})
+
+            # Programas fixos
+            programas_opcoes = [
+                "",
+                "Cerrado",
+                "Coordenação",
+                "Iniciativas Comunitárias",
+                "Maranhão",
+                "Povos Indígenas",
+                "Sociobiodiversidade",
+            ]
+
+            # =====================
+            # Campos editáveis
+            # =====================
+
+            rede_edit = st.text_input("Rede/Articulação", value=rede_doc.get("rede_articulacao", ""))
+
+            col1, col2 = st.columns([1.5,2])
+
+            ponto_focal_edit = col1.selectbox(
+                "Ponto Focal",
+                options=pessoas_opcoes,
+                index=pessoas_opcoes.index(rede_doc.get("ponto_focal")) if rede_doc.get("ponto_focal") in pessoas_opcoes else 0,
+            )
+
+            temas_default = [
+                t.strip()
+                for t in re.split(r",|;", rede_doc.get("tema", ""))
+                if t.strip() and t.strip() in temas_opcoes
+            ]
+
+            temas_selecionados = col2.multiselect(
+                "Temas",
+                options=temas_opcoes,
+                default=temas_default,   # só usa valores que estão realmente nas opções
+            )
+
+            col1, col2, col3 = st.columns(3)
+
+            prioridade_edit = col1.selectbox(
+                "Grau de Prioridade",
+                options=prioridades_opcoes,
+                index=prioridades_opcoes.index(rede_doc.get("prioridade")) if rede_doc.get("prioridade") in prioridades_opcoes else 0,
+            )
+
+            dedicacao_edit = col2.selectbox(
+                "Dedicação",
+                options=dedicacao_opcoes,
+                index=dedicacao_opcoes.index(rede_doc.get("dedicacao")) if rede_doc.get("dedicacao") in dedicacao_opcoes else 0,
+            )
+
+            programa_edit = col3.selectbox(
+                "Programa",
+                options=programas_opcoes,
+                index=programas_opcoes.index(rede_doc.get("programa")) if rede_doc.get("programa") in programas_opcoes else 0,
+            )
+
+            st.write("")
+
+            if st.button("Salvar alterações", icon=":material/check:"):
+                redes.update_one(
+                    {"_id": rede_doc["_id"]},
+                    {
+                        "$set": {
+                            "rede_articulacao": rede_edit,
+                            "tema": ", ".join(temas_selecionados),
+                            "ponto_focal": ponto_focal_edit,
+                            "prioridade": prioridade_edit,
+                            "dedicacao": dedicacao_edit,
+                            "programa": programa_edit,
+                        }
+                    },
+                )
+                st.success("Alterações salvas com sucesso!")
+                time.sleep(2)
+                st.rerun()
 
     # Aba 2: Anotações
     with tabs[1]:
         usuario_logado = st.session_state.get("nome", "Desconhecido")
+        tipo_usuario = st.session_state.get("tipo_usuario", "")
         anotacoes = rede_doc.get("anotacoes") or []
 
         # ---------------- EXPANDER PARA ADICIONAR ANOTAÇÃO ----------------
@@ -59,8 +191,7 @@ def mostrar_detalhes(rede_doc):
                         {"$push": {"anotacoes": nova_entry}}
                     )
                     st.success("Anotação salva com sucesso.")
-                    time.sleep(2)
-                    st.rerun()
+                    
                 else:
                     st.warning("O campo da anotação não pode estar vazio.")
 
@@ -89,7 +220,15 @@ def mostrar_detalhes(rede_doc):
             delete_key = f"delete_confirm_{container_key}"
 
             with st.container(border=True):
-                modo_edicao = st.toggle("Editar", key=toggle_key, value=False)
+                # Só mostra o toggle "Editar" se for autor OU admin
+                pode_editar = (
+                    anotacao.get("autor_anotacao") == usuario_logado
+                )
+
+                if pode_editar:
+                    modo_edicao = st.toggle("Editar", key=toggle_key, value=False)
+                else:
+                    modo_edicao = False  # força visualização para outros usuários
 
                 if modo_edicao:
                     # Data (apenas exibe já formatada)
@@ -114,16 +253,16 @@ def mostrar_detalhes(rede_doc):
                             {"$set": {"anotacoes": anotacoes}}
                         )
                         st.success("Anotação atualizada.")
-                        time.sleep(2)
-                        st.rerun()
 
                     if botoes.button("Deletar anotação", key=f"deletar_{container_key}", icon=":material/delete:"):
                         st.session_state[delete_key] = True
 
                     if st.session_state.get(delete_key, False):
                         st.warning("Tem certeza que deseja apagar esta anotação?")
-                        colA, colB = st.columns(2)
-                        if colA.button("Sim", key=f"confirmar_delete_{container_key}"):
+
+                        botoes_confirmacao = st.container(horizontal=True)
+
+                        if botoes_confirmacao.button("Sim", key=f"confirmar_delete_{container_key}", icon=":material/check:"):
                             anotacoes.pop(original_idx)
                             redes.update_one(
                                 {"_id": rede_doc["_id"]},
@@ -131,9 +270,8 @@ def mostrar_detalhes(rede_doc):
                             )
                             st.success("Anotação apagada com sucesso.")
                             st.session_state[delete_key] = False
-                            time.sleep(2)
-                            st.rerun()
-                        if colB.button("Não", key=f"cancelar_delete_{container_key}"):
+
+                        if botoes_confirmacao.button("Não", key=f"cancelar_delete_{container_key}", icon=":material/close:"):
                             st.session_state[delete_key] = False
 
                 else:
@@ -199,7 +337,7 @@ programas_unicos = (df_redes["Programa"].dropna().astype(str).str.split(",").exp
 )
 
 # --- Filtros ---
-with st.expander("Filtros", expanded=True, icon=":material/filter_alt:"):
+with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
     colf1, colf2, colf3, colf4, colf5 = st.columns(5)
     
     rede_sel = colf1.multiselect(
@@ -308,7 +446,7 @@ colunas_visiveis = list(df_exibir.columns)
 headers = colunas_visiveis + ["Detalhes"]
 
 # Ajuste dos tamanhos de coluna (ponto focal mais estreito)
-col_sizes = [3, 3, 2, 1, 1, 2]
+col_sizes = [3, 3, 1, 1, 2, 2]
 
 # Cabeçalho
 header_cols = st.columns(col_sizes)
