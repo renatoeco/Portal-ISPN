@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import altair as alt
 import plotly.express as px
+import numpy as np
 import random
 import time
 from bson import ObjectId
@@ -130,23 +131,6 @@ df["nome_doador"] = df["doador"].map(mapa_doador)
 df["programa_nome"] = df["programa"].map(mapa_programa)
 
 
-# dados = list(cursor)
-# df = pd.DataFrame(dados)
-
-# Cotações
-cotacoes = {
-    "Dólar": 5.54,
-    "Dólares": 5.54,
-    "Euro": 6.40,
-    "Euros": 6.40,
-    "Real": 1.0,
-    "Reais": 1.0
-}
-
-
-def converter_para_brl(valor, moeda):
-    taxa = cotacoes.get(moeda, 1.0)
-    return valor * taxa
 
 # Conversão e limpeza do valor
 df["valor"] = (
@@ -157,14 +141,15 @@ df["valor"] = (
 )
 df["valor"] = pd.to_numeric(df["valor"], errors="coerce")
 
-# Preencha moeda com "Reais" se estiver vazia
-df["moeda"] = df.get("moeda", "Reais").fillna("Reais")
+# >>> Formatar Valor com base na moeda <<<
+def formatar_valor(row):
+    if pd.isna(row["valor"]):
+        return ""
+    simbolo = "R$" if row["moeda"] == "Reais" else "US$"
+    return f"{simbolo} {row['valor']:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
-# Converta para BRL
-df["valor_brl"] = df.apply(lambda x: converter_para_brl(x["valor"], x["moeda"]), axis=1)
+df["Valor"] = df.apply(formatar_valor, axis=1)
 
-# Formato brasileiro: R$ 1.234,56 
-df["valor_brl_str"] = df["valor_brl"].apply(lambda x: f'R$ {x:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.'))
 
 df["tipo_de_doador"] = df["tipo_de_doador"].str.capitalize()
 
@@ -177,10 +162,18 @@ with tab1:
     df["Início"] = pd.to_datetime(df["data_inicio_contrato"], errors="coerce", format="%d/%m/%Y")
     df["Fim"] = pd.to_datetime(df["data_fim_contrato"], errors="coerce", format="%d/%m/%Y")
 
-    # Extrair anos válidos (como inteiros)
-    anos_inicio = df["Início"].dropna().dt.year.astype(int).unique()
-    anos_fim = df["Fim"].dropna().dt.year.astype(int).unique()
-    anos_disponiveis = sorted(set(anos_inicio) | set(anos_fim))
+    # Pegar menor e maior anos
+    anos_inicio = df["Início"].dropna().dt.year.astype(int)
+    anos_fim = df["Fim"].dropna().dt.year.astype(int)
+
+    if not anos_inicio.empty and not anos_fim.empty:
+        menor_ano = min(anos_inicio.min(), anos_fim.min())
+        maior_ano = max(anos_inicio.max(), anos_fim.max())
+
+        # Faz um range contínuo
+        anos_disponiveis = list(range(menor_ano, maior_ano + 1))
+    else:
+        anos_disponiveis = []
 
     # Selectboxes dinâmicos
     col1, col2, col3 = st.columns(3)
@@ -197,91 +190,113 @@ with tab1:
         (df["Fim"].dt.year >= ano_inicio)     # terminou depois ou durante o intervalo
     ].copy()
 
-    # Agrupar por doador
-    resumo = df_filtrado.groupby(["nome_doador", "tipo_de_doador"], as_index=False).agg({
-        "valor_brl": "sum",
+    # Depois do groupby:
+    resumo = df_filtrado.groupby(
+        ["nome_doador", "tipo_de_doador", "moeda"], as_index=False
+    ).agg({
+        "valor": "sum",
         "_id": "count"
     }).rename(columns={
         "nome_doador": "Doador",
         "tipo_de_doador": "Tipo de Doador",
-        "valor_brl": "Valor",
-        "_id": "Número de projetos"
+        "valor": "ValorNum",
+        "_id": "Número de projetos",
+        "moeda": "Moeda"
     })
+
+    # Coluna formatada apenas para exibição
+    def formatar_valor_resumo(row):
+        simbolo = "R$" if row["Moeda"] == "Reais" else "US$"
+        return f"{simbolo} {row['ValorNum']:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
     # Gerar cores únicas por doador
     def gerar_cor():
         return "#{:06x}".format(random.randint(0, 0xFFFFFF))
+    
     resumo["Cor"] = [gerar_cor() for _ in range(len(resumo))]
 
-    # Formatar valores em reais
-    resumo["Valor_br"] = resumo["Valor"].apply(
-        lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    resumo["Valor"] = resumo.apply(formatar_valor_resumo, axis=1)
+
+    col1, col2 = st.columns([1,2])
+
+    # Pega todos os doadores que têm projetos no período filtrado
+    doadores_filtrados = sorted(df_filtrado["nome_doador"].dropna().unique())
+
+    # Ajusta singular/plural
+    texto = "doador com projeto(s)" if len(doadores_filtrados) == 1 else "doadores com projeto(s)"
+    col1.subheader(f'{len(doadores_filtrados)} {texto}')
+
+
+    st.dataframe(resumo[["Doador", "Tipo de Doador", "Número de projetos", "Valor"]], hide_index=True)
+
+    st.write("")
+    st.write("")
+    st.write("")
+    
+    
+
+    cores_dict = dict(zip(resumo["Doador"], resumo["Cor"]))
+    # Criar um deslocamento pequeno aleatório para o eixo x
+    np.random.seed(62)  # para reproducibilidade
+    resumo["x_jitter"] = resumo["Número de projetos"] + np.random.uniform(-0.2, 0.2, size=len(resumo))
+
+    fig = px.scatter(
+        resumo,
+        x="x_jitter",
+        y="ValorNum",
+        size="ValorNum",
+        color="Doador",
+        hover_name="Doador",
+        hover_data={"Número de projetos": True, "ValorNum": False},
+        size_max=90
     )
 
-    st.dataframe(resumo.drop(columns=["Cor"]), hide_index=True)
-
-    st.write("")
-    st.write("")
-    st.write("")
-
-    # Gráfico com Altair
-    chart = alt.Chart(resumo).mark_circle(size=150).encode(
-        x=alt.X(
-            'Número de projetos:Q',
-            title='Número de Projetos',
-            axis=alt.Axis(format='d')
-        )
-        ,
-        y=alt.Y(
-            'Valor:Q',
-            title='Valor (R$)',
-            axis=alt.Axis(format=",.2f")
-        ),
-        size=alt.Size('Valor', legend=None),
-        color=alt.Color('Doador:N', scale=alt.Scale(domain=resumo['Doador'], range=resumo['Cor'])),
-        tooltip=[
-            'Doador',
-            alt.Tooltip('Valor_br', type='nominal', title='Valor'),
-            'Número de projetos'
-        ]
-    ).properties(
-        width=700,
-        height=500,
-        title='Doadores x Número de projetos e Valores'
+    # títulos dos eixos
+    fig.update_layout(
+        xaxis_title="Número de Projetos",
+        yaxis_title="Valor",
+        legend_title_text="Doador"
     )
 
-    st.altair_chart(chart, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True)
 
     st.write("")
     st.write("")
     st.write("")
 
     # Gráfico de pizza por tipo de doador
-    tipo_valor = resumo.groupby("Tipo de Doador", as_index=False)["Valor"].sum()
-    tipo_valor["Porcentagem"] = (tipo_valor["Valor"] / tipo_valor["Valor"].sum()) * 100
-    tipo_valor["Valor_br"] = tipo_valor["Valor"].apply(
+    tipo_valor = resumo.groupby("Tipo de Doador", as_index=False)["ValorNum"].sum()
+    tipo_valor["Porcentagem"] = (tipo_valor["ValorNum"] / tipo_valor["ValorNum"].sum()) * 100
+
+    # coluna formatada só para exibir:
+    tipo_valor["Valor_fmt"] = tipo_valor["ValorNum"].apply(
         lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
     )
 
+
     pie_chart = alt.Chart(tipo_valor).mark_arc().encode(
-        theta=alt.Theta(field="Valor", type="quantitative"),
+        theta=alt.Theta(field="ValorNum", type="quantitative"),  # usa numérico
         color=alt.Color(field="Tipo de Doador", type="nominal"),
-        tooltip=["Tipo de Doador", alt.Tooltip("Valor_br", type="nominal", title="Valor")]
+        tooltip=[
+            "Tipo de Doador",
+            #alt.Tooltip("Valor_fmt", type="nominal", title="Valor"),
+            alt.Tooltip("Porcentagem", type="quantitative", format=".2f", title="%")
+        ]
     )
+
 
     st.altair_chart(pie_chart, use_container_width=True)
 
-    st.write('')
-    st.dataframe(
-        tipo_valor[["Tipo de Doador", "Valor", "Porcentagem"]]
-        .sort_values(by="Porcentagem", ascending=False)
-        .style.format({
-            "Valor": lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."),
-            "Porcentagem": "{:.2f}%"
-        }),
-        hide_index=True,
-        use_container_width=True
-    )
+    # st.write('')
+    # st.dataframe(
+    #     tipo_valor[["Tipo de Doador", "Valor_fmt", "Porcentagem"]]
+    #     .sort_values(by="Porcentagem", ascending=False)
+    #     .rename(columns={"Valor_fmt": "Valor"})
+    #     .style.format({"Porcentagem": "{:.2f}%"}),
+    #     hide_index=True,
+    #     use_container_width=True
+    # )
+
 
 
 with tab2:
@@ -296,104 +311,140 @@ with tab2:
     df["data_inicio_contrato"] = df["data_inicio_contrato"].fillna("")
     df["data_fim_contrato"] = df["data_fim_contrato"].fillna("")
 
-    # Lista de doadores únicos
-    doadores_unicos = sorted(df["nome_doador"].dropna().unique())
+    st.write("")
 
     # Select do doador
     col1, col2, col3 = st.columns(3)
-    doador_selecionado = col1.selectbox("Selecione o doador", doadores_unicos)
+    todos_doadores = sorted(doadores_dict.values())
+    doador_selecionado = col1.selectbox("Selecione o doador", todos_doadores)
 
     # Filtrar apenas projetos do doador
     df_doador = df[df["nome_doador"] == doador_selecionado].copy()
 
-    # Converter datas
-    def parse_data(data_str):
-        try:
-            return pd.to_datetime(data_str, format="%d/%m/%Y")
-        except:
-            return pd.NaT
+    # Converte datas (não quebra se estiver vazio)
+    df_doador["Início"] = pd.to_datetime(df_doador["Início"], dayfirst=True, errors="coerce")
+    df_doador["Fim"] = pd.to_datetime(df_doador["Fim"], dayfirst=True, errors="coerce")
 
-    df_doador["Início"] = df_doador["data_inicio_contrato"].apply(parse_data)
-    df_doador["Fim"] = df_doador["data_fim_contrato"].apply(parse_data)
+    if df_doador.empty:
+        # DataFrame vazio com as colunas que você quer mostrar
+        df_vazio = pd.DataFrame(columns=["Projeto", "Valor", "Início", "Fim", "Situação"])
+        st.dataframe(df_vazio, hide_index=True, use_container_width=True)
 
-    # --- FILTRO DE PROJETOS VIGENTES (igual aba 1) ---
-    anos_inicio = df_doador["Início"].dropna().dt.year.astype(int).unique()
-    anos_fim = df_doador["Fim"].dropna().dt.year.astype(int).unique()
-    anos_disponiveis = sorted(set(anos_inicio) | set(anos_fim))
-    
-    if anos_disponiveis:
-        ano_inicio = col2.selectbox("Projetos vigentes entre", anos_disponiveis, index=0)
-        ano_fim = col3.selectbox("e", anos_disponiveis, index=len(anos_disponiveis)-1)
-        ano_inicio, ano_fim = int(ano_inicio), int(ano_fim)
+        # Gráfico vazio — você pode criar um Altair sem dados
+        chart_vazio = alt.Chart(pd.DataFrame({"x": [], "y": []})).mark_bar()
+        st.altair_chart(chart_vazio, use_container_width=True)
+
+        # Timeline vazia
+        fig = px.timeline(pd.DataFrame(columns=["Início", "Fim", "Projeto", "Situação"]),
+                          x_start="Início", x_end="Fim", y="Projeto", color="Situação")
+        st.plotly_chart(fig, use_container_width=True)
+
+    else:
+        # Converter datas
+        def parse_data(data_str):
+            try:
+                return pd.to_datetime(data_str, format="%d/%m/%Y")
+            except:
+                return pd.NaT
+
+        df_doador["Início"] = df_doador["data_inicio_contrato"].apply(parse_data)
+        df_doador["Fim"] = df_doador["data_fim_contrato"].apply(parse_data)
+
+        # --- FILTRO DE PROJETOS VIGENTES (igual aba 1) ---
+        anos_inicio = df_doador["Início"].dropna().dt.year.astype(int)
+        anos_fim = df_doador["Fim"].dropna().dt.year.astype(int)
+        anos_disponiveis = sorted(set(anos_inicio) | set(anos_fim))
         
-        # Filtrar projetos vigentes
-        df_doador = df_doador[
-            (df_doador["Início"].dt.year <= ano_fim) & 
-            (df_doador["Fim"].dt.year >= ano_inicio)
-        ].copy()
+        if not anos_inicio.empty and not anos_fim.empty:
+            menor_ano = min(anos_inicio.min(), anos_fim.min())
+            maior_ano = max(anos_inicio.max(), anos_fim.max())
+            anos_disponiveis = list(range(menor_ano, maior_ano + 1))
+        else:
+            anos_disponiveis = []
 
-    df_doador["Projeto"] = df_doador["sigla"].fillna("Sem nome")
-    df_doador["Situação"] = df_doador["status"].fillna("Desconhecido")
+        if anos_disponiveis:
+            ano_inicio = col2.selectbox("Projetos vigentes entre", anos_disponiveis, index=0)
+            ano_fim = col3.selectbox("e", anos_disponiveis, index=len(anos_disponiveis)-1)
+            ano_inicio, ano_fim = int(ano_inicio), int(ano_fim)
 
-    # Mostrar métrica total
-    valor_total = df_doador['valor_brl'].sum()
-    valor_total_formatado = f"R$ {valor_total:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-    st.metric('Valor total dos apoios', valor_total_formatado)
+            # Filtrar projetos vigentes
+            df_doador = df_doador[
+                (df_doador["Início"].dt.year <= ano_fim) &
+                (df_doador["Fim"].dt.year >= ano_inicio)
+            ].copy()
 
+        df_doador["Projeto"] = df_doador["sigla"].fillna("Sem nome")
+        df_doador["Situação"] = df_doador["status"].fillna("Desconhecido")
+       
+        moeda = df_doador['moeda'].iloc[0]  # se todos iguais, pega o 1º
+        simbolo = "R$" if moeda == "Reais" else "US$"
+        # Agrupa por moeda e soma os valores
+        somas_moeda = df_doador.groupby('moeda')['valor'].sum()
 
+        # Formata cada valor com símbolo e separa por " | "
+        valores_formatados = []
+        for moeda, valor in somas_moeda.items():
+            simbolo = "R$" if moeda == "Reais" else "US$"
+            valor_fmt = f"{simbolo} {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+            valores_formatados.append(valor_fmt)
 
-    st.write('')
-    st.write('**Projetos**')
+        # Junta os valores separados por " | "
+        valor_total_formatado = " | ".join(valores_formatados)
 
-    # E na exibição do dataframe:
-    st.dataframe(
-        df_doador[["Projeto", "valor", "data_inicio_contrato", "data_fim_contrato", "Situação"]]
-        .rename(columns={
-            "valor": "Valor (R$)",
-            "data_inicio_contrato": "Início",
-            "data_fim_contrato": "Fim"
-        })
-        .sort_values(by="Início")
-        .style.format({
-        "Valor (R$)": lambda x: f"{x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-        }),
-        hide_index=True
+        st.metric('Valor total dos apoios', valor_total_formatado)
+
+        st.write('')
+        st.write(f'**{len(df_doador)} Projetos**')
+
+        #st.metric("Número de projetos do doador", num_projetos_doador)
+
+        # E na exibição do dataframe:
+        st.dataframe(
+            df_doador[["Projeto", "Valor", "data_inicio_contrato", "data_fim_contrato", "Situação"]]
+            .rename(columns={
+                "data_inicio_contrato": "Início",
+                "data_fim_contrato": "Fim"
+            })
+            .sort_values(by="Início"),
+            hide_index=True
         )
 
-    st.write('')
-    st.write('**Cronograma de projetos**')
 
-    # Ordena por data de início para exibir em ordem cronológica
-    df_doador_sorted = df_doador.sort_values(by="Início", ascending=False)
+        st.write('')
+        st.write('**Cronograma de projetos**')
 
-    # Altura proporcional ao número de projetos
-    num_projetos = df_doador_sorted["Projeto"].nunique()
-    altura_total = max(300, num_projetos * 50)
+        # Ordena por data de início para exibir em ordem cronológica
+        df_doador_sorted = df_doador.sort_values(by="Início", ascending=False)
 
-    fig = px.timeline(
-        df_doador_sorted,
-        x_start='Início',
-        x_end='Fim',
-        y='Projeto',
-        color='Situação',
-        hover_data=['valor'],
-        height=altura_total
-    )
+        # Altura proporcional ao número de projetos
+        num_projetos = df_doador_sorted["Projeto"].nunique()
+        altura_total = max(300, num_projetos * 50)
 
-    fig.update_yaxes(
-        categoryorder='array',
-        categoryarray=df_doador_sorted["Projeto"].tolist()
-    )
+        fig = px.timeline(
+            df_doador_sorted,
+            x_start='Início',
+            x_end='Fim',
+            y='Projeto',
+            color='Situação',
+            hover_data=['Valor'],   # ← formatada
+            height=altura_total
+        )
 
-    fig.update_xaxes(
-        dtick="M12",           # Mostrar a cada 12 meses
-        tickformat="%Y",       # Exibir apenas o ano (2022, 2023 etc.)
-        tickangle=-50
-    )
 
-    fig.update_layout(
-        margin=dict(l=100, r=50, t=50, b=50),
-        yaxis_title=""
-    )
+        fig.update_yaxes(
+            categoryorder='array',
+            categoryarray=df_doador_sorted["Projeto"].tolist()
+        )
 
-    st.plotly_chart(fig)
+        fig.update_xaxes(
+            dtick="M12",           # Mostrar a cada 12 meses
+            tickformat="%Y",       # Exibir apenas o ano (2022, 2023 etc.)
+            tickangle=-50
+        )
+
+        fig.update_layout(
+            margin=dict(l=100, r=50, t=50, b=50),
+            yaxis_title=""
+        )
+
+        st.plotly_chart(fig)
