@@ -40,7 +40,7 @@ def gerenciar_doadores():
         with st.form("form_adicionar_doador", border=False):
             nome_novo = st.text_input("Nome do doador")
             sigla_nova = st.text_input("Sigla")
-            submitted = st.form_submit_button("Adicionar")
+            submitted = st.form_submit_button("Adicionar", icon=":material/add:", type="primary")
 
             if submitted:
                 nome_limpo = nome_novo.strip()
@@ -81,7 +81,7 @@ def gerenciar_doadores():
             novo_nome = st.text_input("Editar nome", value=doador.get("nome_doador", ""), key="novo_nome")
             nova_sigla = st.text_input("Editar sigla", value=doador.get("sigla_doador", ""), key="nova_sigla")
 
-            submitted = st.form_submit_button("Salvar alterações")
+            submitted = st.form_submit_button("Salvar alterações", icon=":material/save:")
             if submitted:
                 db["doadores"].update_one(
                     {"_id": ObjectId(doador_id)},
@@ -99,7 +99,7 @@ def gerenciar_doadores():
             doador_id = st.selectbox("Selecione o doador para excluir", list(doadores_dict.keys()), format_func=lambda x: doadores_dict[x])
             nome_exclusao = doadores_dict[doador_id]
 
-            submitted = st.form_submit_button(f"Excluir doador")
+            submitted = st.form_submit_button(f"Excluir doador", icon=":material/delete:")
             if submitted:
                 db["doadores"].delete_one({"_id": ObjectId(doador_id)})
                 st.success(f"Doador '{nome_exclusao}' excluído com sucesso!")
@@ -237,18 +237,19 @@ with tab1:
 
     cores_dict = dict(zip(resumo["Doador"], resumo["Cor"]))
     # Criar um deslocamento pequeno aleatório para o eixo x
-    np.random.seed(62)  # para reproducibilidade
-    resumo["x_jitter"] = resumo["Número de projetos"] + np.random.uniform(-0.2, 0.2, size=len(resumo))
+    # np.random.seed(62)  # para reproducibilidade
+    # resumo["x_jitter"] = resumo["Número de projetos"] + np.random.uniform(-0.2, 0.2, size=len(resumo))
 
     fig = px.scatter(
         resumo,
-        x="x_jitter",
+        # x é o número de projetos
+        x="Número de projetos",
         y="ValorNum",
         size="ValorNum",
         color="Doador",
         hover_name="Doador",
         hover_data={"Número de projetos": True, "ValorNum": False},
-        size_max=90
+        size_max=70
     )
 
     # títulos dos eixos
