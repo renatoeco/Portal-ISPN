@@ -409,6 +409,19 @@ with tab2:
             # --- Nome do projeto ---
             nome_do_projeto = col3.text_input("Nome do Projeto", value="")
 
+
+
+            # --- Status ---
+            status_options = ["", "Em andamento", "Finalizado", "Pausado"]
+            status = col1.selectbox("Status", options=status_options, index=0)
+
+            # --- Datas ---
+            data_inicio = col2.date_input("Data de início", value=datetime.date.today(), format="DD/MM/YYYY")
+            data_fim = col3.date_input("Data de fim", value=datetime.date.today(), format="DD/MM/YYYY")
+
+
+
+
             # --- Moeda ---
             moeda_options = ["", "Dólares", "Reais", "Euros"]
             moeda = col1.selectbox("Moeda", options=moeda_options, index=0)
@@ -446,13 +459,7 @@ with tab2:
                 index=0
             )
 
-            # --- Status ---
-            status_options = ["", "Em andamento", "Finalizado", "Pausado"]
-            status = col1.selectbox("Status", options=status_options, index=0)
 
-            # --- Datas ---
-            data_inicio = col2.date_input("Data Início", value=datetime.date.today(), format="DD/MM/YYYY")
-            data_fim = col3.date_input("Data Fim", value=datetime.date.today(), format="DD/MM/YYYY")
 
             # --- Objetivo Geral ---
             objetivo_geral = st.text_area("Objetivo Geral", value="")
@@ -573,14 +580,14 @@ with tab2:
 
                     # Datas
                     data_inicio = col2.date_input(
-                        "Data Início",
+                        "Data de início",
                         value=pd.to_datetime(projeto_info.get("data_inicio_contrato"), format="%d/%m/%Y", errors="coerce").date()
                         if projeto_info.get("data_inicio_contrato") else "datetime.date.today()",
                         format="DD/MM/YYYY"
                     )
 
                     data_fim = col3.date_input(
-                        "Data Fim",
+                        "Data de fim",
                         value=pd.to_datetime(projeto_info.get("data_fim_contrato"), format="%d/%m/%Y", errors="coerce").date()
                         if projeto_info.get("data_fim_contrato") else "datetime.date.today()",
                         format="DD/MM/YYYY"
@@ -868,7 +875,7 @@ with tab2:
 
                 anotacao_texto = st.text_area("Anotação")
 
-                submit = st.form_submit_button("Salvar anotação", icon=':material/save:')
+                submit = st.form_submit_button("Salvar anotação", icon=':material/save:', type="primary")
 
                 if submit:
                     if not anotacao_texto.strip():
@@ -1028,4 +1035,3 @@ with tab2:
     else:
         st.write("_Não há anotações cadastradas para este projeto._")
 
-        
