@@ -150,7 +150,7 @@ def mostrar_detalhes(rede_doc):
 
             st.write("")
 
-            if st.button("Salvar alterações", icon=":material/check:"):
+            if st.button("Salvar alterações", icon=":material/check:", type="primary"):
                 redes.update_one(
                     {"_id": rede_doc["_id"]},
                     {
@@ -191,6 +191,8 @@ def mostrar_detalhes(rede_doc):
                         {"$push": {"anotacoes": nova_entry}}
                     )
                     st.success("Anotação salva com sucesso.")
+                    time.sleep(2)
+                    st.rerun()
                     
                 else:
                     st.warning("O campo da anotação não pode estar vazio.")
@@ -246,7 +248,7 @@ def mostrar_detalhes(rede_doc):
 
                     botoes = st.container(horizontal=True)
 
-                    if botoes.button("Salvar alterações", key=f"salvar_{container_key}", icon=":material/save:"):
+                    if botoes.button("Salvar alterações", key=f"salvar_{container_key}", icon=":material/save:", type="primary"):
                         anotacoes[original_idx]["anotacao"] = novo_texto.strip()
                         redes.update_one(
                             {"_id": rede_doc["_id"]},
