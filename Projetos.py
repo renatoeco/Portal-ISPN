@@ -1,10 +1,11 @@
 import streamlit as st
 import pandas as pd
 import datetime
-from funcoes_auxiliares import conectar_mongo_portal_ispn, ajustar_altura_dataframe
+from funcoes_auxiliares import conectar_mongo_portal_ispn, ajustar_altura_dataframe, br_to_float, float_to_br
 import streamlit_shadcn_ui as ui
 import plotly.express as px
 import time
+import bson
 
 
 
@@ -13,6 +14,22 @@ st.set_page_config(layout="wide")
 st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
 
 
+
+
+######################################################################################################
+# CSS PARA DIALOGO MAIOR
+######################################################################################################
+st.markdown(
+    """
+<style>
+div[data-testid="stDialog"] div[role="dialog"]:has(.big-dialog) {
+    width: 50vw;
+    
+}
+</style>
+""",
+    unsafe_allow_html=True,
+)
 
 
 ######################################################################################################
@@ -30,7 +47,10 @@ moedas = {
     "euros": "€",  # Incluído para futuro uso
     "euro": "€"
 }
-# Função para limpar e formatar o valor
+
+
+
+# Função para limpar e formatar o valor com notação de moeda
 def formatar_valor(row):
     moeda = moedas.get(row['moeda'].lower(), '')
     try:
@@ -41,6 +61,17 @@ def formatar_valor(row):
     except:
         return f"{moeda} 0"
 
+
+# Converter objectid para string
+def convert_objectid(obj):
+    if isinstance(obj, bson.ObjectId):
+        return str(obj)
+    elif isinstance(obj, list):
+        return [convert_objectid(x) for x in obj]
+    elif isinstance(obj, dict):
+        return {k: convert_objectid(v) for k, v in obj.items()}
+    else:
+        return obj
 
 
 
@@ -67,13 +98,19 @@ df_projetos_ispn = pd.DataFrame(list(projetos_ispn.find()))
 df_pessoas = pd.DataFrame(list(db["pessoas"].find()))
 
 
+# PROJETOS
+
 # --- 2. Criar dicionários de mapeamento ---
 mapa_doador = {d["_id"]: d["nome_doador"] for d in db["doadores"].find()}
 mapa_programa = {p["_id"]: p["nome_programa_area"] for p in db["programas_areas"].find()}
 
 # --- 3. Aplicar os mapeamentos ao df_projetos_ispn ---
-df_projetos_ispn["doador_nome"] = df_projetos_ispn["doador"].map(mapa_doador)
-df_projetos_ispn["programa_nome"] = df_projetos_ispn["programa"].map(mapa_programa)
+df_projetos_ispn["doador_nome"] = df_projetos_ispn["doador"].apply(
+    lambda x: mapa_doador.get(x, "não informado")
+)
+df_projetos_ispn["programa_nome"] = df_projetos_ispn["programa"].apply(
+    lambda x: mapa_programa.get(x, "não informado")
+)
 
 # --- 4. Criar a coluna 'valor_com_moeda' ---
 df_projetos_ispn['valor_com_moeda'] = df_projetos_ispn.apply(formatar_valor, axis=1)
@@ -88,26 +125,23 @@ df_projetos_ispn['data_fim_contrato'] = pd.to_datetime(
 )
 
 
-# df_projetos_ispn['data_inicio_contrato'] = pd.to_datetime(df_projetos_ispn['data_inicio_contrato'])
-# df_projetos_ispn['data_fim_contrato'] = pd.to_datetime(df_projetos_ispn['data_fim_contrato'])
+# PESSOAS
+# Converter objectid para string em df_pessoas
+df_pessoas = df_pessoas.map(convert_objectid)
 
-# st.write(len(df_projetos_ispn))
+# Criar mapa de _id -> nome_programa_area (como string)
+mapa_programa = {str(p["_id"]): p["nome_programa_area"] for p in db["programas_areas"].find()}
 
-# st.write(df_projetos_ispn)
+# Criar mapa de _id -> nome_completo (coordenador)
+mapa_coordenador = {str(p["_id"]): p["nome_completo"] for p in db["pessoas"].find()}
 
-
-# # --- 6. Considerar apenas as linhas em que há algum valor em sigla e nome_projeto
-# # df_projetos_ispn = df_projetos_ispn[(df_projetos_ispn['sigla'].notnull()) & (df_projetos_ispn['nome_do_projeto'].notnull())]
-# df_projetos_ispn = df_projetos_ispn[
-#     (df_projetos_ispn['sigla'] == '') & 
-#     (df_projetos_ispn['nome_do_projeto'] == '')
-# ]
-
-# st.write(len(df_projetos_ispn))
-
-# st.write(df_projetos_ispn)
+# Aplicar mapeamento no df_pessoas
+df_pessoas["programa_area_nome"] = df_pessoas["programa_area"].map(mapa_programa)
+df_pessoas["coordenador_nome"] = df_pessoas["coordenador"].map(mapa_coordenador)
 
 
+# # DOADORES
+# mapa_doador = {str(d["_id"]): d["nome_doador"] for d in doadores_col.find()}
 
 
 
@@ -234,6 +268,8 @@ with tab1:
         altura_extra = sum([10 / (1 + i * 0.01) for i in range(len(df_projetos_ispn_filtrado))])
         altura = int(altura_base + altura_extra)
 
+
+
         fig = px.timeline(
             df_projetos_ispn_filtrado,
             x_start='data_inicio_contrato',
@@ -245,7 +281,6 @@ with tab1:
                 'Finalizado':"#83C9FF",
                 '': 'red',
             },
-            # hover_data=['Valor'],
             height=altura,  
             labels={
                 'sigla': 'Projeto',
@@ -263,26 +298,34 @@ with tab1:
             line_color="black",
         )
 
-        # Movendo a legenda para baixo
+        # Ajusta layout
         fig.update_layout(
             legend=dict(
-                orientation="h",       # horizontal
-                yanchor="top",
-                y=10.15,                # valor positivo posiciona acima do gráfico
+                orientation="h",   # horizontal
+                yanchor="bottom",
+                y=-0.2,            # move para baixo do gráfico
                 xanchor="center",
-                x=1
+                x=0.5
             ),
-            yaxis_title=None,
+            yaxis=dict(
+                title=None,
+                side="right"       # coloca labels do eixo Y à direita
+            ),
             xaxis=dict(
-                showgrid=True,       # grade no eixo X
-                gridcolor='lightgray',  # cor da linha da grade
+                showgrid=True,
+                gridcolor='lightgray',
                 tickmode='linear',
-                dtick="M12",  # Mostra 1 tick por ano (12 meses)
-                tickformat="%Y"  # Formata como ano, ex: 2021
+                dtick="M12",        # Mostra 1 tick por ano (12 meses)
+                tickformat="%Y"
             )
         )
 
         st.plotly_chart(fig)
+
+
+
+
+
 
 
     # Lista de projetos --------------------------
@@ -303,38 +346,6 @@ with tab1:
         df_projetos_ispn_filtrado_show['data_fim_contrato'].dt.strftime('%d/%m/%Y')
     )
 
-
-
-    # df_projetos_ispn_filtrado_show['data_inicio_contrato'] = df_projetos_ispn_filtrado_show['data_inicio_contrato'].dt.strftime('%d/%m/%Y')
-    # df_projetos_ispn_filtrado_show['data_fim_contrato'] = df_projetos_ispn_filtrado_show['data_fim_contrato'].dt.strftime('%d/%m/%Y')
-
-
-
-    # # Formatando as moedas nos valores
-    # # Dicionário de símbolos por moeda
-    # moedas = {
-    #     "reais": "R$",
-    #     "real": "R$",
-    #     "dólares": "US$",
-    #     "dólar": "US$",
-    #     "euros": "€",  # Incluído para futuro uso
-    #     "euro": "€"
-    # }
-    # # Função para limpar e formatar o valor
-    # def formatar_valor(row):
-    #     moeda = moedas.get(row['moeda'].lower(), '')
-    #     try:
-    #         valor = row['valor'] if row['valor'] else 0
-    #         valor_num = float(str(valor).replace('.', '').replace(',', '.'))
-    #         valor_formatado = f"{valor_num:,.0f}".replace(",", ".")
-    #         return f"{moeda} {valor_formatado}"
-    #     except:
-    #         return f"{moeda} 0"
-
-
-
-    # # Aplicar a função
-    # df_projetos_ispn_filtrado_show['valor_com_moeda'] = df_projetos_ispn_filtrado_show.apply(formatar_valor, axis=1)
 
 
     # Renomeando as colunas
@@ -370,136 +381,355 @@ with tab2:
     st.write('')
 
     # Seleção do projeto
-    projetos_selectbox = [""] + sorted(df_projetos_ispn.apply(lambda row: f"{row['sigla']} - {row['nome_do_projeto']}", axis=1).tolist())
-    projeto_selecionado_concat = st.selectbox('Selecione o projeto', projetos_selectbox)
+    projetos_selectbox = [""] + sorted(df_projetos_ispn["sigla"].unique().tolist())
+    projeto_selecionado = st.selectbox('Selecione o projeto', projetos_selectbox, width=300)
 
 
-    if projeto_selecionado_concat == "":
+    projeto_info = df_projetos_ispn.loc[df_projetos_ispn["sigla"] == projeto_selecionado]
+
+
+    if projeto_selecionado == "":
         # st.write('Selecione um projeto')
         st.stop()
     else:
         st.divider()
 
 
+    with st.container(horizontal=True):
+
+        # Sigla do projeto
+        st.markdown(f"<h3 style='color:#007ad3'>{projeto_selecionado}</h3>", unsafe_allow_html=True)
+        st.write('')
+
+
+
+        # Botão de gerenciar -------------------
+        
+        # Roteamento de tipo de usuário especial
+        if set(st.session_state.tipo_usuario) & {"admin", "gestao_projetos_doadores"}:
+
+            # Função do diálogo para gerenciar projeto
+            @st.dialog("Editar Projeto", width="large")
+            def dialog_editar_projeto():
+
+                # Aumentar largura do diálogo
+                st.html("<span class='big-dialog'></span>")
+
+                projeto_info = df_projetos_ispn[df_projetos_ispn["sigla"] == projeto_selecionado].iloc[0]
+
+                with st.form("form_editar_projeto"):
+
+
+
+
+                    col1, col2 = st.columns(2)
+                    
+                    
+                    # Código
+                    codigo = col1.text_input("Código", value=projeto_info.get("codigo", ""))
+                    
+                    # Sigla
+                    sigla = col2.text_input("Sigla", value=projeto_info.get("sigla", ""))
+                    
+                    # Nome do projeto
+                    nome_do_projeto = st.text_input("Nome do Projeto", value=projeto_info.get("nome_do_projeto", ""))
+
+
+
+
+                    col1, col2, col3 = st.columns(3)
+
+
+                    # Status
+                    status_options = ["", "Em andamento", "Finalizado", "Pausado"]
+
+                    status_atual = projeto_info.get("status", "")
+                    index_status = status_options.index(status_atual) if status_atual in status_options else 0
+
+                    status = col1.selectbox(
+                        "Status",
+                        options=status_options,
+                        index=index_status
+                    )
+
+
+
+                    # Datas
+                    data_inicio = col2.date_input(
+                        "Data Início",
+                        value=pd.to_datetime(projeto_info.get("data_inicio_contrato"), format="%d/%m/%Y", errors="coerce").date()
+                        if projeto_info.get("data_inicio_contrato") else datetime.date.today(),
+                        format="DD/MM/YYYY"
+                    )
+
+                    data_fim = col3.date_input(
+                        "Data Fim",
+                        value=pd.to_datetime(projeto_info.get("data_fim_contrato"), format="%d/%m/%Y", errors="coerce").date()
+                        if projeto_info.get("data_fim_contrato") else datetime.date.today(),
+                        format="DD/MM/YYYY"
+                    )
+
+
+                    # Moeda
+                    moeda_options = ["", "Dólares", "Reais", "Euros"]
+                    moeda_atual = projeto_info.get("moeda", "")
+                    index_atual = moeda_options.index(moeda_atual) if moeda_atual in moeda_options else 0
+                    moeda = col1.selectbox("Moeda", options=moeda_options, index=index_atual)
+                    
+                    # Valor (converte do banco para float antes de exibir)
+                    valor_atual = br_to_float(projeto_info.get("valor", "0"))
+                    valor = col2.number_input("Valor", value=valor_atual, step=0.01, min_value=0.0, format="%.2f")
+
+                    # Contrapartida (também convertida para float para usar number_input)
+                    contrapartida_atual = br_to_float(projeto_info.get("valor_da_contrapartida_em_r$", "0"))
+                    contrapartida = col3.number_input("Contrapartida em R$", value=contrapartida_atual, step=0.01, min_value=0.0, format="%.2f")
+
+
+                    # Coordenador
+                    coordenador_options = [""] + df_pessoas["_id"].astype(str).tolist()  # inclui vazio
+                    coordenador_atual = str(projeto_info.get("coordenador", "")) if projeto_info.get("coordenador") else ""
+
+                    index_coordenador = (
+                        coordenador_options.index(coordenador_atual)
+                        if coordenador_atual in coordenador_options
+                        else 0
+                    )
+
+                    coordenador = col1.selectbox(
+                        "Coordenador",
+                        options=coordenador_options,
+                        format_func=lambda x: "" if x == "" else df_pessoas.loc[df_pessoas["_id"].astype(str) == x, "nome_completo"].values[0],
+                        index=index_coordenador
+                    )
+
+                    # Programa / Área
+                    mapa_programa_str = {str(k): v for k, v in mapa_programa.items()}
+
+                    programa_options = list(mapa_programa_str.keys())
+                    programa_atual = str(projeto_info.get("programa", ""))  # valor do banco como string
+                    index_programa = programa_options.index(programa_atual) if programa_atual in programa_options else 0
+
+                    # Determinar índice do valor atual
+                    index_programa = programa_options.index(programa_atual) if programa_atual in programa_options else 0
+
+                    programa = col2.selectbox(
+                        "Programa / Área",
+                        options=programa_options,
+                        format_func=lambda x: mapa_programa_str[x],  # pega o nome do programa
+                        index=index_programa
+                    )
+                    
+                    # Doador
+                    doador_options = list(mapa_doador.keys())
+                    doador_atual = projeto_info.get("doador", "")
+                    index_doador = doador_options.index(doador_atual) if doador_atual in doador_options else 0
+                    doador = col3.selectbox(
+                        "Doador",
+                        options=doador_options,
+                        format_func=lambda x: mapa_doador[x],
+                        index=index_doador
+                    )
+
+
+
+                    # Objetivo geral
+                    objetivo_geral = st.text_area(
+                        "Objetivo Geral",
+                        value=str(projeto_info.get("objetivo_geral", "")) if pd.notna(projeto_info.get("objetivo_geral")) else ""
+                    )
+
+                    # Botão de salvar
+                    submit = st.form_submit_button("Salvar", icon=":material/save:", type="primary")
+                    if submit:
+                        # Converter coordenador, doador e programa para ObjectId antes de salvar
+                        coordenador_objid = bson.ObjectId(coordenador) if coordenador else None
+                        doador_objid = bson.ObjectId(doador) if doador else None
+                        programa_objid = bson.ObjectId(programa) if programa else None
+
+                        update_doc = {
+                            "codigo": codigo,
+                            "sigla": sigla,
+                            "nome_do_projeto": nome_do_projeto,
+                            "moeda": moeda,
+                            "valor": float_to_br(valor),  # garante string no formato brasileiro
+                            "valor_da_contrapartida_em_r$": float_to_br(contrapartida),
+                            "coordenador": coordenador_objid,
+                            "doador": doador_objid,
+                            "programa": programa_objid,
+                            "status": status,
+                            "data_inicio_contrato": data_inicio.strftime("%d/%m/%Y"),
+                            "data_fim_contrato": data_fim.strftime("%d/%m/%Y"),
+                            "objetivo_geral": objetivo_geral
+                        }
+
+                        # Atualizar no MongoDB
+                        projetos_ispn.update_one({"_id": projeto_info["_id"]}, {"$set": update_doc})
+                        st.success("Projeto atualizado com sucesso!")
+
+                        # Espera 3 segundos e recarrega a página
+                        time.sleep(3)
+                        st.rerun()
+
+
+
+
+
+
+
+            # with st.container(horizontal=True):
+            st.button('Gerenciar projeto', width=300, icon=":material/contract_edit:", on_click=dialog_editar_projeto)
+
+
+
+
+
+
+
+
+
+    # ------------------------------------------
+
     # Nome do projeto
-    st.subheader(projeto_selecionado_concat)
+    st.subheader(
+        "**" + 
+        df_projetos_ispn.loc[
+            df_projetos_ispn['sigla'] == projeto_selecionado, 
+            'nome_do_projeto'
+        ].squeeze() + 
+        "**"
+    )
+
     st.write('')
 
-    projeto_selecionado = projeto_selecionado_concat.split(" - ")[1]
-    
-    # Botão de gerenciar
-    
-    # Roteamento de tipo de usuário especial
-    if set(st.session_state.tipo_usuario) & {"admin", "gestao_projetos_doadores"}:
-    
-        with st.container(horizontal=True):
-
-            st.button('Gerenciar projeto', width=300, icon=":material/contract_edit:")
-
+    col1, col2 = st.columns(2)
 
 
     # Valor e contrapartida
-    col1, col2 = st.columns(2)
  
-    st.write(df_projetos_ispn.loc[df_projetos_ispn['nome_do_projeto']])
-
-    col1.metric("**Valor:**", df_projetos_ispn.loc[df_projetos_ispn['nome_do_projeto'] == projeto_selecionado, 'valor_com_moeda'].values[0])
+    col1.write('')
+    col1.metric("**Valor:**", df_projetos_ispn.loc[df_projetos_ispn['sigla'] == projeto_selecionado, 'valor_com_moeda'].values[0])
+    col1.write('')
     
+
+    col2.write('')
     col2.metric(
     "**Contrapartida:**",
     "R$ " + str(df_projetos_ispn.loc[
-        df_projetos_ispn['nome_do_projeto'] == projeto_selecionado,
+        df_projetos_ispn['sigla'] == projeto_selecionado,
         'valor_da_contrapartida_em_r$'
     ].values[0])
-)
+    )
+    col2.write('')
+    
+
     st.write('')
 
-    # Situação
-    st.write(f'**Situação:** {df_projetos_ispn.loc[df_projetos_ispn["nome_do_projeto"] == projeto_selecionado, "status"].values[0]}')
+    # Coordenador
+    coordenador_id = projeto_info["coordenador"].values[0] if not projeto_info.empty else ""
+    coordenador_nome = mapa_coordenador.get(coordenador_id, "")  # retorna string vazia se não achar
+    col1.write(f'**Coordenador(a):** {coordenador_nome}')
 
-    # Nome do projeto
-    st.write(f'**Nome do projeto:** {df_projetos_ispn.loc[df_projetos_ispn["nome_do_projeto"] == projeto_selecionado, "nome_do_projeto"].values[0]}')
+    # Doador e Programa
+    doador = projeto_info["doador_nome"].values[0] if not projeto_info.empty else ""
+    programa = projeto_info["programa_nome"].values[0] if not projeto_info.empty else ""
+    col1.write(f'**Doador:** {doador}')
+    col1.write(f'**Programa:** {programa}')
+
+
+
+    # Situação
+    col2.write(f'**Situação:** {df_projetos_ispn.loc[df_projetos_ispn["sigla"] == projeto_selecionado, "status"].values[0]}')
+
+    # Datas de início e término
+    data_inicio = df_projetos_ispn.loc[df_projetos_ispn["sigla"] == projeto_selecionado, "data_inicio_contrato"].dt.strftime("%d/%m/%Y").values[0]
+    data_fim = df_projetos_ispn.loc[df_projetos_ispn["sigla"] == projeto_selecionado, "data_fim_contrato"].dt.strftime("%d/%m/%Y").values[0]
+    col2.write(f'**Data de início:** {data_inicio}')
+    col2.write(f'**Data de término:** {data_fim}')
+
 
 
     # Objetivo geral
     objetivo_geral = df_projetos_ispn.loc[
-        df_projetos_ispn["nome_do_projeto"] == projeto_selecionado, "objetivo_geral"
+        df_projetos_ispn["sigla"] == projeto_selecionado, "objetivo_geral"
     ].values[0]
-
     # Verificando se é NaN ou vazio
     if pd.isna(objetivo_geral) or objetivo_geral == "":
         objetivo_geral = "_Não cadastrado_"
-
     st.write(f'**Objetivo geral:** {objetivo_geral}')
-
-
-    # Datas de início e término
-    data_inicio = df_projetos_ispn.loc[df_projetos_ispn["nome_do_projeto"] == projeto_selecionado, "data_inicio_contrato"].dt.strftime("%d/%m/%Y").values[0]
-    data_fim = df_projetos_ispn.loc[df_projetos_ispn["nome_do_projeto"] == projeto_selecionado, "data_fim_contrato"].dt.strftime("%d/%m/%Y").values[0]
-    st.write(f'**Data de início:** {data_inicio}')
-    st.write(f'**Data de término:** {data_fim}')
+    # st.markdown(f'**Objetivo geral:** <span style="color: orange">{objetivo_geral}</span>', unsafe_allow_html=True)
 
 
 
-
-    # Equipe contratada pelo projeto
+    # Equipe do projeto
     st.write('**Equipe contratada pelo projeto:**')
 
     # 1- Obter o _id do projeto selecionado
     projeto_id = df_projetos_ispn.loc[
-        df_projetos_ispn["nome_do_projeto"] == projeto_selecionado, "_id"
-    ].values
+        df_projetos_ispn["sigla"] == projeto_selecionado, "_id"
+    ].values[0]
 
-    if len(projeto_id) == 0:
-        st.write("_Nenhum projeto encontrado_")
+    # 2- Filtrar pessoas que têm pelo menos um contrato com esse projeto
+    def pertence_ao_projeto(contratos):
+        if not isinstance(contratos, list):
+            return False
+        for c in contratos:
+            if c.get("status_contrato") == "Em vigência":
+                # projeto_pagador já convertido em string se você aplicou a função anterior
+                ids = [str(p) for p in c.get("projeto_pagador", [])]
+                if str(projeto_id) in ids:
+                    return True
+        return False
+
+    df_equipe = df_pessoas[df_pessoas["contratos"].apply(pertence_ao_projeto)].copy()
+
+    # 3- Criar coluna 'datas_fim_contrato' com todas as datas de fim de contratos em vigência
+    def datas_fim_em_vigencia(contratos):
+        if not isinstance(contratos, list):
+            return ""
+        datas = [c['data_fim'] for c in contratos if c.get('status_contrato') == 'Em vigência']
+        return ", ".join(datas)
+
+    df_equipe['datas_fim_contrato'] = df_equipe['contratos'].apply(datas_fim_em_vigencia)
+
+    # 4- Exibição
+    colunas_exibir = [
+        "nome_completo",
+        "programa_area_nome",
+        "coordenador_nome",
+        "escritorio",
+        "cargo",
+        "tipo_contratacao",
+        "datas_fim_contrato",
+        "status",
+    ]
+
+    # Novo nome das colunas
+    novos_nomes = {
+        "nome_completo": "Nome",
+        "programa_area_nome": "Programa / Área",
+        "status": "Status",
+        "coordenador_nome": "Coordenador(a)",
+        "cargo": "Cargo",
+        "tipo_contratacao": "Tipo de Contratação",
+        "escritorio": "Escritório",
+        "datas_fim_contrato": "Data de fim do contrato"
+    }
+
+    # Exibir somente essas colunas com os nomes renomeados
+    if df_equipe.empty:
+        st.write("_Não há equipe cadastrada para este projeto_")
     else:
-        projeto_id = projeto_id[0]
-
-        # 2- Explodir contratos
-        df_explodido = df_pessoas.explode("contratos")
-
-        # 3- Criar coluna apenas com os ids de projeto_pagador
-        df_explodido["projeto_pagador"] = df_explodido["contratos"].apply(
-            lambda x: x.get("projeto_pagador", []) if isinstance(x, dict) else []
+        st.dataframe(
+            df_equipe[colunas_exibir]
+            .rename(columns=novos_nomes)
+            .reset_index(drop=True),
+            hide_index=True
         )
 
-        # 4- Explodir projeto_pagador também (caso tenha mais de um por contrato)
-        df_explodido = df_explodido.explode("projeto_pagador")
 
-        # 5- Filtrar pessoas que pertencem a esse projeto
-        df_equipe = df_explodido[df_explodido["projeto_pagador"] == projeto_id].copy()
-
-
-
-
-
-
-    # # 1- Obter o _id do projeto selecionado
-    # projeto_id = df_projetos_ispn.loc[
-    #     df_projetos_ispn["nome_do_projeto"] == projeto_selecionado, "_id"
-    # ].values
-    # if len(projeto_id) == 0:
-    #     st.write("_Nenhum projeto encontrado_")
-    # else:
-    #     projeto_id = projeto_id[0]
-
-
-
-    #     # 2- Filtrar pessoas que pertencem a esse projeto
-    #     df_equipe = df_pessoas[df_pessoas["projeto_pagador"] == projeto_id].copy()
-
-
-        if df_equipe.empty:
-            st.write("_Não há equipe cadastrada para este projeto_")
-        else:
-            df_equipe.sort_values(by="Fim do contrato", ascending=True, inplace=True)
-            df_equipe.reset_index(drop=True, inplace=True)
-            df_equipe.index += 1
-            st.dataframe(df_equipe, hide_index=True)
 
 
     st.write('')
-
 
 
 
@@ -520,7 +750,6 @@ with tab2:
         # ====================
         with tab1:
             with st.form("form_cadastrar_anotacao"):
-                # hoje = datetime.today().strftime("%d/%m/%Y")
                 hoje = datetime.datetime.today().strftime("%d/%m/%Y")
 
                 st.write(f"Data: {hoje}")
@@ -534,7 +763,7 @@ with tab2:
                         st.warning("A anotação não pode estar vazia.")
                     else:
                         # Buscar _id do projeto
-                        projeto = projetos_ispn.find_one({"nome_do_projeto": projeto_selecionado})
+                        projeto = projetos_ispn.find_one({"sigla": projeto_selecionado})
                         if not projeto:
                             st.error("Projeto não encontrado no banco de dados.")
                         else:
@@ -557,7 +786,7 @@ with tab2:
         # ABA 2: Editar
         # ====================
         with tab2:
-            projeto = projetos_ispn.find_one({"nome_do_projeto": projeto_selecionado})
+            projeto = projetos_ispn.find_one({"sigla": projeto_selecionado})
             
             if not projeto or "anotacoes" not in projeto or len(projeto["anotacoes"]) == 0:
                 st.write("_Não há anotações para editar._")
@@ -612,7 +841,7 @@ with tab2:
         # ABA 3: Apagar
         # ====================
         with tab3:
-            projeto = projetos_ispn.find_one({"nome_do_projeto": projeto_selecionado})
+            projeto = projetos_ispn.find_one({"sigla": projeto_selecionado})
             usuario_logado = st.session_state.get("nome", "Desconhecido")
             
             if not projeto or "anotacoes" not in projeto or len(projeto["anotacoes"]) == 0:
@@ -674,7 +903,7 @@ with tab2:
     # ====================
     # Mostrar as anotações existentes
     # ====================
-    projeto = projetos_ispn.find_one({"nome_do_projeto": projeto_selecionado})
+    projeto = projetos_ispn.find_one({"sigla": projeto_selecionado})
     if projeto and "anotacoes" in projeto:
         anotacoes = [
             [a["data_anotacao"].strftime("%d/%m/%Y") if isinstance(a["data_anotacao"], datetime.datetime) else a["data_anotacao"],
