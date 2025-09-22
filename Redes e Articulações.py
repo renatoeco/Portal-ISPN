@@ -315,11 +315,11 @@ df_redes = pd.DataFrame(dados_redes)
 df_redes = df_redes.rename(columns={
     "rede_articulacao": "Rede/Articulação",
     "ponto_focal": "Ponto Focal",
-    "prioridade": "Grau de Prioridade",
+    "prioridade": "Prioridade",
     "dedicacao": "Dedicação",
     "programa": "Programa"
 })
-df_redes = df_redes[["Rede/Articulação", "Ponto Focal", "Grau de Prioridade", "Dedicação", "Programa"]]
+df_redes = df_redes[["Rede/Articulação", "Ponto Focal", "Prioridade", "Dedicação", "Programa"]]
 
 
 # --- Preparar listas únicas para filtros ---
@@ -376,7 +376,7 @@ if rede_sel:
     df_filtrado = df_filtrado[df_filtrado["Rede/Articulação"].isin(rede_sel)]
 
 if prioridade_sel:
-    df_filtrado = df_filtrado[df_filtrado["Grau de Prioridade"].isin(prioridade_sel)]
+    df_filtrado = df_filtrado[df_filtrado["Prioridade"].isin(prioridade_sel)]
 
 if dedicacao_sel:
     df_filtrado = df_filtrado[df_filtrado["Dedicação"].isin(dedicacao_sel)]
@@ -399,8 +399,8 @@ if programa_sel:
 
 # --- Ordenação customizada pelo Grau de Prioridade ---
 ordem_prioridade = ["Estratégico", "Médio", "Baixo"]
-df_filtrado["Grau de Prioridade"] = pd.Categorical(
-    df_filtrado["Grau de Prioridade"],
+df_filtrado["Prioridade"] = pd.Categorical(
+    df_filtrado["Prioridade"],
     categories=ordem_prioridade,
     ordered=True
 )
@@ -448,7 +448,7 @@ colunas_visiveis = list(df_exibir.columns)
 headers = colunas_visiveis + ["Detalhes"]
 
 # Ajuste dos tamanhos de coluna (ponto focal mais estreito)
-col_sizes = [3, 3, 1, 1, 2, 2]
+col_sizes = [4, 4, 1, 1, 2, 2]
 
 # Cabeçalho
 header_cols = st.columns(col_sizes)
@@ -462,7 +462,7 @@ for i, row in df_exibir.iterrows():
     cols = st.columns(col_sizes)
     for j, key in enumerate(colunas_visiveis):
         cols[j].write(row[key])
-    if cols[-1].button("Detalhes", key=f"detalhes_{i}", icon=":material/menu:"):
+    if cols[-1].button("Detalhes", key=f"detalhes_{i}", icon=":material/menu:", use_container_width=True):
         # Busca documento original no Mongo
         rede_doc = redes.find_one({"rede_articulacao": row["Rede/Articulação"]})
         if rede_doc:
