@@ -313,7 +313,7 @@ def gerenciar_pessoas():
                 # ===============================
                 # Tipo de contratação (fora do form)
                 # ===============================
-                lista_tipo_contracao = ["PJ1", "PJ2", "CLT", "Estagiário", ""]
+                lista_tipo_contracao = ["PJ1", "PJ2", "CLT", "Estágio", ""]
                 tipo_contratacao = st.selectbox(
                     "Tipo de contratação:",
                     lista_tipo_contracao,
@@ -1384,7 +1384,7 @@ def gerenciar_pessoas():
          # SelectBox fora do formulário
         tipo_contratacao = st.selectbox(
             "Tipo de contratação:",
-            ["","PJ1", "PJ2", "CLT", "Estagiário"],
+            ["","PJ1", "PJ2", "CLT", "Estágio"],
             index=0,
             width=300
         )
