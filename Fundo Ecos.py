@@ -1126,7 +1126,7 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         index_ajustado = 0  # opção vazia selecionada por padrão
 
     codigo_pai = col3.selectbox(
-        "Projeto pai*",
+        "Projeto financiador*",
         options=opcoes_projeto_pai,
         format_func=lambda x: projetos_pai_options.get(x, "Desconhecido") if x else "",
         index=index_ajustado,
