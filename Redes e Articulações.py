@@ -58,17 +58,16 @@ def mostrar_detalhes(rede_doc):
         if not modo_edicao:
             # Exibição simples
 
-            col1, col2, col3 = st.columns(3)
+            st.write(f"**Rede/Articulação:** {rede_doc.get('rede_articulacao', '')}")
+            st.write(f"**Ponto(s) Focal(is):** {rede_doc.get('ponto_focal', '')}")
 
-            col1.write(f"**Rede/Articulação:** {rede_doc.get('rede_articulacao', '')}")
-            col2.write(f"**Ponto Focal:** {rede_doc.get('ponto_focal', '')}")
-            col3.write(f"**Tema:** {rede_doc.get('tema', '')}")
+            col1, col2 = st.columns(2)
 
-            col1, col2, col3 = st.columns(3)
+            col1.write(f"**Tema:** {rede_doc.get('tema', '')}")
+            col2.write(f"**Programa:** {rede_doc.get('programa', '')}")
 
             col1.write(f"**Grau de Prioridade:** {rede_doc.get('prioridade', '')}")
             col2.write(f"**Dedicação:** {rede_doc.get('dedicacao', '')}")
-            col3.write(f"**Programa:** {rede_doc.get('programa', '')}")
 
 
         else:
