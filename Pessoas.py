@@ -1660,15 +1660,12 @@ def gerenciar_pessoas():
 
                     # Ano atual para armazenar dados de férias
                     ano_atual = str(datetime.datetime.now().year)
-                    
 
                     # Monta o documento para inserção no MongoDB
                     novo_documento = {
                         "nome_completo": nome,
                         "CPF": cpf,
                         "RG": rg,
-                        "cnpj": cnpj,
-                        "nome_empresa": nome_empresa,
                         "telefone": telefone,
                         "data_nascimento": data_nascimento.strftime("%d/%m/%Y") if data_nascimento else None,
                         "gênero": genero,
@@ -1701,17 +1698,7 @@ def gerenciar_pessoas():
                         "status": "ativo",
                         "e_mail": email,
                         "coordenador": coordenador_id,
-                        # "data_reajuste": "",  # novo campo
-                        # "contratos": [
-                        #     {
-                        #         "data_inicio": inicio_contrato.strftime("%d/%m/%Y") if inicio_contrato else "",
-                        #         "data_fim": fim_contrato.strftime("%d/%m/%Y") if fim_contrato else "",
-                        #         "codigo_projeto": "",
-                        #         "status_contrato": status_contrato,
-                        #         "projeto_pagador": projeto_pagador if projeto_pagador else [],
-                        #         "termos_aditivos": [],
-                        #     }
-                        # ],
+
                         "anotacoes": [
                             {
                                 "data_anotacao": datetime.datetime.today().strftime("%d/%m/%Y %H:%M"),
@@ -1720,6 +1707,13 @@ def gerenciar_pessoas():
                             }
                         ]
                     }
+
+                    # Adiciona cnpj e nome_empresa somente se for PJ
+                    if tipo_contratacao in ["PJ1", "PJ2"]:
+                        novo_documento.update({
+                            "cnpj": cnpj,
+                            "nome_empresa": nome_empresa
+                        })
 
                     # Insere o novo colaborador no banco
                     pessoas.insert_one(novo_documento)
