@@ -824,7 +824,7 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
     # Edital como text_input
     edital = col3.text_input("Edital", projeto.get("edital", ""), key=f"edital_{form_key}")
     
-    ano_aprovacao = col4.number_input("Ano de aprovação*", value=projeto.get("ano_de_aprovacao", 2025), step=1)
+    ano_aprovacao = col4.number_input("Ano de aprovação*", value=projeto.get("ano_de_aprovacao", 2025), step=1, key=f"ano_aprovacao_{form_key}")
 
 
     # Linha 2.1 - Objetivo geral //////////////////////////////////////////////////////////////////////////////////
