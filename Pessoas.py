@@ -142,7 +142,7 @@ opcoes_cargos = [
     "Analista de Recursos Humanos", "Analista socioambiental", "Analista socioambiental pleno", "Analista socioambiental sênior",
     "Assessora de advocacy", "Assessor de Comunicação", "Auxiliar de Serviços Gerais", "Auxiliar Administrativo/financeiro",
     "Assistente Administrativo/financeiro", "Assistente socioambiental", "Coordenador Administrativo/financeiro de escritório",
-    "Coordenador Geral administrativo/financeiro", "Coordenador Executivo", "Coordenador de Área", "Coordenador de Programa",
+    "Coordenador Geral administrativo/financeiro", "Coordenador Executivo", "Coordenador de Área", "Coordenador de Programa", "Estagiário",
     "Motorista", "Secretária(o)/Recepcionista", "Técnico de campo", "Técnico em informática"
 ]
 
@@ -399,7 +399,7 @@ def gerenciar_pessoas():
 
                     cols = st.columns(3)
 
-                    lista_escolaridade = ["Ensino fundamental", "Ensino médio", "Graduação", "Pós-graduação", "Mestrado", "Doutorado", ""]
+                    lista_escolaridade = ["Ensino fundamental", "Ensino médio", "Curso Técnico", "Graduação", "Pós-graduação", "Mestrado", "Doutorado", ""]
                     escolaridade = cols[0].selectbox("Escolaridade:", lista_escolaridade, index=lista_escolaridade.index(pessoa.get("escolaridade")))
 
                     lista_escritorio = ["Brasília", "Santa Inês", ""]
@@ -1447,7 +1447,7 @@ def gerenciar_pessoas():
 
             cols = st.columns(3)
 
-            escolaridade = cols[0].selectbox("Escolaridade:", ["Ensino fundamental", "Ensino médio", "Graduação", "Pós-graduação", 
+            escolaridade = cols[0].selectbox("Escolaridade:", ["Ensino fundamental", "Ensino médio", "Curso Técnico", "Graduação", "Pós-graduação", 
                                                             "Mestrado", "Doutorado"], index=None, placeholder="")
 
             escritorio = cols[1].selectbox("Escritório:", ["Brasília", "Santa Inês"], index=None, placeholder="")
