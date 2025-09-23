@@ -232,24 +232,40 @@ def mostrar_detalhes(codigo_proj: str):
         st.write(f"**Proponente:** {projeto.get('proponente', '')}")
         st.write(f"**Nome do projeto:** {projeto.get('nome_do_projeto', '')}")
         st.write(f"**Objetivo geral:** {projeto.get('objetivo_geral', '')}")
-        st.write(f"**Tipo:** {projeto.get('tipo', '')}")
-        st.write(f"**Edital:** {projeto_df['Edital']}")
-        st.write(f"**Doador:** {projeto_df['Doador']}")
-        st.write(f"**Valor:** {projeto_df['Valor']}")
-        st.write(f"**Categoria:** {projeto.get('categoria', '')}")
-        st.write(f"**Ano de aprovação:** {projeto_df['Ano']}")
-        st.write(f"**Estado(s):** {converter_uf_codigo_para_nome(projeto.get('ufs', ''))}")
-        st.write(f"**Município(s):** {converter_codigos_para_nomes(projeto.get('municipios', ''))}")
-        st.write(f"**Latitude/Longitude principal:** {projeto.get('lat_long_principal', '')}")
-        st.write(f"**Data de início:** {projeto.get('data_inicio_do_contrato', '')}")
-        st.write(f"**Data de fim:** {projeto.get('data_final_do_contrato', '')}")
-        st.write(f"**Ponto Focal:** {nome_ponto_focal}")
-        st.write(f"**Temas:** {projeto.get('temas', '')}")
-        st.write(f"**Público:** {projeto.get('publico', '')}")
-        st.write(f"**Bioma:** {projeto.get('bioma', '')}")
-
-
         
+        col1, col2 = st.columns(2)
+        
+        col1.write(f"**Tipo:** {projeto.get('tipo', '')}")
+        col1.write(f"**Edital:** {projeto_df['Edital']}")
+        col1.write(f"**Doador:** {projeto_df['Doador']}")
+        col1.write(f"**Valor:** {projeto_df['Valor']}")
+        col1.write(f"**Categoria:** {projeto.get('categoria', '')}")
+        col1.write(f"**Ano de aprovação:** {projeto_df['Ano']}")
+        col1.write(f"**Estado(s):** {converter_uf_codigo_para_nome(projeto.get('ufs', ''))}")
+        col1.write(f"**Município(s):** {converter_codigos_para_nomes(projeto.get('municipios', ''))}")
+        col1.write(f"**Latitude/Longitude principal:** {projeto.get('lat_long_principal', '')}")
+        col1.write(f"**Data de início:** {projeto.get('data_inicio_do_contrato', '')}")
+        col1.write(f"**Data de fim:** {projeto.get('data_final_do_contrato', '')}")
+        col1.write(f"**Ponto Focal:** {nome_ponto_focal}")
+        col1.write(f"**Temas:** {projeto.get('temas', '')}")
+        col1.write(f"**Público:** {projeto.get('publico', '')}")
+        col1.write(f"**Bioma:** {projeto.get('bioma', '')}")
+
+        with col2:
+
+            st.write('**Ponto principal:**')
+
+            lat_long_str = projeto.get('lat_long_principal', '')
+
+            if lat_long_str:
+                lat_str, lon_str = lat_long_str.split(",")
+                lat, lon = float(lat_str.strip()), float(lon_str.strip())
+
+                # Cria DataFrame
+                df = pd.DataFrame({"lat": [lat], "lon": [lon]})
+
+                # Plota o mapa
+                st.map(df, zoom=6, use_container_width=True)        
 
 
     with aba_indicadores:
