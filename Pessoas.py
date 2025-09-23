@@ -399,7 +399,7 @@ def gerenciar_pessoas():
 
                     cols = st.columns(3)
 
-                    lista_escolaridade = ["Ensino fundamental", "Ensino médio", "Curso Técnico", "Graduação", "Pós-graduação", "Mestrado", "Doutorado", ""]
+                    lista_escolaridade = ["Ensino fundamental", "Ensino médio", "Curso técnico", "Graduação", "Pós-graduação", "Mestrado", "Doutorado", ""]
                     escolaridade = cols[0].selectbox("Escolaridade:", lista_escolaridade, index=lista_escolaridade.index(pessoa.get("escolaridade")))
 
                     lista_escritorio = ["Brasília", "Santa Inês", ""]
@@ -1447,7 +1447,7 @@ def gerenciar_pessoas():
 
             cols = st.columns(3)
 
-            escolaridade = cols[0].selectbox("Escolaridade:", ["Ensino fundamental", "Ensino médio", "Curso Técnico", "Graduação", "Pós-graduação", 
+            escolaridade = cols[0].selectbox("Escolaridade:", ["Ensino fundamental", "Ensino médio", "Curso técnico", "Graduação", "Pós-graduação", 
                                                             "Mestrado", "Doutorado"], index=None, placeholder="")
 
             escritorio = cols[1].selectbox("Escritório:", ["Brasília", "Santa Inês"], index=None, placeholder="")
