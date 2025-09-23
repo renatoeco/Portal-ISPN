@@ -189,8 +189,9 @@ def mostrar_detalhes(codigo_proj: str):
 
     # Título do projeto
     titulo_projeto = st.session_state.get("titulo_projeto", "")
+    
 
-    st.subheader(f'{codigo_projeto} {sigla_projeto}')
+    st.subheader(f'{codigo_projeto} - {sigla_projeto}')
     st.write('')
 
     # Código do projeto
@@ -226,20 +227,20 @@ def mostrar_detalhes(codigo_proj: str):
                 nome_ponto_focal = pessoa.get("nome_completo", "Não encontrado")
 
         # Corpo do diálogo
-        st.write(f"**Situação:** {projeto.get('status', '')}")
 
+        st.write(f"**Situação:** {projeto.get('status', '')}")
         st.write(f"**Proponente:** {projeto.get('proponente', '')}")
         st.write(f"**Nome do projeto:** {projeto.get('nome_do_projeto', '')}")
         st.write(f"**Objetivo geral:** {projeto.get('objetivo_geral', '')}")
         st.write(f"**Tipo:** {projeto.get('tipo', '')}")
         st.write(f"**Edital:** {projeto_df['Edital']}")
         st.write(f"**Doador:** {projeto_df['Doador']}")
-        # st.write(f"**Moeda:** {projeto.get('moeda', '')}")
         st.write(f"**Valor:** {projeto_df['Valor']}")
         st.write(f"**Categoria:** {projeto.get('categoria', '')}")
         st.write(f"**Ano de aprovação:** {projeto_df['Ano']}")
         st.write(f"**Estado(s):** {converter_uf_codigo_para_nome(projeto.get('ufs', ''))}")
         st.write(f"**Município(s):** {converter_codigos_para_nomes(projeto.get('municipios', ''))}")
+        st.write(f"**Latitude/Longitude principal:** {projeto.get('lat_long_principal', '')}")
         st.write(f"**Data de início:** {projeto.get('data_inicio_do_contrato', '')}")
         st.write(f"**Data de fim:** {projeto.get('data_final_do_contrato', '')}")
         st.write(f"**Ponto Focal:** {nome_ponto_focal}")
@@ -1096,19 +1097,6 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         placeholder="Selecione..."
     )
 
-
-
-
-
-
-
-    # programa = col2.selectbox(
-    #     "Programa*",
-    #     options=programa_keys,
-    #     format_func=lambda x: programas_options.get(x, ""),
-    #     index=programa_keys.index(programa_default) if programa_default in programa_keys else 0,
-    #     placeholder=""
-    # )
 
     projetos_pai_options = {
         str(k): v for k, v in projetos_ispn_dict.items() if v.strip()
