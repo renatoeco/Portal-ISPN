@@ -2,13 +2,11 @@ import streamlit as st
 import pandas as pd
 import folium
 import re
-from datetime import datetime
 import unicodedata
 import math
 import time
 import datetime
 import io
-from datetime import date
 from bson import ObjectId
 import plotly.express as px
 from folium.plugins import MarkerCluster
@@ -909,7 +907,8 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         # Data início
         data_inicio_date = col2.date_input(
             "Data início do contrato*",
-            value=datetime.strptime(projeto.get("data_inicio_do_contrato", ""), "%d/%m/%Y").date()
+
+            value = datetime.datetime.strptime(projeto.get("data_inicio_do_contrato", ""), "%d/%m/%Y").date()
             if projeto.get("data_inicio_do_contrato") else None,
             format="DD/MM/YYYY"
         )
@@ -918,7 +917,7 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         # Data fim
         data_fim_date = col3.date_input(
             "Data fim do contrato*",
-            value=datetime.strptime(projeto.get("data_final_do_contrato", ""), "%d/%m/%Y").date()
+            value=datetime.datetime.strptime(projeto.get("data_final_do_contrato", ""), "%d/%m/%Y").date()
             if projeto.get("data_final_do_contrato") else None,
             format="DD/MM/YYYY"
         )
@@ -927,7 +926,7 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         # Data relatório
         data_relatorio_date = col4.date_input(
             "Data relatório final",
-            value=datetime.strptime(projeto.get("data_relatorio_monitoramento_final", ""), "%d/%m/%Y").date()
+            value=datetime.datetime.strptime(projeto.get("data_relatorio_monitoramento_final", ""), "%d/%m/%Y").date()
             if projeto.get("data_relatorio_monitoramento_final") else None,
             format="DD/MM/YYYY"
         )
@@ -947,7 +946,7 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         # Data início
         data_inicio_date = col2.date_input(
             "Data início do contrato*",
-            value=datetime.strptime(projeto.get("data_inicio_do_contrato", ""), "%d/%m/%Y").date()
+            value=datetime.datetime.strptime(projeto.get("data_inicio_do_contrato", ""), "%d/%m/%Y").date()
             if projeto.get("data_inicio_do_contrato") else None,
             format="DD/MM/YYYY"
         )
@@ -956,7 +955,7 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         # Data fim
         data_fim_date = col3.date_input(
             "Data fim do contrato*",
-            value=datetime.strptime(projeto.get("data_final_do_contrato", ""), "%d/%m/%Y").date()
+            value=datetime.datetime.strptime(projeto.get("data_final_do_contrato", ""), "%d/%m/%Y").date()
             if projeto.get("data_final_do_contrato") else None,
             format="DD/MM/YYYY"
         )
@@ -1958,7 +1957,7 @@ with lista:
     output.seek(0)
 
     # Nome do arquivo
-    data_de_hoje = date.today().strftime("%d-%m-%Y")
+    data_de_hoje = datetime.date.today().strftime("%d-%m-%Y")
 
     if set(st.session_state.tipo_usuario) & {"admin", "gestao_fundo_ecos"}:
         col1, col2, col3 = st.columns([2, 1, 1])
