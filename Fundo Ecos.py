@@ -17,6 +17,9 @@ from funcoes_auxiliares import conectar_mongo_portal_ispn
 st.set_page_config(layout="wide")
 st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
 
+# Logo do Fundo Ecos no topo
+container_logo = st.container(horizontal=True, horizontal_alignment="center")
+container_logo.image("images/logo_fundo_ecos.png", width=300)
 
 ######################################################################################################
 # CONEXÃO COM O BANCO DE DADOS MONGODB
