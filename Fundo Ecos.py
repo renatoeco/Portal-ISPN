@@ -2076,7 +2076,8 @@ with lista:
             key=f"ver_{codigo_proj}",
             on_click=mostrar_detalhes,
             args=(codigo_proj,),
-            icon=":material/menu:"
+            icon=":material/menu:",
+            use_container_width=True
         )
         st.divider()
 
