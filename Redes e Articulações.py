@@ -105,15 +105,22 @@ def mostrar_detalhes(rede_doc):
             # Campos editáveis
             # =====================
 
+            # Nome da rede
             rede_edit = st.text_input("Rede/Articulação", value=rede_doc.get("rede_articulacao", ""))
 
             col1, col2 = st.columns([1.5,2])
 
-            ponto_focal_edit = col1.selectbox(
+            # Pontos Focais
+            # Pega a string do banco, separa em lista e remove espaços extras
+            ponto_focal_str = rede_doc.get("ponto_focal", "")
+            ponto_focal_list = [p.strip() for p in ponto_focal_str.split(",")] if ponto_focal_str else []
+
+            ponto_focal_edit = col1.multiselect(
                 "Ponto Focal",
                 options=pessoas_opcoes,
-                index=pessoas_opcoes.index(rede_doc.get("ponto_focal")) if rede_doc.get("ponto_focal") in pessoas_opcoes else 0,
+                default=[p for p in ponto_focal_list if p in pessoas_opcoes]  # pré-seleciona as que estão nas opções
             )
+
 
             temas_default = [
                 t.strip()
@@ -156,13 +163,14 @@ def mostrar_detalhes(rede_doc):
                         "$set": {
                             "rede_articulacao": rede_edit,
                             "tema": ", ".join(temas_selecionados),
-                            "ponto_focal": ponto_focal_edit,
+                            "ponto_focal": ", ".join(ponto_focal_edit),  # converte lista em string neste ponto
                             "prioridade": prioridade_edit,
                             "dedicacao": dedicacao_edit,
                             "programa": programa_edit,
                         }
                     },
                 )
+
                 st.success("Alterações salvas com sucesso!")
                 time.sleep(2)
                 st.rerun()
@@ -197,7 +205,7 @@ def mostrar_detalhes(rede_doc):
                     st.warning("O campo da anotação não pode estar vazio.")
 
         st.write("")
-        st.write("**Anotações existentes:**")
+        st.write("**Anotações registradas:**")
 
         # ---------------- LISTA DE ANOTAÇÕES ----------------
         # Ordena por data (decrescente)
@@ -225,6 +233,7 @@ def mostrar_detalhes(rede_doc):
                 pode_editar = (
                     anotacao.get("autor_anotacao") == usuario_logado
                 )
+
 
                 if pode_editar:
                     modo_edicao = st.toggle("Editar", key=toggle_key, value=False)
@@ -288,15 +297,6 @@ def mostrar_detalhes(rede_doc):
                     st.write(anotacao.get("anotacao", ""))
 
 
-def atualizar_topo_redes():
-    st.session_state["pagina_atual_redes"] = st.session_state["pagina_topo_redes"]
-    st.session_state["pagina_rodape_redes"] = st.session_state["pagina_topo_redes"]
-
-def atualizar_rodape_redes():
-    st.session_state["pagina_atual_redes"] = st.session_state["pagina_rodape_redes"]
-    st.session_state["pagina_topo_redes"] = st.session_state["pagina_rodape_redes"]
-
-
 ######################################################################################################
 # MAIN
 ######################################################################################################
@@ -312,13 +312,13 @@ dados_redes = list(redes.find())
 
 df_redes = pd.DataFrame(dados_redes)
 df_redes = df_redes.rename(columns={
-    "rede_articulacao": "Rede/Articulação",
+    "rede_articulacao": "Nome",
     "ponto_focal": "Ponto Focal",
     "prioridade": "Prioridade",
     "dedicacao": "Dedicação",
     "programa": "Programa"
 })
-df_redes = df_redes[["Rede/Articulação", "Ponto Focal", "Prioridade", "Dedicação", "Programa"]]
+df_redes = df_redes[["Nome", "Ponto Focal", "Prioridade", "Dedicação", "Programa"]]
 
 
 # --- Preparar listas únicas para filtros ---
@@ -339,32 +339,34 @@ programas_unicos = (df_redes["Programa"].dropna().astype(str).str.split(",").exp
 
 # --- Filtros ---
 with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
-    colf1, colf2, colf3, colf4, colf5 = st.columns(5)
+    colf1, colf2 = st.columns(2)
     
     rede_sel = colf1.multiselect(
         "Rede",
-        options=sorted(df_redes["Rede/Articulação"].dropna().unique().tolist()), placeholder=""
+        options=sorted(df_redes["Nome"].dropna().unique().tolist()), placeholder=""
     )
     ponto_sel = colf2.multiselect(
         "Ponto Focal",
         options=sorted(pontos_unicos), placeholder=""
     )
-    prioridade_sel = colf3.multiselect(
+
+
+    colf1, colf2, colf3 = st.columns(3)
+
+    prioridade_sel = colf1.multiselect(
         "Grau de Prioridade",
         options=["Estratégico", "Médio", "Baixo"], placeholder=""
     )
-    dedicacao_sel = colf4.multiselect(
+    dedicacao_sel = colf2.multiselect(
         "Dedicação",
         options=sorted(df_redes["Dedicação"].dropna().unique().tolist()), placeholder=""
     )
-    programa_sel = colf5.multiselect(
+    programa_sel = colf3.multiselect(
         "Programa",
         options=sorted(programas_unicos), placeholder=""
     )
 
 
-st.write("")
-st.write("")
 st.write("")
 
 # --- Aplica filtros ---
@@ -372,7 +374,7 @@ df_filtrado = df_redes.copy()
 
 # Filtro direto
 if rede_sel:
-    df_filtrado = df_filtrado[df_filtrado["Rede/Articulação"].isin(rede_sel)]
+    df_filtrado = df_filtrado[df_filtrado["Nome"].isin(rede_sel)]
 
 if prioridade_sel:
     df_filtrado = df_filtrado[df_filtrado["Prioridade"].isin(prioridade_sel)]
@@ -380,7 +382,7 @@ if prioridade_sel:
 if dedicacao_sel:
     df_filtrado = df_filtrado[df_filtrado["Dedicação"].isin(dedicacao_sel)]
 
-# Filtro Ponto Focal (explode na lógica)
+# Filtro Ponto Focal
 if ponto_sel:
     df_filtrado = df_filtrado[
         df_filtrado["Ponto Focal"]
@@ -388,7 +390,7 @@ if ponto_sel:
         .apply(lambda x: any(p in x for p in ponto_sel))
     ]
 
-# Filtro Programa (explode na lógica)
+# Filtro Programa
 if programa_sel:
     df_filtrado = df_filtrado[
         df_filtrado["Programa"]
@@ -406,41 +408,13 @@ df_filtrado["Prioridade"] = pd.Categorical(
 
 df_exibir = (
     df_filtrado
-    .sort_values(by=["Rede/Articulação"])
+    .sort_values(by=["Nome"])
     .reset_index(drop=True)
 )
 
-
-# # --- Paginação ---
-# itens_por_pagina = 20
-# total_linhas = len(df_exibir)
-# total_paginas = max(math.ceil(total_linhas / itens_por_pagina), 1)
-
-# if "pagina_atual_redes" not in st.session_state:
-#     st.session_state["pagina_atual_redes"] = 1
-# if "pagina_topo_redes" not in st.session_state:
-#     st.session_state["pagina_topo_redes"] = st.session_state["pagina_atual_redes"]
-# if "pagina_rodape_redes" not in st.session_state:
-#     st.session_state["pagina_rodape_redes"] = st.session_state["pagina_atual_redes"]
-
-# --- Controle topo ---
-#col1, col2, col3 = st.columns([5, 2, 1])
-
-# col3.number_input(
-#     "Página",
-#     min_value=1,
-#     max_value=total_paginas,
-#     key="pagina_topo_redes",
-#     on_change=atualizar_topo_redes
-# )
-
-# inicio = (st.session_state["pagina_atual_redes"] - 1) * itens_por_pagina
-# fim = inicio + itens_por_pagina
-# df_paginado = df_exibir.iloc[inicio:fim]
-
-# col3.write(f"Mostrando **{inicio + 1}** a **{min(fim, total_linhas)}** de **{total_linhas}** redes")
-# st.write("")
-# st.divider()
+# SUBHEADER DE CONTAGEM
+st.subheader(f"{len(df_exibir)} Redes e Articulações")
+st.write('')
 
 # --- Layout da tabela customizada ---
 colunas_visiveis = list(df_exibir.columns)
@@ -463,33 +437,10 @@ for i, row in df_exibir.iterrows():
         cols[j].write(row[key])
     if cols[-1].button("Detalhes", key=f"detalhes_{i}", icon=":material/menu:", use_container_width=True):
         # Busca documento original no Mongo
-        rede_doc = redes.find_one({"rede_articulacao": row["Rede/Articulação"]})
+        rede_doc = redes.find_one({"rede_articulacao": row["Nome"]})
         if rede_doc:
             mostrar_detalhes(rede_doc)
     st.divider()
-
-# # --- Controle rodapé ---
-# col1, col2, col3 = st.columns([5, 2, 1])
-
-# col3.number_input(
-#     "Página",
-#     min_value=1,
-#     max_value=total_paginas,
-#     value=st.session_state["pagina_rodape_redes"],
-#     step=1,
-#     key="pagina_rodape_redes",
-#     on_change=atualizar_rodape_redes
-# )
-
-# col3.write(f"Mostrando **{inicio + 1}** a **{min(fim, total_linhas)}** de **{total_linhas}** redes")
-# st.write("")
-
-
-
-
-
-
-
 
 
 
