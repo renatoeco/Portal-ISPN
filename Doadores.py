@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import altair as alt
 import plotly.express as px
+from plotly.colors import diverging, sequential
 import numpy as np
 import random
 import time
@@ -197,33 +198,62 @@ with tab1:
         (df["Fim"].dt.year >= ano_inicio)     # terminou depois ou durante o intervalo
     ].copy()
 
-    # Depois do groupby:
+    # agrupamento normal (cada moeda em uma linha)
     resumo = df_filtrado.groupby(
         ["nome_doador", "tipo_de_doador", "moeda"], as_index=False
     ).agg({
         "valor": "sum",
         "_id": "count"
-    }).rename(columns={
-        "nome_doador": "Doador",
-        "tipo_de_doador": "Tipo de Doador",
-        "valor": "ValorNum",
-        "_id": "Número de projetos",
-        "moeda": "Moeda"
     })
 
-    # Coluna formatada apenas para exibição
-    def formatar_valor_resumo(row):
-        simbolo = "R$" if row["Moeda"] == "Reais" else "US$"
-        return f"{simbolo} {row['ValorNum']:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    # pivotar moedas para colunas
+    pivot = resumo.pivot_table(
+        index=["nome_doador", "tipo_de_doador"],
+        columns="moeda",
+        values=["valor", "_id"],
+        aggfunc="sum",
+        fill_value=0
+    )
 
-    # Gerar cores únicas por doador
-    def gerar_cor():
-        return "#{:06x}".format(random.randint(0, 0xFFFFFF))
+    # flatten dos MultiIndex
+    pivot.columns = [f"{a}_{b}" for a, b in pivot.columns]
+    pivot = pivot.reset_index()
+
+    # garantir que colunas existem
+    if "valor_Reais" not in pivot:
+        pivot["valor_Reais"] = 0
+    if "valor_Dólares" not in pivot:
+        pivot["valor_Dólares"] = 0
+    if "_id_Reais" not in pivot:
+        pivot["_id_Reais"] = 0
+    if "_id_Dólares" not in pivot:
+        pivot["_id_Dólares"] = 0
+
+    # criar colunas formatadas dinâmicas
+    def fmt_valor(valor, moeda):
+        simbolo = "R$" if moeda == "Reais" else "US$"
+        return f"{simbolo} {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+    def formatar_valor_linha(row):
+        partes = []
+        if row["valor_Dólares"] > 0:
+            partes.append(fmt_valor(row["valor_Dólares"], "Dólares"))
+        if row["valor_Reais"] > 0:
+            partes.append(fmt_valor(row["valor_Reais"], "Reais"))
+        return " | ".join(partes)
+
+    pivot["Valor_fmt"] = pivot.apply(formatar_valor_linha, axis=1)
+
+    # total de projetos
+    pivot["Número de projetos"] = pivot["_id_Dólares"] + pivot["_id_Reais"]
+
+    # renomear colunas para exibir
+    resumo_final = pivot.rename(columns={
+        "nome_doador": "Doador",
+        "tipo_de_doador": "Tipo de Doador",
+        "Valor_fmt": "Valor"
+    })
     
-    resumo["Cor"] = [gerar_cor() for _ in range(len(resumo))]
-
-    resumo["Valor"] = resumo.apply(formatar_valor_resumo, axis=1)
-
     col1, col2 = st.columns([1,2])
 
     # Pega todos os doadores que têm projetos no período filtrado
@@ -233,94 +263,132 @@ with tab1:
     texto = "doador com projeto(s)" if len(doadores_filtrados) == 1 else "doadores com projeto(s)"
     col1.subheader(f'{len(doadores_filtrados)} {texto}')
 
-
-    st.dataframe(resumo[["Doador", "Tipo de Doador", "Número de projetos", "Valor"]], hide_index=True)
-
+    # exibir na tela:
+    st.dataframe(
+        resumo_final[["Doador", "Tipo de Doador", "Número de projetos", "Valor"]],
+        hide_index=True
+    )
+    
     st.write("")
     st.write("")
     st.write("")
     
     # --- 1. Número total de projetos (Reais + Dólares) ---
     # Agrupa de novo somando os números de projetos por doador (independente da moeda)
-    resumo_total = (
-        resumo.groupby("Doador", as_index=False)
-        .agg({"Número de projetos": "sum"})
+    # resumo_total = (
+    #     resumo_final.groupby("Doador", as_index=False)["Número de projetos"]
+    #     .sum()
+    # )
+
+    
+    # Agrupar reais
+    df_reais = resumo[resumo["moeda"]=="Reais"].groupby("nome_doador", as_index=False).agg(
+        valor=("valor","sum"),
+        num_proj=("_id","sum")
     )
 
-    fig_total_proj = px.bar(
-        resumo_total,
-        x="Doador",
-        y="Número de projetos",
-        color="Doador",
-        text="Número de projetos",
-        title="Número Total de Projetos por Doador"
+    # Coluna de valor formatado para hover
+    df_reais["Valor"] = df_reais["valor"].apply(
+        lambda v: f"R$ {v:,.0f}".replace(",", "X").replace(".", ",").replace("X", ".")
     )
-    fig_total_proj.update_layout(xaxis_title="", yaxis_title="Nº Projetos")
+    
+    paleta_cores = diverging.Spectral_r[::2] + diverging.curl[::2]
+    paleta_cores = paleta_cores[:30]  # garante 30 cores únicas
 
-    st.plotly_chart(fig_total_proj, use_container_width=True)
-
-
-    # --- 2. Valores totais separados (Reais e Dólares) ---
-    resumo_reais = resumo[resumo["Moeda"] == "Reais"].copy()
-    resumo_dolares = resumo[resumo["Moeda"] == "Dólares"].copy()
-
-    # Gráfico de valores em Reais
-    fig_reais_valor = px.bar(
-        resumo_reais,
-        x="Doador",
-        y="ValorNum",
-        color="Doador",
-        text=resumo_reais["ValorNum"].apply(
-            lambda v: f"R$ {v:,.0f}".replace(",", "X").replace(".", ",").replace("X", ".")
-        ),
-        title="Valor Total de Apoio por Doador (Reais)"
+    fig_reais_bolhas = px.scatter(
+        df_reais,
+        x="num_proj",
+        y="valor",
+        size="valor",
+        color="nome_doador",   # usa apenas o nome do doador (cores diferentes automáticas)
+        color_discrete_sequence=paleta_cores,
+        hover_name="nome_doador",
+        hover_data={
+            "nome_doador": False,
+            "num_proj": True,
+            "valor": False,   # esconde valor bruto
+            "Valor": True     # mostra valor formatado
+        },
+        title="Valor total de apoio e de projetos por Doador (R$)",
+        labels={"num_proj": "Número de Projetos", "valor": "Valor (R$)"}
     )
-    fig_reais_valor.update_layout(xaxis_title="", yaxis_title="Valor (R$)")
 
-    # Gráfico de valores em Dólares
-    fig_dolares_valor = px.bar(
-        resumo_dolares,
-        x="Doador",
-        y="ValorNum",
-        color="Doador",
-        text=resumo_dolares["ValorNum"].apply(
-            lambda v: f"US$ {v:,.0f}".replace(",", "X").replace(".", ",").replace("X", ".")
-        ),
-        title="Valor Total de Apoio por Doador (Dólares)"
+    fig_reais_bolhas.update_traces(
+        text=None,
+        marker=dict(
+            sizemode='area',
+            sizeref=2.*max(df_reais["valor"])/(80.**2),
+            sizemin=8
+        )
     )
-    fig_dolares_valor.update_layout(xaxis_title="", yaxis_title="Valor (US$)")
 
-    st.plotly_chart(fig_reais_valor, use_container_width=True)
+    fig_reais_bolhas.update_layout(
+        xaxis_tickformat=',d',
+        yaxis_tickformat=',.0f',
+        legend=dict(
+            title="Doador",
+            orientation="v",
+            y=0.5,
+            yanchor="middle",
+            x=1.02,
+            xanchor="left"
+        )
+    )
+    st.plotly_chart(fig_reais_bolhas, use_container_width=True)
 
-    st.plotly_chart(fig_dolares_valor, use_container_width=True)
+
+    # Agrupar dólares
+    df_dolares = resumo[resumo["moeda"]=="Dólares"].groupby("nome_doador", as_index=False).agg(
+        valor=("valor","sum"),
+        num_proj=("_id","sum")
+    )
+
+    df_dolares["Valor"] = df_dolares["valor"].apply(
+        lambda v: f"US$ {v:,.0f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    )
     
     
 
-    #cores_dict = dict(zip(resumo["Doador"], resumo["Cor"]))
-    # Criar um deslocamento pequeno aleatório para o eixo x
-    # np.random.seed(62)  # para reproducibilidade
-    # resumo["x_jitter"] = resumo["Número de projetos"] + np.random.uniform(-0.2, 0.2, size=len(resumo))
+    fig_dolares_bolhas = px.scatter(
+        df_dolares,
+        x="num_proj",
+        y="valor",
+        size="valor",
+        color="nome_doador",   # usa apenas o nome do doador (cores diferentes automáticas)
+        color_discrete_sequence=paleta_cores,
+        hover_name="nome_doador",
+        hover_data={
+            "num_proj": True,
+            "valor": False,
+            "Valor": True
+        },
+        title="Valor total de apoio e de projetos por Doador (US$)",
+        labels={"num_proj": "Número de Projetos", "valor": "Valor (US$)"}
+    )
 
-    # fig = px.scatter(
-    #     resumo,
-    #     # x é o número de projetos
-    #     x="Número de projetos",
-    #     y="ValorNum",
-    #     size="ValorNum",
-    #     color="Doador",
-    #     hover_name="Doador",
-    #     hover_data={"Número de projetos": True, "ValorNum": False},
-    #     size_max=70
-    # )
+    fig_dolares_bolhas.update_traces(
+        text=None,
+        marker=dict(
+            sizemode='area',
+            sizeref=2.*max(df_dolares["valor"])/(80.**2),
+            sizemin=8
+        )
+    )
 
-    # # títulos dos eixos
-    # fig.update_layout(
-    #     xaxis_title="Número de Projetos",
-    #     yaxis_title="Valor",
-    #     legend_title_text="Doador"
-    # )
+    fig_dolares_bolhas.update_layout(
+        xaxis_tickformat=',d',
+        yaxis_tickformat=',.0f',
+        legend=dict(
+            title="Doador",
+            orientation="v",
+            y=0.5,
+            yanchor="middle",
+            x=1.02,
+            xanchor="left"
+        )
+    )
+    st.plotly_chart(fig_dolares_bolhas, use_container_width=True)
 
-    # st.plotly_chart(fig, use_container_width=True)
 
     st.write("")
     st.write("")
