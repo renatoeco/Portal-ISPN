@@ -224,20 +224,7 @@ def adicionar_anotacao(i, a_idx, at_idx):
         "autor": ""
     })
 
-# Função que adiciona uma nova meta vazia na aba correspondente
-# def adicionar_meta(i):
-#     st.session_state[f"metas_{i}"].append({"nome": "", "objetivo": ""})
 
-# Função que adiciona uma nova ação estratégica vazia na aba correspondente
-# def adicionar_acao(i):
-#     st.session_state[f"acoes_{i}"].append({
-#         "nome": "",
-#         "responsavel": "",
-#         "data_inicio": "",
-#         "data_fim": "",
-#         "status": "",
-#         "atividades": []  # Inicializa atividades vazias
-#     })
 
 # Função do diálogo para editar ou adicionar resultados de médio prazo
 @st.dialog("Editar Título da Página", width="large")
@@ -452,46 +439,6 @@ def editar_titulo_de_cada_resultado_mp_dialog(resultado_idx):
                     st.rerun()
 
 
-# Função para pegar o índice da linha selecionada
-
-# def on_select_linha():
-#     for k in st.session_state.keys():
-#         if k.startswith("tabela_metas_"):
-#             selection = st.session_state[k]
-#             selected_rows = selection.get("selection", {}).get("rows", [])
-#             if selected_rows:
-#                 resultado_idx = int(k.replace("tabela_metas_", ""))
-#                 st.session_state["linha_selecionada"] = {
-#                     "resultado_idx": resultado_idx,
-#                     "linha_idx": selected_rows[0]
-#                 }
-#                 editar_meta_res_mp_dialog(st.session_state["linha_selecionada"])
-#                 break
-
-
-
-# Diálogo para editar a meta
-# @st.dialog("Editar meta", width="large")
-# def editar_meta_res_mp_dialog(linha_selecionada):
-#     resultado_idx = linha_selecionada["resultado_idx"]
-#     linha_idx = linha_selecionada["linha_idx"]
-
-#     # Acessa a meta específica
-#     meta = lista_resultados[resultado_idx]["metas"][linha_idx]
-
-#     st.subheader("Editar Meta")
-
-#     # Inputs para editar a meta
-#     nome = st.text_input("Nome da Meta", value=meta.get("nome_meta_mp", ""), key="input_nome_meta")
-#     objetivo = st.text_input("Objetivo", value=meta.get("objetivo", ""), key="input_objetivo_meta")
-#     alcancado = st.text_input("Alcançado", value=meta.get("alcancado", ""), key="input_alcancado_meta")
-
-#     # Botão para salvar alterações
-#     if st.button("Salvar alterações", key="btn_salvar_meta"):
-#         meta["nome_meta_mp"] = nome
-#         meta["objetivo"] = objetivo
-#         meta["alcancado"] = alcancado
-#         st.success("Meta atualizada com sucesso!")
 
 
 ###########################################################################################################
@@ -504,8 +451,6 @@ st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
 
 if "modo_edicao" not in st.session_state:
     st.session_state.modo_edicao = False
-
-
 
 
 st.header("Estratégia")
