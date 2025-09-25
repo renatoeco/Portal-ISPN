@@ -24,7 +24,18 @@ st.header("Viagens")
 st.write('')
 
 
-
+# CSS PARA DIALOGO MAIOR
+st.markdown(
+    """
+<style>
+div[data-testid="stDialog"] div[role="dialog"]:has(.big-dialog) {
+    width: 55vw;
+    
+}
+</style>
+""",
+    unsafe_allow_html=True,
+)
 
 
 # ##################################################################
@@ -178,6 +189,9 @@ def get_usuario_normalizado(pessoas, id_usuario) -> dict:
 @st.dialog("Detalhes da Viagem", width='large')
 def mostrar_detalhes_sav(row):
 
+    # Aumentar largura do diálogo com css
+    st.html("<span class='big-dialog'></span>")
+
     # TRATAMENTO DO ITINERÁRIO
     # Transformar o itinerário em uma lista de dicionários
     viagens = parse_itinerario(row["Itinerário:"])
@@ -262,6 +276,9 @@ def mostrar_detalhes_sav(row):
 
 @st.dialog("Detalhes do Relatório", width='large')
 def mostrar_detalhes_rvs(row, df_rvss):
+
+    # Aumentar largura do diálogo com css
+    st.html("<span class='big-dialog'></span>")
 
     # Selecionando o relatório a partir do código da SAV
     relatorio = df_rvss[df_rvss["Código da viagem:"].str.upper() == row["Código da viagem:"].upper()].iloc[0]

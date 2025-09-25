@@ -120,6 +120,7 @@ def converter_uf_codigo_para_nome(valor):
 @st.dialog("Detalhes do projeto", width="large")
 def mostrar_detalhes(codigo_proj: str):
     
+    st.html("<span class='big-dialog'></span>")
 
     projeto = projetos_por_codigo.get(codigo_proj, {})
 
@@ -273,7 +274,6 @@ def mostrar_detalhes(codigo_proj: str):
 
     with aba_indicadores:
 
-        st.html("<span class='big-dialog'></span>")
         
         # Tratamento dos dados
 

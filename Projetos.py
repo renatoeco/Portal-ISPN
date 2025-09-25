@@ -48,6 +48,148 @@ moedas = {
     "euro": "€"
 }
 
+# Dicionário de nomes legíveis dos indicadores
+nomes_legiveis = {
+    "numero_de_organizacoes_apoiadas": "Número de organizações apoiadas",
+    "numero_de_comunidades_fortalecidas": "Número de comunidades fortalecidas",
+    "numero_de_familias": "Número de famílias beneficiadas",
+    "numero_de_homens_jovens": "Número de homens jovens",
+    "numero_de_homens_adultos": "Número de homens adultos",
+    "numero_de_mulheres_jovens": "Número de mulheres jovens",
+    "numero_de_mulheres_adultas": "Número de mulheres adultas",
+    "numero_de_indigenas": "Número de indígenas",
+    "numero_de_liderancas_comunitarias_fortalecidas": "Número de lideranças comunitárias fortalecidas",
+    "numero_de_familias_comercializando_produtos_da_sociobio_com_apoio_do_fundo_ecos": "Número de famílias comercializando produtos da sociobio com apoio do Fundo Ecos",
+    "numero_de_familias_acessando_vendas_institucionais_com_apoio_do_fundo_ecos": "Número de famílias acessando vendas institucionais com apoio do Fundo Ecos",
+    "numero_de_estudantes_recebendo_bolsa": "Número de estudantes recebendo bolsa",
+    "numero_de_capacitacoes_realizadas": "Número de capacitações realizadas",
+    "numero_de_homens_jovens_capacitados": "Número de homens jovens capacitados",
+    "numero_de_homens_adultos_capacitados": "Número de homens adultos capacitados",
+    "numero_de_mulheres_jovens_capacitadas": "Número de mulheres jovens capacitadas",
+    "numero_de_mulheres_adultas_capacitadas": "Número de mulheres adultas capacitadas",
+    "numero_de_intercambios_realizados": "Número de intercâmbios realizados",
+    "numero_de_homens_em_intercambios": "Número de homens em intercâmbios",
+    "numero_de_mulheres_em_intercambios": "Número de mulheres em intercâmbios",
+    "numero_de_iniciativas_de_gestao_territorial_implantadas": "Número de iniciativas de gestão territorial implantadas",
+    "area_com_manejo_ecologico_do_fogo_ha": "Área com manejo ecológico do fogo (ha)",
+    "area_com_manejo_agroecologico_ha": "Área com manejo agroecológico (ha)",
+    "area_com_manejo_para_restauracao_ha": "Área com manejo para restauração (ha)",
+    "area_com_manejo_para_extrativismo_ha": "Área com manejo para extrativismo (ha)",
+    "numero_de_agroindustiras_implementadas_ou_reformadas": "Número de agroindústrias implementadas ou reformadas",
+    "numero_de_tecnologias_instaladas": "Número de tecnologias instaladas",
+    "numero_de_pessoas_beneficiadas_com_tecnologias": "Número de pessoas beneficiadas com tecnologias",
+    "numero_de_videos_produzidos": "Número de vídeos produzidos",
+    "numero_de_aparicoes_na_midia": "Número de aparições na mídia",
+    "numero_de_publicacoes_de_carater_tecnico": "Número de publicações de caráter técnico",
+    "numero_de_artigos_academicos_produzidos_e_publicados": "Número de artigos acadêmicos produzidos e publicados",
+    "numero_de_comunicadores_comunitarios_contribuindo_na_execucao_das_acoes_do_ispn": "Número de comunicadores comunitários contribuindo na execução das ações do ISPN",
+    "faturamento_bruto_anual_pre_projeto": "Faturamento bruto anual pré-projeto",
+    "faturamento_bruto_anual_pos_projeto": "Faturamento bruto anual pós-projeto",
+    "volume_financeiro_de_vendas_institucionais_com_apoio_do_ppp_ecos": "Volume financeiro de vendas institucionais com apoio do PPP-ECOS",
+    "numero_de_visitas_de_monitoramento_realizadas_ao_projeto_apoiado": "Número de visitas de monitoramento realizadas ao projeto apoiado",
+    "valor_da_contrapartida_financeira_projetinhos": "Valor da contrapartida financeira",
+    "valor_da_contrapartida_nao_financeira_projetinhos": "Valor da contrapartida não financeira",
+    "especies": "Espécies",
+    "numero_de_organizacoes_apoiadas_que_alavancaram_recursos": "Número de organizações que alavancaram recursos",
+    "valor_mobilizado_de_novos_recursos": "Valor mobilizado de novos recursos",
+    "numero_de_politicas_publicas_monitoradas_pelo_ispn": "Número de políticas públicas monitoradas pelo ISPN",
+    "numero_de_proposicoes_legislativas_acompanhadas_pelo_ispn": "Número de proposições legislativas acompanhadas pelo ISPN",
+    "numero_de_contribuicoes_notas_tecnicas_participacoes_e_ou_documentos_que_apoiam_a_construcao_e_aprimoramento_de_politicas_publicas": "Número de contribuições (notas técnicas, participações e/ou documentos) que apoiam a construção e aprimoramento de políticas públicas",
+    "numero_de_imoveis_rurais_com_producao_sustentavel": "Número de imóveis rurais com produção sustentável",
+    "area_de_vegetacao_natural_diretamente_manejada": "Área de vegetação natural diretamente manejada (ha)",
+    "area_de_recuperacao_tecnica_saf": "Área de recuperação técnica (SAF) (ha)",
+    "area_de_recuperacao_tecnica_regeneracao": "Área de recuperação técnica (regeneração) (ha)",
+    "area_de_recuperacao_tecnica_plantio_adensamento": "Área de recuperação técnica (plantio/adensamento) (ha)",
+    "numero_de_unidades_demonstrativas_de_plantio": "Número de unidades demonstrativas de plantio",
+    "numero_de_infraestruturas_de_producao_implantadas": "Número de infraestruturas de produção implantadas",
+    "numero_de_transportes_adquiridos_para_plantio": "Número de transportes adquiridos para plantio",
+    "numero_de_transportes_adquiridos_para_beneficiamento": "Número de transportes adquiridos para beneficiamento",
+    "faturamento_bruto_produtos_in_natura": "Faturamento bruto de produtos in natura",
+    "faturamento_bruto_produtos_beneficiados": "Faturamento bruto de produtos beneficiados"
+}
+
+
+# listas de controle
+indicadores_float = [
+    "Área com manejo ecológico do fogo (ha)",
+    "Área com manejo agroecológico (ha)",
+    "Área com manejo para restauração (ha)",
+    "Área com manejo para extrativismo (ha)",
+    "Faturamento bruto anual pré-projeto",
+    "Faturamento bruto anual pós-projeto",
+    "Volume financeiro de vendas institucionais com apoio do Fundo Ecos",
+    "Valor da contrapartida financeira projetinhos",
+    "Valor da contrapartida não financeira projetinhos",
+    "Valor mobilizado de novos recursos"
+]
+indicador_texto = "Espécies"
+# Lista de nomes legíveis na ordem definida
+ordem_indicadores = [
+    "Número de organizações apoiadas",
+    "Número de comunidades fortalecidas",
+    "Número de famílias",
+    "Número de homens jovens (até 29 anos)",
+    "Número de homens adultos",
+    "Número de mulheres jovens (até 29 anos)",
+    "Número de mulheres adultas",
+    "Número de indígenas",
+    "Número de lideranças comunitárias fortalecidas",
+    "Número de famílias comercializando produtos da sociobio com apoio do Fundo Ecos",
+    "Número de famílias acessando vendas institucionais com apoio do Fundo Ecos",
+    "Número de estudantes recebendo bolsa",
+    "Número de capacitações realizadas",
+    "Número de homens jovens capacitados (até 29 anos)",
+    "Número de homens adultos capacitados",
+    "Número de mulheres jovens capacitadas (até 29 anos)",
+    "Número de mulheres adultas capacitadas",
+    "Número de intercâmbios realizados",
+    "Número de homens em intercâmbios",
+    "Número de mulheres em intercâmbios",
+    "Número de iniciativas de Gestão Territorial implantadas",
+    "Área com manejo ecológico do fogo (ha)",
+    "Área com manejo agroecológico (ha)",
+    "Área com manejo para restauração (ha)",
+    "Área com manejo para extrativismo (ha)",
+    "Número de agroindústrias implementadas/reformadas",
+    "Número de tecnologias instaladas",
+    "Número de pessoas beneficiadas com tecnologias",
+    "Número de vídeos produzidos",
+    "Número de aparições na mídia",
+    "Número de publicações de caráter técnico",
+    "Número de artigos acadêmicos produzidos e publicados",
+    "Número de comunicadores comunitários contribuindo na execução das ações do ISPN",
+    "Faturamento bruto anual pré-projeto",
+    "Faturamento bruto anual pós-projeto",
+    "Volume financeiro de vendas institucionais com apoio do Fundo Ecos",
+    "Número de visitas de monitoramento realizadas ao projeto apoiado",
+    "Valor da contrapartida financeira projetinhos",
+    "Valor da contrapartida não financeira projetinhos",
+    "Espécies",
+    "Número de organizações apoiadas que alavancaram recursos",
+    "Valor mobilizado de novos recursos",
+    "Número de políticas públicas monitoradas pelo ISPN",
+    "Número de proposições legislativas acompanhadas pelo ISPN",
+    "Número de contribuições (notas técnicas, participações e/ou documentos) que apoiam a construção e aprimoramento de políticas públicas"
+]
+
+
+# Função de parse valor para indicadores float
+def parse_valor(valor):
+    """Converte valor string para float, retornando 0.0 se não for possível."""
+    if isinstance(valor, (int, float)):
+        return float(valor)
+    if isinstance(valor, str):
+        valor = valor.strip()
+        if valor == "":
+            return 0.0
+        # Remover separadores de milhar e converter vírgula decimal para ponto
+        valor = valor.replace(".", "").replace(",", ".")
+        try:
+            return float(valor)
+        except ValueError:
+            return 0.0
+    return 0.0
+
 
 # Função para limpar e formatar o valor com notação de moeda (duas casas decimais)
 def formatar_valor(row):
@@ -85,6 +227,8 @@ def convert_objectid(obj):
 db = conectar_mongo_portal_ispn()
 estatistica = db["estatistica"]  # Coleção de estatísticas
 projetos_ispn = db["projetos_ispn"]  
+indicadores = db["indicadores"]
+colecao_lancamentos = db["lancamentos_indicadores"]
 
 
 
@@ -247,7 +391,7 @@ with tab1:
 
 
     # Cronograma ------------------------------------------
-    with st.expander('Cronograma'):
+    with st.expander('Ver cronograma'):
 
         # Gráfico de gantt cronograma 
 
@@ -393,7 +537,7 @@ with tab2:
     @st.dialog("Cadastrar novo projeto")
     def dialog_cadastrar_projeto(): 
 
-        # Aumentar largura do diálogo
+        # Aumentar largura do diálogo com css
         st.html("<span class='big-dialog'></span>")
 
         with st.form("form_cadastrar_projeto"):
@@ -781,257 +925,621 @@ with tab2:
     if pd.isna(objetivo_geral) or objetivo_geral == "":
         objetivo_geral = "_Não cadastrado_"
     st.write(f'**Objetivo geral:** {objetivo_geral}')
-    # st.markdown(f'**Objetivo geral:** <span style="color: orange">{objetivo_geral}</span>', unsafe_allow_html=True)
 
+    st.write('')
 
-
-    # Equipe do projeto
-    st.write('**Equipe contratada pelo projeto:**')
-
-    # 1- Obter o _id do projeto selecionado
+    # Obter o _id do projeto selecionado
     projeto_id = df_projetos_ispn.loc[
         df_projetos_ispn["sigla"] == projeto_selecionado, "_id"
     ].values[0]
 
-    # 2- Filtrar pessoas que têm pelo menos um contrato com esse projeto
-    def pertence_ao_projeto(contratos):
-        if not isinstance(contratos, list):
+
+
+
+    # ABAS
+    tab_equipe, tab_indicadores, tab_anotacoes = st.tabs([":material/group: Equipe", ":material/show_chart: Indicadores", ":material/notes: Anotações"])
+
+
+
+
+    # ##########################################################
+    # Equipe do projeto
+    # ##########################################################
+
+    with tab_equipe:
+
+        st.write('**Equipe contratada pelo projeto:**')
+
+        # # 1- Obter o _id do projeto selecionado
+        # projeto_id = df_projetos_ispn.loc[
+        #     df_projetos_ispn["sigla"] == projeto_selecionado, "_id"
+        # ].values[0]
+
+        # 2- Filtrar pessoas que têm pelo menos um contrato com esse projeto
+        def pertence_ao_projeto(contratos):
+            if not isinstance(contratos, list):
+                return False
+            for c in contratos:
+                if c.get("status_contrato") == "Em vigência":
+                    # projeto_pagador já convertido em string se você aplicou a função anterior
+                    ids = [str(p) for p in c.get("projeto_pagador", [])]
+                    if str(projeto_id) in ids:
+                        return True
             return False
-        for c in contratos:
-            if c.get("status_contrato") == "Em vigência":
-                # projeto_pagador já convertido em string se você aplicou a função anterior
-                ids = [str(p) for p in c.get("projeto_pagador", [])]
-                if str(projeto_id) in ids:
-                    return True
-        return False
 
-    df_equipe = df_pessoas[df_pessoas["contratos"].apply(pertence_ao_projeto)].copy()
+        df_equipe = df_pessoas[df_pessoas["contratos"].apply(pertence_ao_projeto)].copy()
 
-    # 3- Criar coluna 'datas_fim_contrato' com todas as datas de fim de contratos em vigência
-    def datas_fim_em_vigencia(contratos):
-        if not isinstance(contratos, list):
-            return ""
-        datas = [c['data_fim'] for c in contratos if c.get('status_contrato') == 'Em vigência']
-        return ", ".join(datas)
+        # 3- Criar coluna 'datas_fim_contrato' com todas as datas de fim de contratos em vigência
+        def datas_fim_em_vigencia(contratos):
+            if not isinstance(contratos, list):
+                return ""
+            datas = [c['data_fim'] for c in contratos if c.get('status_contrato') == 'Em vigência']
+            return ", ".join(datas)
 
-    df_equipe['datas_fim_contrato'] = df_equipe['contratos'].apply(datas_fim_em_vigencia)
+        df_equipe['datas_fim_contrato'] = df_equipe['contratos'].apply(datas_fim_em_vigencia)
 
-    # 4- Exibição
-    colunas_exibir = [
-        "nome_completo",
-        "programa_area_nome",
-        "coordenador_nome",
-        "escritorio",
-        "cargo",
-        "tipo_contratacao",
-        "datas_fim_contrato",
-        "status",
-    ]
+        # 4- Exibição
+        colunas_exibir = [
+            "nome_completo",
+            "programa_area_nome",
+            "coordenador_nome",
+            "escritorio",
+            "cargo",
+            "tipo_contratacao",
+            "datas_fim_contrato",
+            "status",
+        ]
 
-    # Novo nome das colunas
-    novos_nomes = {
-        "nome_completo": "Nome",
-        "programa_area_nome": "Programa / Área",
-        "status": "Status",
-        "coordenador_nome": "Coordenador(a)",
-        "cargo": "Cargo",
-        "tipo_contratacao": "Tipo de Contratação",
-        "escritorio": "Escritório",
-        "datas_fim_contrato": "Data de fim do contrato"
-    }
+        # Novo nome das colunas
+        novos_nomes = {
+            "nome_completo": "Nome",
+            "programa_area_nome": "Programa / Área",
+            "status": "Status",
+            "coordenador_nome": "Coordenador(a)",
+            "cargo": "Cargo",
+            "tipo_contratacao": "Tipo de Contratação",
+            "escritorio": "Escritório",
+            "datas_fim_contrato": "Data de fim do contrato"
+        }
 
-    # Exibir somente essas colunas com os nomes renomeados
-    if df_equipe.empty:
-        st.write("_Não há equipe cadastrada para este projeto_")
-    else:
-        st.dataframe(
-            df_equipe[colunas_exibir]
-            .rename(columns=novos_nomes)
-            .reset_index(drop=True),
-            hide_index=True
+        # Exibir somente essas colunas com os nomes renomeados
+        if df_equipe.empty:
+            st.write("_Não há equipe cadastrada para este projeto_")
+        else:
+            st.dataframe(
+                df_equipe[colunas_exibir]
+                .rename(columns=novos_nomes)
+                .reset_index(drop=True),
+                hide_index=True
+            )
+
+        st.write('')
+
+
+
+
+    # ##########################################################
+    # Indicadores
+    # ##########################################################
+
+    with tab_indicadores:
+        st.write('**Indicadores do projeto:** (não inclui indicadores de projetos apoiados ou "grants")')
+
+
+        # Tratamento dos dados
+
+        autor_nome = st.session_state.get("nome", "")
+        tipo_usuario = st.session_state.get("tipo_usuario", [])
+        projeto_id = projeto_info["_id"].iloc[0]   # pega o valor da célula
+        projeto_id = bson.ObjectId(projeto_id)     # garante que é ObjectId
+
+        lancamentos = list(db["lancamentos_indicadores"].find({"projeto": projeto_id}))
+
+
+        linhas = []
+        if not lancamentos:
+            st.info("Não há lançamentos de indicadores para este projeto.")
+        else:
+            
+            for lan in lancamentos:
+                ind_id = lan.get("id_do_indicador")
+    
+                # Garantir que seja ObjectId para consulta
+                if isinstance(ind_id, str):
+                    try:
+                        ind_id_obj = bson.ObjectId(ind_id)
+                    except Exception:
+                        ind_id_obj = None
+                elif isinstance(ind_id, bson.ObjectId):
+                    ind_id_obj = ind_id
+                else:
+                    ind_id_obj = None
+
+                indicador_nome = str(ind_id)
+                
+                if ind_id_obj:
+                    indicador_doc = db["indicadores"].find_one({"_id": ind_id_obj})
+                    if indicador_doc:
+                        indicador_nome = (
+                            indicador_doc.get("nome_legivel") or 
+                            indicador_doc.get("nome_indicador") or 
+                            indicador_doc.get("nome") or 
+                            str(ind_id)
+                        )
+                
+                # Traduzir via nomes_legiveis se aplicável
+                nome_legivel_traduzido = nomes_legiveis.get(indicador_nome, indicador_nome)
+
+                linhas.append({
+                    "Indicador": nome_legivel_traduzido,
+                    "Valor": lan.get("valor", ""),
+                    "Ano": lan.get("ano", ""),
+                    "Autor(a)": lan.get("autor_anotacao", ""),
+                    "Observações": lan.get("observacoes", ""),
+                })
+
+
+        # Cria o DataFrame mesmo que linhas esteja vazio
+        df_indicadores = pd.DataFrame(linhas, columns=["Indicador", "Valor", "Ano", "Autor(a)", "Observações"])
+        df_indicadores["Valor_num"] = df_indicadores["Valor"].apply(parse_valor)
+
+        # Resumo por indicador
+        df_resumo = (
+            df_indicadores.groupby("Indicador", as_index=False)["Valor_num"]
+            .sum(min_count=1)
+            .rename(columns={"Valor_num": "Total"})
         )
-
-    st.write('')
-
+        df_resumo["Total"] = df_resumo["Total"].fillna("")
 
 
-    st.write('**Anotações:**')
 
-    # ====================
-    # Função do diálogo
-    # ====================
-    @st.dialog("Gerenciar Anotações")
-    def dialog_anotacoes():
-        tab1, tab2, tab3 = st.tabs([":material/add: Nova anotação", ":material/edit: Editar", ":material/delete: Apagar"])
+        # Interface dos indicadores-------------------------------------------------------------
 
         # ====================
-        # ABA 1: Cadastrar
+        # Função do diálogo de indicadores
         # ====================
-        with tab1:
-            with st.form("form_cadastrar_anotacao"):
-                hoje = datetime.datetime.today().strftime("%d/%m/%Y")
+        @st.dialog("Gerenciar indicadores")
+        def dialog_indicadores():
 
-                st.write(f"Data: {hoje}")
+            # Aumentar largura do diálogo com css
+            st.html("<span class='big-dialog'></span>")
 
-                anotacao_texto = st.text_area("Anotação")
+            # Carrega indicadores
+            indicadores_lista = list(db["indicadores"].find({}, {"_id": 1, "nome_indicador": 1}))
+            indicadores_opcoes = {
+                nomes_legiveis.get(i["nome_indicador"], i["nome_indicador"]): i
+                for i in indicadores_lista
+            }
 
-                submit = st.form_submit_button("Salvar anotação", icon=':material/save:', type="primary")
 
-                if submit:
-                    if not anotacao_texto.strip():
-                        st.warning("A anotação não pode estar vazia.")
-                    else:
-                        # Buscar _id do projeto
-                        projeto = projetos_ispn.find_one({"sigla": projeto_selecionado})
-                        if not projeto:
-                            st.error("Projeto não encontrado no banco de dados.")
+            tab_add, tab_edit, tab_delete = st.tabs([
+                ":material/add: Adicionar",
+                ":material/edit: Editar",
+                ":material/delete: Excluir"
+            ])
+
+            # ------------------------- ABA ADICIONAR -------------------------
+            with tab_add:
+                st.subheader("Novo lançamento de indicador")
+
+                # indicadores_lista = list(indicadores.find({}, {"_id": 1, "nome_indicador": 1}))
+                # indicadores_opcoes = {
+                #     nomes_legiveis.get(i["nome_indicador"], i["nome_indicador"]): i
+                #     for i in indicadores_lista
+                # }
+
+                indicador_legivel = st.selectbox(
+                    "Indicador",
+                    [""] + [i for i in ordem_indicadores if i in indicadores_opcoes]
+                )
+
+                if indicador_legivel != "":
+                    indicador_doc = indicadores_opcoes[indicador_legivel]
+                    indicador_oid = indicador_doc["_id"]
+
+                    with st.form(key="form_add_lancamento"):
+                        col1, col2 = st.columns(2)
+
+                        if indicador_legivel == indicador_texto:
+                            valor = col1.text_input("Espécies")
+                            tipo_valor = "texto"
+                        elif indicador_legivel in indicadores_float:
+                            valor = col1.number_input("Valor", value=0.00, step=0.01, format="%.2f")
+                            tipo_valor = "float"
                         else:
-                            nova_anotacao = {
-                                "data_anotacao": datetime.datetime.today(),
-                                "autor": st.session_state.get("nome", "Desconhecido"),
-                                "anotacao": anotacao_texto.strip()
-                            }
+                            valor = col1.number_input("Valor", value=0, step=1, format="%d")
+                            tipo_valor = "int"
 
-                            # Atualiza o projeto adicionando a nova anotação
-                            projetos_ispn.update_one(
-                                {"_id": projeto["_id"]},
-                                {"$push": {"anotacoes": nova_anotacao}}
+                        ano_atual = datetime.datetime.now().year
+                        anos = ["até 2024"] + [str(ano) for ano in range(2025, ano_atual + 2)]
+                        ano = col2.selectbox("Ano", anos)
+
+                        observacoes = st.text_area("Observações", height=100)
+
+                        submit = st.form_submit_button(":material/save: Salvar lançamento", type="primary")
+
+                    if submit:
+                        if not autor_nome:
+                            st.warning("Nome do autor não encontrado.")
+                            st.stop()
+
+                        if tipo_valor == "float":
+                            valor = float(valor)
+                        elif tipo_valor == "int":
+                            valor = int(valor)
+
+                      
+                        novo_lancamento = {
+                            "id_do_indicador": indicador_oid,
+                            "projeto": bson.ObjectId(projeto_id),
+                            "valor": valor,
+                            "ano": str(ano),
+                            "observacoes": observacoes,
+                            "autor_anotacao": autor_nome,
+                            "data_anotacao": datetime.datetime.now(),
+                            "tipo": "ispn"
+                        }
+
+                        colecao_lancamentos.insert_one(novo_lancamento)
+                        st.success("Lançamento salvo com sucesso!")
+                        time.sleep(2)
+                        st.cache_data.clear()
+                        st.rerun()
+
+            # ------------------------- ABA EDITAR -------------------------
+            with tab_edit:
+                st.subheader("Editar lançamento")
+
+                lancamentos_proj = list(
+                    colecao_lancamentos.find({"projeto": bson.ObjectId(projeto_id)}).sort("data_anotacao", -1)
+                )
+
+                if "admin" not in tipo_usuario:
+                    lancamentos_proj = [l for l in lancamentos_proj if l.get("autor_anotacao") == autor_nome]
+
+                if not lancamentos_proj:
+                    st.info("Nenhum lançamento disponível para edição.")
+                else:
+                    lanc_opcoes = {}
+                    for l in lancamentos_proj:
+                        data_str = l["data_anotacao"].strftime("%d/%m/%Y %H:%M:%S") if isinstance(l["data_anotacao"], datetime.datetime) else "Sem data"
+                        autor = l.get("autor_anotacao", "Sem autor")
+                        indicador = indicadores.find_one({"_id": l["id_do_indicador"]})
+                        nome_original = indicador["nome_indicador"] if indicador else ""
+                        indicador_nome = nomes_legiveis.get(nome_original, nome_original)
+
+                        label = f"{data_str} - {autor} - {indicador_nome}"
+                        lanc_opcoes[label] = l["_id"]
+
+                    lanc_sel = st.selectbox("Selecione o lançamento", [""] + list(lanc_opcoes.keys()), key=f"select_lanc_{bson.ObjectId(projeto_id)}")
+
+                    if lanc_sel != "":
+                        lanc_id = lanc_opcoes[lanc_sel]
+                        doc = colecao_lancamentos.find_one({"_id": lanc_id})
+                        indicador = indicadores.find_one({"_id": doc["id_do_indicador"]})
+                        nome_original = indicador["nome_indicador"] if indicador else ""
+                        indicador_nome_edit = nomes_legiveis.get(nome_original, nome_original)
+
+
+                        col1, col2 = st.columns(2)
+
+                        if indicador_nome_edit == indicador_texto:
+                            novo_valor = col1.text_input("Espécies", value=str(doc["valor"]))
+                            tipo_valor = "texto"
+                        elif indicador_nome_edit in indicadores_float:
+                            valor_inicial = float(doc["valor"]) if doc["valor"] != "" else 0.00
+                            novo_valor = col1.number_input("Valor", value=valor_inicial, step=0.01, format="%.2f")
+                            tipo_valor = "float"
+                        else:
+                            valor_inicial = int(doc["valor"]) if str(doc["valor"]).isdigit() else 0
+                            novo_valor = col1.number_input("Valor", value=valor_inicial, step=1, format="%d")
+                            tipo_valor = "int"
+
+                        anos = ["até 2024"] + [str(ano) for ano in range(2025, datetime.datetime.now().year + 2)]
+                        ano_str = doc.get("ano", "2025")
+                        if ano_str not in anos:
+                            anos.insert(0, ano_str)
+                        novo_ano = col2.selectbox("Ano", anos, index=anos.index(ano_str))
+
+                        novas_obs = st.text_area("Observações", value=doc.get("observacoes", ""))
+
+                        if st.button(":material/save: Salvar alterações", type="primary"):
+                            if tipo_valor == "float":
+                                novo_valor = float(novo_valor)
+                            elif tipo_valor == "int":
+                                novo_valor = int(novo_valor)
+
+                            colecao_lancamentos.update_one(
+                                {"_id": lanc_id},
+                                {"$set": {"valor": novo_valor, "ano": str(novo_ano), "observacoes": novas_obs}}
                             )
-                            st.success("Anotação cadastrada com sucesso!")
-                            time.sleep(3)
+                            st.success("Lançamento atualizado com sucesso!")
+                            st.cache_data.clear()
+                            st.rerun()
+
+            # ------------------------- ABA EXCLUIR -------------------------
+            with tab_delete:
+                st.subheader("Excluir lançamento")
+
+                lancamentos_proj = list(
+                    colecao_lancamentos.find({"projeto": bson.ObjectId(projeto_id)}).sort("data_anotacao", -1)
+                )
+
+                if "admin" not in tipo_usuario:
+                    lancamentos_proj = [l for l in lancamentos_proj if l.get("autor_anotacao") == autor_nome]
+
+                if not lancamentos_proj:
+                    st.info("Nenhum lançamento disponível para exclusão.")
+                else:
+                    lanc_opcoes = {}
+                    for l in lancamentos_proj:
+                        data_str = l["data_anotacao"].strftime("%d/%m/%Y %H:%M:%S") if isinstance(l["data_anotacao"], datetime.datetime) else "Sem data"
+                        autor = l.get("autor_anotacao", "Sem autor")
+                        indicador = indicadores.find_one({"_id": l["id_do_indicador"]})
+                        nome_original = indicador["nome_indicador"] if indicador else ""
+                        indicador_nome = nomes_legiveis.get(nome_original, nome_original)
+
+                        label = f"{data_str} - {autor} - {indicador_nome}"
+                        lanc_opcoes[label] = l["_id"]
+
+                    lanc_sel = st.selectbox("Selecione o lançamento", [""] + list(lanc_opcoes.keys()), key=f"select_lanc_2")
+
+                    if lanc_sel != "":
+                        lanc_id = lanc_opcoes[lanc_sel]
+                        doc = colecao_lancamentos.find_one({"_id": lanc_id})
+                        indicador = indicadores.find_one({"_id": doc["id_do_indicador"]})
+                        nome_original = indicador["nome_indicador"] if indicador else ""
+                        indicador_nome_exluir = nomes_legiveis.get(nome_original, nome_original)
+
+                        valor_lanc = doc.get("valor", "Sem valor")
+
+                        st.warning(
+                            f"Tem certeza que deseja excluir o lançamento de **{indicador_nome_exluir}** "
+                            f"registrado por {doc['autor_anotacao']} em {doc['data_anotacao'].strftime('%d/%m/%Y')}?\n\n"
+                            f"**Valor:** {valor_lanc}"
+                        )
+
+                        if st.button("Excluir", icon=":material/delete:"):
+                            colecao_lancamentos.delete_one({"_id": lanc_id})
+                            st.success("Lançamento excluído com sucesso!")
+                            st.cache_data.clear()
                             st.rerun()
 
         # ====================
-        # ABA 2: Editar
+        # Botão para abrir o diálogo de Gerenciar indicadores
         # ====================
-        with tab2:
-            projeto = projetos_ispn.find_one({"sigla": projeto_selecionado})
+        
+        with st.container(horizontal=True, horizontal_alignment="right"):
             
-            if not projeto or "anotacoes" not in projeto or len(projeto["anotacoes"]) == 0:
-                st.write("_Não há anotações para editar._")
-            else:
-                anotacoes = projeto["anotacoes"]
-                usuario_logado = st.session_state.get("nome", "Desconhecido")
-                
-                # Criar lista de opções com apenas anotações do próprio usuário
-                opcoes = [
-                    f'{a["data_anotacao"].strftime("%d/%m/%Y") if isinstance(a["data_anotacao"], datetime.datetime) else a["data_anotacao"]} - {a["anotacao"][:30]}...'
-                    for a in anotacoes if a.get("autor") == usuario_logado
-                ]
-                
-                if not opcoes:
-                    st.write("_Você não possui anotações para editar._")
-                else:
-                    # Adiciona opção vazia no início
-                    opcoes_com_vazio = [""] + opcoes
-                    
-                    # Selecionar anotação (valor padrão vazio)
-                    selecionada = st.selectbox(
-                        "Selecione a anotação para editar",
-                        options=opcoes_com_vazio,
-                        index=0
-                    )
-                    
-                    if selecionada:  # só prosseguir se o usuário selecionar algo
-                        # Índice real dentro da lista completa de anotações
-                        index = [i for i, a in enumerate(anotacoes) if a.get("autor") == usuario_logado][opcoes.index(selecionada)]
-                        anotacao_atual = anotacoes[index]["anotacao"]
-                        
-                        # Campo para editar
-                        nova_texto = st.text_area("Editar anotação", value=anotacao_atual)
-                        
-                        if st.button("Salvar alterações", icon=":material/save:"):
-                            if not nova_texto.strip():
-                                st.warning("A anotação não pode ficar vazia.")
+            if st.button("Gerenciar indicadores", icon=":material/edit:", width=300):
+                dialog_indicadores()
+
+
+
+
+
+        # ====================
+        # Toggle para ver consolidado ou todos os lançamentos
+        # ====================
+
+        ver_lancamentos = st.toggle("Ver lançamentos detalhados")
+
+        st.write('')
+
+
+
+
+
+        # Renderização da tabela dataframe
+
+        # Por padrão, mostra o consolidado
+        if not ver_lancamentos:
+            
+            st.write('**MOSTRANDO INDICADORES CONSOLIDADOS (NÚMEROS SOMADOS):**')
+            st.write('')
+
+            ui.table(data=df_resumo.drop(columns=["Valor_num"], errors="ignore"))
+
+            # ajustar_altura_dataframe(df_resumo.drop(columns=["Valor_num"], errors="ignore"), 
+            #                             linhas_adicionais=1,
+            #                             hide_index=True, 
+            #                             use_container_width=True
+            #                             )            
+
+        # Ao acionar o toggle, mostra todos os lançamentos detalhados
+        else:
+            
+            st.write('**MOSTRANDO TODOS OS LANÇAMENTOS DE INDICADORES:**')
+            st.write('')
+
+            # ui.table(data=df_indicadores.drop(columns=["Valor_num"], errors="ignore"))
+
+            ajustar_altura_dataframe(df_indicadores.drop(columns=["Valor_num"], errors="ignore"), 
+                                        linhas_adicionais=1,
+                                        hide_index=True, 
+                                        use_container_width=True)
+
+
+
+    # ##########################################################
+    # Anotações
+    # ##########################################################
+
+    with tab_anotacoes:
+        st.write('**Anotações:**')
+
+        # ====================
+        # Função do diálogo
+        # ====================
+        @st.dialog("Gerenciar Anotações")
+        def dialog_anotacoes():
+            tab1, tab2, tab3 = st.tabs([":material/add: Nova anotação", ":material/edit: Editar", ":material/delete: Apagar"])
+
+            # ====================
+            # ABA 1: Cadastrar
+            # ====================
+            with tab1:
+                with st.form("form_cadastrar_anotacao"):
+                    hoje = datetime.datetime.today().strftime("%d/%m/%Y")
+
+                    st.write(f"Data: {hoje}")
+
+                    anotacao_texto = st.text_area("Anotação")
+
+                    submit = st.form_submit_button("Salvar anotação", icon=':material/save:', type="primary")
+
+                    if submit:
+                        if not anotacao_texto.strip():
+                            st.warning("A anotação não pode estar vazia.")
+                        else:
+                            # Buscar _id do projeto
+                            projeto = projetos_ispn.find_one({"sigla": projeto_selecionado})
+                            if not projeto:
+                                st.error("Projeto não encontrado no banco de dados.")
                             else:
-                                # Atualizar a anotação no MongoDB
+                                nova_anotacao = {
+                                    "data_anotacao": datetime.datetime.today(),
+                                    "autor": st.session_state.get("nome", "Desconhecido"),
+                                    "anotacao": anotacao_texto.strip()
+                                }
+
+                                # Atualiza o projeto adicionando a nova anotação
                                 projetos_ispn.update_one(
                                     {"_id": projeto["_id"]},
-                                    {"$set": {f"anotacoes.{index}.anotacao": nova_texto.strip()}}
+                                    {"$push": {"anotacoes": nova_anotacao}}
                                 )
-                                st.success("Anotação editada com sucesso!")
-                                time.sleep(3)  # pausa antes do rerun
+                                st.success("Anotação cadastrada com sucesso!")
+                                time.sleep(3)
                                 st.rerun()
 
-
-
-
-        # ====================
-        # ABA 3: Apagar
-        # ====================
-        with tab3:
-            projeto = projetos_ispn.find_one({"sigla": projeto_selecionado})
-            usuario_logado = st.session_state.get("nome", "Desconhecido")
-            
-            if not projeto or "anotacoes" not in projeto or len(projeto["anotacoes"]) == 0:
-                st.write("_Não há anotações para apagar._")
-            else:
-                anotacoes = projeto["anotacoes"]
+            # ====================
+            # ABA 2: Editar
+            # ====================
+            with tab2:
+                projeto = projetos_ispn.find_one({"sigla": projeto_selecionado})
                 
-                # Lista apenas anotações do próprio usuário
-                opcoes = [
-                    f'{a["data_anotacao"].strftime("%d/%m/%Y") if isinstance(a["data_anotacao"], datetime.datetime) else a["data_anotacao"]} - {a["anotacao"][:30]}...'
-                    for a in anotacoes if a.get("autor") == usuario_logado
-                ]
-                
-                if not opcoes:
-                    st.write("_Você não possui anotações para apagar._")
+                if not projeto or "anotacoes" not in projeto or len(projeto["anotacoes"]) == 0:
+                    st.write("_Não há anotações para editar._")
                 else:
-                    # Adiciona opção vazia no início
-                    opcoes_com_vazio = [""] + opcoes
+                    anotacoes = projeto["anotacoes"]
+                    usuario_logado = st.session_state.get("nome", "Desconhecido")
                     
-                    selecionada = st.selectbox(
-                        "Selecione a anotação para apagar",
-                        options=opcoes_com_vazio,
-                        index=0  # valor padrão vazio
-                    )
+                    # Criar lista de opções com apenas anotações do próprio usuário
+                    opcoes = [
+                        f'{a["data_anotacao"].strftime("%d/%m/%Y") if isinstance(a["data_anotacao"], datetime.datetime) else a["data_anotacao"]} - {a["anotacao"][:30]}...'
+                        for a in anotacoes if a.get("autor") == usuario_logado
+                    ]
                     
-                    if selecionada:  # só prosseguir se o usuário selecionar algo
-                        # Índice real dentro da lista completa de anotações
-                        index = [i for i, a in enumerate(anotacoes) if a.get("autor") == usuario_logado][opcoes.index(selecionada)]
+                    if not opcoes:
+                        st.write("_Você não possui anotações para editar._")
+                    else:
+                        # Adiciona opção vazia no início
+                        opcoes_com_vazio = [""] + opcoes
                         
-                        # Passo de confirmação
-                        st.warning("Você tem certeza que deseja apagar essa anotação?")
-                        if st.button("Sim, apagar anotação", key="confirm_delete", icon=":material/check:"):
-                            # Remover a anotação pelo índice
-                            projetos_ispn.update_one(
-                                {"_id": projeto["_id"]},
-                                {"$unset": {f"anotacoes.{index}": 1}}
-                            )
-                            # Remover o elemento "vazio" deixado pelo $unset
-                            projetos_ispn.update_one(
-                                {"_id": projeto["_id"]},
-                                {"$pull": {"anotacoes": None}}
-                            )
-                            st.success("Anotação apagada com sucesso!")
-                            time.sleep(3)
-                            st.rerun()
+                        # Selecionar anotação (valor padrão vazio)
+                        selecionada = st.selectbox(
+                            "Selecione a anotação para editar",
+                            options=opcoes_com_vazio,
+                            index=0
+                        )
+                        
+                        if selecionada:  # só prosseguir se o usuário selecionar algo
+                            # Índice real dentro da lista completa de anotações
+                            index = [i for i, a in enumerate(anotacoes) if a.get("autor") == usuario_logado][opcoes.index(selecionada)]
+                            anotacao_atual = anotacoes[index]["anotacao"]
+                            
+                            # Campo para editar
+                            nova_texto = st.text_area("Editar anotação", value=anotacao_atual)
+                            
+                            if st.button("Salvar alterações", icon=":material/save:", type="primary"):
+                                if not nova_texto.strip():
+                                    st.warning("A anotação não pode ficar vazia.")
+                                else:
+                                    # Atualizar a anotação no MongoDB
+                                    projetos_ispn.update_one(
+                                        {"_id": projeto["_id"]},
+                                        {"$set": {f"anotacoes.{index}.anotacao": nova_texto.strip()}}
+                                    )
+                                    st.success("Anotação editada com sucesso!")
+                                    time.sleep(3)  # pausa antes do rerun
+                                    st.rerun()
 
 
 
 
-    # ====================
-    # Botão para abrir o diálogo
-    # ====================
-    
-    with st.container(horizontal=True):
-        if st.button("Gerenciar anotações", icon=":material/edit:", width=300):
-            dialog_anotacoes()
+            # ====================
+            # ABA 3: Apagar
+            # ====================
+            with tab3:
+                projeto = projetos_ispn.find_one({"sigla": projeto_selecionado})
+                usuario_logado = st.session_state.get("nome", "Desconhecido")
+                
+                if not projeto or "anotacoes" not in projeto or len(projeto["anotacoes"]) == 0:
+                    st.write("_Não há anotações para apagar._")
+                else:
+                    anotacoes = projeto["anotacoes"]
+                    
+                    # Lista apenas anotações do próprio usuário
+                    opcoes = [
+                        f'{a["data_anotacao"].strftime("%d/%m/%Y") if isinstance(a["data_anotacao"], datetime.datetime) else a["data_anotacao"]} - {a["anotacao"][:30]}...'
+                        for a in anotacoes if a.get("autor") == usuario_logado
+                    ]
+                    
+                    if not opcoes:
+                        st.write("_Você não possui anotações para apagar._")
+                    else:
+                        # Adiciona opção vazia no início
+                        opcoes_com_vazio = [""] + opcoes
+                        
+                        selecionada = st.selectbox(
+                            "Selecione a anotação para apagar",
+                            options=opcoes_com_vazio,
+                            index=0  # valor padrão vazio
+                        )
+                        
+                        if selecionada:  # só prosseguir se o usuário selecionar algo
+                            # Índice real dentro da lista completa de anotações
+                            index = [i for i, a in enumerate(anotacoes) if a.get("autor") == usuario_logado][opcoes.index(selecionada)]
+                            
+                            # Passo de confirmação
+                            st.warning("Você tem certeza que deseja apagar essa anotação?")
+                            if st.button("Sim, apagar anotação", key="confirm_delete", icon=":material/check:"):
+                                # Remover a anotação pelo índice
+                                projetos_ispn.update_one(
+                                    {"_id": projeto["_id"]},
+                                    {"$unset": {f"anotacoes.{index}": 1}}
+                                )
+                                # Remover o elemento "vazio" deixado pelo $unset
+                                projetos_ispn.update_one(
+                                    {"_id": projeto["_id"]},
+                                    {"$pull": {"anotacoes": None}}
+                                )
+                                st.success("Anotação apagada com sucesso!")
+                                time.sleep(3)
+                                st.rerun()
+
+        # ====================
+        # Botão para abrir o diálogo
+        # ====================
+        
+        with st.container(horizontal=True, horizontal_alignment="right"):
+            if st.button("Gerenciar anotações", icon=":material/edit:", width=300):
+                dialog_anotacoes()
 
 
-    # ====================
-    # Mostrar as anotações existentes
-    # ====================
-    projeto = projetos_ispn.find_one({"sigla": projeto_selecionado})
-    if projeto and "anotacoes" in projeto:
-        anotacoes = [
-            [a["data_anotacao"].strftime("%d/%m/%Y") if isinstance(a["data_anotacao"], datetime.datetime) else a["data_anotacao"],
-            a["anotacao"],
-            a.get("autor", "Desconhecido")]
-            for a in projeto["anotacoes"]
-        ]
-        df = pd.DataFrame(anotacoes, columns=["Data", "Anotação", "Autor"])
-        ui.table(data=df)
-    else:
-        st.write("_Não há anotações cadastradas para este projeto._")
+        # ====================
+        # Mostrar as anotações existentes
+        # ====================
+        projeto = projetos_ispn.find_one({"sigla": projeto_selecionado})
+        if projeto and "anotacoes" in projeto:
+            anotacoes = [
+                [a["data_anotacao"].strftime("%d/%m/%Y") if isinstance(a["data_anotacao"], datetime.datetime) else a["data_anotacao"],
+                a["anotacao"],
+                a.get("autor", "Desconhecido")]
+                for a in projeto["anotacoes"]
+            ]
+            df = pd.DataFrame(anotacoes, columns=["Data", "Anotação", "Autor"])
+            ui.table(data=df)
+        else:
+            st.write("_Não há anotações cadastradas para este projeto._")
 
