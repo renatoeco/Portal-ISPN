@@ -1438,7 +1438,7 @@ for projeto in todos_projetos:
         projeto["doador"] = ""
 
 
-for projeto in todos_projetos:
+# for projeto in todos_projetos:
     valor_bruto = projeto.get("valor")
 
     if isinstance(valor_bruto, str):
