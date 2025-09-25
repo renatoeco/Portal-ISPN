@@ -159,11 +159,12 @@ if pessoa_logada:
 
     # ============ ABA INFORMAÇÕES GERAIS ============
     with aba_info:
-        st.subheader("Informações gerais")
 
         col1, col2, col3 = st.columns([3,1,1])
 
         editar = col3.toggle("Habilitar edição")
+
+        st.subheader("Informações gerais")
 
         st.write("")
 
