@@ -44,7 +44,8 @@ dados_projetos_ispn = list(projetos_ispn.find())
 
 # Buscar a pessoa logada
 pessoa_logada = next(
-    (p for p in dados_pessoas if p["nome_completo"] == st.session_state.get("nome")), None
+    (p for p in dados_pessoas if str(p["_id"]) == str(st.session_state.get("id_usuario"))),
+    None
 )
 
 # Mapeia nomes de programa <-> ObjectId
