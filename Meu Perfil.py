@@ -21,6 +21,7 @@ st.write('')
 # CONEXÃO COM O BANCO DE DADOS MONGODB
 ######################################################################################################
 
+
 # Conecta no banco MongoDB usando função auxiliar
 db = conectar_mongo_portal_ispn()
 
@@ -45,51 +46,6 @@ dados_projetos_ispn = list(projetos_ispn.find())
 pessoa_logada = next(
     (p for p in dados_pessoas if p["nome_completo"] == st.session_state.get("nome")), None
 )
-
-pessoas_lista = []
-
-for pessoa in dados_pessoas:
-    # ----------------------
-    # Programa/Área
-    # ----------------------
-    id_programa_area = pessoa.get("programa_area")
-    nome_programa_area = next(
-        (p.get("nome_programa_area", "") for p in dados_programas if p["_id"] == id_programa_area),
-        "Não informado"
-    )
-
-    # ----------------------
-    # Projetos pagadores (contratos em vigência)
-    # ----------------------
-    nomes_projetos_pagadores = []
-    contratos = pessoa.get("contratos", [])
-
-    for contrato in contratos:
-        if contrato.get("status_contrato") == "Em vigência":
-            for proj_id in contrato.get("projeto_pagador", []):
-                nome_proj = next(
-                    (p.get("sigla", "") for p in dados_projetos_ispn if p["_id"] == proj_id),
-                    "Não informado"
-                )
-                nomes_projetos_pagadores.append(nome_proj)
-
-        # ----------------------
-        # Montar registro da pessoa
-        # ----------------------
-        pessoas_lista.append({
-            "Nome": pessoa.get("nome_completo", ""),
-            "Programa/Área": nome_programa_area,
-            "Projeto Pagador": ", ".join(nomes_projetos_pagadores) if nomes_projetos_pagadores else "",
-            "Cargo": pessoa.get("cargo", ""),
-            "Escolaridade": pessoa.get("escolaridade", ""),
-            "E-mail": pessoa.get("e_mail", ""),
-            "Telefone": pessoa.get("telefone", ""),
-            "Gênero": pessoa.get("gênero", ""),
-            "Raça": pessoa.get("raca", ""),
-            "Status": pessoa.get("status", ""),
-            "Tipo Contratação": pessoa.get("tipo_contratacao", ""),
-            "Escritório": pessoa.get("escritorio", ""),
-        })
 
 # Mapeia nomes de programa <-> ObjectId
 nome_para_id_programa = {
@@ -128,19 +84,6 @@ coordenadores_possiveis = [
     for pessoa in dados_pessoas
     if "coordenador(a)" in pessoa.get("tipo de usuário", "").lower()
 ]
-
-# 1. Lista de nomes (adiciona opção vazia)
-nomes_coordenadores = [""] + [c["nome"] for c in coordenadores_possiveis]
-
-# 2. Tenta encontrar coordenador atual
-coordenador_atual_id = pessoa.get("coordenador")
-coordenador_encontrado = next(
-    (c for c in coordenadores_possiveis if str(c["id"]) == str(coordenador_atual_id)),
-    None
-)
-
-# 3. Define valor default (se não achar, fica vazio)
-nome_coordenador_default = coordenador_encontrado["nome"] if coordenador_encontrado else ""
 
 # PROJETOS
 # Filtra só os projetos em que a sigla não está vazia
