@@ -256,6 +256,11 @@ if pessoa_logada:
                 disabled=True
             )
 
+            st.write("")
+
+            st.subheader("Dados bancários")
+            st.write("")
+
             col1, col2 = st.columns(2)
 
             nome_banco = col1.text_input("Nome do banco:", value=pessoa_logada.get("banco", {}).get("nome_banco", ""))
