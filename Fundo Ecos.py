@@ -1431,6 +1431,13 @@ def normalizar(s):
     return ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn').lower()
 
 
+def edital_key(x):
+    try:
+        return float(x)
+    except ValueError:
+        return float('inf')  # valores não numéricos vão pro final
+
+
 ######################################################################################################
 # MAIN
 ######################################################################################################
@@ -1616,9 +1623,6 @@ for i, projeto in enumerate(todos_projetos):
 df_projetos["Valor"] = valores_formatados
 
 
-
-
-
 # ##################################################################
 # Início da interface
 # ##################################################################
@@ -1704,7 +1708,8 @@ with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
     col1, col2, col3, col4 = st.columns(4)
 
     # Edital
-    editais_disponiveis = sorted(df_base["Edital"].dropna().unique(), key=lambda x: str(x))
+    editais_disponiveis = sorted(df_base["Edital"].dropna().unique(), key=edital_key)
+
     edital_sel = col1.multiselect("Edital", options=editais_disponiveis, placeholder="Todos")
     if edital_sel:
         mask &= df_base["Edital"].isin(edital_sel)
