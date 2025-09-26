@@ -2,9 +2,8 @@ import streamlit as st
 import pandas as pd
 import altair as alt
 import plotly.express as px
-from plotly.colors import diverging, sequential
-import numpy as np
-import random
+from plotly.colors import diverging
+import plotly.graph_objects as go
 import time
 from bson import ObjectId
 from funcoes_auxiliares import conectar_mongo_portal_ispn
@@ -281,113 +280,113 @@ with tab1:
     # )
 
     
-    # Agrupar reais
-    df_reais = resumo[resumo["moeda"]=="Reais"].groupby("nome_doador", as_index=False).agg(
-        valor=("valor","sum"),
-        num_proj=("_id","sum")
+    # -----------------------------
+    # Reais
+    # -----------------------------
+    df_reais = resumo[resumo["moeda"] == "Reais"].groupby("nome_doador", as_index=False).agg(
+        valor=("valor", "sum"),
+        num_proj=("_id", "sum")
     )
-
-    # Coluna de valor formatado para hover
     df_reais["Valor"] = df_reais["valor"].apply(
         lambda v: f"R$ {v:,.0f}".replace(",", "X").replace(".", ",").replace("X", ".")
     )
-    
-    paleta_cores = diverging.Spectral_r[::2] + diverging.curl[::2]
-    paleta_cores = paleta_cores[:30]  # garante 30 cores únicas
 
-    fig_reais_bolhas = px.scatter(
-        df_reais,
-        x="num_proj",
-        y="valor",
-        size="valor",
-        color="nome_doador",   # usa apenas o nome do doador (cores diferentes automáticas)
-        color_discrete_sequence=paleta_cores,
-        hover_name="nome_doador",
-        hover_data={
-            "nome_doador": False,
-            "num_proj": True,
-            "valor": False,   # esconde valor bruto
-            "Valor": True     # mostra valor formatado
-        },
-        title="Valor total de apoio e de projetos por Doador (R$)",
-        labels={"num_proj": "Número de Projetos", "valor": "Valor (R$)"}
+    # Paleta para consistência
+    cor_proj = "#1f77b4"   
+    cor_valor = "#19d8e6"  
+
+    fig_reais = go.Figure()
+
+    # Barras de número de projetos (eixo y1)
+    fig_reais.add_trace(go.Bar(
+        x=df_reais["nome_doador"],
+        y=df_reais["num_proj"],
+        name="Nº de Projetos",
+        marker_color=cor_proj,
+        yaxis='y1',
+        width=0.35,        # <--- largura menor
+        offset=-0.2,       # <--- desloca levemente à esquerda
+        hovertemplate='Doador: %{x}<br>Nº Projetos: %{y}<extra></extra>'
+    ))
+
+    # Barras de valor total (eixo y2)
+    fig_reais.add_trace(go.Bar(
+        x=df_reais["nome_doador"],
+        y=df_reais["valor"],
+        name="Valor Total de Apoio",
+        marker_color=cor_valor,
+        yaxis='y2',
+        width=0.35,        # <--- largura menor
+        offset=+0.2,       # <--- desloca levemente à direita
+        hovertext=df_reais["Valor"],  # texto formatado
+        hovertemplate='Doador: %{x}<br>Valor Total: %{hovertext}<extra></extra>'
+    ))
+
+    fig_reais.update_layout(
+        title="Número de Projetos e Valor de Apoio por Doador (R$)",
+        #xaxis=dict(title="Doador"),
+        yaxis=dict(title="Nº de Projetos", side='left'),
+        yaxis2=dict(
+            title="Valor Total (R$)",
+            overlaying='y',
+            side='right'
+        ),
+        barmode='group',
+        legend=dict(x=0.5, y=1.1, orientation='h', xanchor='center')
     )
 
-    fig_reais_bolhas.update_traces(
-        text=None,
-        marker=dict(
-            sizemode='area',
-            sizeref=2.*max(df_reais["valor"])/(80.**2),
-            sizemin=8
-        )
+    st.plotly_chart(fig_reais, use_container_width=True)
+
+    # -----------------------------
+    # Dólares
+    # -----------------------------
+    df_dolares = resumo[resumo["moeda"] == "Dólares"].groupby("nome_doador", as_index=False).agg(
+        valor=("valor", "sum"),
+        num_proj=("_id", "sum")
     )
-
-    fig_reais_bolhas.update_layout(
-        xaxis_tickformat=',d',
-        yaxis_tickformat=',.0f',
-        legend=dict(
-            title="Doador",
-            orientation="v",
-            y=0.5,
-            yanchor="middle",
-            x=1.02,
-            xanchor="left"
-        )
-    )
-    st.plotly_chart(fig_reais_bolhas, use_container_width=True)
-
-
-    # Agrupar dólares
-    df_dolares = resumo[resumo["moeda"]=="Dólares"].groupby("nome_doador", as_index=False).agg(
-        valor=("valor","sum"),
-        num_proj=("_id","sum")
-    )
-
     df_dolares["Valor"] = df_dolares["valor"].apply(
         lambda v: f"US$ {v:,.0f}".replace(",", "X").replace(".", ",").replace("X", ".")
     )
-    
-    
 
-    fig_dolares_bolhas = px.scatter(
-        df_dolares,
-        x="num_proj",
-        y="valor",
-        size="valor",
-        color="nome_doador",   # usa apenas o nome do doador (cores diferentes automáticas)
-        color_discrete_sequence=paleta_cores,
-        hover_name="nome_doador",
-        hover_data={
-            "num_proj": True,
-            "valor": False,
-            "Valor": True
-        },
-        title="Valor total de apoio e de projetos por Doador (US$)",
-        labels={"num_proj": "Número de Projetos", "valor": "Valor (US$)"}
+    fig_dolares = go.Figure()
+
+    fig_dolares.add_trace(go.Bar(
+        x=df_dolares["nome_doador"],
+        y=df_dolares["num_proj"],
+        name="Nº de Projetos",
+        marker_color=cor_proj,
+        yaxis='y1',
+        width=0.35,  # <--- largura menor
+        offset=-0.2, # <--- desloca levemente para a esquerda
+        hovertemplate='Doador: %{x}<br>Nº Projetos: %{y}<extra></extra>'
+    ))
+
+    fig_dolares.add_trace(go.Bar(
+        x=df_dolares["nome_doador"],
+        y=df_dolares["valor"],
+        name="Valor Total de Apoio",
+        marker_color=cor_valor,
+        yaxis='y2',
+        width=0.35,  # <--- largura menor
+        offset=+0.2, # <--- desloca levemente para a direita
+        hovertext=df_dolares["Valor"],
+        hovertemplate='Doador: %{x}<br>Valor Total: %{hovertext}<extra></extra>'
+    ))
+
+    fig_dolares.update_layout(
+        title="Número de Projetos e Valor de Apoio por Doador (US$)",
+        #xaxis=dict(title="Doador"),
+        yaxis=dict(title="Nº de Projetos", side='left'),
+        yaxis2=dict(
+            title="Valor Total (US$)",
+            overlaying='y',
+            side='right'
+        ),
+        barmode='group',
+        legend=dict(x=0.5, y=1.1, orientation='h', xanchor='center')
     )
 
-    fig_dolares_bolhas.update_traces(
-        text=None,
-        marker=dict(
-            sizemode='area',
-            sizeref=2.*max(df_dolares["valor"])/(80.**2),
-            sizemin=8
-        )
-    )
-
-    fig_dolares_bolhas.update_layout(
-        xaxis_tickformat=',d',
-        yaxis_tickformat=',.0f',
-        legend=dict(
-            title="Doador",
-            orientation="v",
-            y=0.5,
-            yanchor="middle",
-            x=1.02,
-            xanchor="left"
-        )
-    )
-    st.plotly_chart(fig_dolares_bolhas, use_container_width=True)
+    st.plotly_chart(fig_dolares, use_container_width=True)
 
 
     st.write("")
