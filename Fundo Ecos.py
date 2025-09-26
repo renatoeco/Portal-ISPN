@@ -571,7 +571,7 @@ def mostrar_detalhes(codigo_proj: str):
                     lancamentos_proj = [l for l in lancamentos_proj if l.get("autor_anotacao") == autor_nome]
 
                 if not lancamentos_proj:
-                    st.info("Nenhum lançamento disponível para edição.")
+                    st.info("Nenhum lançamento de sua autoria disponível para edição.")
                 else:
                     lanc_opcoes = {}
                     for l in lancamentos_proj:
