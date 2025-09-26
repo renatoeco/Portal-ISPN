@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, date
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from bson import ObjectId
 
 from funcoes_auxiliares import conectar_mongo_portal_ispn  # Função personalizada para conectar ao MongoDB
 
@@ -49,85 +50,94 @@ colecao_programas_areas = bd_programas_areas.find({}, {"_id": 0, "nome_programa_
 # Convertendo para uma lista simples
 lista_programas_areas = [doc['nome_programa_area'] for doc in colecao_programas_areas]
 
+# Mapa para identificar o nome do programa_area pelo id
+mapa_programas_areas = {str(doc["_id"]): doc["nome_programa_area"] for doc in colecao_programas_areas}
+
+
+# Criar um dicionário {id: nome}
+mapa_programas_areas = {
+    str(doc["_id"]): doc["nome_programa_area"]
+    for doc in bd_programas_areas.find({}, {"nome_programa_area": 1})
+}
 
 
 # ###########################################################################
 # FUNÇÕES AUXILIARES
 # ###########################################################################
 
-# Função para renderizar a página de ferias individual na aba Minhas férias
-def minhas_ferias():
+# # Função para renderizar a página de ferias individual na aba Minhas férias
+# def minhas_ferias():
 
-    colaborador_selecionado = st.session_state.nome
+#     colaborador_selecionado = st.session_state.nome
 
-    st.write('')
-    st.write(f'Registros de férias e recessos de **{colaborador_selecionado}**')
+#     st.write('')
+#     st.write(f'Registros de férias e recessos de **{colaborador_selecionado}**')
 
-    # Filtra os dados do colaborador selecionado
-    colaborador_dados = next(
-        (registro for registro in colaboradores if registro["nome_completo"] == colaborador_selecionado),
-        None
-    )
+#     # Filtra os dados do colaborador selecionado
+#     colaborador_dados = next(
+#         (registro for registro in colaboradores if registro["nome_completo"] == colaborador_selecionado),
+#         None
+#     )
 
 
-    if colaborador_dados:
+#     if colaborador_dados:
 
-        # Ordena os anos disponíveis nos dados do colaborador, do mais recente para o mais antigo
-        anos_disponiveis = sorted(
-            colaborador_dados.get("férias", {}).get("anos", {}).keys(),
-            reverse=True
-        )
+#         # Ordena os anos disponíveis nos dados do colaborador, do mais recente para o mais antigo
+#         anos_disponiveis = sorted(
+#             colaborador_dados.get("férias", {}).get("anos", {}).keys(),
+#             reverse=True
+#         )
 
-        # Itera sobre os anos disponíveis para exibir as informações de saldo e solicitações de cada ano
-        for ano in anos_disponiveis:
+#         # Itera sobre os anos disponíveis para exibir as informações de saldo e solicitações de cada ano
+#         for ano in anos_disponiveis:
             
-            # Adiciona uma linha divisória para separar os anos exibidos
-            # st.divider()
-            st.write('')
+#             # Adiciona uma linha divisória para separar os anos exibidos
+#             # st.divider()
+#             st.write('')
 
-            st.subheader(ano)  # Exibe o ano como um subtítulo para identificar a seção correspondente
+#             st.subheader(ano)  # Exibe o ano como um subtítulo para identificar a seção correspondente
 
-            # Define a estrutura de colunas para layout: coluna 1 (saldo), espaço entre colunas, coluna 2 (solicitações)
-            coluna1, espaco_entre, coluna2 = st.columns([12, 1, 30])
+#             # Define a estrutura de colunas para layout: coluna 1 (saldo), espaço entre colunas, coluna 2 (solicitações)
+#             coluna1, espaco_entre, coluna2 = st.columns([12, 1, 30])
 
-            # # Obtém os dados do saldo do ano atual
-            ano_dados = colaborador_dados.get("férias", {}).get("anos", {}).get(ano, {})
-            # ano_dados = colaborador_dados.get("anos", {}).get(ano, {})
+#             # # Obtém os dados do saldo do ano atual
+#             ano_dados = colaborador_dados.get("férias", {}).get("anos", {}).get(ano, {})
+#             # ano_dados = colaborador_dados.get("anos", {}).get(ano, {})
 
-            # Cria um DataFrame com os dados de saldo e o exibe na primeira coluna
-            df_saldo = montar_dataframe_saldo_do_ano(ano, ano_dados)
-            coluna1.dataframe(df_saldo, hide_index=True, use_container_width=True)
+#             # Cria um DataFrame com os dados de saldo e o exibe na primeira coluna
+#             df_saldo = montar_dataframe_saldo_do_ano(ano, ano_dados)
+#             coluna1.dataframe(df_saldo, hide_index=True, use_container_width=True)
             
-            # Mostrar a_receber
-            if ano_dados.get("a_receber"):
-                coluna1.write(f'\\* Na virada do ano receberá {ano_dados.get("a_receber")} dias.')
+#             # Mostrar a_receber
+#             if ano_dados.get("a_receber"):
+#                 coluna1.write(f'\\* Na virada do ano receberá {ano_dados.get("a_receber")} dias.')
 
-            # Obtém as solicitações de férias do ano atual
-            solicitacoes = ano_dados.get("solicitacoes", [])
-            solicitacoes_ano = [  # Cria uma lista formatada com os detalhes das solicitações
-                {
-                    "Data do registro": solicitacao.get('data_solicitacao', 'Data não disponível'),  # Data da criação da solicitação
-                    # "Data da Solicitação": solicitacao.get('data_solicitacao', 'Data não disponível'),  # Data da criação da solicitação
-                    "Período solicitado": solicitacao['lista_de_dias'],  # Lista de dias solicitados
-                    # "Dias solicitados": solicitacao['lista_de_dias'],  # Lista de dias solicitados
-                    "Total de dias úteis": solicitacao.get('numero_dias_uteis', 'Dias não disponíveis'),  # Total de dias úteis na solicitação
-                    "Observações": solicitacao.get('observacoes', 'Nenhuma observação')  # Comentários ou notas da solicitação
-                }
-                for solicitacao in solicitacoes
-            ]
+#             # Obtém as solicitações de férias do ano atual
+#             solicitacoes = ano_dados.get("solicitacoes", [])
+#             solicitacoes_ano = [  # Cria uma lista formatada com os detalhes das solicitações
+#                 {
+#                     "Data do registro": solicitacao.get('data_solicitacao', 'Data não disponível'),  # Data da criação da solicitação
+#                     # "Data da Solicitação": solicitacao.get('data_solicitacao', 'Data não disponível'),  # Data da criação da solicitação
+#                     "Período solicitado": solicitacao['lista_de_dias'],  # Lista de dias solicitados
+#                     # "Dias solicitados": solicitacao['lista_de_dias'],  # Lista de dias solicitados
+#                     "Total de dias úteis": solicitacao.get('numero_dias_uteis', 'Dias não disponíveis'),  # Total de dias úteis na solicitação
+#                     "Observações": solicitacao.get('observacoes', 'Nenhuma observação')  # Comentários ou notas da solicitação
+#                 }
+#                 for solicitacao in solicitacoes
+#             ]
 
-            # Cria um DataFrame com os dados das solicitações e o exibe na segunda coluna
-            global df_solicitacoes
-            df_solicitacoes = pd.DataFrame(solicitacoes_ano)
+#             # Cria um DataFrame com os dados das solicitações e o exibe na segunda coluna
+#             global df_solicitacoes
+#             df_solicitacoes = pd.DataFrame(solicitacoes_ano)
 
-            if not df_solicitacoes.empty:
-                # Calcula a altura necessária para exibir o DataFrame, baseada no número de linhas
-                altura_df_solicitacoes_individual = ((len(df_solicitacoes) + 1) * 35) + 2
-                # Exibe o DataFrame na segunda coluna com a altura ajustada
-                coluna2.dataframe(df_solicitacoes, hide_index=True, use_container_width=True, height=altura_df_solicitacoes_individual)
-            else:
-                # Mensagem exibida caso não existam solicitações de férias para o ano
-                coluna2.write(f"Não há solicitações de férias para {ano} até o momento.")
+#             if not df_solicitacoes.empty:
+#                 # Calcula a altura necessária para exibir o DataFrame, baseada no número de linhas
+#                 altura_df_solicitacoes_individual = ((len(df_solicitacoes) + 1) * 35) + 2
+#                 # Exibe o DataFrame na segunda coluna com a altura ajustada
+#                 coluna2.dataframe(df_solicitacoes, hide_index=True, use_container_width=True, height=altura_df_solicitacoes_individual)
+#             else:
+#                 # Mensagem exibida caso não existam solicitações de férias para o ano
+#                 coluna2.write(f"Não há solicitações de férias para {ano} até o momento.")
 
 
 # Função para enviar e-mail
@@ -288,44 +298,44 @@ def atualizar_dados_colaborador():
 
 
 # Função para atualizar os dados dos colaboradores, usada na virada do ano
-def atualizar_dados_colaboradores(colecao):
-    colaboradores = list(colecao.find())  # Recupera todos os documentos da coleção e os transforma em uma lista
+# def atualizar_dados_colaboradores(colecao):
+#     colaboradores = list(colecao.find())  # Recupera todos os documentos da coleção e os transforma em uma lista
 
-    for colaborador in colaboradores:
-        colaborador_nome = list(colaborador.keys())[1]  # Nome do colaborador
-        colaborador_dados = colaborador.get(colaborador_nome, {})
-        colaborador_dados_anos = colaborador_dados.get("anos", {})
+#     for colaborador in colaboradores:
+#         colaborador_nome = list(colaborador.keys())[1]  # Nome do colaborador
+#         colaborador_dados = colaborador.get(colaborador_nome, {})
+#         colaborador_dados_anos = colaborador_dados.get("anos", {})
 
-        # Ordena os anos para garantir que o cálculo ocorra na ordem correta
-        anos_ordenados = sorted(colaborador_dados_anos.keys())
+#         # Ordena os anos para garantir que o cálculo ocorra na ordem correta
+#         anos_ordenados = sorted(colaborador_dados_anos.keys())
 
-        for i, ano in enumerate(anos_ordenados):
-            dados_ano = colaborador_dados_anos[ano]
+#         for i, ano in enumerate(anos_ordenados):
+#             dados_ano = colaborador_dados_anos[ano]
 
-            # if 'solicitacoes' in dados_ano:
-            total_gozado = sum(
-                solicitacao.get('numero_dias_uteis', 0) for solicitacao in dados_ano.get('solicitacoes', [])
-            )
-            residual_ano_anterior = (
-                colaborador_dados_anos[anos_ordenados[i - 1]].get('saldo_atual', 0) if i > 0 else
-                dados_ano.get('residual_ano_anterior', 0)
-            )
-            valor_inicial_ano_atual = dados_ano.get('valor_inicial_ano_atual', 0)
-            saldo_atual = residual_ano_anterior + valor_inicial_ano_atual - total_gozado
+#             # if 'solicitacoes' in dados_ano:
+#             total_gozado = sum(
+#                 solicitacao.get('numero_dias_uteis', 0) for solicitacao in dados_ano.get('solicitacoes', [])
+#             )
+#             residual_ano_anterior = (
+#                 colaborador_dados_anos[anos_ordenados[i - 1]].get('saldo_atual', 0) if i > 0 else
+#                 dados_ano.get('residual_ano_anterior', 0)
+#             )
+#             valor_inicial_ano_atual = dados_ano.get('valor_inicial_ano_atual', 0)
+#             saldo_atual = residual_ano_anterior + valor_inicial_ano_atual - total_gozado
 
-            filtro = {
-                "_id": colaborador["_id"],
-                f"{colaborador_nome}.anos.{ano}": {"$exists": True}
-            }
+#             filtro = {
+#                 "_id": colaborador["_id"],
+#                 f"{colaborador_nome}.anos.{ano}": {"$exists": True}
+#             }
 
-            novos_valores = {
-                f"{colaborador_nome}.anos.{ano}.total_gozado": total_gozado,
-                f"{colaborador_nome}.anos.{ano}.saldo_atual": saldo_atual,
-                f"{colaborador_nome}.anos.{ano}.residual_ano_anterior": residual_ano_anterior,
-                f"{colaborador_nome}.anos.{ano}.valor_inicial_ano_atual": valor_inicial_ano_atual,
-            }
+#             novos_valores = {
+#                 f"{colaborador_nome}.anos.{ano}.total_gozado": total_gozado,
+#                 f"{colaborador_nome}.anos.{ano}.saldo_atual": saldo_atual,
+#                 f"{colaborador_nome}.anos.{ano}.residual_ano_anterior": residual_ano_anterior,
+#                 f"{colaborador_nome}.anos.{ano}.valor_inicial_ano_atual": valor_inicial_ano_atual,
+#             }
 
-            colecao.update_one(filtro, {"$set": novos_valores})
+#             colecao.update_one(filtro, {"$set": novos_valores})
 
 
 # Função para gerar o gráfico e a tabela, usado para todo tipo de usuário
@@ -340,7 +350,7 @@ def gerar_grafico_tabela(colaborador_selecionado):
 
     # Listas para armazenar dados do gráfico de Gantt e solicitações
     gantt_data = []  # Lista que armazenará os dados para o gráfico de Gantt
-    solicitacoes_data = []  # Lista para armazenar todas as solicitações
+    # solicitacoes_data = []  # Lista para armazenar todas as solicitações
 
     # Inicializando a lista para armazenar as informações do Gantt e o set de anos disponíveis
     anos_disponiveis = set()  # Conjunto para armazenar os anos disponíveis
@@ -361,7 +371,9 @@ def gerar_grafico_tabela(colaborador_selecionado):
     # Iteração para capturar a lista de anos e criar o dataframe para o gráfico de Gantt
     for colaborador in colaboradores:
         nome = colaborador.get("nome_completo", "Desconhecido")
-        setor = colaborador.get("programa_area", "Desconhecido")
+
+        programa_id = str(colaborador.get("programa_area"))
+        setor = mapa_programas_areas.get(programa_id, "Desconhecido")
 
         anos = colaborador.get("férias", {}).get("anos", {})
 
@@ -608,7 +620,12 @@ def gerar_grafico_tabela(colaborador_selecionado):
             # Itera sobre todos os registros de colaboradores
             for registro in colaboradores:
                 nome = registro.get("nome_completo", "Não informado")
-                setor = registro.get("programa_area", "Não informado")
+
+                programa_id = registro.get("programa_area")
+                setor = mapa_programas_areas.get(str(programa_id), "Não informado")
+
+
+                # setor = registro.get("programa_area", "Não informado")
 
                 # Obtém os dados dos anos dentro de "férias"
                 dados_anos = registro.get("férias", {}).get("anos", {})
@@ -782,10 +799,7 @@ colaboradores = list(colecao.find())  # Recupera todos os documentos da coleçã
 # INÍCIO DA PÁGINA ======================== 
 # ######################################################################################################
 
-# PERMISSÕES 
-# admin
-# gestao_ferias
-# supervisao_ferias
+
 
 # Roteamento de tipo de usuário especial
 if set(st.session_state.tipo_usuario) & {"admin", "gestao_ferias", "supervisao_ferias"}:
@@ -793,768 +807,749 @@ if set(st.session_state.tipo_usuario) & {"admin", "gestao_ferias", "supervisao_f
     # Função da interface de Férias para admin, gestao_ferias e supervisao_ferias
     def ferias_admin_gestaoFerias_supervisaoFerias():
         
-        todos, pessoal = st.tabs(["Todos(as)", "Minhas férias"])
+        st.write('')
 
+        # Linha para o botão de lista de colaboradores com saldo
+        colunas_botoes = st.columns([4, 3, 3, 3, 3])
+
+
+        # 1 - BOTÃO DE LISTA DE COLABORADORES COM SALDO
         
-        # Aba todos ----------------------------------------------
-        with todos:
-            st.write('')
+        @st.dialog("Lista de colaboradores por ano", width="large")
+        def lista_colaboradores():
 
-            # Linha para o botão de lista de colaboradores com saldo
-            colunas_botoes = st.columns([4, 3, 3, 3, 3])
+            if not colaboradores:
+                st.write("Não há colaboradores cadastrados.")
+                return
 
+            # Inicializa o set para armazenar todos os anos disponíveis
+            todos_os_anos = set()
 
+            # Dicionário para mapear colaboradores e saldos por ano
+            saldos_por_colaborador = {}
 
-            # 1 - BOTÃO DE LISTA DE COLABORADORES COM SALDO
-            
-            @st.dialog("Lista de colaboradores por ano", width="large")
-            def lista_colaboradores():
-                # Recupera todos os documentos da coleção e os transforma em uma lista
-                # colaboradores = list(bd_colaboradores.find())
+            # Itera sobre cada colaborador para coletar os anos e preencher os saldos
+            for colaborador in colaboradores:
+                colaborador_nome = colaborador.get("nome_completo", "Não informado")
 
-                if not colaboradores:
-                    st.write("Não há colaboradores cadastrados.")
-                    return
+                programa_id = colaborador.get("programa_area")
+                setor = mapa_programas_areas.get(str(programa_id), "Não informado")
 
-                # Inicializa o set para armazenar todos os anos disponíveis
-                todos_os_anos = set()
+                # setor = colaborador.get("programa_area", "Não informado")
 
-                # Dicionário para mapear colaboradores e saldos por ano
-                saldos_por_colaborador = {}
+                # Acessa os dados de férias → anos
+                dados_anos = colaborador.get("férias", {}).get("anos", {})
 
-                # Itera sobre cada colaborador para coletar os anos e preencher os saldos
-                for colaborador in colaboradores:
-                    colaborador_nome = colaborador.get("nome_completo", "Não informado")
-                    setor = colaborador.get("programa_area", "Não informado")
+                # Adiciona os anos deste colaborador ao set de anos disponíveis
+                todos_os_anos.update(dados_anos.keys())
 
-                    # Acessa os dados de férias → anos
-                    dados_anos = colaborador.get("férias", {}).get("anos", {})
+                # Salva os saldos atuais do colaborador por ano
+                for ano, dados in dados_anos.items():
+                    saldo_atual = dados.get("saldo_atual", 0)
 
-                    # Adiciona os anos deste colaborador ao set de anos disponíveis
-                    todos_os_anos.update(dados_anos.keys())
+                    if ano not in saldos_por_colaborador:
+                        saldos_por_colaborador[ano] = []
 
-                    # Salva os saldos atuais do colaborador por ano
-                    for ano, dados in dados_anos.items():
-                        saldo_atual = dados.get("saldo_atual", 0)
+                    saldos_por_colaborador[ano].append({
+                        "Nome": colaborador_nome,
+                        "Setor": setor,
+                        "Saldo Atual": saldo_atual
+                    })
 
-                        if ano not in saldos_por_colaborador:
-                            saldos_por_colaborador[ano] = []
+            # Ordena os anos de forma decrescente
+            anos_disponiveis = sorted(todos_os_anos, reverse=True)
 
-                        saldos_por_colaborador[ano].append({
-                            "Nome": colaborador_nome,
-                            "Setor": setor,
-                            "Saldo Atual": saldo_atual
-                        })
+            # Coluna para diminuir a largura do dropdown
+            col_dropdown, col_vazia = st.columns([1, 2])
 
-                # Ordena os anos de forma decrescente
-                anos_disponiveis = sorted(todos_os_anos, reverse=True)
-
-                # Coluna para diminuir a largura do dropdown
-                col_dropdown, col_vazia = st.columns([1, 2])
-
-                # Dropdown para seleção de ano
-                ano_selecionado = col_dropdown.selectbox(
-                    "Selecione o ano:",
-                    anos_disponiveis,
-                    key="ano_selecionado_saldo"
-                )
-
-                # Prepara o DataFrame apenas para o ano selecionado
-                if ano_selecionado in saldos_por_colaborador:
-                    df_saldos = pd.DataFrame(saldos_por_colaborador[ano_selecionado])
-                else:
-                    df_saldos = pd.DataFrame(columns=["Nome", "Setor", "Saldo Atual"])
-
-                df_saldos = df_saldos.reset_index(drop=True)
-
-                # Renomeações e formatações
-                df_saldos = df_saldos.rename(columns={'Saldo Atual': 'Saldo do ano'})
-                df_saldos['Saldo do ano'] = df_saldos['Saldo do ano'].astype(int)
-
-                df_saldos = df_saldos.sort_values(by='Saldo do ano', ascending=False)
-                df_saldos = df_saldos[['Nome', 'Saldo do ano', 'Setor']]
-                df_saldos = df_saldos.rename(columns={'Setor': 'Programa / Área'})
-
-                # Exibe o DataFrame formatado
-                st.dataframe(df_saldos, hide_index=True, use_container_width=True)
-
-            # Botão para abrir o diálogo de lista de colaboradores
-            colunas_botoes[4].write('')
-         
-            colunas_botoes[4].button(
-                "Colaboradores e saldos",
-                on_click=lista_colaboradores,
-                icon=":material/groups:",
-                use_container_width=True
+            # Dropdown para seleção de ano
+            ano_selecionado = col_dropdown.selectbox(
+                "Selecione o ano:",
+                anos_disponiveis,
+                key="ano_selecionado_saldo"
             )
 
+            # Prepara o DataFrame apenas para o ano selecionado
+            if ano_selecionado in saldos_por_colaborador:
+                df_saldos = pd.DataFrame(saldos_por_colaborador[ano_selecionado])
+            else:
+                df_saldos = pd.DataFrame(columns=["Nome", "Setor", "Saldo Atual"])
 
+            df_saldos = df_saldos.reset_index(drop=True)
 
+            # Renomeações e formatações
+            df_saldos = df_saldos.rename(columns={'Saldo Atual': 'Saldo do ano'})
+            df_saldos['Saldo do ano'] = df_saldos['Saldo do ano'].astype(int)
 
-            # DROPDOWN DE SELEÇÃO DE COLABORADOR
-            # Cria a lista de colaboradores e adiciona "Todos(as)" como o primeiro item, para o dropdown
-            lista_nomes = [item.get("nome_completo", "Desconhecido") for item in colaboradores]
-            # lista_nomes = [list(item.keys())[1] for item in colaboradores]  # Extrai os nomes dos colaboradores (chave do segundo item)
-            lista_nomes.sort()  # Ordena os nomes em ordem alfabética
-            lista_nomes.insert(0, "Todos(as)")  # Insere a opção "Todos(as)" no início da lista
+            df_saldos = df_saldos.sort_values(by='Saldo do ano', ascending=False)
+            df_saldos = df_saldos[['Nome', 'Saldo do ano', 'Setor']]
+            df_saldos = df_saldos.rename(columns={'Setor': 'Programa / Área'})
 
-            # Container reservado para as mensagens com o usuário
-            # espaco_alerta = st.container()
-            
-            st.write('')
-            colunas_botoes[0].write("**Selecione o(a) colaborador(a):**")  # Exibe um subtítulo no menu lateral
+            # Exibe o DataFrame formatado
+            st.dataframe(df_saldos, hide_index=True, use_container_width=True)
 
-            # col = st.columns(4)
-            
-            colaborador_selecionado = colunas_botoes[0].selectbox(  # Cria um dropdown para selecionar um colaborador
-                "Selecione o(a) colaborador(a)", 
-                options=lista_nomes, 
-                label_visibility="collapsed",  # Oculta o rótulo padrão do dropdown
-                index=0,  # Define "Todos(as)" como opção selecionada por padrão
-            )
-
-            # Sobre o colaborador_selecionado pro session_state
-            st.session_state.colaborador_selecionado = colaborador_selecionado
-
-            # NOME DA PESSOA NO TOPO
-            st.subheader(f"{colaborador_selecionado}")  # Exibe o nome do colaborador selecionado no topo da página
-            # st.write(f"{setor_colaborador}")
+        # Botão para abrir o diálogo de lista de colaboradores
+        colunas_botoes[4].write('')
+        
+        colunas_botoes[4].button(
+            "Colaboradores e saldos",
+            on_click=lista_colaboradores,
+            icon=":material/groups:",
+            use_container_width=True
+        )
 
 
 
 
-            # Linha de botões -------------------------------
-            colunas_botoes = st.columns(5)
+        # DROPDOWN DE SELEÇÃO DE COLABORADOR
+        # Cria a lista de colaboradores e adiciona "Todos(as)" como o primeiro item, para o dropdown
+        lista_nomes = [item.get("nome_completo", "Desconhecido") for item in colaboradores]
+        # lista_nomes = [list(item.keys())[1] for item in colaboradores]  # Extrai os nomes dos colaboradores (chave do segundo item)
+        lista_nomes.sort()  # Ordena os nomes em ordem alfabética
+        lista_nomes.insert(0, "Todos(as)")  # Insere a opção "Todos(as)" no início da lista
 
-            st.write('')
+        st.write('')
+        colunas_botoes[0].write("**Selecione o(a) colaborador(a):**")  # Exibe um subtítulo no menu lateral
 
-            # 1 - BOTÃO DE NOVA SOLICITAÇÃO
+        colaborador_selecionado = colunas_botoes[0].selectbox(  # Cria um dropdown para selecionar um colaborador
+            "Selecione o(a) colaborador(a)", 
+            options=lista_nomes, 
+            label_visibility="collapsed",  # Oculta o rótulo padrão do dropdown
+            index=0,  # Define "Todos(as)" como opção selecionada por padrão
+        )
 
-            # Roteamento de tipo de usuário - somente para gestao_ferias
-            if set(st.session_state.tipo_usuario) & {"admin","gestao_ferias"}:
+        # Sobe o colaborador_selecionado pro session_state
+        st.session_state.colaborador_selecionado = colaborador_selecionado
 
-                if colaborador_selecionado != "Todos(as)":
+        # NOME DA PESSOA NO TOPO
+        st.write("")
+        st.subheader(f"{colaborador_selecionado}")  # Exibe o nome do colaborador selecionado no topo da página
+        st.write("")
 
-                    # Função para abrir o diálogo "Nova solicitação"
-                    @st.dialog("Nova solicitação")
-                    def nova_solicitacao():
-                        # Inicia um formulário para registrar uma nova solicitação de férias
-                        with st.form("Nova solicitação", clear_on_submit=True):
-                            
-                            # Exibe o nome do colaborador como título centralizado no modal
-                            st.write('')
-                            st.markdown(f"<p style='text-align: center;'>{colaborador_selecionado.upper()}</p>", unsafe_allow_html=True)
-                            st.write('')
 
-                            # Subtítulo indicando a ação de criar uma nova solicitação
-                            st.write(f'**Nova solicitação de férias:**')
 
-                            # Captura a data atual como a data da solicitação
-                            data_solicitacao = datetime.now().strftime("%d/%m/%Y")
 
-                            # Campo para selecionar o período de férias, com valor padrão de hoje até amanhã
-                            periodo_solicitado = st.date_input(
-                                "Qual é o período?",
-                                value=(date.today(), date.today() + timedelta(days=1)),  # Período padrão
-                                format="DD/MM/YYYY"  # Formato de exibição
-                            )
+        # Linha de botões -------------------------------
+        colunas_botoes = st.columns(5)
 
-                            # Campo para inserir o total de dias úteis, com valor mínimo de 0 e incremento de 1
-                            total_dias_uteis = st.number_input("Total de dias úteis:", min_value=0, step=1)
+        st.write('')
 
-                            # Campo opcional para adicionar observações sobre a solicitação
-                            observacoes = st.text_input("Observações: (opcional)")
+        # 1 - BOTÃO DE NOVA SOLICITAÇÃO
 
-                            # Botão para enviar o formulário e registrar a solicitação
-                            if st.form_submit_button('Registrar férias', use_container_width=True, icon=":material/check:", type="primary"):
-                            
-                                # Verifica se o total de dias úteis foi informado
-                                if total_dias_uteis < 1:
-                            
-                                    # Exibe uma mensagem de aviso caso o campo esteja vazio ou com valor 0
-                                    st.warning("Informe o total de dias úteis.")
-                            
-                                else:
-                                    # Extrai o ano do início do período solicitado
-                                    ano_solicitacao = str(periodo_solicitado[0].year)
+        # Roteamento de tipo de usuário - somente para gestao_ferias
+        if set(st.session_state.tipo_usuario) & {"admin","gestao_ferias"}:
 
-                                    # Formata a lista de dias selecionados no período para o formato "dd/mm/yyyy"
-                                    lista_de_dias = [dia.strftime("%d/%m/%Y") for dia in periodo_solicitado]
+            if colaborador_selecionado != "Todos(as)":
 
-                                    # Verifica se a lista contém apenas 1 item e duplica o valor
-                                    if len(lista_de_dias) == 1:
-                                        lista_de_dias.append(lista_de_dias[0])
+                # Função para abrir o diálogo "Nova solicitação"
+                @st.dialog("Nova solicitação")
+                def nova_solicitacao():
+                    # Inicia um formulário para registrar uma nova solicitação de férias
+                    with st.form("Nova solicitação", clear_on_submit=True):
+                        
+                        # Exibe o nome do colaborador como título centralizado no modal
+                        st.write('')
+                        st.markdown(f"<p style='text-align: center;'>{colaborador_selecionado.upper()}</p>", unsafe_allow_html=True)
+                        st.write('')
 
-                                    # Cria o objeto representando a nova solicitação
-                                    nova_solicitacao = {
-                                        "data_solicitacao": data_solicitacao,  # Data de registro
-                                        "lista_de_dias": lista_de_dias,  # Período solicitado
-                                        "numero_dias_uteis": total_dias_uteis,  # Total de dias úteis
-                                        "observacoes": observacoes  # Observações fornecidas pelo usuário
+                        # Subtítulo indicando a ação de criar uma nova solicitação
+                        st.write(f'**Nova solicitação de férias:**')
+
+                        # Captura a data atual como a data da solicitação
+                        data_solicitacao = datetime.now().strftime("%d/%m/%Y")
+
+                        # Campo para selecionar o período de férias, com valor padrão de hoje até amanhã
+                        periodo_solicitado = st.date_input(
+                            "Qual é o período?",
+                            value=(date.today(), date.today() + timedelta(days=1)),  # Período padrão
+                            format="DD/MM/YYYY"  # Formato de exibição
+                        )
+
+                        # Campo para inserir o total de dias úteis, com valor mínimo de 0 e incremento de 1
+                        total_dias_uteis = st.number_input("Total de dias úteis:", min_value=0, step=1)
+
+                        # Campo opcional para adicionar observações sobre a solicitação
+                        observacoes = st.text_input("Observações: (opcional)")
+
+                        # Botão para enviar o formulário e registrar a solicitação
+                        if st.form_submit_button('Registrar férias', use_container_width=True, icon=":material/check:", type="primary"):
+                        
+                            # Verifica se o total de dias úteis foi informado
+                            if total_dias_uteis < 1:
+                        
+                                # Exibe uma mensagem de aviso caso o campo esteja vazio ou com valor 0
+                                st.warning("Informe o total de dias úteis.")
+                        
+                            else:
+                                # Extrai o ano do início do período solicitado
+                                ano_solicitacao = str(periodo_solicitado[0].year)
+
+                                # Formata a lista de dias selecionados no período para o formato "dd/mm/yyyy"
+                                lista_de_dias = [dia.strftime("%d/%m/%Y") for dia in periodo_solicitado]
+
+                                # Verifica se a lista contém apenas 1 item e duplica o valor
+                                if len(lista_de_dias) == 1:
+                                    lista_de_dias.append(lista_de_dias[0])
+
+                                # Cria o objeto representando a nova solicitação
+                                nova_solicitacao = {
+                                    "data_solicitacao": data_solicitacao,  # Data de registro
+                                    "lista_de_dias": lista_de_dias,  # Período solicitado
+                                    "numero_dias_uteis": total_dias_uteis,  # Total de dias úteis
+                                    "observacoes": observacoes  # Observações fornecidas pelo usuário
+                                }
+
+                                # Adiciona a nova solicitação ao ano correspondente no banco de dados
+                                colecao.update_one(
+                                    { "nome_completo": colaborador_selecionado },  # Filtra o colaborador pelo nome
+                                    {
+                                        "$push": {
+                                            f"férias.anos.{ano_solicitacao}.solicitacoes": nova_solicitacao
+                                        }
                                     }
-
-                                    # Adiciona a nova solicitação ao ano correspondente no banco de dados
-                                    colecao.update_one(
-                                        { "nome_completo": colaborador_selecionado },  # Filtra o colaborador pelo nome
-                                        {
-                                            "$push": {
-                                                f"férias.anos.{ano_solicitacao}.solicitacoes": nova_solicitacao
-                                            }
-                                        }
-                                    )
-
-                                    # Função para atualizar os dados do colaborador (substitua com a lógica do seu sistema)
-                                    atualizar_dados_colaborador()
-
-                                    # Exibe uma mensagem de sucesso após o registro
-                                    st.success("Período de férias registrado!", icon=":material/thumb_up:")
-
-                                    # Aguarda 3 segundos antes de recarregar a página para atualizar os dados
-                                    time.sleep(3)
-                                    st.rerun()  # Recarrega a aplicação
-
-                    # Botão para abrir o modal de nova solicitação
-                    colunas_botoes[0].button("Nova solicitação", on_click=nova_solicitacao, use_container_width=True, icon=":material/calendar_add_on:")
-
-
-
-            # 2 - BOTÃO DE EDITAR SOLICITAÇÃO
-
-            # Roteamento de tipo de usuário - somente para gestao_ferias
-            if set(st.session_state.tipo_usuario) & {"admin","gestao_ferias"}:
-
-                if colaborador_selecionado != "Todos(as)":
-
-                    # Função para abrir o modal "Editar solicitação"
-                    @st.dialog("Editar solicitação")
-                    def editar_solicitacao():
-
-                        colaborador_dados = next(
-                            (registro for registro in colaboradores if registro.get("nome_completo") == colaborador_selecionado),
-                            None
-                        )
-
-                        # Verifica se há dados do colaborador selecionado
-                        if colaborador_dados:
-                            
-                            # Obtém uma lista de todos os anos disponíveis na chave "anos"
-                            # anos_disponiveis = reversed(list(colaborador_dados["anos"].keys()))
-                            anos_disponiveis = sorted(
-                                colaborador_dados.get("férias", {}).get("anos", {}).keys(),
-                                reverse=True
-                            )
-
-                            # Primeiro selectbox para o ano
-                            ano_selecionado = st.selectbox("Selecione o ano", anos_disponiveis, format_func=str, key="ano_selecionado")
-
-                            # Obter as solicitações do ano selecionado
-                            solicitacoes_ano = colaborador_dados.get("férias", {}).get("anos", {}).get(ano_selecionado, {}).get("solicitacoes", [])
-
-                            # Verifica se há solicitações disponíveis no ano selecionado
-                            if solicitacoes_ano:
-                                # Define o rótulo e as opções para seleção de uma solicitação específica
-                                def formatar_opcao(indice):
-                                    # Exibe o período da solicitação selecionada (início e fim)
-                                    return f"{solicitacoes_ano[indice]['lista_de_dias'][0]} a {solicitacoes_ano[indice]['lista_de_dias'][-1]}"
-
-                                solicitacao_selecionada_indice = st.selectbox(
-                                    "Selecione uma solicitação:",
-                                    range(len(solicitacoes_ano)),
-                                    format_func=formatar_opcao,
-                                    key="solicitacao_selecionada_indice"
-                                )
-                                
-                                # Recupera os dados da solicitação selecionada usando o índice retornado pelo `selectbox`
-                                solicitacao_editar = solicitacoes_ano[solicitacao_selecionada_indice]
-                                
-                                st.write('')
-                                # Cria abas para permitir edição ou exclusão da solicitação
-                                tab1, tab2 = st.tabs([":material/edit: EDITAR", ":material/delete: EXCLUIR"])
-                                
-                                # Aba para EDITAR a solicitação ===================
-                                with tab1.form(key=f'form_editar_solicitacao_{solicitacao_selecionada_indice}'):
-                                    
-                                    # Exibe campos para edição dos dados da solicitação
-                                    data_solicitacao = st.text_input("Data da solicitação", value=solicitacao_editar.get('data_solicitacao', ''))
-                                    dias_solicitados = st.text_input(
-                                        "Período solicitado",
-                                        value=", ".join(map(str, solicitacao_editar.get('lista_de_dias', [])))
-                                    )
-                                    dias_uteis = st.number_input(
-                                        "Dias úteis",
-                                        value=int(solicitacao_editar.get('numero_dias_uteis', 0)),
-                                        min_value=0,
-                                        step=1
-                                    )
-                                    observacoes = st.text_input("Observações (opcional)", value=solicitacao_editar.get('observacoes', ''))
-
-                                    # Botão para salvar as alterações realizadas
-                                    if st.form_submit_button("Salvar alterações", use_container_width=True, icon=":material/save:", type="primary"):
-                                        # Atualiza a solicitação específica na lista local
-                                        solicitacoes_ano[solicitacao_selecionada_indice] = {
-                                            'data_solicitacao': data_solicitacao,
-                                            'lista_de_dias': [dia.strip() for dia in dias_solicitados.split(',')],
-                                            'numero_dias_uteis': dias_uteis,
-                                            'observacoes': observacoes
-                                        }
-
-                                        # Monta o filtro para encontrar o colaborador correto no banco
-                                        filtro = { "nome_completo": colaborador_selecionado }
-
-                                        # Monta a operação de atualização no caminho correto
-                                        novo_valor = {
-                                            "$set": {
-                                                f"férias.anos.{ano_selecionado}.solicitacoes": solicitacoes_ano
-                                            }
-                                        }
-
-                                        # Executa a atualização no MongoDB
-                                        colecao.update_one(filtro, novo_valor)
-
-                                        # Atualiza os dados locais após a alteração
-                                        atualizar_dados_colaborador()
-                                        
-                                        # Mensagem de sucesso e recarregamento da página
-                                        st.success("Período atualizado com sucesso!", icon=":material/thumb_up:")
-                                        time.sleep(4)
-                                        st.rerun()
-
-
-
-                                # Aba para DELETAR a solicitação ===================
-                                with tab2:
-                                    st.write('Você tem certeza que deseja EXCLUIR esse período de férias?')
-                                    st.write(f'**{formatar_opcao(solicitacao_selecionada_indice)}**')
-                                    st.markdown('<p style="color:red;">Após apertar o botão, a operação não poderá ser desfeita!</p>', unsafe_allow_html=True)
-                                    
-                                    if st.button("Excluir período", icon=":material/delete:", type="primary", key=f'deletar_solicitacao_{solicitacao_selecionada_indice}', use_container_width=True):
-                                        # Remove a solicitação selecionada
-                                        del solicitacoes_ano[solicitacao_selecionada_indice]
-
-
-                                        # Atualiza o banco de dados
-                                        colecao.update_one(
-                                            { "nome_completo": colaborador_selecionado },  # Filtro correto para encontrar o colaborador
-                                            { 
-                                                "$set": { 
-                                                    f"férias.anos.{ano_selecionado}.solicitacoes": solicitacoes_ano  # Caminho correto
-                                                } 
-                                            }
-                                        )
-
-                                        atualizar_dados_colaborador()
-                                        
-                                        # Mensagem de sucesso
-                                        st.success("Período excluído!", icon=":material/thumb_up:")
-                                        time.sleep(4)
-                                        st.rerun()
-
-                            else:
-                                # Mensagem se não houver solicitações no ano
-                                st.write("Não há solicitações neste ano.")
-
-                    # Botão para abrir o modal de "Editar solicitação"
-                    colunas_botoes[1].button("Editar solicitação", on_click=editar_solicitacao, use_container_width=True, icon=":material/edit:")
-
-
-
-
-
-            # 3 - BOTÃO DE ENVIAR EMAIL DE SALDO
-
-            # Roteamento de tipo de usuário - somente para gestao_ferias
-            if set(st.session_state.tipo_usuario) & {"admin","gestao_ferias"}:
-
-                if colaborador_selecionado != "Todos(as)":
-
-                    @st.dialog("Enviar saldo")
-                    def enviar_saldo():
-
-                        colaborador_dados = next(
-                            (registro for registro in colaboradores if registro.get("nome_completo") == colaborador_selecionado),
-                            None
-                        )
-
-                        # Verifica se há dados do colaborador selecionado
-                        if colaborador_dados:
-                            anos_disponiveis = sorted(
-                                colaborador_dados.get("férias", {}).get("anos", {}).keys(),
-                                reverse=True
-                            )
-                        else:
-                            st.write("Não há dados.")
-                            return  # Encerra o modal caso não haja dados disponíveis
-
-                        # Título dentro do modal
-                        st.write("**Enviar saldo por e-mail**")
-
-                        # Selectbox para selecionar o ano
-                        ano_selecionado = st.selectbox("Selecione o ano", anos_disponiveis, key="ano_selecionado_email")
-
-
-                        # Input para o destinatário
-                        destinatario = st.text_input(
-                            "Enviar para:", 
-                            value=colaborador_dados.get("e_mail", ""),  # Obtém o valor da chave "email", ou uma string vazia se não existir
-                            key="email_destinatario"
-                        )
-
-                        # Garante que os dados do ano selecionado são acessados
-                        if ano_selecionado:
-                            ano_dados = colaborador_dados.get("férias", {}).get("anos", {}).get(ano_selecionado, {})
-
-                            df_mail = montar_dataframe_saldo_do_ano(ano_selecionado, ano_dados)
-
-                        # Botão para enviar o e-mail
-                        if st.button("Enviar e-mail", use_container_width=True, icon=":material/mail:", type="primary"):
-                            # Extrai os valores do DataFrame com base nas linhas e colunas
-                            residual_ano_anterior = df_mail.iloc[0, 1]  # Primeira linha, segunda coluna
-                            saldo_inicio_ano = df_mail.iloc[1, 1]      # Segunda linha, segunda coluna
-                            total_gozado = df_mail.iloc[2, 1]          # Terceira linha, segunda coluna
-                            saldo_atual = df_mail.iloc[3, 1]           # Quarta linha, segunda coluna
-
-
-                            # Verifica se há solicitações para o ano
-                            
-                            # Se há solicitações, envia tabela de saldo e a tabela de solicitações
-                            if not df_solicitacoes.empty:
-                                # Aplicar a transformação diretamente com lambda para listas
-                                df_solicitacoes['Período solicitado'] = df_solicitacoes['Período solicitado'].apply(
-                                    lambda periodo: f"{periodo[0]} a {periodo[1]}"
                                 )
 
-                                # Renomear a coluna Período solicitado para Dias de início e fim
-                                df_solicitacoes.rename(columns={'Período solicitado': 'Dias de início e fim'}, inplace=True)
+                                # Função para atualizar os dados do colaborador (substitua com a lógica do seu sistema)
+                                atualizar_dados_colaborador()
 
-                                # Converte df_solicitacoes para HTML
-                                df_solicitacoes_html = df_solicitacoes.to_html(index=False, classes="table", border=1, justify="left")
+                                # Exibe uma mensagem de sucesso após o registro
+                                st.success("Período de férias registrado!", icon=":material/thumb_up:")
 
-                                # Monta o conteúdo do e-mail com uma tabela HTML
+                                # Aguarda 3 segundos antes de recarregar a página para atualizar os dados
+                                time.sleep(3)
+                                st.rerun()  # Recarrega a aplicação
 
-
-
-                                conteudo_email = f"""
-                                <html>
-                                <head>
-                                    <meta charset="UTF-8">
-                                    <style>
-                                        body {{
-                                            font-family: Arial, sans-serif;
-                                            background-color: #f9f9f9;
-                                            padding: 30px;
-                                            color: #333;
-                                        }}
-                                        .logo {{
-                                            text-align: center;
-                                            margin-bottom: 20px;
-                                        }}
-                                        .logo img {{
-                                            max-width: 200px;
-                                            height: auto;
-                                            margin-bottom: 20px;
-                                        }}
-                                        .container {{
-                                            background-color: #ffffff;
-                                            padding: 20px 30px;
-                                            border-radius: 8px;
-                                            border: 1px solid #ddd;
-                                            max-width: 700px;
-                                            margin: auto;
-                                        }}
-                                        h2 {{
-                                            color: #004d40;
-                                        }}
-                                        table {{
-                                            width: 100%;
-                                            border-collapse: collapse;
-                                            margin-top: 15px;
-                                        }}
-                                        th, td {{
-                                            border: 1px solid #ccc;
-                                            padding: 10px;
-                                            text-align: left;
-                                        }}
-                                        th {{
-                                            background-color: #eeeeee;
-                                        }}
-                                        td:last-child {{
-                                            text-align: right;
-                                        }}
-                                        .section-title {{
-                                            margin-top: 30px;
-                                            margin-bottom: 10px;
-                                            font-weight: bold;
-                                            color: #00695c;
-                                        }}
-                                        .footer {{
-                                            margin-top: 40px;
-                                            text-align: center;
-                                            font-size: 13px;
-                                            color: #777;
-                                        }}
-                                    </style>
-                                </head>
-
-                                <body>
-                                    <div class="logo">
-                                        <img src="https://ispn.org.br/site/wp-content/uploads/2021/04/logo_ISPN_2021.png" alt="Logo ISPN">
-                                    </div>
-
-                                    <div class="container">
-                                        <p>Olá <strong>{colaborador_selecionado}</strong></p>
-                                        <p>Segue abaixo o seu saldo de férias para o ano de <strong>{ano_selecionado}</strong>:</p>
-
-                                        <div class="section-title">Saldo de Férias</div>
-                                        <table>
-                                            <tr>
-                                                <th>Descrição</th>
-                                                <th>Quantidade (dias)</th>
-                                            </tr>
-                                            <tr>
-                                                <td>Residual do ano anterior ({int(ano_selecionado) - 1})</td>
-                                                <td>{residual_ano_anterior}</td>
-                                            </tr>
-                                            <tr>
-                                                <td>Saldo do início do ano</td>
-                                                <td>{saldo_inicio_ano}</td>
-                                            </tr>
-                                            <tr>
-                                                <td>Total gozado</td>
-                                                <td>{total_gozado}</td>
-                                            </tr>
-                                            <tr>
-                                                <td><strong>Saldo atual</strong></td>
-                                                <td><strong>{saldo_atual}</strong></td>
-                                            </tr>
-                                        </table>
-
-                                        <div class="section-title">Solicitações do ano</div>
-                                        {df_solicitacoes_html}
-
-                                        <br>
-                                        <p>Atenciosamente,</p>
-                                        <p><strong>Departamento Pessoal do ISPN</strong></p>
-                                    </div>
-                                </body>
-                                </html>
-                                """
-
-
-                            
-                            # Se não há solicitações, envia só a tabela de saldo
-                            else:
-                                # Monta o conteúdo do e-mail sem a tabela de solicitações
-
-                                conteudo_email = f"""
-                                <html>
-                                <head>
-                                    <meta charset="UTF-8">
-                                    <style>
-                                        body {{
-                                            font-family: Arial, sans-serif;
-                                            background-color: #f9f9f9;
-                                            padding: 30px;
-                                            color: #333;
-                                        }}
-                                        .logo {{
-                                            text-align: center;
-                                            margin-bottom: 20px;
-                                        }}
-                                        .logo img {{
-                                            max-width: 200px;
-                                            height: auto;
-                                        }}
-                                        .container {{
-                                            background-color: #ffffff;
-                                            padding: 20px 30px;
-                                            border-radius: 8px;
-                                            border: 1px solid #ddd;
-                                            max-width: 700px;
-                                            margin: auto;
-                                        }}
-                                        table {{
-                                            border-collapse: collapse;
-                                            width: 100%;
-                                            margin-top: 20px;
-                                        }}
-                                        th, td {{
-                                            border: 1px solid #ccc;
-                                            padding: 10px;
-                                            text-align: left;
-                                        }}
-                                        th {{
-                                            background-color: #eeeeee;
-                                        }}
-                                        td:nth-child(2) {{
-                                            text-align: right;
-                                        }}
-                                        .footer {{
-                                            margin-top: 40px;
-                                            text-align: center;
-                                            font-size: 13px;
-                                            color: #777;
-                                        }}
-                                    </style>
-                                </head>
-
-                                <body>
-                                    <div class="logo">
-                                        <img src="https://ispn.org.br/site/wp-content/uploads/2021/04/logo_ISPN_2021.png" alt="Logo ISPN">
-                                    </div>
-
-                                    <div class="container">
-                                        <p>Olá <strong>{colaborador_selecionado}</strong></p>
-                                        <p>Segue abaixo o seu saldo de férias para o ano de <strong>{ano_selecionado}</strong>:</p>
-
-                                        <table>
-                                            <tr>
-                                                <th>Descrição</th>
-                                                <th>Quantidade (dias)</th>
-                                            </tr>
-                                            <tr>
-                                                <td>Residual do ano anterior ({int(ano_selecionado) - 1})</td>
-                                                <td>{residual_ano_anterior}</td>
-                                            </tr>
-                                            <tr>
-                                                <td>Saldo do início do ano</td>
-                                                <td>{saldo_inicio_ano}</td>
-                                            </tr>
-                                            <tr>
-                                                <td>Total gozado</td>
-                                                <td>{total_gozado}</td>
-                                            </tr>
-                                            <tr>
-                                                <td><strong>Saldo atual</strong></td>
-                                                <td><strong>{saldo_atual}</strong></td>
-                                            </tr>
-                                        </table>
-
-                                        <br>
-                                        <p>Atenciosamente,</p>
-                                        <p><strong>Departamento Pessoal do ISPN</strong></p>
-                                    </div>
-                                </body>
-                                </html>
-                                """
-
-
-                            # Lógica de envio do e-mail
-                            enviar_email(destinatario, f"Saldo de férias - {ano_selecionado}", conteudo_email, html=True)
-
-                            # Mensagem de confirmação
-                            st.success("E-mail enviado com sucesso!", icon=":material/mail:")
-
-                            # Aguarda 4 segundos antes de recarregar
-                            # time.sleep(4)
-                            # st.rerun()
-
-
-                    # Botão para abrir o modal "Enviar saldo"
-                    colunas_botoes[2].button("Enviar saldo", on_click=enviar_saldo, use_container_width=True, icon=":material/mail:")
+                # Botão para abrir o modal de nova solicitação
+                colunas_botoes[0].button("Nova solicitação", on_click=nova_solicitacao, use_container_width=True, icon=":material/calendar_add_on:")
 
 
 
+        # 2 - BOTÃO DE EDITAR SOLICITAÇÃO
 
+        # Roteamento de tipo de usuário - somente para gestao_ferias
+        if set(st.session_state.tipo_usuario) & {"admin","gestao_ferias"}:
 
+            if colaborador_selecionado != "Todos(as)":
 
-            # 4 - BOTÃO DE EDITAR COLABORADOR(A)
-
-            # Roteamento de tipo de usuário - somente para gestao_ferias
-            if set(st.session_state.tipo_usuario) & {"admin","gestao_ferias"}:
-
-                if colaborador_selecionado != "Todos(as)":
+                # Função para abrir o modal "Editar solicitação"
+                @st.dialog("Editar solicitação")
+                def editar_solicitacao():
 
                     colaborador_dados = next(
                         (registro for registro in colaboradores if registro.get("nome_completo") == colaborador_selecionado),
                         None
                     )
 
-                    # Função para encontrar o menor ano com base no valor_inicial_ano_atual
-                    def encontrar_ano_menor_valor(anos):
-                        return min(anos, key=lambda ano: anos[ano].get("valor_inicial_ano_atual", float('inf')))
-
-                    @st.dialog("Editar colaborador(a)")
-                    def editar_colaborador(nome_colaborador, colaborador_dados): 
-
-                        global colaborador_selecionado
-
-                        # Identificar o menor ano
-                        anos_cadastrados = colaborador_dados.get("férias", {}).get("anos", {})
-                        # anos_cadastrados = colaborador_dados.get("anos", {})
-
-                        ano_menor_valor = encontrar_ano_menor_valor(anos_cadastrados)
-
-                        # Input para editar o residual do ano anterior
-                        # residual_atual = anos_cadastrados[ano_menor_valor].get("residual_ano_anterior")
-                        residual_atual = (
-                            anos_cadastrados.get(ano_menor_valor, {}).get("residual_ano_anterior", 0)
-                            if ano_menor_valor else 0
+                    # Verifica se há dados do colaborador selecionado
+                    if colaborador_dados:
+                        
+                        # Obtém uma lista de todos os anos disponíveis na chave "anos"
+                        # anos_disponiveis = reversed(list(colaborador_dados["anos"].keys()))
+                        anos_disponiveis = sorted(
+                            colaborador_dados.get("férias", {}).get("anos", {}).keys(),
+                            reverse=True
                         )
 
-                        novo_residual = st.number_input(f"Residual do ano anterior ao primeiro ano cadastrado ({int(ano_menor_valor) - 1})", 
-                                                        value=residual_atual, 
-                                                        step=1,
-                                                        help="Só é possível editar o primeiro ano cadastrado."
-                                                        )
+                        # Primeiro selectbox para o ano
+                        ano_selecionado = st.selectbox("Selecione o ano", anos_disponiveis, format_func=str, key="ano_selecionado")
 
-                        # Input para editar as férias recebidas no primeiro ano cadastrado
-                        recebidas_atual = anos_cadastrados[ano_menor_valor].get("valor_inicial_ano_atual")
-                        novo_dias_recebidos = st.number_input(f"Férias recebidas no primeiro ano cadastrado ({ano_menor_valor})", 
-                                                        value=recebidas_atual, 
-                                                        step=1,
-                                                        help="Só é possível editar o primeiro ano cadastrado."
-                                                        )
+                        # Obter as solicitações do ano selecionado
+                        solicitacoes_ano = colaborador_dados.get("férias", {}).get("anos", {}).get(ano_selecionado, {}).get("solicitacoes", [])
+
+                        # Verifica se há solicitações disponíveis no ano selecionado
+                        if solicitacoes_ano:
+                            # Define o rótulo e as opções para seleção de uma solicitação específica
+                            def formatar_opcao(indice):
+                                # Exibe o período da solicitação selecionada (início e fim)
+                                return f"{solicitacoes_ano[indice]['lista_de_dias'][0]} a {solicitacoes_ano[indice]['lista_de_dias'][-1]}"
+
+                            solicitacao_selecionada_indice = st.selectbox(
+                                "Selecione uma solicitação:",
+                                range(len(solicitacoes_ano)),
+                                format_func=formatar_opcao,
+                                key="solicitacao_selecionada_indice"
+                            )
+                            
+                            # Recupera os dados da solicitação selecionada usando o índice retornado pelo `selectbox`
+                            solicitacao_editar = solicitacoes_ano[solicitacao_selecionada_indice]
+                            
+                            st.write('')
+                            # Cria abas para permitir edição ou exclusão da solicitação
+                            tab1, tab2 = st.tabs([":material/edit: EDITAR", ":material/delete: EXCLUIR"])
+                            
+                            # Aba para EDITAR a solicitação ===================
+                            with tab1.form(key=f'form_editar_solicitacao_{solicitacao_selecionada_indice}'):
+                                
+                                # Exibe campos para edição dos dados da solicitação
+                                data_solicitacao = st.text_input("Data da solicitação", value=solicitacao_editar.get('data_solicitacao', ''))
+                                dias_solicitados = st.text_input(
+                                    "Período solicitado",
+                                    value=", ".join(map(str, solicitacao_editar.get('lista_de_dias', [])))
+                                )
+                                dias_uteis = st.number_input(
+                                    "Dias úteis",
+                                    value=int(solicitacao_editar.get('numero_dias_uteis', 0)),
+                                    min_value=0,
+                                    step=1
+                                )
+                                observacoes = st.text_input("Observações (opcional)", value=solicitacao_editar.get('observacoes', ''))
+
+                                # Botão para salvar as alterações realizadas
+                                if st.form_submit_button("Salvar alterações", use_container_width=True, icon=":material/save:", type="primary"):
+                                    # Atualiza a solicitação específica na lista local
+                                    solicitacoes_ano[solicitacao_selecionada_indice] = {
+                                        'data_solicitacao': data_solicitacao,
+                                        'lista_de_dias': [dia.strip() for dia in dias_solicitados.split(',')],
+                                        'numero_dias_uteis': dias_uteis,
+                                        'observacoes': observacoes
+                                    }
+
+                                    # Monta o filtro para encontrar o colaborador correto no banco
+                                    filtro = { "nome_completo": colaborador_selecionado }
+
+                                    # Monta a operação de atualização no caminho correto
+                                    novo_valor = {
+                                        "$set": {
+                                            f"férias.anos.{ano_selecionado}.solicitacoes": solicitacoes_ano
+                                        }
+                                    }
+
+                                    # Executa a atualização no MongoDB
+                                    colecao.update_one(filtro, novo_valor)
+
+                                    # Atualiza os dados locais após a alteração
+                                    atualizar_dados_colaborador()
+                                    
+                                    # Mensagem de sucesso e recarregamento da página
+                                    st.success("Período atualizado com sucesso!", icon=":material/thumb_up:")
+                                    time.sleep(4)
+                                    st.rerun()
 
 
-                        # Input para editar "a_receber"
-                        a_receber_atual = anos_cadastrados[ano_menor_valor].get("a_receber")
-                        novo_a_receber = st.number_input(f"Dias a receber na virada do primeiro ano", 
-                                                        value=a_receber_atual, 
-                                                        step=1,
-                                                        help="Só para novos cadastros, que vão receber alguns de dias na virada do próximo ano."
-                                                        )
+
+                            # Aba para DELETAR a solicitação ===================
+                            with tab2:
+                                st.write('Você tem certeza que deseja EXCLUIR esse período de férias?')
+                                st.write(f'**{formatar_opcao(solicitacao_selecionada_indice)}**')
+                                st.markdown('<p style="color:red;">Após apertar o botão, a operação não poderá ser desfeita!</p>', unsafe_allow_html=True)
+                                
+                                if st.button("Excluir período", icon=":material/delete:", type="primary", key=f'deletar_solicitacao_{solicitacao_selecionada_indice}', use_container_width=True):
+                                    # Remove a solicitação selecionada
+                                    del solicitacoes_ano[solicitacao_selecionada_indice]
 
 
-                        # Botão para salvar alterações no banco de dados
-                        if st.button("Salvar alterações", type="primary", icon=":material/save:"):
-                            # Criar o dicionário de atualização apenas com os dados de férias
-                            atualizacoes = {
-                                f"férias.anos.{ano_menor_valor}.a_receber": novo_a_receber,
-                                f"férias.anos.{ano_menor_valor}.residual_ano_anterior": novo_residual,
-                                f"férias.anos.{ano_menor_valor}.valor_inicial_ano_atual": novo_dias_recebidos,
-                            }
+                                    # Atualiza o banco de dados
+                                    colecao.update_one(
+                                        { "nome_completo": colaborador_selecionado },  # Filtro correto para encontrar o colaborador
+                                        { 
+                                            "$set": { 
+                                                f"férias.anos.{ano_selecionado}.solicitacoes": solicitacoes_ano  # Caminho correto
+                                            } 
+                                        }
+                                    )
 
-                            # Atualizar os campos no MongoDB
-                            colecao.update_one(
-                                {"nome_completo": nome_colaborador},  # Filtra pelo nome do colaborador
-                                {"$set": atualizacoes}
+                                    atualizar_dados_colaborador()
+                                    
+                                    # Mensagem de sucesso
+                                    st.success("Período excluído!", icon=":material/thumb_up:")
+                                    time.sleep(4)
+                                    st.rerun()
+
+                        else:
+                            # Mensagem se não houver solicitações no ano
+                            st.write("Não há solicitações neste ano.")
+
+                # Botão para abrir o modal de "Editar solicitação"
+                colunas_botoes[1].button("Editar solicitação", on_click=editar_solicitacao, use_container_width=True, icon=":material/edit:")
+
+
+
+        # 3 - BOTÃO DE ENVIAR EMAIL DE SALDO
+
+        # Roteamento de tipo de usuário - somente para gestao_ferias
+        if set(st.session_state.tipo_usuario) & {"admin","gestao_ferias"}:
+
+            if colaborador_selecionado != "Todos(as)":
+
+                @st.dialog("Enviar saldo")
+                def enviar_saldo():
+
+                    colaborador_dados = next(
+                        (registro for registro in colaboradores if registro.get("nome_completo") == colaborador_selecionado),
+                        None
+                    )
+
+                    # Verifica se há dados do colaborador selecionado
+                    if colaborador_dados:
+                        anos_disponiveis = sorted(
+                            colaborador_dados.get("férias", {}).get("anos", {}).keys(),
+                            reverse=True
+                        )
+                    else:
+                        st.write("Não há dados.")
+                        return  # Encerra o modal caso não haja dados disponíveis
+
+                    # Título dentro do modal
+                    st.write("**Enviar saldo por e-mail**")
+
+                    # Selectbox para selecionar o ano
+                    ano_selecionado = st.selectbox("Selecione o ano", anos_disponiveis, key="ano_selecionado_email")
+
+
+                    # Input para o destinatário
+                    destinatario = st.text_input(
+                        "Enviar para:", 
+                        value=colaborador_dados.get("e_mail", ""),  # Obtém o valor da chave "email", ou uma string vazia se não existir
+                        key="email_destinatario"
+                    )
+
+                    # Garante que os dados do ano selecionado são acessados
+                    if ano_selecionado:
+                        ano_dados = colaborador_dados.get("férias", {}).get("anos", {}).get(ano_selecionado, {})
+
+                        df_mail = montar_dataframe_saldo_do_ano(ano_selecionado, ano_dados)
+
+                    # Botão para enviar o e-mail
+                    if st.button("Enviar e-mail", use_container_width=True, icon=":material/mail:", type="primary"):
+                        # Extrai os valores do DataFrame com base nas linhas e colunas
+                        residual_ano_anterior = df_mail.iloc[0, 1]  # Primeira linha, segunda coluna
+                        saldo_inicio_ano = df_mail.iloc[1, 1]      # Segunda linha, segunda coluna
+                        total_gozado = df_mail.iloc[2, 1]          # Terceira linha, segunda coluna
+                        saldo_atual = df_mail.iloc[3, 1]           # Quarta linha, segunda coluna
+
+
+                        # Verifica se há solicitações para o ano
+                        
+                        # Se há solicitações, envia tabela de saldo e a tabela de solicitações
+                        if not df_solicitacoes.empty:
+                            # Aplicar a transformação diretamente com lambda para listas
+                            df_solicitacoes['Período solicitado'] = df_solicitacoes['Período solicitado'].apply(
+                                lambda periodo: f"{periodo[0]} a {periodo[1]}"
                             )
 
+                            # Renomear a coluna Período solicitado para Dias de início e fim
+                            df_solicitacoes.rename(columns={'Período solicitado': 'Dias de início e fim'}, inplace=True)
 
-                            # Atualiza banco de dados
-                            atualizar_dados_colaborador()
+                            # Converte df_solicitacoes para HTML
+                            df_solicitacoes_html = df_solicitacoes.to_html(index=False, classes="table", border=1, justify="left")
 
-                            st.success("Informações atualizadas com sucesso!")
-
-                            # Aguarda 3 segundos antes de recarregar a página para atualizar os dados
-                            time.sleep(3)
-                            st.rerun()
-
-                    # Botão para editar colaborardor
-                    colunas_botoes[3].button("Editar colaborador(a)", 
-                                        on_click=lambda: editar_colaborador(colaborador_selecionado, colaborador_dados), 
-                                        use_container_width=True, 
-                                        icon=":material/person_edit:")
+                            # Monta o conteúdo do e-mail com uma tabela HTML
 
 
 
-            gerar_grafico_tabela(colaborador_selecionado)
+                            conteudo_email = f"""
+                            <html>
+                            <head>
+                                <meta charset="UTF-8">
+                                <style>
+                                    body {{
+                                        font-family: Arial, sans-serif;
+                                        background-color: #f9f9f9;
+                                        padding: 30px;
+                                        color: #333;
+                                    }}
+                                    .logo {{
+                                        text-align: center;
+                                        margin-bottom: 20px;
+                                    }}
+                                    .logo img {{
+                                        max-width: 200px;
+                                        height: auto;
+                                        margin-bottom: 20px;
+                                    }}
+                                    .container {{
+                                        background-color: #ffffff;
+                                        padding: 20px 30px;
+                                        border-radius: 8px;
+                                        border: 1px solid #ddd;
+                                        max-width: 700px;
+                                        margin: auto;
+                                    }}
+                                    h2 {{
+                                        color: #004d40;
+                                    }}
+                                    table {{
+                                        width: 100%;
+                                        border-collapse: collapse;
+                                        margin-top: 15px;
+                                    }}
+                                    th, td {{
+                                        border: 1px solid #ccc;
+                                        padding: 10px;
+                                        text-align: left;
+                                    }}
+                                    th {{
+                                        background-color: #eeeeee;
+                                    }}
+                                    td:last-child {{
+                                        text-align: right;
+                                    }}
+                                    .section-title {{
+                                        margin-top: 30px;
+                                        margin-bottom: 10px;
+                                        font-weight: bold;
+                                        color: #00695c;
+                                    }}
+                                    .footer {{
+                                        margin-top: 40px;
+                                        text-align: center;
+                                        font-size: 13px;
+                                        color: #777;
+                                    }}
+                                </style>
+                            </head>
+
+                            <body>
+                                <div class="logo">
+                                    <img src="https://ispn.org.br/site/wp-content/uploads/2021/04/logo_ISPN_2021.png" alt="Logo ISPN">
+                                </div>
+
+                                <div class="container">
+                                    <p>Olá <strong>{colaborador_selecionado}</strong></p>
+                                    <p>Segue abaixo o seu saldo de férias para o ano de <strong>{ano_selecionado}</strong>:</p>
+
+                                    <div class="section-title">Saldo de Férias</div>
+                                    <table>
+                                        <tr>
+                                            <th>Descrição</th>
+                                            <th>Quantidade (dias)</th>
+                                        </tr>
+                                        <tr>
+                                            <td>Residual do ano anterior ({int(ano_selecionado) - 1})</td>
+                                            <td>{residual_ano_anterior}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Saldo do início do ano</td>
+                                            <td>{saldo_inicio_ano}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Total gozado</td>
+                                            <td>{total_gozado}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Saldo atual</strong></td>
+                                            <td><strong>{saldo_atual}</strong></td>
+                                        </tr>
+                                    </table>
+
+                                    <div class="section-title">Solicitações do ano</div>
+                                    {df_solicitacoes_html}
+
+                                    <br>
+                                    <p>Atenciosamente,</p>
+                                    <p><strong>Departamento Pessoal do ISPN</strong></p>
+                                </div>
+                            </body>
+                            </html>
+                            """
+
+
+                        
+                        # Se não há solicitações, envia só a tabela de saldo
+                        else:
+                            # Monta o conteúdo do e-mail sem a tabela de solicitações
+
+                            conteudo_email = f"""
+                            <html>
+                            <head>
+                                <meta charset="UTF-8">
+                                <style>
+                                    body {{
+                                        font-family: Arial, sans-serif;
+                                        background-color: #f9f9f9;
+                                        padding: 30px;
+                                        color: #333;
+                                    }}
+                                    .logo {{
+                                        text-align: center;
+                                        margin-bottom: 20px;
+                                    }}
+                                    .logo img {{
+                                        max-width: 200px;
+                                        height: auto;
+                                    }}
+                                    .container {{
+                                        background-color: #ffffff;
+                                        padding: 20px 30px;
+                                        border-radius: 8px;
+                                        border: 1px solid #ddd;
+                                        max-width: 700px;
+                                        margin: auto;
+                                    }}
+                                    table {{
+                                        border-collapse: collapse;
+                                        width: 100%;
+                                        margin-top: 20px;
+                                    }}
+                                    th, td {{
+                                        border: 1px solid #ccc;
+                                        padding: 10px;
+                                        text-align: left;
+                                    }}
+                                    th {{
+                                        background-color: #eeeeee;
+                                    }}
+                                    td:nth-child(2) {{
+                                        text-align: right;
+                                    }}
+                                    .footer {{
+                                        margin-top: 40px;
+                                        text-align: center;
+                                        font-size: 13px;
+                                        color: #777;
+                                    }}
+                                </style>
+                            </head>
+
+                            <body>
+                                <div class="logo">
+                                    <img src="https://ispn.org.br/site/wp-content/uploads/2021/04/logo_ISPN_2021.png" alt="Logo ISPN">
+                                </div>
+
+                                <div class="container">
+                                    <p>Olá <strong>{colaborador_selecionado}</strong></p>
+                                    <p>Segue abaixo o seu saldo de férias para o ano de <strong>{ano_selecionado}</strong>:</p>
+
+                                    <table>
+                                        <tr>
+                                            <th>Descrição</th>
+                                            <th>Quantidade (dias)</th>
+                                        </tr>
+                                        <tr>
+                                            <td>Residual do ano anterior ({int(ano_selecionado) - 1})</td>
+                                            <td>{residual_ano_anterior}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Saldo do início do ano</td>
+                                            <td>{saldo_inicio_ano}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Total gozado</td>
+                                            <td>{total_gozado}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Saldo atual</strong></td>
+                                            <td><strong>{saldo_atual}</strong></td>
+                                        </tr>
+                                    </table>
+
+                                    <br>
+                                    <p>Atenciosamente,</p>
+                                    <p><strong>Departamento Pessoal do ISPN</strong></p>
+                                </div>
+                            </body>
+                            </html>
+                            """
+
+
+                        # Lógica de envio do e-mail
+                        enviar_email(destinatario, f"Saldo de férias - {ano_selecionado}", conteudo_email, html=True)
+
+                        # Mensagem de confirmação
+                        st.success("E-mail enviado com sucesso!", icon=":material/mail:")
+
+                        # Aguarda 4 segundos antes de recarregar
+                        # time.sleep(4)
+                        # st.rerun()
+
+
+                # Botão para abrir o modal "Enviar saldo"
+                colunas_botoes[2].button("Enviar saldo", on_click=enviar_saldo, use_container_width=True, icon=":material/mail:")
 
 
 
-        # Aba pessoal --------------------------------------------
-        with pessoal:
-            minhas_ferias()
+        # 4 - BOTÃO DE EDITAR COLABORADOR(A)
+
+        # Roteamento de tipo de usuário - somente para gestao_ferias
+        if set(st.session_state.tipo_usuario) & {"admin","gestao_ferias"}:
+
+            if colaborador_selecionado != "Todos(as)":
+
+                colaborador_dados = next(
+                    (registro for registro in colaboradores if registro.get("nome_completo") == colaborador_selecionado),
+                    None
+                )
+
+                # Função para encontrar o menor ano com base no valor_inicial_ano_atual
+                def encontrar_ano_menor_valor(anos):
+                    return min(anos, key=lambda ano: anos[ano].get("valor_inicial_ano_atual", float('inf')))
+
+                @st.dialog("Editar colaborador(a)")
+                def editar_colaborador(nome_colaborador, colaborador_dados): 
+
+                    global colaborador_selecionado
+
+                    # Identificar o menor ano
+                    anos_cadastrados = colaborador_dados.get("férias", {}).get("anos", {})
+                    # anos_cadastrados = colaborador_dados.get("anos", {})
+
+                    ano_menor_valor = encontrar_ano_menor_valor(anos_cadastrados)
+
+                    # Input para editar o residual do ano anterior
+                    # residual_atual = anos_cadastrados[ano_menor_valor].get("residual_ano_anterior")
+                    residual_atual = (
+                        anos_cadastrados.get(ano_menor_valor, {}).get("residual_ano_anterior", 0)
+                        if ano_menor_valor else 0
+                    )
+
+                    novo_residual = st.number_input(f"Residual do ano anterior ao primeiro ano cadastrado ({int(ano_menor_valor) - 1})", 
+                                                    value=residual_atual, 
+                                                    step=1,
+                                                    help="Só é possível editar o primeiro ano cadastrado."
+                                                    )
+
+                    # Input para editar as férias recebidas no primeiro ano cadastrado
+                    recebidas_atual = anos_cadastrados[ano_menor_valor].get("valor_inicial_ano_atual")
+                    novo_dias_recebidos = st.number_input(f"Férias recebidas no primeiro ano cadastrado ({ano_menor_valor})", 
+                                                    value=recebidas_atual, 
+                                                    step=1,
+                                                    help="Só é possível editar o primeiro ano cadastrado."
+                                                    )
+
+
+                    # Input para editar "a_receber"
+                    a_receber_atual = anos_cadastrados[ano_menor_valor].get("a_receber")
+                    novo_a_receber = st.number_input(f"Dias a receber na virada do primeiro ano", 
+                                                    value=a_receber_atual, 
+                                                    step=1,
+                                                    help="Só para novos cadastros, que vão receber alguns de dias na virada do próximo ano."
+                                                    )
+
+
+                    # Botão para salvar alterações no banco de dados
+                    if st.button("Salvar alterações", type="primary", icon=":material/save:"):
+                        # Criar o dicionário de atualização apenas com os dados de férias
+                        atualizacoes = {
+                            f"férias.anos.{ano_menor_valor}.a_receber": novo_a_receber,
+                            f"férias.anos.{ano_menor_valor}.residual_ano_anterior": novo_residual,
+                            f"férias.anos.{ano_menor_valor}.valor_inicial_ano_atual": novo_dias_recebidos,
+                        }
+
+                        # Atualizar os campos no MongoDB
+                        colecao.update_one(
+                            {"nome_completo": nome_colaborador},  # Filtra pelo nome do colaborador
+                            {"$set": atualizacoes}
+                        )
+
+
+                        # Atualiza banco de dados
+                        atualizar_dados_colaborador()
+
+                        st.success("Informações atualizadas com sucesso!")
+
+                        # Aguarda 3 segundos antes de recarregar a página para atualizar os dados
+                        time.sleep(3)
+                        st.rerun()
+
+                # Botão para editar colaborardor
+                colunas_botoes[3].button("Editar colaborador(a)", 
+                                    on_click=lambda: editar_colaborador(colaborador_selecionado, colaborador_dados), 
+                                    use_container_width=True, 
+                                    icon=":material/person_edit:")
+
+
+        gerar_grafico_tabela(colaborador_selecionado)
+
 
     # Chama página de férias para admin, gestao_ferias e supervisao_ferias
     ferias_admin_gestaoFerias_supervisaoFerias()
@@ -1562,26 +1557,9 @@ if set(st.session_state.tipo_usuario) & {"admin", "gestao_ferias", "supervisao_f
 
 # Se for um usuário comum
 else:
-    # Função da interface de Férias para admin, gestao_ferias e supervisao_ferias
-    def ferias_comuns():
-        
-        todos, pessoal = st.tabs(["Todos(as)", "Minhas férias"])
-        
-        # Aba todos ----------------------------------------------
-        with todos:
-        
-            colaborador_selecionado = 'Todos(as)'
-        
-            st.write('')
 
-            gerar_grafico_tabela(colaborador_selecionado)
+    colaborador_selecionado = 'Todos(as)'
 
+    st.write('')
 
-        # Aba pessoal --------------------------------------------
-        with pessoal:
-
-            minhas_ferias()
-
-    # Chama página de férias para usuário comum
-    ferias_comuns()
-
+    gerar_grafico_tabela(colaborador_selecionado)
