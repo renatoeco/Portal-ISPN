@@ -435,3 +435,103 @@ if pessoa_logada:
             st.warning("Não há contribuições registradas")
 
 
+    # ============ ABA MINHAS FÉRIAS ============
+    with aba_ferias:
+        st.write('')
+
+
+        # Função para montar o dataframe de saldo
+        def montar_dataframe_saldo_do_ano(ano_selecionado, ano_dados):
+            # Obtém os dados do saldo do ano atual
+            df_saldos = {  # Monta o dicionário com informações de saldo
+                "Saldos": [
+                    f"Residual do Ano Anterior ({int(ano_selecionado) - 1})",  # Saldo que ficou do ano anterior
+                    "Férias recebidas no ano",  # Saldo atribuído no início do ano atual
+                    "Total gozado",  # Dias de férias já utilizados
+                    "Saldo atual"  # Dias de férias ainda disponíveis
+                ],
+                "Dias": [
+                    ano_dados.get("residual_ano_anterior"),  # Valor do saldo residual
+                    ano_dados.get("valor_inicial_ano_atual"),  # Valor inicial do saldo no ano
+                    ano_dados.get("total_gozado"),  # Quantidade de dias gozados
+                    ano_dados.get("saldo_atual")  # Quantidade de dias restantes
+                ]
+            }
+
+            # Cria um DataFrame com os dados de saldo e o exibe na primeira coluna
+            return pd.DataFrame(df_saldos)
+        
+
+
+
+        colaborador_selecionado = st.session_state.nome
+
+        st.write('')
+        st.write(f'Registros de férias e recessos de **{colaborador_selecionado}**')
+
+        # Filtra os dados do colaborador selecionado
+        colaborador_dados = next(
+            (registro for registro in dados_pessoas if registro["nome_completo"] == colaborador_selecionado),
+            None
+        )
+
+
+        if colaborador_dados:
+
+            # Ordena os anos disponíveis nos dados do colaborador, do mais recente para o mais antigo
+            anos_disponiveis = sorted(
+                colaborador_dados.get("férias", {}).get("anos", {}).keys(),
+                reverse=True
+            )
+
+            # Itera sobre os anos disponíveis para exibir as informações de saldo e solicitações de cada ano
+            for ano in anos_disponiveis:
+                
+                # Adiciona uma linha divisória para separar os anos exibidos
+                # st.divider()
+                st.write('')
+
+                st.subheader(ano)  # Exibe o ano como um subtítulo para identificar a seção correspondente
+
+                # Define a estrutura de colunas para layout: coluna 1 (saldo), espaço entre colunas, coluna 2 (solicitações)
+                coluna1, espaco_entre, coluna2 = st.columns([12, 1, 30])
+
+                # # Obtém os dados do saldo do ano atual
+                ano_dados = colaborador_dados.get("férias", {}).get("anos", {}).get(ano, {})
+                # ano_dados = colaborador_dados.get("anos", {}).get(ano, {})
+
+                # Cria um DataFrame com os dados de saldo e o exibe na primeira coluna
+                df_saldo = montar_dataframe_saldo_do_ano(ano, ano_dados)
+                coluna1.dataframe(df_saldo, hide_index=True, use_container_width=True)
+                
+                # Mostrar a_receber
+                if ano_dados.get("a_receber"):
+                    coluna1.write(f'\\* Na virada do ano receberá {ano_dados.get("a_receber")} dias.')
+
+                # Obtém as solicitações de férias do ano atual
+                solicitacoes = ano_dados.get("solicitacoes", [])
+                solicitacoes_ano = [  # Cria uma lista formatada com os detalhes das solicitações
+                    {
+                        "Data do registro": solicitacao.get('data_solicitacao', 'Data não disponível'),  # Data da criação da solicitação
+                        # "Data da Solicitação": solicitacao.get('data_solicitacao', 'Data não disponível'),  # Data da criação da solicitação
+                        "Período solicitado": solicitacao['lista_de_dias'],  # Lista de dias solicitados
+                        # "Dias solicitados": solicitacao['lista_de_dias'],  # Lista de dias solicitados
+                        "Total de dias úteis": solicitacao.get('numero_dias_uteis', 'Dias não disponíveis'),  # Total de dias úteis na solicitação
+                        "Observações": solicitacao.get('observacoes', 'Nenhuma observação')  # Comentários ou notas da solicitação
+                    }
+                    for solicitacao in solicitacoes
+                ]
+
+                # Cria um DataFrame com os dados das solicitações e o exibe na segunda coluna
+                global df_solicitacoes
+                df_solicitacoes = pd.DataFrame(solicitacoes_ano)
+
+                if not df_solicitacoes.empty:
+                    # Calcula a altura necessária para exibir o DataFrame, baseada no número de linhas
+                    altura_df_solicitacoes_individual = ((len(df_solicitacoes) + 1) * 35) + 2
+                    # Exibe o DataFrame na segunda coluna com a altura ajustada
+                    coluna2.dataframe(df_solicitacoes, hide_index=True, use_container_width=True, height=altura_df_solicitacoes_individual)
+                else:
+                    # Mensagem exibida caso não existam solicitações de férias para o ano
+                    coluna2.write(f"Não há solicitações de férias para {ano} até o momento.")
+
