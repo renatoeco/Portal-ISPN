@@ -3,6 +3,7 @@ import pandas as pd
 import datetime
 import time
 from funcoes_auxiliares import conectar_mongo_portal_ispn
+import streamlit_shadcn_ui as ui
 
 
 # Configura a página do Streamlit para layout mais amplo
@@ -107,10 +108,12 @@ if pessoa_logada:
     # ============ ABA INFORMAÇÕES GERAIS ============
     with aba_info:
 
-        st.write('')
+        # st.write('')
 
         # Toggle de editar --------
+        st.subheader("Informações gerais")
         with st.container(horizontal=True, horizontal_alignment="right"):
+        
             editar = st.toggle(":material/edit: Editar informações", key="editar_perfil")
 
         st.write('')
@@ -352,7 +355,7 @@ if pessoa_logada:
         for contrato in pessoa_logada.get("contratos", []):
             with st.container(border=True):
 
-                col1, col2, col3 = st.columns(3)
+                col1, col2 = st.columns([2,3])
 
                 col1.write(f"**Data início:** {contrato.get('data_inicio','')}")
                 col1.write(f"**Data fim:** {contrato.get('data_fim','')}")
@@ -362,17 +365,73 @@ if pessoa_logada:
                 for pid in contrato.get("projeto_pagador", []):
                     proj = next((p for p in dados_projetos_ispn if p["_id"] == pid), None)
                     if proj:
-                        col2.write(f"**Projetos pagadores:** {proj.get('sigla')} - {proj.get('nome_do_projeto')}")
+                        col2.write(f"**Projeto pagador:** {proj.get('sigla')} - {proj.get('nome_do_projeto')}")
+
+
 
 
     # ============ ABA PREVIDÊNCIA ============
     with aba_previdencia:
+
         st.subheader("Contribuições")
+        st.write('')
+
+        # Tratamento dos dados ---------------------------------
+
         contribs = pessoa_logada.get("previdencia", [])
-        
+
         if contribs:
-            for c in contribs:
-                st.write(f"- {c.get('data_contribuicao')} | R$ {c.get('valor',0):.2f}")
+            # Transforma em DataFrame
+            df_contrib = pd.DataFrame(contribs)
+
+            # Renomeia data
+            df_contrib = df_contrib.rename(columns={"data_contribuicao": "data"})
+
+            # Converte para float antes de formatar
+            if "valor" in df_contrib.columns:
+                df_contrib["valor"] = pd.to_numeric(df_contrib["valor"], errors="coerce")
+                
+                df_contrib["valor"] = df_contrib["valor"].apply(
+                    lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+                )
+
+            # Remover o indice de df_contrib
+            df_contrib = df_contrib.reset_index(drop=True)
+
+
+
+            # Interface #########################################
+
+            # Convertendo data para datetime
+            df_contrib['data_datetime'] = pd.to_datetime(df_contrib['data'])
+
+            # Extrai o ano em uma nova coluna
+            df_contrib['ano'] = df_contrib['data_datetime'].dt.year
+
+            # Container horizontal para as tabelas
+            container_tabelas = st.container(horizontal=True, gap="medium")
+
+
+            # Itera pelos anos únicos, em ordem decrescente
+            for ano in sorted(df_contrib['ano'].unique(), reverse=True):
+                
+                # Bota um container wrap para funcionar o alinhamento horizontal
+                with container_tabelas.container(width=300):
+                
+                    st.write(f"**{ano}**")
+                    
+                    # Filtra pelo ano e ordena pela data
+                    df_ano = df_contrib[df_contrib['ano'] == ano].sort_values('data_datetime')
+                    
+                    # Exibe a tabela sem índice
+                    st.dataframe(df_ano.drop(columns=['ano', 'data_datetime']), hide_index=True)
+
+
+
+
+
+        # Se não achou contribuições
         else:
             st.warning("Não há contribuições registradas")
+
 
