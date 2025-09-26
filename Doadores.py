@@ -6,7 +6,7 @@ from plotly.colors import diverging
 import plotly.graph_objects as go
 import time
 from bson import ObjectId
-from funcoes_auxiliares import conectar_mongo_portal_ispn
+from funcoes_auxiliares import conectar_mongo_portal_ispn, ajustar_altura_dataframe
 
 
 st.set_page_config(layout="wide")
@@ -262,11 +262,15 @@ with tab1:
     texto = "doador com projeto(s)" if len(doadores_filtrados) == 1 else "doadores com projeto(s)"
     col1.subheader(f'{len(doadores_filtrados)} {texto}')
 
+    resumo_final = resumo_final[["Doador", "Tipo de Doador", "Número de projetos", "Valor"]]
+
+    ajustar_altura_dataframe(resumo_final, 1)
+
     # exibir na tela:
-    st.dataframe(
-        resumo_final[["Doador", "Tipo de Doador", "Número de projetos", "Valor"]],
-        hide_index=True
-    )
+    # st.dataframe(
+    #     resumo_final[["Doador", "Tipo de Doador", "Número de projetos", "Valor"]],
+    #     hide_index=True
+    # )
     
     st.write("")
     st.write("")
@@ -284,9 +288,13 @@ with tab1:
     # Reais
     # -----------------------------
     df_reais = resumo[resumo["moeda"] == "Reais"].groupby("nome_doador", as_index=False).agg(
-        valor=("valor", "sum"),
-        num_proj=("_id", "sum")
-    )
+    valor=("valor", "sum"),
+    num_proj=("_id", "sum")
+)
+
+    # Ordena por valor decrescente
+    df_reais = df_reais.sort_values(by="valor", ascending=False).reset_index(drop=True)
+
     df_reais["Valor"] = df_reais["valor"].apply(
         lambda v: f"R$ {v:,.0f}".replace(",", "X").replace(".", ",").replace("X", ".")
     )
@@ -297,39 +305,47 @@ with tab1:
 
     fig_reais = go.Figure()
 
-    # Barras de número de projetos (eixo y1)
+    # Barras de número de projetos
     fig_reais.add_trace(go.Bar(
         x=df_reais["nome_doador"],
         y=df_reais["num_proj"],
         name="Nº de Projetos",
         marker_color=cor_proj,
         yaxis='y1',
-        width=0.35,        # <--- largura menor
-        offset=-0.2,       # <--- desloca levemente à esquerda
+        width=0.35,
+        offset=-0.2,
         hovertemplate='Doador: %{x}<br>Nº Projetos: %{y}<extra></extra>'
     ))
 
-    # Barras de valor total (eixo y2)
+    # Barras de valor total
     fig_reais.add_trace(go.Bar(
         x=df_reais["nome_doador"],
         y=df_reais["valor"],
         name="Valor Total de Apoio",
         marker_color=cor_valor,
         yaxis='y2',
-        width=0.35,        # <--- largura menor
-        offset=+0.2,       # <--- desloca levemente à direita
-        hovertext=df_reais["Valor"],  # texto formatado
+        width=0.35,
+        offset=0.2,
+        hovertext=df_reais["Valor"],
         hovertemplate='Doador: %{x}<br>Valor Total: %{hovertext}<extra></extra>'
     ))
 
     fig_reais.update_layout(
         title="Número de Projetos e Valor de Apoio por Doador (R$)",
-        #xaxis=dict(title="Doador"),
-        yaxis=dict(title="Nº de Projetos", side='left'),
+        yaxis=dict(
+            title="Nº de Projetos",
+            side='left',
+            showgrid=False,       # mostra apenas linhas horizontais
+            gridcolor='lightgray'
+        ),
         yaxis2=dict(
             title="Valor Total (R$)",
             overlaying='y',
-            side='right'
+            side='right',
+            showgrid=True
+        ),
+        xaxis=dict(
+            showgrid=False      # remove linhas verticais
         ),
         barmode='group',
         legend=dict(x=0.5, y=1.1, orientation='h', xanchor='center')
@@ -344,6 +360,10 @@ with tab1:
         valor=("valor", "sum"),
         num_proj=("_id", "sum")
     )
+
+    # Ordena por valor decrescente
+    df_dolares = df_dolares.sort_values(by="valor", ascending=False).reset_index(drop=True)
+
     df_dolares["Valor"] = df_dolares["valor"].apply(
         lambda v: f"US$ {v:,.0f}".replace(",", "X").replace(".", ",").replace("X", ".")
     )
@@ -356,8 +376,8 @@ with tab1:
         name="Nº de Projetos",
         marker_color=cor_proj,
         yaxis='y1',
-        width=0.35,  # <--- largura menor
-        offset=-0.2, # <--- desloca levemente para a esquerda
+        width=0.35,
+        offset=-0.2,
         hovertemplate='Doador: %{x}<br>Nº Projetos: %{y}<extra></extra>'
     ))
 
@@ -367,20 +387,28 @@ with tab1:
         name="Valor Total de Apoio",
         marker_color=cor_valor,
         yaxis='y2',
-        width=0.35,  # <--- largura menor
-        offset=+0.2, # <--- desloca levemente para a direita
+        width=0.35,
+        offset=0.2,
         hovertext=df_dolares["Valor"],
         hovertemplate='Doador: %{x}<br>Valor Total: %{hovertext}<extra></extra>'
     ))
 
     fig_dolares.update_layout(
         title="Número de Projetos e Valor de Apoio por Doador (US$)",
-        #xaxis=dict(title="Doador"),
-        yaxis=dict(title="Nº de Projetos", side='left'),
+        yaxis=dict(
+            title="Nº de Projetos",
+            side='left',
+            showgrid=False,
+            gridcolor='lightgray'
+        ),
         yaxis2=dict(
             title="Valor Total (US$)",
             overlaying='y',
-            side='right'
+            side='right',
+            showgrid=True
+        ),
+        xaxis=dict(
+            showgrid=False
         ),
         barmode='group',
         legend=dict(x=0.5, y=1.1, orientation='h', xanchor='center')
@@ -392,40 +420,6 @@ with tab1:
     st.write("")
     st.write("")
     st.write("")
-
-    # Gráfico de pizza por tipo de doador
-    # tipo_valor = resumo.groupby("Tipo de Doador", as_index=False)["ValorNum"].sum()
-    # tipo_valor["Porcentagem"] = (tipo_valor["ValorNum"] / tipo_valor["ValorNum"].sum()) * 100
-
-    # # coluna formatada só para exibir:
-    # tipo_valor["Valor_fmt"] = tipo_valor["ValorNum"].apply(
-    #     lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-    # )
-
-
-    # pie_chart = alt.Chart(tipo_valor).mark_arc().encode(
-    #     theta=alt.Theta(field="ValorNum", type="quantitative"),  # usa numérico
-    #     color=alt.Color(field="Tipo de Doador", type="nominal"),
-    #     tooltip=[
-    #         "Tipo de Doador",
-    #         #alt.Tooltip("Valor_fmt", type="nominal", title="Valor"),
-    #         alt.Tooltip("Porcentagem", type="quantitative", format=".2f", title="%")
-    #     ]
-    # )
-
-
-    # st.altair_chart(pie_chart, use_container_width=True)
-
-    # st.write('')
-    # st.dataframe(
-    #     tipo_valor[["Tipo de Doador", "Valor_fmt", "Porcentagem"]]
-    #     .sort_values(by="Porcentagem", ascending=False)
-    #     .rename(columns={"Valor_fmt": "Valor"})
-    #     .style.format({"Porcentagem": "{:.2f}%"}),
-    #     hide_index=True,
-    #     use_container_width=True
-    # )
-
 
 
 with tab2:
