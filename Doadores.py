@@ -6,7 +6,7 @@ from plotly.colors import diverging
 import plotly.graph_objects as go
 import time
 from bson import ObjectId
-from funcoes_auxiliares import conectar_mongo_portal_ispn, ajustar_altura_dataframe
+from funcoes_auxiliares import conectar_mongo_portal_ispn
 
 
 st.set_page_config(layout="wide")
@@ -264,13 +264,13 @@ with tab1:
 
     resumo_final = resumo_final[["Doador", "Tipo de Doador", "Número de projetos", "Valor"]]
 
-    ajustar_altura_dataframe(resumo_final, 1)
+    #ajustar_altura_dataframe(resumo_final, 1)
 
     # exibir na tela:
-    # st.dataframe(
-    #     resumo_final[["Doador", "Tipo de Doador", "Número de projetos", "Valor"]],
-    #     hide_index=True
-    # )
+    st.dataframe(
+        resumo_final[["Doador", "Tipo de Doador", "Número de projetos", "Valor"]],
+        hide_index=True
+    )
     
     st.write("")
     st.write("")
