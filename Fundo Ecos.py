@@ -1302,22 +1302,6 @@ def gerenciar_projetos():
 
 
 
-
-        # if not opcoes:
-        #     st.info("Nenhum projeto encontrado para editar.")
-        # else:
-        #     selecionado_id = st.selectbox("Selecione o projeto", list(opcoes.keys()), format_func=lambda x: opcoes[x])
-        #     tipo = "PF" if selecionado_id in [str(p["_id"]) for p, t in todos_projetos if t == "PF"] else "PJ"
-        #     colecao = db["projetos_pf"] if tipo == "PF" else db["projetos_pj"]
-        #     projeto = colecao.find_one({"_id": ObjectId(selecionado_id)})
-        #     atualizado = form_projeto(projeto, tipo, pessoas_dict, programas_dict, projetos_ispn_dict)
-        #     if atualizado:
-        #         colecao.update_one({"_id": ObjectId(selecionado_id)}, {"$set": atualizado})
-        #         st.success("Projeto atualizado com sucesso.")
-        #         time.sleep(1)
-        #         st.rerun()
-
-
     # ---------------------- Excluir ----------------------
     with abas[2]:
  

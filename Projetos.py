@@ -1076,11 +1076,12 @@ with tab2:
                     "Ano": lan.get("ano", ""),
                     "Autor(a)": lan.get("autor_anotacao", ""),
                     "Observações": lan.get("observacoes", ""),
+                    "Data anotação": lan.get("data_anotacao", ""),
                 })
 
 
         # Cria o DataFrame mesmo que linhas esteja vazio
-        df_indicadores = pd.DataFrame(linhas, columns=["Indicador", "Valor", "Ano", "Autor(a)", "Observações"])
+        df_indicadores = pd.DataFrame(linhas, columns=["Indicador", "Valor", "Ano", "Autor(a)", "Data anotação", "Observações"])
         df_indicadores["Valor_num"] = df_indicadores["Valor"].apply(parse_valor)
 
         # Resumo por indicador
