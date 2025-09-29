@@ -810,7 +810,7 @@ if set(st.session_state.tipo_usuario) & {"admin", "gestao_ferias", "supervisao_f
         st.write('')
 
         # Linha para o botão de lista de colaboradores com saldo
-        colunas_botoes = st.columns([4, 3, 3, 3, 3])
+        colunas_botoes = st.columns([4, 3, 3, 3, 4])
 
 
         # 1 - BOTÃO DE LISTA DE COLABORADORES COM SALDO
