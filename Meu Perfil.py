@@ -403,7 +403,8 @@ if pessoa_logada:
             # Interface #########################################
 
             # Convertendo data para datetime
-            df_contrib['data_datetime'] = pd.to_datetime(df_contrib['data'])
+            df_contrib['data_datetime'] = pd.to_datetime(df_contrib['data'], dayfirst=True)
+
 
             # Extrai o ano em uma nova coluna
             df_contrib['ano'] = df_contrib['data_datetime'].dt.year
