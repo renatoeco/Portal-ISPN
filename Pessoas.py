@@ -110,6 +110,7 @@ for pessoa in dados_pessoas:
         "Status": pessoa.get("status", ""),
         "Tipo Contratação": pessoa.get("tipo_contratacao", ""),
         "Escritório": pessoa.get("escritorio", ""),
+        "Data de nascimento": pessoa.get("data_nascimento", ""),
     })
 
 
@@ -2322,26 +2323,69 @@ with aba_aniversariantes:
     # Obter mês atual
     mes_atual = datetime.date.today().month
 
-    st.markdown(f'<h3 style="font-size: 1.5em;">Aniversariantes do mês:</h3>', unsafe_allow_html=True)
     st.write("")
+
+    st.markdown(f'<h3 style="font-size: 1.5em;">Aniversariantes do mês de {meses_pt[mes_atual - 1]}:</h3>', unsafe_allow_html=True)
     st.write("")
 
     encontrados = False  # Flag para saber se achou algum aniversariante
 
-    for pessoa in dados_pessoas:
-        nome = pessoa.get("nome_completo", "Sem nome")
-        data_nascimento_str = pessoa.get("data_nascimento", None)
+    df_aniversariantes = df_pessoas.copy()
 
-        if data_nascimento_str:
-            try:
-                # Converter string dd/mm/yyyy para datetime.date
-                data_nascimento = datetime.datetime.strptime(data_nascimento_str, "%d/%m/%Y").date()
-                if data_nascimento.month == mes_atual:
-                    st.write(f"**{nome}** - {data_nascimento.strftime('%d/%m')}")
-                    encontrados = True
-            except:
-                continue
+
+
+    # Converter Data de nascimento para datetime
+    df_aniversariantes["data_nascimento_datetime"] = pd.to_datetime(df_aniversariantes["Data de nascimento"], format="%d/%m/%Y")
+
+    # Filtrar pessoas com data de nascimento no mês atual
+    df_aniversariantes = df_aniversariantes[df_aniversariantes["data_nascimento_datetime"].dt.month == mes_atual]
+
+    # Ordenar pelo dia do mês, se quiser ordem crescente
+    df_aniversariantes = df_aniversariantes.sort_values(by="Data de nascimento")
+
+    for _, pessoa in df_aniversariantes.iterrows():
+        nome = pessoa["Nome"] if pd.notna(pessoa["Nome"]) else "Sem nome"
+        data_nascimento = pessoa["data_nascimento_datetime"]
+
+        st.write(f"**{nome}** - {data_nascimento.strftime('%d/%m')}")
+        encontrados = True
+
 
     if not encontrados:
         st.info("Nenhum aniversariante encontrado neste mês.")
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    # for pessoa in dados_pessoas:
+    #     nome = pessoa.get("nome_completo", "Sem nome")
+    #     data_nascimento_str = pessoa.get("data_nascimento", None)
+
+    #     if data_nascimento_str:
+    #         try:
+    #             # Converter string dd/mm/yyyy para datetime.date
+    #             data_nascimento = datetime.datetime.strptime(data_nascimento_str, "%d/%m/%Y").date()
+    #             if data_nascimento.month == mes_atual:
+    #                 st.write(f"**{nome}** - {data_nascimento.strftime('%d/%m')}")
+    #                 encontrados = True
+    #         except:
+    #             continue
+
+    # if not encontrados:
+    #     st.info("Nenhum aniversariante encontrado neste mês.")
     
