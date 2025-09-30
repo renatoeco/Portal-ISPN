@@ -293,9 +293,7 @@ def gerenciar_pessoas():
         # Busca colaborador selecionado no banco
         pessoa = next((p for p in dados_pessoas if p["nome_completo"] == nome_selecionado), None)
         
-        # ????????????????
-        st.write(pessoa["e_mail"])
-        
+       
         # Cria abas
         aba_info, aba_contratos, aba_previdencia, aba_anotacoes  = st.tabs([":material/info: Informações gerais", ":material/contract: Contratos", ":material/finance_mode: Previdência", ":material/notes: Anotações"])
     
