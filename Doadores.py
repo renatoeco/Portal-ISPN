@@ -266,9 +266,10 @@ with tab1:
 
     resumo_final = resumo_final[["Doador", "Tipo de Doador", "Número de projetos", "Valor"]]
 
-    #ajustar_altura_dataframe(resumo_final, 1)
-
     # exibir na tela:
+
+    ajustar_altura_dataframe(resumo_final, 1)
+
     # st.dataframe(
     #     resumo_final[["Doador", "Tipo de Doador", "Número de projetos", "Valor"]],
     #     hide_index=True

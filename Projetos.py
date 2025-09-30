@@ -419,8 +419,8 @@ with tab1:
             y='sigla',
             color='status',
             color_discrete_map={
-                'Em andamento': '#007ad3',
-                'Finalizado':"#83C9FF",
+                'Em andamento': 'rgba(0,122,211,0.5)',
+                'Finalizado': "rgba(131,201,255,0.5)",
                 '': 'red',
             },
             height=altura,  
