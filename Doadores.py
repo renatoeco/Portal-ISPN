@@ -4,6 +4,8 @@ import altair as alt
 import plotly.express as px
 from plotly.colors import diverging
 import plotly.graph_objects as go
+from plotly.colors import diverging
+import plotly.graph_objects as go
 import time
 from bson import ObjectId
 from funcoes_auxiliares import conectar_mongo_portal_ispn, ajustar_altura_dataframe
@@ -264,7 +266,7 @@ with tab1:
 
     resumo_final = resumo_final[["Doador", "Tipo de Doador", "Número de projetos", "Valor"]]
 
-    ajustar_altura_dataframe(resumo_final, 1)
+    #ajustar_altura_dataframe(resumo_final, 1)
 
     # exibir na tela:
     # st.dataframe(
