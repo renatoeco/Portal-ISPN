@@ -453,7 +453,8 @@ if "modo_edicao" not in st.session_state:
     st.session_state.modo_edicao = False
 
 
-st.header("Estratégia")
+st.header("Planejamento Estratégico")
+st.write('')
 
 
 aba_tm, aba_est, aba_res_mp, aba_res_lp, aba_ebj_est_ins = st.tabs(['Teoria da mudança', 'Estratégia', 'Resultados MP 2025', 'Resultados LP 2030', 'Objetivos Estratégicos Institucionais'])
