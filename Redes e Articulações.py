@@ -57,28 +57,27 @@ def mostrar_detalhes(rede_doc):
 
         if not modo_edicao:
             # Exibição simples
-
             st.write(f"**Rede/Articulação:** {rede_doc.get('rede_articulacao', '')}")
             st.write(f"**Ponto(s) Focal(is):** {rede_doc.get('ponto_focal', '')}")
 
-            col1, col2 = st.columns(2)
-
+            col1, col2, col3 = st.columns(3)
+            
             col1.write(f"**Tema:** {rede_doc.get('tema', '')}")
             col2.write(f"**Programa:** {rede_doc.get('programa', '')}")
 
+            col1, col2, col3 = st.columns(3)
+            
             col1.write(f"**Grau de Prioridade:** {rede_doc.get('prioridade', '')}")
             col2.write(f"**Dedicação:** {rede_doc.get('dedicacao', '')}")
-
+            col3.write(f"**Status:** {rede_doc.get('status', 'ativa')}")
 
         else:
             # =====================
             # Opções dinâmicas do banco
             # =====================
-            # Opções únicas nos campos correspondentes
             prioridades_opcoes = sorted({r.get("prioridade") for r in redes.find() if r.get("prioridade")})
             dedicacao_opcoes = sorted({r.get("dedicacao") for r in redes.find() if r.get("dedicacao")})
 
-            # Explode direto dos temas (sem DataFrame)
             temas_opcoes = sorted({
                 t.strip()
                 for r in redes.find()
@@ -87,10 +86,8 @@ def mostrar_detalhes(rede_doc):
                 if t.strip()
             })
 
-            # Pessoas (campo nome_completo)
             pessoas_opcoes = sorted({p.get("nome_completo") for p in pessoas.find() if p.get("nome_completo")})
 
-            # Programas fixos
             programas_opcoes = [
                 "",
                 "Cerrado",
@@ -101,26 +98,25 @@ def mostrar_detalhes(rede_doc):
                 "Sociobiodiversidade",
             ]
 
+            # Opções fixas para status
+            status_opcoes = ["ativa", "inativa"]
+
             # =====================
             # Campos editáveis
             # =====================
-
-            # Nome da rede
+            
             rede_edit = st.text_input("Rede/Articulação", value=rede_doc.get("rede_articulacao", ""))
 
-            col1, col2 = st.columns([1.5,2])
+            col1, col2 = st.columns([1.5, 2])
 
-            # Pontos Focais
-            # Pega a string do banco, separa em lista e remove espaços extras
             ponto_focal_str = rede_doc.get("ponto_focal", "")
             ponto_focal_list = [p.strip() for p in ponto_focal_str.split(",")] if ponto_focal_str else []
 
             ponto_focal_edit = col1.multiselect(
                 "Ponto Focal",
                 options=pessoas_opcoes,
-                default=[p for p in ponto_focal_list if p in pessoas_opcoes]  # pré-seleciona as que estão nas opções
+                default=[p for p in ponto_focal_list if p in pessoas_opcoes]
             )
-
 
             temas_default = [
                 t.strip()
@@ -131,10 +127,10 @@ def mostrar_detalhes(rede_doc):
             temas_selecionados = col2.multiselect(
                 "Temas",
                 options=temas_opcoes,
-                default=temas_default,   # só usa valores que estão realmente nas opções
+                default=temas_default,
             )
 
-            col1, col2, col3 = st.columns(3)
+            col1, col2, col3, col4 = st.columns(4)
 
             prioridade_edit = col1.selectbox(
                 "Grau de Prioridade",
@@ -154,6 +150,12 @@ def mostrar_detalhes(rede_doc):
                 index=programas_opcoes.index(rede_doc.get("programa")) if rede_doc.get("programa") in programas_opcoes else 0,
             )
 
+            status_edit = col4.selectbox(
+                "Status",
+                options=status_opcoes,
+                index=status_opcoes.index(rede_doc.get("status", "ativa")) if rede_doc.get("status", "ativa") in status_opcoes else 0,
+            )
+
             st.write("")
 
             if st.button("Salvar alterações", icon=":material/check:", type="primary"):
@@ -163,10 +165,11 @@ def mostrar_detalhes(rede_doc):
                         "$set": {
                             "rede_articulacao": rede_edit,
                             "tema": ", ".join(temas_selecionados),
-                            "ponto_focal": ", ".join(ponto_focal_edit),  # converte lista em string neste ponto
+                            "ponto_focal": ", ".join(ponto_focal_edit),
                             "prioridade": prioridade_edit,
                             "dedicacao": dedicacao_edit,
                             "programa": programa_edit,
+                            "status": status_edit,  # <-- salva o status
                         }
                     },
                 )
@@ -174,6 +177,7 @@ def mostrar_detalhes(rede_doc):
                 st.success("Alterações salvas com sucesso!")
                 time.sleep(2)
                 st.rerun()
+
 
     # Aba 2: Anotações
     with tabs[1]:
@@ -316,26 +320,37 @@ df_redes = df_redes.rename(columns={
     "ponto_focal": "Ponto Focal",
     "prioridade": "Prioridade",
     "dedicacao": "Dedicação",
-    "programa": "Programa"
+    "programa": "Programa",
+    "status": "Status"
 })
-df_redes = df_redes[["Nome", "Ponto Focal", "Prioridade", "Dedicação", "Programa"]]
-
+df_redes = df_redes[["Nome", "Ponto Focal", "Prioridade", "Dedicação", "Programa", "Status"]]
 
 # --- Preparar listas únicas para filtros ---
-# Garante que cada ponto focal aparece separado e único
 pontos_unicos = (
     df_redes["Ponto Focal"]
     .dropna()
     .astype(str)
-    .str.split(",")               # separa caso seja string "A, B"
-    .explode()                    # transforma em linhas
-    .str.strip()                  # tira espaços extras
+    .str.split(",")
+    .explode()
+    .str.strip()
     .unique()
     .tolist()
 )
 
-programas_unicos = (df_redes["Programa"].dropna().astype(str).str.split(",").explode().str.strip().unique().tolist()
+programas_unicos = (
+    df_redes["Programa"]
+    .dropna()
+    .astype(str)
+    .str.split(",")
+    .explode()
+    .str.strip()
+    .unique()
+    .tolist()
 )
+
+status_unicos = df_redes["Status"].dropna().unique().tolist()
+if not status_unicos:
+    status_unicos = ["ativa", "inativa"]  # fallback se não existir no banco
 
 # --- Filtros ---
 with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
@@ -350,8 +365,7 @@ with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
         options=sorted(pontos_unicos), placeholder=""
     )
 
-
-    colf1, colf2, colf3 = st.columns(3)
+    colf1, colf2, colf3, colf4 = st.columns(4)
 
     prioridade_sel = colf1.multiselect(
         "Grau de Prioridade",
@@ -365,14 +379,18 @@ with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
         "Programa",
         options=sorted(programas_unicos), placeholder=""
     )
-
+    status_sel = colf4.multiselect(
+        "Status",
+        options=sorted(status_unicos),
+        default=["ativa"], 
+        placeholder=""
+    )
 
 st.write("")
 
 # --- Aplica filtros ---
 df_filtrado = df_redes.copy()
 
-# Filtro direto
 if rede_sel:
     df_filtrado = df_filtrado[df_filtrado["Nome"].isin(rede_sel)]
 
@@ -382,7 +400,6 @@ if prioridade_sel:
 if dedicacao_sel:
     df_filtrado = df_filtrado[df_filtrado["Dedicação"].isin(dedicacao_sel)]
 
-# Filtro Ponto Focal
 if ponto_sel:
     df_filtrado = df_filtrado[
         df_filtrado["Ponto Focal"]
@@ -390,13 +407,16 @@ if ponto_sel:
         .apply(lambda x: any(p in x for p in ponto_sel))
     ]
 
-# Filtro Programa
 if programa_sel:
     df_filtrado = df_filtrado[
         df_filtrado["Programa"]
         .astype(str)
         .apply(lambda x: any(p in x for p in programa_sel))
     ]
+
+# Filtro Status
+if status_sel:
+    df_filtrado = df_filtrado[df_filtrado["Status"].isin(status_sel)]
 
 # --- Ordenação customizada pelo Grau de Prioridade ---
 ordem_prioridade = ["Estratégico", "Médio", "Baixo"]
@@ -417,7 +437,7 @@ st.subheader(f"{len(df_exibir)} Redes e Articulações")
 st.write('')
 
 # --- Layout da tabela customizada ---
-colunas_visiveis = list(df_exibir.columns)
+colunas_visiveis = ["Nome", "Ponto Focal", "Prioridade", "Dedicação", "Programa"]
 headers = colunas_visiveis + ["Detalhes"]
 
 # Ajuste dos tamanhos de coluna (ponto focal mais estreito)
