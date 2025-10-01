@@ -90,7 +90,7 @@ with st.expander("LISTAS DE PRESENÇA"):
         st.write("Versão: 2025")
         st.link_button(
             label="Ver documento",
-            url="https://ispn.org.br/site/wp-content/uploads/2022/09/Modelo-para-lista-de-presenc%CC%A7a_Uso-de-Imagem-e-LGPD_com-Povos-Indigenas.docx", 
+            url="https://ispn.org.br/wp-content/uploads/2025/10/Modelo-para-lista-de-presença_Uso-de-Imagem-e-LGPD_com-Povos-Indigenas.docx", 
             type="tertiary",
             icon=":material/open_in_new:"
         )
@@ -127,7 +127,7 @@ with st.expander("MANUAL DO ISPN"):
         st.write("Versão: maio de 2025")
         st.link_button(
             label="Ver documento",
-            url="https://ispn.org.br/site/wp-content/uploads/2025/05/Manual_ISPN_V7-1.pdf", 
+            url="https://ispn.org.br/wp-content/uploads/2025/10/Manual_ISPN_V7.pdf", 
             type="tertiary",
             icon=":material/open_in_new:"
         )
@@ -206,7 +206,7 @@ with st.expander("POLÍTICA DE VIAGEM"):
         st.write("Versão: abril de 2025")
         st.link_button(
             label="Ver documento",
-            url="https://ispn.org.br/site/wp-content/uploads/2025/04/Politica-para-viagens-1.pdf", 
+            url="https://ispn.org.br/wp-content/uploads/2025/10/Politica-para-viagens-1.pdf", 
             type="tertiary",
             icon=":material/open_in_new:"
         )
@@ -302,7 +302,7 @@ with st.expander("TERMOS DE REFERÊNCIA"):
         st.write("Versão: maio de 2025")
         st.link_button(
             label="Ver documento",
-            url="https://ispn.org.br/site/wp-content/uploads/2025/05/TDR_padrao_15-05-2025.docx", 
+            url="https://ispn.org.br/wp-content/uploads/2025/10/TDR_padrao_15-05-2025.docx", 
             type="tertiary",
             icon=":material/open_in_new:"
         )
