@@ -384,9 +384,10 @@ else:
         # st.Page("Monitor de PLs.py", title="Monitor de PLs", icon=":material/balance:"),
         # st.Page("Clipping de Notícias.py", title="Clipping de Notícias", icon=":material/attach_file:"),
         # st.Page("Viagens.py", title="Viagens", icon=":material/travel:"),
-        # st.Page("Férias e recessos.py", title="Férias e Recessos", icon=":material/beach_access:"),
+        st.Page("Férias e recessos.py", title="Férias e Recessos", icon=":material/beach_access:"),
         # st.Page("Manuais.py", title="Manuais", icon=":material/menu_book:"),
     ])
     pg.run()
+
 
 
