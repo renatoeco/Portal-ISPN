@@ -35,8 +35,6 @@ st.write('')
 # ###########################################################################################################
 
 
-
-
 # ACORDOS DE CONVIVÊNCIA
 with st.expander("ACORDOS DE CONVIVÊNCIA"):
     st.write("**Acordo de Convivência do Escritório de Brasília**")
@@ -48,7 +46,7 @@ with st.expander("ACORDOS DE CONVIVÊNCIA"):
         st.write("Versão: março de 2023")
         st.link_button(
             label="Ver documento",
-            url="https://ispn.org.br/site/wp-content/uploads/2023/03/Acordo-de-convivencia_Marco-2023.pdf", 
+            url="https://ispn.org.br/wp-content/uploads/2023/03/Acordo-de-convivencia_Marco-2023.pdf", 
             type="tertiary",
             icon=":material/open_in_new:"
         )
@@ -65,7 +63,7 @@ with st.expander("CÓDIGO DE ÉTICA"):
         st.write("Versão: janeiro de 2025")
         st.link_button(
             label="Ver documento",
-            url="https://ispn.org.br/site/wp-content/uploads/2025/02/Codigo-de-Etica-ISPN_jan25-1.pdf", 
+            url="https://ispn.org.br/wp-content/uploads/2025/09/Codigo-de-Etica-ISPN_jan25-1.pdf", 
             type="tertiary",
             icon=":material/open_in_new:"
         )
@@ -80,7 +78,7 @@ with st.expander("LISTAS DE PRESENÇA"):
         st.write("Versão: 2025")
         st.link_button(
             label="Ver documento",
-            url="https://ispn.org.br/site/wp-content/uploads/2023/04/Modelo-para-lista-de-presenca_Uso-de-Imagem-e-LGPD_Generica.docx", 
+            url="https://ispn.org.br/wp-content/uploads/2023/04/Modelo-para-lista-de-presenca_Uso-de-Imagem-e-LGPD_Generica.docx", 
             type="tertiary",
             icon=":material/open_in_new:"
         )
@@ -111,13 +109,10 @@ with st.expander("MANUAL DE CARGOS E POLÍTICA DE REMUNERAÇÃO"):
         st.write("Versão: julho de 2025")
         st.link_button(
             label="Ver documento",
-            url="https://ispn.org.br/site/wp-content/uploads/2025/08/ISPN_MANUAL-DE-CARGOS-E-REMUNERACAO_VFINAL_compressed.pdf", 
+            url="https://ispn.org.br/wp-content/uploads/2025/10/ISPN_MANUAL-DE-CARGOS-E-REMUNERACAO_VFINAL-1-1.pdf", 
             type="tertiary",
             icon=":material/open_in_new:"
         )
-
-
-
 
 
 # MANUAL DO ISPN
@@ -162,7 +157,7 @@ with st.expander("MANUAL OPERACIONAL DO FUNDO ECOS"):
 with st.expander("ORGANOGRAMA"):
     st.write("Organograma do ISPN")
 
-    st.image('https://ispn.org.br/site/wp-content/uploads/2025/02/Organograma-2025.png', width=1000)
+    st.image('https://ispn.org.br/wp-content/uploads/2025/02/Organograma-2025.png', width=1000)
 
 # POLÍTICA DE PRIVACIDADE
 with st.expander("POLÍTICA DE PRIVACIDADE"):
@@ -175,7 +170,7 @@ with st.expander("POLÍTICA DE PRIVACIDADE"):
         st.write("Versão: fevereiro de 2025")
         st.link_button(
             label="Ver documento",
-            url="https://ispn.org.br/site/wp-content/uploads/2025/02/Politica-de-Privacidade-1.pdf", 
+            url="https://ispn.org.br/wp-content/uploads/2025/09/Politica-de-Privacidade-1.pdf", 
             type="tertiary",
             icon=":material/open_in_new:"
         )
@@ -195,7 +190,7 @@ with st.expander("POLÍTICA DE PROTEÇÃO DE PESSOAS EM SITUAÇÃO DE VULNERABIL
         st.write("Versão: 3a edição - janeiro de 2025")
         st.link_button(
             label="Ver documento",
-            url="https://ispn.org.br/site/wp-content/uploads/2025/02/3a-edicao_POLITICA_SEGURANCA-jan25-1.pdf", 
+            url="https://ispn.org.br/wp-content/uploads/2025/09/3a-edicao_POLITICA_SEGURANCA-jan25-1.pdf", 
             type="tertiary",
             icon=":material/open_in_new:"
         )
@@ -225,7 +220,7 @@ with st.expander("PLANILHA PARA REEMBOLSO DE EVENTO"):
         st.write("Versão: 2025")
         st.link_button(
             label="Ver documento",
-            url="https://ispn.org.br/site/wp-content/uploads/2022/07/5.-PLANILHA-PARA-REEMBOLSO-EVENTOS.xlsx", 
+            url="https://ispn.org.br/wp-content/uploads/2022/07/5.-PLANILHA-PARA-REEMBOLSO-EVENTOS.xlsx", 
             type="tertiary",
             icon=":material/open_in_new:"
         )
@@ -237,7 +232,7 @@ with st.expander("RELATÓRIO MENSAL DE ATIVIDADES"):
     st.write("**1) Modelo de relatório**")
     st.link_button(
         label="Ver documento",
-        url="https://ispn.org.br/site/wp-content/uploads/2022/08/6.-Modelo-Relatorio-mensal-de-atividades.docx", 
+        url="https://ispn.org.br/wp-content/uploads/2022/08/6.-Modelo-Relatorio-mensal-de-atividades.docx", 
         type="secondary",
         icon=":material/open_in_new:"
     )
