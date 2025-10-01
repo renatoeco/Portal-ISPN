@@ -1719,15 +1719,6 @@ def gerenciar_pessoas():
                     st.success(f"Colaborador(a) **{nome}** cadastrado(a) com sucesso!", icon=":material/thumb_up:")
                     time.sleep(2)
                     st.rerun()  # Recarrega a página para atualizar dados
-
-
-
-
-
-
-
-
-
    
 
 ######################################################################################################
@@ -1761,12 +1752,15 @@ with aba_pessoas:
 
     # Organizar o dataframe por ordem alfabética de nome
     df_pessoas = df_pessoas.sort_values(by="Nome")
-
+    
+    #Tipo de contratação
+    tipos_contratacao = sorted(df_pessoas["Tipo Contratação"].dropna().unique())
 
     # Filtros
     with st.container(horizontal=True):
         programa = st.selectbox("Programa / Área", ["Todos"] + programas)
         projeto = st.selectbox("Projeto", ["Todos"] + projetos) 
+        tipo_contratacao = st.selectbox("Tipo de contratação", ["Todas"] + list(tipos_contratacao))
         status = st.selectbox("Status", ["ativo", "inativo"], index=0)
 
 
@@ -1780,6 +1774,9 @@ with aba_pessoas:
 
     if projeto != "Todos":
         df_pessoas_filtrado = df_pessoas_filtrado[df_pessoas_filtrado["Projeto Pagador"].str.contains(projeto)]
+
+    if tipo_contratacao != "Todas":
+        df_pessoas_filtrado = df_pessoas_filtrado[df_pessoas_filtrado["Tipo Contratação"] == tipo_contratacao]
 
     df_pessoas_filtrado = df_pessoas_filtrado[df_pessoas_filtrado["Status"] == status]
 
