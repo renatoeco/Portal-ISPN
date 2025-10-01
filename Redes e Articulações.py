@@ -301,6 +301,123 @@ def mostrar_detalhes(rede_doc):
                     st.write(anotacao.get("anotacao", ""))
 
 
+@st.dialog("Cadastrar rede", width="large") 
+def cadastro_rede():
+    
+    # =====================
+    # Opções dinâmicas do banco
+    # =====================
+    prioridades_opcoes = sorted({r.get("prioridade") for r in redes.find() if r.get("prioridade")})
+    dedicacao_opcoes = sorted({r.get("dedicacao") for r in redes.find() if r.get("dedicacao")})
+
+    temas_opcoes = sorted({
+        t.strip()
+        for r in redes.find()
+        if r.get("tema")
+        for t in re.split(r",|;", r.get("tema"))
+        if t.strip()
+    })
+
+    pessoas_opcoes = sorted({p.get("nome_completo") for p in pessoas.find() if p.get("nome_completo")})
+
+    programas_opcoes = [
+        "",
+        "Cerrado",
+        "Coordenação",
+        "Iniciativas Comunitárias",
+        "Maranhão",
+        "Povos Indígenas",
+        "Sociobiodiversidade",
+    ]
+
+    # =====================
+    # Campos do cadastro
+    # =====================
+    
+    rede_edit = st.text_input("Rede/Articulação*")
+
+    col1, col2 = st.columns([1.5, 2])
+    ponto_focal_edit = col1.multiselect("Ponto Focal*", options=pessoas_opcoes, placeholder="")
+    temas_selecionados = col2.multiselect("Temas*", options=temas_opcoes, placeholder="")
+
+    col1, col2, col3 = st.columns(3)
+    prioridade_edit = col1.selectbox("Grau de Prioridade*", options=prioridades_opcoes)
+    dedicacao_edit = col2.selectbox("Dedicação*", options=dedicacao_opcoes)
+    programa_edit = col3.selectbox("Programa*", options=programas_opcoes)
+
+    # =====================
+    # Anotações iniciais
+    # =====================
+    
+    usuario_logado = st.session_state.get("nome", "Desconhecido")
+    nova_anotacao = st.text_area("Anotação", key="anotacao_inicial", height="content")
+
+    # =====================
+    # Botão salvar
+    # =====================
+    
+    if st.button("Adicionar rede", icon=":material/check:", type="primary"):
+        
+        # -----------------
+        # Validação obrigatórios
+        # -----------------
+        
+        campos_obrigatorios = [
+            ("Rede/Articulação", rede_edit.strip()),
+            ("Ponto Focal", ponto_focal_edit),
+            ("Temas", temas_selecionados),
+            ("Grau de Prioridade", prioridade_edit.strip() if prioridade_edit else ""),
+            ("Dedicação", dedicacao_edit.strip() if dedicacao_edit else ""),
+            ("Programa", programa_edit.strip() if programa_edit else ""),
+        ]
+
+        faltando = [nome for nome, valor in campos_obrigatorios if not valor]
+        if faltando:
+            st.warning(f"Preencha todos os campos obrigatórios: {', '.join(faltando)}")
+            st.stop()
+
+        # -----------------
+        # Verificação duplicidade
+        # -----------------
+        
+        existe = redes.find_one({"rede_articulacao": {"$regex": f"^{re.escape(rede_edit.strip())}$", "$options": "i"}})
+        if existe:
+            st.error("Já existe uma rede cadastrada com esse nome.")
+            st.stop()
+
+        # -----------------
+        # Monta documento
+        # -----------------
+        
+        nova_rede = {
+            "rede_articulacao": rede_edit.strip(),
+            "ponto_focal": ", ".join(ponto_focal_edit),
+            "tema": ", ".join(temas_selecionados),
+            "prioridade": prioridade_edit,
+            "dedicacao": dedicacao_edit,
+            "programa": programa_edit,
+            "status": "ativa",  # fixo por padrão
+            "anotacoes": [],
+        }
+
+        if nova_anotacao.strip():
+            nova_rede["anotacoes"].append({
+                "data_anotacao": datetime.now().strftime("%d/%m/%Y %H:%M"),
+                "autor_anotacao": usuario_logado,
+                "anotacao": nova_anotacao.strip()
+            })
+
+        # -----------------
+        # Inserção no banco
+        # -----------------
+        
+        redes.insert_one(nova_rede)
+
+        st.success("Rede cadastrada com sucesso!")
+        time.sleep(2)
+        st.rerun()
+
+
 ######################################################################################################
 # MAIN
 ######################################################################################################
@@ -310,6 +427,17 @@ st.header("Redes e Articulações")
 st.write("")
 st.write("")
 st.write("")
+
+# Container horizontal de botões
+container_botoes = st.container(horizontal=True, horizontal_alignment="right")
+
+# Roteamento de tipo de usuário
+if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)"}:
+
+    # Botão para abrir o diálogo de gerenciamento de colaboradores
+    container_botoes.button("Cadastrar rede", on_click=cadastro_rede, icon=":material/network_node:")
+    st.write('')
+
 
 # --- Carrega dados do MongoDB ---
 dados_redes = list(redes.find())
