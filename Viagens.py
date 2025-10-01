@@ -20,7 +20,7 @@ from google.oauth2.service_account import Credentials
 st.set_page_config(layout="wide")
 st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
 
-st.header("Viagens")
+st.header("Portal de Viagens do ISPN")
 st.write('')
 
 
