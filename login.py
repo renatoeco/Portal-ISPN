@@ -372,6 +372,7 @@ else:
         st.Page("Viagens.py", title="Viagens", icon=":material/travel:"),
         st.Page("Férias e recessos.py", title="Férias e Recessos", icon=":material/beach_access:"),
         st.Page("Manuais.py", title="Manuais", icon=":material/menu_book:"),
+        st.Page("Regiões de Atuação.py", title="Regiões de Atuação", icon=":material/globe_location_pin:"),
         st.Page("Meu Perfil.py", title="Meu Perfil", icon=":material/person:")
     ])
     pg.run()

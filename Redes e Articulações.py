@@ -322,7 +322,11 @@ def cadastro_rede():
 
     programas_opcoes = [
         "",
+        "ADM Brasília",
+        "ADM Santa Inês",
+        "Advocacy",
         "Cerrado",
+        "Comunicação",
         "Coordenação",
         "Iniciativas Comunitárias",
         "Maranhão",
