@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from funcoes_auxiliares import conectar_mongo_portal_ispn
 import locale
 import math
@@ -29,6 +29,29 @@ monitor_noticias = db["monitor_noticias"]  # Coleção de notícias
 
 # Obtém todos os documentos da coleção (cada doc = 1 notícia)
 documentos = list(monitor_noticias.find())
+estrategia = db["estrategia"]
+
+
+###########################################################################################################
+# CONTADOR DE ACESSOS À PÁGINA
+###########################################################################################################
+
+
+#Nome da página atual, usado como chave para contagem de acessos
+nome_pagina = "Estratégia"
+
+# Cria um timestamp formatado com dia/mês/ano hora:minuto:segundo
+timestamp = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+
+# Cria o nome do campo dinamicamente baseado na página
+campo_timestamp = f"{nome_pagina}.Visitas"
+
+# Atualiza a coleção de estatísticas com o novo acesso, incluindo o timestamp
+estatistica.update_one(
+    {},
+    {"$push": {campo_timestamp: timestamp}},
+    upsert=True  # Cria o documento se ele ainda não existir
+)
 
 
 ########################################################################################################

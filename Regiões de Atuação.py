@@ -1,4 +1,5 @@
 import streamlit as st
+from datetime import datetime
 import pandas as pd
 import folium
 import geopandas as gpd
@@ -9,7 +10,35 @@ from funcoes_auxiliares import conectar_mongo_portal_ispn
 
 st.set_page_config(layout="wide")
 
+
+###########################################################################################################
+# CONEXÃO COM O BANCO DE DADOS MONGODB
+###########################################################################################################
+
+
 db = conectar_mongo_portal_ispn()
+estatistica = db["estatistica"]
+
+
+###########################################################################################################
+# CONTADOR DE ACESSOS À PÁGINA
+###########################################################################################################
+
+# Nome da página atual, usado como chave para contagem de acessos
+nome_pagina = "Regiões de Atuação"
+
+# Cria um timestamp formatado com dia/mês/ano hora:minuto:segundo
+timestamp = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+
+# Cria o nome do campo dinamicamente baseado na página
+campo_timestamp = f"{nome_pagina}.Visitas"
+
+# Atualiza a coleção de estatísticas com o novo acesso, incluindo o timestamp
+estatistica.update_one(
+    {},
+    {"$push": {campo_timestamp: timestamp}},
+    upsert=True  # Cria o documento se ele ainda não existir
+)
 
 
 ######################################################################
@@ -45,6 +74,18 @@ def carregar_assentamentos():
 def carregar_quilombos():
     return gpd.read_file("shapefiles/Quilombos-SAB-INCRA.shp")
 
+@st.cache_data(show_spinner="Carregando bacias hidrográficas (micro)...")
+def carregar_bacias_micro():
+    return gpd.read_file("shapefiles/micro_RH.shp")
+
+@st.cache_data(show_spinner="Carregando bacias hidrográficas (meso)...")
+def carregar_bacias_meso():
+    return gpd.read_file("shapefiles/meso_RH.shp")
+
+@st.cache_data(show_spinner="Carregando bacias hidrográficas (macro)...")
+def carregar_bacias_macro():
+    return gpd.read_file("shapefiles/macro_RH.shp")
+
 
 ######################################################################
 # CARREGAR DADOS
@@ -63,6 +104,18 @@ biomas = carregar_biomas()
 assentamentos = carregar_assentamentos()
 quilombos = carregar_quilombos()
 
+# --- Carregar e padronizar nomes das colunas das bacias ---
+bacias_micro = carregar_bacias_micro().rename(
+    columns={"cd_microRH": "codigo", "nm_microRH": "nome"}
+)
+bacias_meso = carregar_bacias_meso().rename(
+    columns={"cd_mesoRH": "codigo", "nm_mesoRH": "nome"}
+)
+bacias_macro = carregar_bacias_macro().rename(
+    columns={"cd_macroRH": "codigo", "nm_macroRH": "nome"}
+)
+
+
 
 ######################################################################
 # CADASTRAR NOVAS ÁREAS
@@ -73,7 +126,11 @@ st.sidebar.header("Cadastrar nova área de atuação")
 
 tipo_area = st.sidebar.selectbox(
     "Tipo de área",
-    ["Município", "Estado", "Terra Indígena", "Unidade de Conservação", "Bioma", "Assentamento", "Quilombo"]
+    [
+        "Município", "Estado", "Terra Indígena", "Unidade de Conservação", "Bioma",
+        "Assentamento", "Quilombo",
+        "Bacia Hidrográfica - Micro", "Bacia Hidrográfica - Meso", "Bacia Hidrográfica - Macro"
+    ]
 )
 
 # ----------------------- MUNICÍPIOS -----------------------
@@ -180,6 +237,57 @@ elif tipo_area == "Quilombo":
         else:
             db.areas_atuacao.insert_one({"tipo": "quilombo", "codigo": codigo})
             st.sidebar.success("Quilombo adicionado!")
+            
+# ----------------------- BACIA HIDROGRÁFICA - MICRO -----------------------
+elif tipo_area == "Bacia Hidrográfica - Micro":
+    nome_col = next((c for c in bacias_micro.columns if "nome" in c.lower() or "bacia" in c.lower()), None)
+    codigo_col = next((c for c in bacias_micro.columns if "cod" in c.lower() or "id" in c.lower()), None)
+    opcoes = bacias_micro[[codigo_col, nome_col]]
+    selecao = st.sidebar.selectbox(
+        "Selecione a Bacia (Micro)",
+        opcoes.apply(lambda x: f"{x[nome_col]} ({x[codigo_col]})", axis=1)
+    )
+    if st.sidebar.button("Adicionar Bacia Micro"):
+        codigo = selecao.split("(")[-1].replace(")", "").strip()
+        if db.areas_atuacao.find_one({"tipo": "bacia_micro", "codigo": codigo}):
+            st.sidebar.warning("Essa Bacia Micro já está cadastrada!")
+        else:
+            db.areas_atuacao.insert_one({"tipo": "bacia_micro", "codigo": codigo})
+            st.sidebar.success("Bacia Micro adicionada!")
+
+# ----------------------- BACIA HIDROGRÁFICA - MESO -----------------------
+elif tipo_area == "Bacia Hidrográfica - Meso":
+    nome_col = next((c for c in bacias_meso.columns if "nome" in c.lower() or "bacia" in c.lower()), None)
+    codigo_col = next((c for c in bacias_meso.columns if "cod" in c.lower() or "id" in c.lower()), None)
+    opcoes = bacias_meso[[codigo_col, nome_col]]
+    selecao = st.sidebar.selectbox(
+        "Selecione a Bacia (Meso)",
+        opcoes.apply(lambda x: f"{x[nome_col]} ({x[codigo_col]})", axis=1)
+    )
+    if st.sidebar.button("Adicionar Bacia Meso"):
+        codigo = selecao.split("(")[-1].replace(")", "").strip()
+        if db.areas_atuacao.find_one({"tipo": "bacia_meso", "codigo": codigo}):
+            st.sidebar.warning("Essa Bacia Meso já está cadastrada!")
+        else:
+            db.areas_atuacao.insert_one({"tipo": "bacia_meso", "codigo": codigo})
+            st.sidebar.success("Bacia Meso adicionada!")
+
+# ----------------------- BACIA HIDROGRÁFICA - MACRO -----------------------
+elif tipo_area == "Bacia Hidrográfica - Macro":
+    nome_col = next((c for c in bacias_macro.columns if "nome" in c.lower() or "bacia" in c.lower()), None)
+    codigo_col = next((c for c in bacias_macro.columns if "cod" in c.lower() or "id" in c.lower()), None)
+    opcoes = bacias_macro[[codigo_col, nome_col]]
+    selecao = st.sidebar.selectbox(
+        "Selecione a Bacia (Macro)",
+        opcoes.apply(lambda x: f"{x[nome_col]} ({x[codigo_col]})", axis=1)
+    )
+    if st.sidebar.button("Adicionar Bacia Macro"):
+        codigo = selecao.split("(")[-1].replace(")", "").strip()
+        if db.areas_atuacao.find_one({"tipo": "bacia_macro", "codigo": codigo}):
+            st.sidebar.warning("Essa Bacia Macro já está cadastrada!")
+        else:
+            db.areas_atuacao.insert_one({"tipo": "bacia_macro", "codigo": codigo})
+            st.sidebar.success("Bacia Macro adicionada!")
 
 
 ######################################################################
@@ -189,10 +297,6 @@ elif tipo_area == "Quilombo":
 
 # Verifica os tipos que existem na coleção
 tipos_existentes = df["tipo"].unique() if not df.empty else []
-
-######################################################################
-# MAPA
-######################################################################
 
 # Cria o mapa base
 mapa = folium.Map(location=[-19.0, -38.0], zoom_start=4)
@@ -205,6 +309,9 @@ show_uc = st.checkbox("Unidades de Conservação", value=False)
 show_biomas = st.checkbox("Biomas", value=False)
 show_assentamentos = st.checkbox("Assentamentos", value=False)
 show_quilombos = st.checkbox("Quilombo", value=False)
+show_bacias_micro = st.checkbox("Bacias Hidrográficas - Micro", value=False)
+show_bacias_meso = st.checkbox("Bacias Hidrográficas - Meso", value=False)
+show_bacias_macro = st.checkbox("Bacias Hidrográficas - Macro", value=False)
 
 # Adiciona áreas de atuação cadastradas
 if not df.empty:
@@ -305,7 +412,42 @@ if not df.empty:
                         sticky=True
                     )
                 ).add_to(mapa)
+                
+        elif row["tipo"] == "bacia_micro" and show_bacias_micro:
+            nome_col = next((c for c in bacias_micro.columns if "nome" in c.lower() or "bacia" in c.lower()), "nome")
+            codigo_col = next((c for c in bacias_micro.columns if "cod" in c.lower() or "id" in c.lower()), "codigo")
+            sel = bacias_micro[bacias_micro[codigo_col].astype(str) == str(row["codigo"])]
+            if not sel.empty:
+                folium.GeoJson(
+                    sel.to_json(),
+                    name=f"Bacia Micro {row['codigo']}",
+                    style_function=lambda x: {"color": "cyan", "weight": 2, "fillOpacity": 0.3},
+                    tooltip=folium.GeoJsonTooltip(fields=[nome_col], aliases=["Bacia Micro:"], sticky=True)
+                ).add_to(mapa)
 
+        elif row["tipo"] == "bacia_meso" and show_bacias_meso:
+            nome_col = next((c for c in bacias_meso.columns if "nome" in c.lower() or "bacia" in c.lower()), "nome")
+            codigo_col = next((c for c in bacias_meso.columns if "cod" in c.lower() or "id" in c.lower()), "codigo")
+            sel = bacias_meso[bacias_meso[codigo_col].astype(str) == str(row["codigo"])]
+            if not sel.empty:
+                folium.GeoJson(
+                    sel.to_json(),
+                    name=f"Bacia Meso {row['codigo']}",
+                    style_function=lambda x: {"color": "blue", "weight": 2, "fillOpacity": 0.3},
+                    tooltip=folium.GeoJsonTooltip(fields=[nome_col], aliases=["Bacia Meso:"], sticky=True)
+                ).add_to(mapa)
+
+        elif row["tipo"] == "bacia_macro" and show_bacias_macro:
+            nome_col = next((c for c in bacias_macro.columns if "nome" in c.lower() or "bacia" in c.lower()), "nome")
+            codigo_col = next((c for c in bacias_macro.columns if "cod" in c.lower() or "id" in c.lower()), "codigo")
+            sel = bacias_macro[bacias_macro[codigo_col].astype(str) == str(row["codigo"])]
+            if not sel.empty:
+                folium.GeoJson(
+                    sel.to_json(),
+                    name=f"Bacia Macro {row['codigo']}",
+                    style_function=lambda x: {"color": "navy", "weight": 2, "fillOpacity": 0.3},
+                    tooltip=folium.GeoJsonTooltip(fields=[nome_col], aliases=["Bacia Macro:"], sticky=True)
+                ).add_to(mapa)
 
 
 # Adiciona controle de camadas
