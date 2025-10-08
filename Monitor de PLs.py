@@ -48,6 +48,28 @@ db = conectar_mongo_pls()
 colecao = db['pls_camara_senado']
 colecao_2 = db['emails']
 colecao_3 = db['pls_ma']
+estatistica = db["estatistica"]
+
+
+###########################################################################################################
+# CONTADOR DE ACESSOS À PÁGINA
+###########################################################################################################
+
+# Nome da página atual, usado como chave para contagem de acessos
+nome_pagina = "Monitor de PLs"
+
+# Cria um timestamp formatado com dia/mês/ano hora:minuto:segundo
+timestamp = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+
+# Cria o nome do campo dinamicamente baseado na página
+campo_timestamp = f"{nome_pagina}.Visitas"
+
+# Atualiza a coleção de estatísticas com o novo acesso, incluindo o timestamp
+estatistica.update_one(
+    {},
+    {"$push": {campo_timestamp: timestamp}},
+    upsert=True  # Cria o documento se ele ainda não existir
+)
 
 
 # ###################################################################################################
