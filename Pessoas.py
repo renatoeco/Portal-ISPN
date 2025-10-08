@@ -59,7 +59,7 @@ projetos_ispn = db["projetos_ispn"]
 nome_pagina = "Pessoas"
 
 # Cria um timestamp formatado com dia/mês/ano hora:minuto:segundo
-timestamp = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+timestamp = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
 # Cria o nome do campo dinamicamente baseado na página
 campo_timestamp = f"{nome_pagina}.Visitas"
