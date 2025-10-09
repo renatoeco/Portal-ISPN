@@ -342,10 +342,6 @@ def login():
             )
 
 
-
-
-
-
 ##############################################################################################################
 # EXECUÇÃO PRINCIPAL: VERIFICA LOGIN E NAVEGA ENTRE PÁGINAS
 ##############################################################################################################
@@ -368,7 +364,7 @@ else:
         st.Page("Fundo Ecos.py", title="Fundo Ecos", icon=":material/owl:"),
         st.Page("Redes e Articulações.py", title="Redes e Articulações", icon=":material/network_node:"),
         st.Page("Monitor de PLs.py", title="Monitor de PLs", icon=":material/balance:"),
-        st.Page("Clipping de Notícias.py", title="Clipping de Notícias", icon=":material/attach_file:"),
+        #st.Page("Clipping de Notícias.py", title="Clipping de Notícias", icon=":material/attach_file:"),
         st.Page("Viagens.py", title="Viagens", icon=":material/travel:"),
         st.Page("Férias e recessos.py", title="Férias e Recessos", icon=":material/beach_access:"),
         st.Page("Manuais.py", title="Manuais", icon=":material/menu_book:"),
