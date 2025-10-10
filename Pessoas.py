@@ -51,6 +51,27 @@ programas_areas = db["programas_areas"]
 projetos_ispn = db["projetos_ispn"]
 
 
+###########################################################################################################
+# CONTADOR DE ACESSOS À PÁGINA
+###########################################################################################################
+
+# Nome da página atual, usado como chave para contagem de acessos
+nome_pagina = "Pessoas"
+
+# Cria um timestamp formatado com dia/mês/ano hora:minuto:segundo
+timestamp = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+
+# Cria o nome do campo dinamicamente baseado na página
+campo_timestamp = f"{nome_pagina}.Visitas"
+
+# Atualiza a coleção de estatísticas com o novo acesso, incluindo o timestamp
+estatistica.update_one(
+    {},
+    {"$push": {campo_timestamp: timestamp}},
+    upsert=True  # Cria o documento se ele ainda não existir
+)
+
+
 ######################################################################################################
 # TRATAMENTO DOS DADOS
 ######################################################################################################
@@ -272,7 +293,7 @@ def gerenciar_pessoas():
     nomes_existentes = [""] + ["--Adicionar colaborador--"] + sorted([
         p["nome_completo"]
         for p in dados_pessoas
-        if "coordenador" in p  # só inclui quem tem o campo 'coordenador'
+        # if "coordenador" in p  # só inclui quem tem o campo 'coordenador'
     ])
 
 
@@ -370,16 +391,28 @@ def gerenciar_pessoas():
                     # -----------------------------------------------------------------
                     
                     cols = st.columns(3)
-                    
-                    lista_generos = ['Masculino', 'Feminino', 'Não binário', 'Outro']
+
+                    lista_generos = ["", "Masculino", "Feminino", "Não binário", "Outro"]
+
                     genero = cols[0].selectbox(
-                        "Gênero:", lista_generos, 
-                        index=lista_generos.index(pessoa.get("gênero")), 
+                        "Gênero:",
+                        lista_generos,
+                        index=lista_generos.index(pessoa.get("gênero")) if pessoa.get("gênero") in lista_generos else 0,
                         key="editar_genero"
                     )
-                    
-                    lista_raca = ["Amarelo", "Branco", "Índigena", "Pardo", "Preto", ""]
-                    raca = cols[1].selectbox("Raça:", lista_raca, index=lista_raca.index(pessoa.get("raca")))                    
+
+
+
+
+                    lista_raca = ["", "Amarelo", "Branco", "Índigena", "Pardo", "Preto"]
+
+                    raca = cols[1].selectbox(
+                        "Raça:",
+                        lista_raca,
+                        index=lista_raca.index(pessoa.get("raca")) if pessoa.get("raca") in lista_raca else 0
+                    )
+
+
                     
                     data_nascimento_str = pessoa.get("data_nascimento", "")
                     if data_nascimento_str:
@@ -398,11 +431,21 @@ def gerenciar_pessoas():
 
                     cols = st.columns(3)
 
-                    lista_escolaridade = ["Ensino fundamental", "Ensino médio", "Curso técnico", "Graduação", "Pós-graduação", "Mestrado", "Doutorado", ""]
-                    escolaridade = cols[0].selectbox("Escolaridade:", lista_escolaridade, index=lista_escolaridade.index(pessoa.get("escolaridade")))
+                    lista_escolaridade = ["", "Ensino fundamental", "Ensino médio", "Curso técnico", "Graduação", "Pós-graduação", "Mestrado", "Doutorado"]
 
-                    lista_escritorio = ["Brasília", "Santa Inês", ""]
-                    escritorio = cols[1].selectbox("Escritório:", lista_escritorio, index=lista_escritorio.index(pessoa.get("escritorio")))                  
+                    escolaridade = cols[0].selectbox(
+                        "Escolaridade:",
+                        lista_escolaridade,
+                        index=lista_escolaridade.index(pessoa.get("escolaridade")) if pessoa.get("escolaridade") in lista_escolaridade else 0
+                    )
+
+                    lista_escritorio = ["", "Brasília", "Santa Inês"]
+
+                    escritorio = cols[1].selectbox(
+                        "Escritório:",
+                        lista_escritorio,
+                        index=lista_escritorio.index(pessoa.get("escritorio")) if pessoa.get("escritorio") in lista_escritorio else 0
+                    )
 
 
                     # Programa / Área
@@ -444,8 +487,6 @@ def gerenciar_pessoas():
                     )
 
 
-                    
-                    # cargo = cols[0].selectbox("Cargo:", opcoes_cargos, index=opcoes_cargos.index(pessoa.get("cargo")))
 
 
                     # Coordenador
@@ -1719,15 +1760,6 @@ def gerenciar_pessoas():
                     st.success(f"Colaborador(a) **{nome}** cadastrado(a) com sucesso!", icon=":material/thumb_up:")
                     time.sleep(2)
                     st.rerun()  # Recarrega a página para atualizar dados
-
-
-
-
-
-
-
-
-
    
 
 ######################################################################################################
@@ -1761,12 +1793,15 @@ with aba_pessoas:
 
     # Organizar o dataframe por ordem alfabética de nome
     df_pessoas = df_pessoas.sort_values(by="Nome")
-
+    
+    #Tipo de contratação
+    tipos_contratacao = sorted(df_pessoas["Tipo Contratação"].dropna().unique())
 
     # Filtros
     with st.container(horizontal=True):
         programa = st.selectbox("Programa / Área", ["Todos"] + programas)
         projeto = st.selectbox("Projeto", ["Todos"] + projetos) 
+        tipo_contratacao = st.selectbox("Tipo de contratação", ["Todas"] + list(tipos_contratacao))
         status = st.selectbox("Status", ["ativo", "inativo"], index=0)
 
 
@@ -1780,6 +1815,9 @@ with aba_pessoas:
 
     if projeto != "Todos":
         df_pessoas_filtrado = df_pessoas_filtrado[df_pessoas_filtrado["Projeto Pagador"].str.contains(projeto)]
+
+    if tipo_contratacao != "Todas":
+        df_pessoas_filtrado = df_pessoas_filtrado[df_pessoas_filtrado["Tipo Contratação"] == tipo_contratacao]
 
     df_pessoas_filtrado = df_pessoas_filtrado[df_pessoas_filtrado["Status"] == status]
 
@@ -2356,34 +2394,3 @@ with aba_aniversariantes:
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    # for pessoa in dados_pessoas:
-    #     nome = pessoa.get("nome_completo", "Sem nome")
-    #     data_nascimento_str = pessoa.get("data_nascimento", None)
-
-    #     if data_nascimento_str:
-    #         try:
-    #             # Converter string dd/mm/yyyy para datetime.date
-    #             data_nascimento = datetime.datetime.strptime(data_nascimento_str, "%d/%m/%Y").date()
-    #             if data_nascimento.month == mes_atual:
-    #                 st.write(f"**{nome}** - {data_nascimento.strftime('%d/%m')}")
-    #                 encontrados = True
-    #         except:
-    #             continue
-
-    # if not encontrados:
-    #     st.info("Nenhum aniversariante encontrado neste mês.")
-    
