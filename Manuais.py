@@ -22,21 +22,21 @@ estatistica = db["estatistica"]
 ###########################################################################################################
 
 
-# Nome da página atual, usado como chave para contagem de acessos
-nome_pagina = "Regiões de Atuação"
+# # Nome da página atual, usado como chave para contagem de acessos
+# nome_pagina = "Regiões de Atuação"
 
-# Cria um timestamp formatado com dia/mês/ano hora:minuto:segundo
-timestamp = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+# # Cria um timestamp formatado com dia/mês/ano hora:minuto:segundo
+# timestamp = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
-# Cria o nome do campo dinamicamente baseado na página
-campo_timestamp = f"{nome_pagina}.Visitas"
+# # Cria o nome do campo dinamicamente baseado na página
+# campo_timestamp = f"{nome_pagina}.Visitas"
 
-# Atualiza a coleção de estatísticas com o novo acesso, incluindo o timestamp
-estatistica.update_one(
-    {},
-    {"$push": {campo_timestamp: timestamp}},
-    upsert=True  # Cria o documento se ele ainda não existir
-)
+# # Atualiza a coleção de estatísticas com o novo acesso, incluindo o timestamp
+# estatistica.update_one(
+#     {},
+#     {"$push": {campo_timestamp: timestamp}},
+#     upsert=True  # Cria o documento se ele ainda não existir
+# )
 
 st.markdown(
     """
