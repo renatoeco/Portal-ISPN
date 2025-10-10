@@ -1078,12 +1078,13 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         # ----------------------- BACIAS HIDROGRÁFICAS -----------------------
         col1, col2, col3 = st.columns(3)
         
-        bacias_micro_sel = col1.multiselect(
-            "Bacias Hidrográficas - Micro",
-            options=list(bacia_micro_codigo_para_label.values()),
-            default=[bacia_micro_codigo_para_label[c] for c in bacia_micro_default if c in bacia_micro_codigo_para_label],
+        bacias_macro_sel = col1.multiselect(
+            "Bacias Hidrográficas - Macro",
+            options=list(bacia_macro_codigo_para_label.values()),
+            default=[bacia_macro_codigo_para_label[c] for c in bacia_macro_default if c in bacia_macro_codigo_para_label],
             placeholder=""
         )
+        
 
         bacias_meso_sel = col2.multiselect(
             "Bacias Hidrográficas - Meso",
@@ -1091,13 +1092,14 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
             default=[bacia_meso_codigo_para_label[c] for c in bacia_meso_default if c in bacia_meso_codigo_para_label],
             placeholder=""
         )
-
-        bacias_macro_sel = col3.multiselect(
-            "Bacias Hidrográficas - Macro",
-            options=list(bacia_macro_codigo_para_label.values()),
-            default=[bacia_macro_codigo_para_label[c] for c in bacia_macro_default if c in bacia_macro_codigo_para_label],
+        
+        bacias_micro_sel = col3.multiselect(
+            "Bacias Hidrográficas - Micro",
+            options=list(bacia_micro_codigo_para_label.values()),
+            default=[bacia_micro_codigo_para_label[c] for c in bacia_micro_default if c in bacia_micro_codigo_para_label],
             placeholder=""
         )
+        
         
         # --- Observações sobre o local ---
 
