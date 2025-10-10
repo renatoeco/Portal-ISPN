@@ -129,7 +129,7 @@ tipo_area = st.sidebar.selectbox(
     [
         "Município", "Estado", "Terra Indígena", "Unidade de Conservação", "Bioma",
         "Assentamento", "Quilombo",
-        "Bacia Hidrográfica - Micro", "Bacia Hidrográfica - Meso", "Bacia Hidrográfica - Macro"
+        "Bacia Hidrográfica - Macro", "Bacia Hidrográfica - Meso", "Bacia Hidrográfica - Micro"
     ]
 )
 
@@ -309,9 +309,9 @@ show_uc = st.checkbox("Unidades de Conservação", value=False)
 show_biomas = st.checkbox("Biomas", value=False)
 show_assentamentos = st.checkbox("Assentamentos", value=False)
 show_quilombos = st.checkbox("Quilombo", value=False)
-show_bacias_micro = st.checkbox("Bacias Hidrográficas - Micro", value=False)
-show_bacias_meso = st.checkbox("Bacias Hidrográficas - Meso", value=False)
 show_bacias_macro = st.checkbox("Bacias Hidrográficas - Macro", value=False)
+show_bacias_meso = st.checkbox("Bacias Hidrográficas - Meso", value=False)
+show_bacias_micro = st.checkbox("Bacias Hidrográficas - Micro", value=False)
 
 # Adiciona áreas de atuação cadastradas
 if not df.empty:
