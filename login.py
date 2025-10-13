@@ -364,12 +364,11 @@ else:
         st.Page("Fundo Ecos.py", title="Fundo Ecos", icon=":material/owl:"),
         st.Page("Redes e Articulações.py", title="Redes e Articulações", icon=":material/network_node:"),
         st.Page("Monitor de PLs.py", title="Monitor de PLs", icon=":material/balance:"),
-        ## st.Page("Clipping de Notícias.py", title="Clipping de Notícias", icon=":material/attach_file:"),
+        # st.Page("Clipping de Notícias.py", title="Clipping de Notícias", icon=":material/attach_file:"),
         st.Page("Viagens.py", title="Viagens", icon=":material/travel:"),
         st.Page("Eventos.py", title="Eventos", icon=":material/event:"),
         st.Page("Férias e recessos.py", title="Férias e Recessos", icon=":material/beach_access:"),
         st.Page("Manuais.py", title="Políticas e Manuais", icon=":material/menu_book:"),
-        st.Page("Regiões de Atuação.py", title="Regiões de Atuação", icon=":material/globe_location_pin:"),
         st.Page("Meu Perfil.py", title="Meu Perfil", icon=":material/person:")
     ])
     pg.run()
