@@ -220,50 +220,7 @@ def convert_objectid(obj):
         return obj
 
 
-######################################################################################################
-# Funções de carregamento
-######################################################################################################
 
-
-@st.cache_data(show_spinner="Carregando estados...")
-def carregar_ufs(ano=2020):
-    return read_state(year=ano)
-
-@st.cache_data(show_spinner="Carregando biomas...")
-def carregar_municipios(ano=2024):
-    return read_municipality(year=ano)
-
-@st.cache_data(show_spinner="Carregando terras indígenas...")
-def carregar_terras_indigenas(data=201907):
-    return read_indigenous_land(date=data)
-
-@st.cache_data(show_spinner="Carregando unidades de conservação...")
-def carregar_uc(data=201909):
-    return read_conservation_units(date=data)
-
-@st.cache_data(show_spinner="Carregando biomas...")
-def carregar_biomas(ano=2019):
-    return read_biomes(year=ano)
-
-@st.cache_data(show_spinner="Carregando assentamentos...")
-def carregar_assentamentos():
-    return gpd.read_file("shapefiles/Assentamentos-SAB-INCRA.shp")
-
-@st.cache_data(show_spinner="Carregando quilombos...")
-def carregar_quilombos():
-    return gpd.read_file("shapefiles/Quilombos-SAB-INCRA.shp")
-
-@st.cache_data(show_spinner="Carregando bacias hidrográficas (micro)...")
-def carregar_bacias_micro():
-    return gpd.read_file("shapefiles/micro_RH.shp")
-
-@st.cache_data(show_spinner="Carregando bacias hidrográficas (meso)...")
-def carregar_bacias_meso():
-    return gpd.read_file("shapefiles/meso_RH.shp")
-
-@st.cache_data(show_spinner="Carregando bacias hidrográficas (macro)...")
-def carregar_bacias_macro():
-    return gpd.read_file("shapefiles/macro_RH.shp")
 
 
 ######################################################################################################
@@ -299,44 +256,6 @@ colecao_lancamentos = db["lancamentos_indicadores"]
 #     upsert=True  # Cria o documento se ele ainda não existir
 # 
 
-
-######################################################################
-# CARREGAR DADOS
-######################################################################
-
-
-# --- Carregar dados ---
-dados_ufs = carregar_ufs()
-dados_municipios = carregar_municipios()
-dados_ti = carregar_terras_indigenas()
-dados_uc = carregar_uc()
-dados_assentamentos = carregar_assentamentos()
-dados_quilombos = carregar_quilombos()
-
-dados_biomas = carregar_biomas()
-# Remover linha "Sistema Costeiro" e ordenar alfabeticamente
-dados_biomas = (
-    dados_biomas[dados_biomas["name_biome"] != "Sistema Costeiro"]
-    .sort_values(by="name_biome", ascending=True)
-    .reset_index(drop=True)
-)
-
-
-dados_bacias_macro = carregar_bacias_macro()
-dados_bacias_meso = carregar_bacias_meso()
-dados_bacias_micro = carregar_bacias_micro()
-
-
-# --- Padronizar nomes das colunas das bacias ---
-dados_bacias_macro = dados_bacias_macro.rename(columns={"cd_macroRH": "codigo", "nm_macroRH": "nome"})
-dados_bacias_meso = dados_bacias_meso.rename(columns={"cd_mesoRH": "codigo", "nm_mesoRH": "nome"})
-dados_bacias_micro = dados_bacias_micro.rename(columns={"cd_microRH": "codigo", "nm_microRH": "nome"})
-
-# Padronizar assentamentos e quilombos (ajuste conforme seus shapefiles)
-if "cd_sipra" in dados_assentamentos.columns:
-    dados_assentamentos = dados_assentamentos.rename(columns={"cd_sipra": "codigo", "nome_proje": "nome"})
-if "id" in dados_quilombos.columns:
-    dados_quilombos = dados_quilombos.rename(columns={"id": "codigo", "name": "nome"})
 
 
 ######################################################################################################
@@ -799,9 +718,103 @@ with tab2:
             # Função do diálogo para gerenciar projeto
             @st.dialog("Editar Projeto", width="large")
             def dialog_editar_projeto():
-
+                
                 # Aumentar largura do diálogo
                 st.html("<span class='big-dialog'></span>")
+                
+                ######################################################################################################
+                # Funções de carregamento
+                ######################################################################################################
+
+
+                @st.cache_data(show_spinner="Carregando estados...")
+                def carregar_ufs(ano=2020):
+                    return read_state(year=ano)
+
+                @st.cache_data(show_spinner="Carregando biomas...")
+                def carregar_municipios(ano=2024):
+                    return read_municipality(year=ano)
+
+                @st.cache_data(show_spinner="Carregando terras indígenas...")
+                def carregar_terras_indigenas(data=201907):
+                    return read_indigenous_land(date=data)
+
+                @st.cache_data(show_spinner="Carregando unidades de conservação...")
+                def carregar_uc(data=201909):
+                    return read_conservation_units(date=data)
+
+                @st.cache_data(show_spinner="Carregando biomas...")
+                def carregar_biomas(ano=2019):
+                    return read_biomes(year=ano)
+
+                @st.cache_data(show_spinner="Carregando assentamentos...")
+                def carregar_assentamentos():
+                    return gpd.read_file("shapefiles/Assentamentos-SAB-INCRA.shp")
+
+                @st.cache_data(show_spinner="Carregando quilombos...")
+                def carregar_quilombos():
+                    return gpd.read_file("shapefiles/Quilombos-SAB-INCRA.shp")
+
+                @st.cache_data(show_spinner="Carregando bacias hidrográficas (micro)...")
+                def carregar_bacias_micro():
+                    return gpd.read_file("shapefiles/micro_RH.shp")
+
+                @st.cache_data(show_spinner="Carregando bacias hidrográficas (meso)...")
+                def carregar_bacias_meso():
+                    return gpd.read_file("shapefiles/meso_RH.shp")
+
+                @st.cache_data(show_spinner="Carregando bacias hidrográficas (macro)...")
+                def carregar_bacias_macro():
+                    return gpd.read_file("shapefiles/macro_RH.shp")
+
+                ######################################################################
+                # CARREGAR DADOS
+                ######################################################################
+
+
+                # --- Carregar dados ---
+                dados_ufs = carregar_ufs()
+                dados_municipios = carregar_municipios()
+                dados_ti = carregar_terras_indigenas()
+                dados_uc = carregar_uc()
+                dados_assentamentos = carregar_assentamentos()
+                dados_quilombos = carregar_quilombos()
+
+                dados_biomas = carregar_biomas()
+                # Remover linha "Sistema Costeiro" e ordenar alfabeticamente
+                dados_biomas = (
+                    dados_biomas[dados_biomas["name_biome"] != "Sistema Costeiro"]
+                    .sort_values(by="name_biome", ascending=True)
+                    .reset_index(drop=True)
+                )
+
+
+                dados_bacias_macro = carregar_bacias_macro()
+                dados_bacias_meso = carregar_bacias_meso()
+                dados_bacias_micro = carregar_bacias_micro()
+
+
+                # --- Padronizar nomes das colunas das bacias ---
+                dados_bacias_macro = dados_bacias_macro.rename(columns={"cd_macroRH": "codigo", "nm_macroRH": "nome"})
+                dados_bacias_meso = dados_bacias_meso.rename(columns={"cd_mesoRH": "codigo", "nm_mesoRH": "nome"})
+                dados_bacias_micro = dados_bacias_micro.rename(columns={"cd_microRH": "codigo", "nm_microRH": "nome"})
+
+                # Padronizar assentamentos e quilombos (ajuste conforme seus shapefiles)
+                if "cd_sipra" in dados_assentamentos.columns:
+                    dados_assentamentos = dados_assentamentos.rename(columns={"cd_sipra": "codigo", "nome_proje": "nome"})
+                if "id" in dados_quilombos.columns:
+                    dados_quilombos = dados_quilombos.rename(columns={"id": "codigo", "name": "nome"})
+                    
+                # --- Ordenar alfabeticamente pelo nome ---
+                dados_ti = dados_ti.sort_values(by="terrai_nom", ascending=True, ignore_index=True) if "terrai_nom" in dados_ti.columns else dados_ti
+                dados_uc = dados_uc.sort_values(by="name_conservation_unit", ascending=True, ignore_index=True) if "name_conservation_unit" in dados_uc.columns else dados_uc
+                dados_bacias_macro = dados_bacias_macro.sort_values(by="nome", ascending=True, ignore_index=True)
+                dados_bacias_meso = dados_bacias_meso.sort_values(by="nome", ascending=True, ignore_index=True)
+                dados_bacias_micro = dados_bacias_micro.sort_values(by="nome", ascending=True, ignore_index=True)
+                dados_assentamentos = dados_assentamentos.sort_values(by="nome", ascending=True, ignore_index=True)
+                dados_quilombos = dados_quilombos.sort_values(by="nome", ascending=True, ignore_index=True)
+                dados_uc = dados_uc.sort_values(by="name_state", ascending=True, ignore_index=True) if "name_state" in dados_uc.columns else dados_uc
+                dados_municipios = dados_municipios.sort_values(by="name_muni", ascending=True, ignore_index=True) if "name_muni" in dados_municipios.columns else dados_municipios
 
                 projeto_info = df_projetos_ispn[df_projetos_ispn["sigla"] == projeto_selecionado].iloc[0]
 
