@@ -48,69 +48,6 @@ indicadores = db["indicadores"]
 colecao_lancamentos = db["lancamentos_indicadores"]
 
 
-######################################################################################################
-# Funções de carregamento
-######################################################################################################
-
-
-@st.cache_data(show_spinner="Carregando terras indígenas...")
-def carregar_terras_indigenas(data=201907):
-    return read_indigenous_land(date=data)
-
-@st.cache_data(show_spinner="Carregando unidades de conservação...")
-def carregar_uc(data=201909):
-    return read_conservation_units(date=data)
-
-@st.cache_data(show_spinner="Carregando biomas...")
-def carregar_biomas(ano=2019):
-    return read_biomes(year=ano)
-
-@st.cache_data(show_spinner="Carregando assentamentos...")
-def carregar_assentamentos():
-    return gpd.read_file("shapefiles/Assentamentos-SAB-INCRA.shp")
-
-@st.cache_data(show_spinner="Carregando quilombos...")
-def carregar_quilombos():
-    return gpd.read_file("shapefiles/Quilombos-SAB-INCRA.shp")
-
-@st.cache_data(show_spinner="Carregando bacias hidrográficas (micro)...")
-def carregar_bacias_micro():
-    return gpd.read_file("shapefiles/micro_RH.shp")
-
-@st.cache_data(show_spinner="Carregando bacias hidrográficas (meso)...")
-def carregar_bacias_meso():
-    return gpd.read_file("shapefiles/meso_RH.shp")
-
-@st.cache_data(show_spinner="Carregando bacias hidrográficas (macro)...")
-def carregar_bacias_macro():
-    return gpd.read_file("shapefiles/macro_RH.shp")
-
-
-######################################################################
-# CARREGAR DADOS
-######################################################################
-
-
-# --- Carregar dados ---
-dados_ti = carregar_terras_indigenas()
-dados_uc = carregar_uc()
-dados_assentamentos = carregar_assentamentos()
-dados_quilombos = carregar_quilombos()
-dados_bacias_macro = carregar_bacias_macro()
-dados_bacias_meso = carregar_bacias_meso()
-dados_bacias_micro = carregar_bacias_micro()
-
-
-# --- Padronizar nomes das colunas das bacias ---
-dados_bacias_macro = dados_bacias_macro.rename(columns={"cd_macroRH": "codigo", "nm_macroRH": "nome"})
-dados_bacias_meso = dados_bacias_meso.rename(columns={"cd_mesoRH": "codigo", "nm_mesoRH": "nome"})
-dados_bacias_micro = dados_bacias_micro.rename(columns={"cd_microRH": "codigo", "nm_microRH": "nome"})
-
-# Padronizar assentamentos e quilombos (ajuste conforme seus shapefiles)
-if "cd_sipra" in dados_assentamentos.columns:
-    dados_assentamentos = dados_assentamentos.rename(columns={"cd_sipra": "codigo", "nome_proje": "nome"})
-if "id" in dados_quilombos.columns:
-    dados_quilombos = dados_quilombos.rename(columns={"id": "codigo", "name": "nome"})
 
 
 ###########################################################################################################
@@ -791,6 +728,80 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
 
     colecao = db["projetos_pf"] if tipo_projeto == "PF" else db["projetos_pj"]
 
+    
+    ######################################################################################################
+    # Funções de carregamento
+    ######################################################################################################
+
+
+    @st.cache_data(show_spinner="Carregando terras indígenas...")
+    def carregar_terras_indigenas(data=201907):
+        return read_indigenous_land(date=data)
+
+    @st.cache_data(show_spinner="Carregando unidades de conservação...")
+    def carregar_uc(data=201909):
+        return read_conservation_units(date=data)
+
+    @st.cache_data(show_spinner="Carregando biomas...")
+    def carregar_biomas(ano=2019):
+        return read_biomes(year=ano)
+
+    @st.cache_data(show_spinner="Carregando assentamentos...")
+    def carregar_assentamentos():
+        return gpd.read_file("shapefiles/Assentamentos-SAB-INCRA.shp")
+
+    @st.cache_data(show_spinner="Carregando quilombos...")
+    def carregar_quilombos():
+        return gpd.read_file("shapefiles/Quilombos-SAB-INCRA.shp")
+
+    @st.cache_data(show_spinner="Carregando bacias hidrográficas (micro)...")
+    def carregar_bacias_micro():
+        return gpd.read_file("shapefiles/micro_RH.shp")
+
+    @st.cache_data(show_spinner="Carregando bacias hidrográficas (meso)...")
+    def carregar_bacias_meso():
+        return gpd.read_file("shapefiles/meso_RH.shp")
+
+    @st.cache_data(show_spinner="Carregando bacias hidrográficas (macro)...")
+    def carregar_bacias_macro():
+        return gpd.read_file("shapefiles/macro_RH.shp")
+
+
+    ######################################################################
+    # CARREGAR DADOS
+    ######################################################################
+
+
+    # --- Carregar dados ---
+    dados_ti = carregar_terras_indigenas()
+    dados_uc = carregar_uc()
+    dados_assentamentos = carregar_assentamentos()
+    dados_quilombos = carregar_quilombos()
+    dados_bacias_macro = carregar_bacias_macro()
+    dados_bacias_meso = carregar_bacias_meso()
+    dados_bacias_micro = carregar_bacias_micro()
+
+
+    # --- Padronizar nomes das colunas das bacias ---
+    dados_bacias_macro = dados_bacias_macro.rename(columns={"cd_macroRH": "codigo", "nm_macroRH": "nome"})
+    dados_bacias_meso = dados_bacias_meso.rename(columns={"cd_mesoRH": "codigo", "nm_mesoRH": "nome"})
+    dados_bacias_micro = dados_bacias_micro.rename(columns={"cd_microRH": "codigo", "nm_microRH": "nome"})
+
+    # Padronizar assentamentos e quilombos (ajuste conforme seus shapefiles)
+    if "cd_sipra" in dados_assentamentos.columns:
+        dados_assentamentos = dados_assentamentos.rename(columns={"cd_sipra": "codigo", "nome_proje": "nome"})
+    if "id" in dados_quilombos.columns:
+        dados_quilombos = dados_quilombos.rename(columns={"id": "codigo", "name": "nome"})
+        
+    # --- Ordenar alfabeticamente pelo nome ---
+    dados_ti = dados_ti.sort_values(by="terrai_nom", ascending=True, ignore_index=True) if "terrai_nom" in dados_ti.columns else dados_ti
+    dados_uc = dados_uc.sort_values(by="name_conservation_unit", ascending=True, ignore_index=True) if "name_conservation_unit" in dados_uc.columns else dados_uc
+    dados_bacias_macro = dados_bacias_macro.sort_values(by="nome", ascending=True, ignore_index=True)
+    dados_bacias_meso = dados_bacias_meso.sort_values(by="nome", ascending=True, ignore_index=True)
+    dados_bacias_micro = dados_bacias_micro.sort_values(by="nome", ascending=True, ignore_index=True)
+    dados_assentamentos = dados_assentamentos.sort_values(by="nome", ascending=True, ignore_index=True)
+    dados_quilombos = dados_quilombos.sort_values(by="nome", ascending=True, ignore_index=True)
+
     # --- Detecta se é adicionar ou editar ---
     modo = st.session_state.get("modo_formulario", "adicionar")  # valor padrão
 
@@ -990,6 +1001,8 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
             key=f"municipios_{form_key}",
             placeholder=""
         )
+        
+        st.divider()
 
         # Linha 4 - Latitude e longitude, observações sobre o local //////////////////////////////////////////////
         col1, col2 = st.columns([1, 2])
@@ -1056,7 +1069,7 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         bacia_macro_default = [r["codigo"] for r in regioes if r["tipo"] == "bacia_macro"]
 
         # ----------------------- TERRAS INDÍGENAS -----------------------
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         tis_selecionadas = col1.multiselect(
             "Terras Indígenas",
             options=list(ti_codigo_para_label.values()),
@@ -1064,19 +1077,9 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
             placeholder=""
         )
 
-        # ----------------------- UNIDADES DE CONSERVAÇÃO -----------------------
-        ucs_selecionadas = col2.multiselect(
-            "Unidades de Conservação",
-            options=list(uc_codigo_para_label.values()),
-            default=[uc_codigo_para_label[c] for c in uc_default if c in uc_codigo_para_label],
-            placeholder=""
-        )
-
-        
-        
         # ----------------------- ASSENTAMENTOS -----------------------
-        col1, col2 = st.columns(2)
-        assentamentos_selecionados = col1.multiselect(
+        
+        assentamentos_selecionados = col2.multiselect(
             "Assentamentos",
             options=list(assent_codigo_para_label.values()),
             default=[assent_codigo_para_label[c] for c in assent_default if c in assent_codigo_para_label],
@@ -1084,13 +1087,21 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         )
 
         # ----------------------- QUILOMBOS -----------------------
-        quilombos_selecionados = col2.multiselect(
+        quilombos_selecionados = col3.multiselect(
             "Quilombos",
             options=list(quilombo_codigo_para_label.values()),
             default=[quilombo_codigo_para_label[c] for c in quilombo_default if c in quilombo_codigo_para_label],
             placeholder=""
         )
         
+
+        # ----------------------- UNIDADES DE CONSERVAÇÃO -----------------------
+        ucs_selecionadas = st.multiselect(
+            "Unidades de Conservação",
+            options=list(uc_codigo_para_label.values()),
+            default=[uc_codigo_para_label[c] for c in uc_default if c in uc_codigo_para_label],
+            placeholder=""
+        )
 
         # ----------------------- BACIAS HIDROGRÁFICAS -----------------------
         col1, col2, col3 = st.columns(3)
@@ -1126,7 +1137,8 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
             key=f"obs_local_{form_key}",
             placeholder="Anote o nome do local se for alguma localização especial, como Terra Indígena, Assentamento, Unidade de Conservação, área urbana, etc."
         )
-
+        
+        st.divider()
 
         if modo == "editar":
 
