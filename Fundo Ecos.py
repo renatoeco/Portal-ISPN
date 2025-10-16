@@ -13,7 +13,7 @@ from folium.plugins import MarkerCluster
 from plotly.colors import diverging, sequential
 from streamlit_folium import st_folium
 import geopandas as gpd
-from geobr import read_municipality, read_state, read_indigenous_land, read_conservation_units, read_biomes         
+from geobr import read_indigenous_land, read_conservation_units, read_biomes         
 from funcoes_auxiliares import conectar_mongo_portal_ispn
 import streamlit_shadcn_ui as ui
 
@@ -409,7 +409,9 @@ def mostrar_detalhes(codigo_proj: str):
         col1.write(f"**Valor:** {projeto_df['Valor']}")
         col1.write(f"**Categoria:** {projeto.get('categoria', '')}")
         col1.write(f"**Ano de aprovação:** {projeto_df['Ano']}")
+        col1.write(f"**Duração (em meses):** {projeto.get('duracao_original_meses', '')}")
         col1.write(f"**Estado(s):** {converter_uf_codigo_para_nome(projeto.get('ufs', ''))}")
+        col1.write(f"**Município principal:** {converter_codigos_para_nomes(projeto.get('municipio_principal', ''))}")
         col1.write(f"**Município(s):** {converter_codigos_para_nomes(projeto.get('municipios', ''))}")
         col1.write(f"**Latitude/Longitude principal:** {projeto.get('lat_long_principal', '')}")
         col1.write(f"**Data de início:** {projeto.get('data_inicio_do_contrato', '')}")
@@ -479,7 +481,22 @@ def mostrar_detalhes(codigo_proj: str):
 
                 # Converte a data da anotação para str
                 data_anotacao = lan.get("data_anotacao", "")
-                data_anotacao_str = data_anotacao.strftime("%d/%m/%Y")
+                if isinstance(data_anotacao, str):
+                    try:
+                        # tenta interpretar no formato ISO (ex: 2025-10-16 ou 2025-10-16T14:30:00)
+                        data_anotacao = datetime.datetime.fromisoformat(data_anotacao)
+                    except ValueError:
+                        try:
+                            # tenta no formato brasileiro
+                            data_anotacao = datetime.datetime.strptime(data_anotacao, "%d/%m/%Y")
+                        except ValueError:
+                            data_anotacao = None
+
+                if isinstance(data_anotacao, datetime.datetime) or isinstance(data_anotacao, datetime.date):
+                    data_anotacao_str = data_anotacao.strftime("%d/%m/%Y")
+                else:
+                    data_anotacao_str = ""
+
 
                 linhas.append({
                     "Indicador": nome_legivel_traduzido,
@@ -2251,9 +2268,11 @@ with lista:
     data_de_hoje = datetime.date.today().strftime("%d-%m-%Y")
 
     if set(st.session_state.tipo_usuario) & {"admin", "gestao_fundo_ecos"}:
-        col1, col2, col3 = st.columns([1, 1, 1])
+        
 
-        col1.download_button(
+        container_botoes = st.container(horizontal=True, horizontal_alignment="center")
+
+        container_botoes.download_button(
             label="Baixar tabela",
             data=output,
             file_name=f"tabela_de_projetos_{data_de_hoje}.xlsx",
@@ -2262,13 +2281,20 @@ with lista:
             icon=":material/file_download:"
         )
 
-        col2.button("Gerenciar projetos", on_click=gerenciar_projetos, use_container_width=True, icon=":material/contract_edit:")
+        container_botoes.button("Cadastrar proponente", on_click=cadastrar_proponente, 
+                                use_container_width=True, 
+                                icon=":material/add_business:")
+
+        container_botoes.button("Gerenciar projetos", on_click=gerenciar_projetos, 
+                                use_container_width=True, 
+                                icon=":material/contract_edit:")
         
-        col3.button("Cadastrar proponente", on_click=cadastrar_proponente, use_container_width=True, icon=":material/add_business:")
+        
 
     else:
-        col1, col2, col3 = st.columns([2, 1, 1])
-        col3.download_button(
+
+        container_botoes = st.container(horizontal=True, horizontal_alignment="center")
+        container_botoes.download_button(
             label="Baixar projetos filtrados",
             data=output,
             file_name=f"projetos_filtrados_{data_de_hoje}.xlsx",
