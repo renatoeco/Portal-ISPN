@@ -864,6 +864,8 @@ with tab2:
 
             st.write('')
 
+
+
             # --- Botão de salvar ---
             submit = st.form_submit_button("Cadastrar", icon=":material/save:", width=200, type="primary")
             if submit:

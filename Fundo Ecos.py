@@ -14,6 +14,7 @@ from plotly.colors import diverging, sequential
 from streamlit_folium import st_folium
 import geopandas as gpd
 from geobr import read_indigenous_land, read_conservation_units, read_biomes         
+from geobr import read_indigenous_land, read_conservation_units, read_biomes         
 from funcoes_auxiliares import conectar_mongo_portal_ispn
 import streamlit_shadcn_ui as ui
 
