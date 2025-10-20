@@ -908,9 +908,9 @@ with tab2:
                         ("bacia_macro", bacias_macro_sel, bacia_macro_codigo_para_label),
                     ]:
                         for item in selecionados:
-                            codigo = get_codigo_por_label(dicionario, item)
-                            if codigo:
-                                regioes_atuacao.append({"tipo": tipo, "codigo": codigo})
+                            codigo_atuacao = get_codigo_por_label(dicionario, item)
+                            if codigo_atuacao:
+                                regioes_atuacao.append({"tipo": tipo, "codigo": codigo_atuacao})
 
                     # ----------------------------------------------------------
 
@@ -1389,9 +1389,9 @@ with tab2:
                                 ("bacia_macro", bacias_macro_sel, bacia_macro_codigo_para_label),
                             ]:
                                 for item in selecionados:
-                                    codigo = get_codigo_por_label(dicionario, item)
-                                    if codigo:
-                                        regioes_atuacao.append({"tipo": tipo, "codigo": codigo})
+                                    codigo_atuacao = get_codigo_por_label(dicionario, item)
+                                    if codigo_atuacao:
+                                        regioes_atuacao.append({"tipo": tipo, "codigo": codigo_atuacao})
 
                             # Agora salva no MongoDB
                             update_doc = {
