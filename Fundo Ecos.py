@@ -742,10 +742,6 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
     def carregar_uc(data=201909):
         return read_conservation_units(date=data)
 
-    @st.cache_data(show_spinner="Carregando biomas...")
-    def carregar_biomas(ano=2019):
-        return read_biomes(year=ano)
-
     @st.cache_data(show_spinner="Carregando assentamentos...")
     def carregar_assentamentos():
         return gpd.read_file("shapefiles/Assentamentos-SAB-INCRA.shp")
