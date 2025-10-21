@@ -575,7 +575,7 @@ with tab2:
         def carregar_ufs(ano=2020):
             return read_state(year=ano)
 
-        @st.cache_data(show_spinner="Carregando biomas...")
+        @st.cache_data(show_spinner="Carregando municipios...")
         def carregar_municipios(ano=2024):
             return read_municipality(year=ano)
 
