@@ -662,6 +662,16 @@ with tab2:
         dados_municipios = dados_municipios.sort_values(by="name_muni", ascending=True, ignore_index=True) if "name_muni" in dados_municipios.columns else dados_municipios
         dados_ufs = dados_ufs.sort_values(by="name_state", ascending=True, ignore_index=True) if "name_state" in dados_ufs.columns else dados_ufs
 
+        # --- Corrigir tipos de código para int (sem casas decimais) ---
+        def corrigir_codigo(df, colunas):
+            for col in colunas:
+                if col in df.columns:
+                    df[col] = df[col].apply(lambda x: int(x) if pd.notna(x) else None)
+            return df
+
+        dados_ufs = corrigir_codigo(dados_ufs, ["code_state"])
+        dados_municipios = corrigir_codigo(dados_municipios, ["code_muni"])
+        dados_biomas = corrigir_codigo(dados_biomas, ["code_biome"])
 
         with st.form("form_cadastrar_projeto"):
             # --- Colunas ---
@@ -1070,6 +1080,17 @@ with tab2:
                 dados_quilombos = dados_quilombos.sort_values(by="nome", ascending=True, ignore_index=True)
                 dados_municipios = dados_municipios.sort_values(by="name_muni", ascending=True, ignore_index=True) if "name_muni" in dados_municipios.columns else dados_municipios
                 dados_ufs = dados_ufs.sort_values(by="name_state", ascending=True, ignore_index=True) if "name_state" in dados_ufs.columns else dados_ufs
+
+                # --- Corrigir tipos de código para int (sem casas decimais) ---
+                def corrigir_codigo(df, colunas):
+                    for col in colunas:
+                        if col in df.columns:
+                            df[col] = df[col].apply(lambda x: int(x) if pd.notna(x) else None)
+                    return df
+
+                dados_ufs = corrigir_codigo(dados_ufs, ["code_state"])
+                dados_municipios = corrigir_codigo(dados_municipios, ["code_muni"])
+                dados_biomas = corrigir_codigo(dados_biomas, ["code_biome"])
 
                 projeto_info = df_projetos_ispn[df_projetos_ispn["sigla"] == projeto_selecionado].iloc[0]
 

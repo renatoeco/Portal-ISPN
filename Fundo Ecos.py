@@ -2422,28 +2422,6 @@ with lista:
     st.write("")
     st.write("")
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 with mapa:
     st.subheader("Mapa de distribuição de projetos")
 
