@@ -13,7 +13,8 @@ from folium.plugins import MarkerCluster
 from plotly.colors import diverging, sequential
 from streamlit_folium import st_folium
 import geopandas as gpd
-from geobr import read_municipality, read_state, read_indigenous_land, read_conservation_units, read_biomes         
+from geobr import read_indigenous_land, read_conservation_units, read_biomes         
+from geobr import read_indigenous_land, read_conservation_units, read_biomes         
 from funcoes_auxiliares import conectar_mongo_portal_ispn
 import streamlit_shadcn_ui as ui
 
@@ -48,69 +49,6 @@ indicadores = db["indicadores"]
 colecao_lancamentos = db["lancamentos_indicadores"]
 
 
-######################################################################################################
-# Funções de carregamento
-######################################################################################################
-
-
-@st.cache_data(show_spinner="Carregando terras indígenas...")
-def carregar_terras_indigenas(data=201907):
-    return read_indigenous_land(date=data)
-
-@st.cache_data(show_spinner="Carregando unidades de conservação...")
-def carregar_uc(data=201909):
-    return read_conservation_units(date=data)
-
-@st.cache_data(show_spinner="Carregando biomas...")
-def carregar_biomas(ano=2019):
-    return read_biomes(year=ano)
-
-@st.cache_data(show_spinner="Carregando assentamentos...")
-def carregar_assentamentos():
-    return gpd.read_file("shapefiles/Assentamentos-SAB-INCRA.shp")
-
-@st.cache_data(show_spinner="Carregando quilombos...")
-def carregar_quilombos():
-    return gpd.read_file("shapefiles/Quilombos-SAB-INCRA.shp")
-
-@st.cache_data(show_spinner="Carregando bacias hidrográficas (micro)...")
-def carregar_bacias_micro():
-    return gpd.read_file("shapefiles/micro_RH.shp")
-
-@st.cache_data(show_spinner="Carregando bacias hidrográficas (meso)...")
-def carregar_bacias_meso():
-    return gpd.read_file("shapefiles/meso_RH.shp")
-
-@st.cache_data(show_spinner="Carregando bacias hidrográficas (macro)...")
-def carregar_bacias_macro():
-    return gpd.read_file("shapefiles/macro_RH.shp")
-
-
-######################################################################
-# CARREGAR DADOS
-######################################################################
-
-
-# --- Carregar dados ---
-dados_ti = carregar_terras_indigenas()
-dados_uc = carregar_uc()
-dados_assentamentos = carregar_assentamentos()
-dados_quilombos = carregar_quilombos()
-dados_bacias_macro = carregar_bacias_macro()
-dados_bacias_meso = carregar_bacias_meso()
-dados_bacias_micro = carregar_bacias_micro()
-
-
-# --- Padronizar nomes das colunas das bacias ---
-dados_bacias_macro = dados_bacias_macro.rename(columns={"cd_macroRH": "codigo", "nm_macroRH": "nome"})
-dados_bacias_meso = dados_bacias_meso.rename(columns={"cd_mesoRH": "codigo", "nm_mesoRH": "nome"})
-dados_bacias_micro = dados_bacias_micro.rename(columns={"cd_microRH": "codigo", "nm_microRH": "nome"})
-
-# Padronizar assentamentos e quilombos (ajuste conforme seus shapefiles)
-if "cd_sipra" in dados_assentamentos.columns:
-    dados_assentamentos = dados_assentamentos.rename(columns={"cd_sipra": "codigo", "nome_proje": "nome"})
-if "id" in dados_quilombos.columns:
-    dados_quilombos = dados_quilombos.rename(columns={"id": "codigo", "name": "nome"})
 
 
 ###########################################################################################################
@@ -409,7 +347,9 @@ def mostrar_detalhes(codigo_proj: str):
         col1.write(f"**Valor:** {projeto_df['Valor']}")
         col1.write(f"**Categoria:** {projeto.get('categoria', '')}")
         col1.write(f"**Ano de aprovação:** {projeto_df['Ano']}")
+        col1.write(f"**Duração (em meses):** {projeto.get('duracao_original_meses', '')}")
         col1.write(f"**Estado(s):** {converter_uf_codigo_para_nome(projeto.get('ufs', ''))}")
+        col1.write(f"**Município principal:** {converter_codigos_para_nomes(projeto.get('municipio_principal', ''))}")
         col1.write(f"**Município(s):** {converter_codigos_para_nomes(projeto.get('municipios', ''))}")
         col1.write(f"**Latitude/Longitude principal:** {projeto.get('lat_long_principal', '')}")
         col1.write(f"**Data de início:** {projeto.get('data_inicio_do_contrato', '')}")
@@ -479,7 +419,22 @@ def mostrar_detalhes(codigo_proj: str):
 
                 # Converte a data da anotação para str
                 data_anotacao = lan.get("data_anotacao", "")
-                data_anotacao_str = data_anotacao.strftime("%d/%m/%Y")
+                if isinstance(data_anotacao, str):
+                    try:
+                        # tenta interpretar no formato ISO (ex: 2025-10-16 ou 2025-10-16T14:30:00)
+                        data_anotacao = datetime.datetime.fromisoformat(data_anotacao)
+                    except ValueError:
+                        try:
+                            # tenta no formato brasileiro
+                            data_anotacao = datetime.datetime.strptime(data_anotacao, "%d/%m/%Y")
+                        except ValueError:
+                            data_anotacao = None
+
+                if isinstance(data_anotacao, datetime.datetime) or isinstance(data_anotacao, datetime.date):
+                    data_anotacao_str = data_anotacao.strftime("%d/%m/%Y")
+                else:
+                    data_anotacao_str = ""
+
 
                 linhas.append({
                     "Indicador": nome_legivel_traduzido,
@@ -774,6 +729,76 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
 
     colecao = db["projetos_pf"] if tipo_projeto == "PF" else db["projetos_pj"]
 
+    
+    ######################################################################################################
+    # Funções de carregamento
+    ######################################################################################################
+
+
+    @st.cache_data(show_spinner="Carregando terras indígenas...")
+    def carregar_terras_indigenas(data=201907):
+        return read_indigenous_land(date=data)
+
+    @st.cache_data(show_spinner="Carregando unidades de conservação...")
+    def carregar_uc(data=201909):
+        return read_conservation_units(date=data)
+
+    @st.cache_data(show_spinner="Carregando assentamentos...")
+    def carregar_assentamentos():
+        return gpd.read_file("shapefiles/Assentamentos-SAB-INCRA.shp")
+
+    @st.cache_data(show_spinner="Carregando quilombos...")
+    def carregar_quilombos():
+        return gpd.read_file("shapefiles/Quilombos-SAB-INCRA.shp")
+
+    @st.cache_data(show_spinner="Carregando bacias hidrográficas (micro)...")
+    def carregar_bacias_micro():
+        return gpd.read_file("shapefiles/micro_RH.shp")
+
+    @st.cache_data(show_spinner="Carregando bacias hidrográficas (meso)...")
+    def carregar_bacias_meso():
+        return gpd.read_file("shapefiles/meso_RH.shp")
+
+    @st.cache_data(show_spinner="Carregando bacias hidrográficas (macro)...")
+    def carregar_bacias_macro():
+        return gpd.read_file("shapefiles/macro_RH.shp")
+
+
+    ######################################################################
+    # CARREGAR DADOS
+    ######################################################################
+
+
+    # --- Carregar dados ---
+    dados_ti = carregar_terras_indigenas()
+    dados_uc = carregar_uc()
+    dados_assentamentos = carregar_assentamentos()
+    dados_quilombos = carregar_quilombos()
+    dados_bacias_macro = carregar_bacias_macro()
+    dados_bacias_meso = carregar_bacias_meso()
+    dados_bacias_micro = carregar_bacias_micro()
+
+
+    # --- Padronizar nomes das colunas das bacias ---
+    dados_bacias_macro = dados_bacias_macro.rename(columns={"cd_macroRH": "codigo", "nm_macroRH": "nome"})
+    dados_bacias_meso = dados_bacias_meso.rename(columns={"cd_mesoRH": "codigo", "nm_mesoRH": "nome"})
+    dados_bacias_micro = dados_bacias_micro.rename(columns={"cd_microRH": "codigo", "nm_microRH": "nome"})
+
+    # Padronizar assentamentos e quilombos (ajuste conforme seus shapefiles)
+    if "cd_sipra" in dados_assentamentos.columns:
+        dados_assentamentos = dados_assentamentos.rename(columns={"cd_sipra": "codigo", "nome_proje": "nome"})
+    if "id" in dados_quilombos.columns:
+        dados_quilombos = dados_quilombos.rename(columns={"id": "codigo", "name": "nome"})
+        
+    # --- Ordenar alfabeticamente pelo nome ---
+    dados_ti = dados_ti.sort_values(by="terrai_nom", ascending=True, ignore_index=True) if "terrai_nom" in dados_ti.columns else dados_ti
+    dados_uc = dados_uc.sort_values(by="name_conservation_unit", ascending=True, ignore_index=True) if "name_conservation_unit" in dados_uc.columns else dados_uc
+    dados_bacias_macro = dados_bacias_macro.sort_values(by="nome", ascending=True, ignore_index=True)
+    dados_bacias_meso = dados_bacias_meso.sort_values(by="nome", ascending=True, ignore_index=True)
+    dados_bacias_micro = dados_bacias_micro.sort_values(by="nome", ascending=True, ignore_index=True)
+    dados_assentamentos = dados_assentamentos.sort_values(by="nome", ascending=True, ignore_index=True)
+    dados_quilombos = dados_quilombos.sort_values(by="nome", ascending=True, ignore_index=True)
+
     # --- Detecta se é adicionar ou editar ---
     modo = st.session_state.get("modo_formulario", "adicionar")  # valor padrão
 
@@ -939,6 +964,12 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
             key=f"objetivo_geral_{projeto.get('_id', 'novo')}"
         )
 
+        st.divider()
+
+
+        ######################################################################
+        # REGIÕES DE ATUAÇÃO
+        ######################################################################
 
 
         # Linha 3 - UFs, município principal e municípios de atuação //////////////////////////////////////////////
@@ -974,6 +1005,7 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
             placeholder=""
         )
 
+
         # Linha 4 - Latitude e longitude, observações sobre o local //////////////////////////////////////////////
         col1, col2 = st.columns([1, 2])
 
@@ -986,11 +1018,15 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
             key=f"latlong_{form_key}",
             help="Você pode usar o Google Maps para obter as coordenadas nesse formato '-23.175173, -45.856398'"
         )
-        
-        
-        ######################################################################
-        # REGIÕES DE ATUAÇÃO
-        ######################################################################
+
+
+        #  UNIDADES DE CONSERVAÇÃO 
+
+        # Unidades de Conservação
+        uc_codigo_para_label = {
+            str(row["code_conservation_unit"]): f"{row['name_conservation_unit']} ({row['code_conservation_unit']})"
+            for _, row in dados_uc.iterrows()
+        }
 
         # Terras Indígenas
         ti_codigo_para_label = {
@@ -998,11 +1034,6 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
             for _, row in dados_ti.iterrows()
         }
 
-        # Unidades de Conservação
-        uc_codigo_para_label = {
-            str(row["code_conservation_unit"]): f"{row['name_conservation_unit']} ({row['code_conservation_unit']})"
-            for _, row in dados_uc.iterrows()
-        }
 
         # Assentamentos
         assent_codigo_para_label = {
@@ -1038,16 +1069,6 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         bacia_meso_default = [r["codigo"] for r in regioes if r["tipo"] == "bacia_meso"]
         bacia_macro_default = [r["codigo"] for r in regioes if r["tipo"] == "bacia_macro"]
 
-        # ----------------------- TERRAS INDÍGENAS -----------------------
-        col1, col2 = st.columns(2)
-        tis_selecionadas = col1.multiselect(
-            "Terras Indígenas",
-            options=list(ti_codigo_para_label.values()),
-            default=[ti_codigo_para_label[c] for c in ti_default if c in ti_codigo_para_label],
-            placeholder=""
-        )
-
-        # ----------------------- UNIDADES DE CONSERVAÇÃO -----------------------
         ucs_selecionadas = col2.multiselect(
             "Unidades de Conservação",
             options=list(uc_codigo_para_label.values()),
@@ -1055,11 +1076,22 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
             placeholder=""
         )
 
-        
-        
+
+
+        # ----------------------- TERRAS INDÍGENAS -----------------------
+       
+        col1, col2, col3 = st.columns(3)
+       
+        tis_selecionadas = col1.multiselect(
+            "Terras Indígenas",
+            options=list(ti_codigo_para_label.values()),
+            default=[ti_codigo_para_label[c] for c in ti_default if c in ti_codigo_para_label],
+            placeholder=""
+        )
+
         # ----------------------- ASSENTAMENTOS -----------------------
-        col1, col2 = st.columns(2)
-        assentamentos_selecionados = col1.multiselect(
+        
+        assentamentos_selecionados = col2.multiselect(
             "Assentamentos",
             options=list(assent_codigo_para_label.values()),
             default=[assent_codigo_para_label[c] for c in assent_default if c in assent_codigo_para_label],
@@ -1067,13 +1099,13 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         )
 
         # ----------------------- QUILOMBOS -----------------------
-        quilombos_selecionados = col2.multiselect(
+        quilombos_selecionados = col3.multiselect(
             "Quilombos",
             options=list(quilombo_codigo_para_label.values()),
             default=[quilombo_codigo_para_label[c] for c in quilombo_default if c in quilombo_codigo_para_label],
             placeholder=""
         )
-        
+
 
         # ----------------------- BACIAS HIDROGRÁFICAS -----------------------
         col1, col2, col3 = st.columns(3)
@@ -1109,7 +1141,8 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
             key=f"obs_local_{form_key}",
             placeholder="Anote o nome do local se for alguma localização especial, como Terra Indígena, Assentamento, Unidade de Conservação, área urbana, etc."
         )
-
+        
+        st.divider()
 
         if modo == "editar":
 
@@ -2251,24 +2284,36 @@ with lista:
     data_de_hoje = datetime.date.today().strftime("%d-%m-%Y")
 
     if set(st.session_state.tipo_usuario) & {"admin", "gestao_fundo_ecos"}:
-        col1, col2, col3 = st.columns([1, 1, 1])
+        
 
-        col1.download_button(
+        container_botoes = st.container(horizontal=True, horizontal_alignment="right")
+
+        container_botoes.download_button(
             label="Baixar tabela",
             data=output,
             file_name=f"tabela_de_projetos_{data_de_hoje}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True,
+            # use_container_width=True,
+            width=260,
             icon=":material/file_download:"
         )
 
-        col2.button("Gerenciar projetos", on_click=gerenciar_projetos, use_container_width=True, icon=":material/contract_edit:")
+        container_botoes.button("Cadastrar proponente", on_click=cadastrar_proponente, 
+                                # use_container_width=True,
+                                width=260, 
+                                icon=":material/add_business:")
+
+        container_botoes.button("Gerenciar projetos", on_click=gerenciar_projetos, 
+                                # use_container_width=True,
+                                width=260, 
+                                icon=":material/contract_edit:")
         
-        col3.button("Cadastrar proponente", on_click=cadastrar_proponente, use_container_width=True, icon=":material/add_business:")
+        
 
     else:
-        col1, col2, col3 = st.columns([2, 1, 1])
-        col3.download_button(
+
+        container_botoes = st.container(horizontal=True, horizontal_alignment="center")
+        container_botoes.download_button(
             label="Baixar projetos filtrados",
             data=output,
             file_name=f"projetos_filtrados_{data_de_hoje}.xlsx",
@@ -2386,28 +2431,6 @@ with lista:
     st.write(f"**Mostrando {inicio + 1} a {min(fim, total_linhas)} de {total_linhas} projetos**")
     st.write("")
     st.write("")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 with mapa:
     st.subheader("Mapa de distribuição de projetos")

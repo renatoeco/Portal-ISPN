@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import datetime
 from funcoes_auxiliares import conectar_mongo_portal_ispn, ajustar_altura_dataframe, br_to_float, float_to_br
+import geopandas as gpd
+from geobr import read_indigenous_land, read_conservation_units, read_biomes, read_state, read_municipality
 import streamlit_shadcn_ui as ui
 import plotly.express as px
 import time
@@ -219,6 +221,8 @@ def convert_objectid(obj):
 
 
 
+
+
 ######################################################################################################
 # CONEXÃO COM O BANCO DE DADOS MONGODB
 ######################################################################################################
@@ -250,7 +254,8 @@ colecao_lancamentos = db["lancamentos_indicadores"]
 #     {},
 #     {"$push": {campo_timestamp: timestamp}},
 #     upsert=True  # Cria o documento se ele ainda não existir
-# )
+# 
+
 
 
 ######################################################################################################
@@ -560,6 +565,113 @@ with tab2:
 
         # Aumentar largura do diálogo com css
         st.html("<span class='big-dialog'></span>")
+        
+        ######################################################################################################
+        # Funções de carregamento
+        ######################################################################################################
+
+
+        @st.cache_data(show_spinner="Carregando estados...")
+        def carregar_ufs(ano=2020):
+            return read_state(year=ano)
+
+        @st.cache_data(show_spinner="Carregando municipios...")
+        def carregar_municipios(ano=2024):
+            return read_municipality(year=ano)
+
+        @st.cache_data(show_spinner="Carregando terras indígenas...")
+        def carregar_terras_indigenas(data=201907):
+            return read_indigenous_land(date=data)
+
+        @st.cache_data(show_spinner="Carregando unidades de conservação...")
+        def carregar_uc(data=201909):
+            return read_conservation_units(date=data)
+
+        @st.cache_data(show_spinner="Carregando biomas...")
+        def carregar_biomas(ano=2019):
+            return read_biomes(year=ano)
+
+        @st.cache_data(show_spinner="Carregando assentamentos...")
+        def carregar_assentamentos():
+            return gpd.read_file("shapefiles/Assentamentos-SAB-INCRA.shp")
+
+        @st.cache_data(show_spinner="Carregando quilombos...")
+        def carregar_quilombos():
+            return gpd.read_file("shapefiles/Quilombos-SAB-INCRA.shp")
+
+        @st.cache_data(show_spinner="Carregando bacias hidrográficas (micro)...")
+        def carregar_bacias_micro():
+            return gpd.read_file("shapefiles/micro_RH.shp")
+
+        @st.cache_data(show_spinner="Carregando bacias hidrográficas (meso)...")
+        def carregar_bacias_meso():
+            return gpd.read_file("shapefiles/meso_RH.shp")
+
+        @st.cache_data(show_spinner="Carregando bacias hidrográficas (macro)...")
+        def carregar_bacias_macro():
+            return gpd.read_file("shapefiles/macro_RH.shp")
+
+
+        ######################################################################
+        # CARREGAR DADOS
+        ######################################################################
+
+
+        # --- Carregar dados ---
+        dados_ufs = carregar_ufs()
+        dados_municipios = carregar_municipios()
+        dados_ti = carregar_terras_indigenas()
+        dados_uc = carregar_uc()
+        dados_assentamentos = carregar_assentamentos()
+        dados_quilombos = carregar_quilombos()
+
+        dados_biomas = carregar_biomas()
+        # Remover linha "Sistema Costeiro" e ordenar alfabeticamente
+        dados_biomas = (
+            dados_biomas[dados_biomas["name_biome"] != "Sistema Costeiro"]
+            .sort_values(by="name_biome", ascending=True)
+            .reset_index(drop=True)
+        )
+
+
+        dados_bacias_macro = carregar_bacias_macro()
+        dados_bacias_meso = carregar_bacias_meso()
+        dados_bacias_micro = carregar_bacias_micro()
+
+
+        # --- Padronizar nomes das colunas das bacias ---
+        dados_bacias_macro = dados_bacias_macro.rename(columns={"cd_macroRH": "codigo", "nm_macroRH": "nome"})
+        dados_bacias_meso = dados_bacias_meso.rename(columns={"cd_mesoRH": "codigo", "nm_mesoRH": "nome"})
+        dados_bacias_micro = dados_bacias_micro.rename(columns={"cd_microRH": "codigo", "nm_microRH": "nome"})
+
+        # Padronizar assentamentos e quilombos (ajuste conforme seus shapefiles)
+        if "cd_sipra" in dados_assentamentos.columns:
+            dados_assentamentos = dados_assentamentos.rename(columns={"cd_sipra": "codigo", "nome_proje": "nome"})
+        if "id" in dados_quilombos.columns:
+            dados_quilombos = dados_quilombos.rename(columns={"id": "codigo", "name": "nome"})
+            
+        # --- Ordenar alfabeticamente pelo nome ---
+        dados_ti = dados_ti.sort_values(by="terrai_nom", ascending=True, ignore_index=True) if "terrai_nom" in dados_ti.columns else dados_ti
+        dados_uc = dados_uc.sort_values(by="name_conservation_unit", ascending=True, ignore_index=True) if "name_conservation_unit" in dados_uc.columns else dados_uc
+        dados_biomas = dados_biomas.sort_values(by="name_biome", ascending=True, ignore_index=True) if "name_biome" in dados_biomas.columns else dados_biomas
+        dados_bacias_macro = dados_bacias_macro.sort_values(by="nome", ascending=True, ignore_index=True)
+        dados_bacias_meso = dados_bacias_meso.sort_values(by="nome", ascending=True, ignore_index=True)
+        dados_bacias_micro = dados_bacias_micro.sort_values(by="nome", ascending=True, ignore_index=True)
+        dados_assentamentos = dados_assentamentos.sort_values(by="nome", ascending=True, ignore_index=True)
+        dados_quilombos = dados_quilombos.sort_values(by="nome", ascending=True, ignore_index=True)
+        dados_municipios = dados_municipios.sort_values(by="name_muni", ascending=True, ignore_index=True) if "name_muni" in dados_municipios.columns else dados_municipios
+        dados_ufs = dados_ufs.sort_values(by="name_state", ascending=True, ignore_index=True) if "name_state" in dados_ufs.columns else dados_ufs
+
+        # --- Corrigir tipos de código para int (sem casas decimais) ---
+        def corrigir_codigo(df, colunas):
+            for col in colunas:
+                if col in df.columns:
+                    df[col] = df[col].apply(lambda x: int(x) if pd.notna(x) else None)
+            return df
+
+        dados_ufs = corrigir_codigo(dados_ufs, ["code_state"])
+        dados_municipios = corrigir_codigo(dados_municipios, ["code_muni"])
+        dados_biomas = corrigir_codigo(dados_biomas, ["code_biome"])
 
         with st.form("form_cadastrar_projeto"):
             # --- Colunas ---
@@ -625,10 +737,144 @@ with tab2:
             )
 
 
-
             # --- Objetivo Geral ---
             objetivo_geral = st.text_area("Objetivo Geral", value="")
+
+            
+            ######################################################################
+            # REGIÕES DE ATUAÇÃO
+            ######################################################################
+
+            # Estados
+            uf_codigo_para_label = {
+                str(row["code_state"]): f"{row['name_state']} ({int(row['code_state'])})"
+                for _, row in dados_ufs.iterrows()
+            }
+
+            # Estados
+            municipios_codigo_para_label = {
+                str(row["code_muni"]): f"{row['name_muni']} ({int(row['code_muni'])})"
+                for _, row in dados_municipios.iterrows()
+            }
+
+            # Estados
+            biomas_codigo_para_label = {
+                str(row["code_biome"]): f"{row['name_biome']} ({int(row['code_biome'])})"
+                for _, row in dados_biomas.iterrows()
+            }
+
+            # Terras Indígenas
+            ti_codigo_para_label = {
+                str(row["code_terrai"]): f"{row['terrai_nom']} ({int(row['code_terrai'])})"
+                for _, row in dados_ti.iterrows()
+            }
+
+            # Unidades de Conservação
+            uc_codigo_para_label = {
+                str(row["code_conservation_unit"]): f"{row['name_conservation_unit']} ({row['code_conservation_unit']})"
+                for _, row in dados_uc.iterrows()
+            }
+
+            # Assentamentos
+            assent_codigo_para_label = {
+                str(row["codigo"]): f"{row['nome']} ({row['codigo']})"
+                for _, row in dados_assentamentos.iterrows()
+            }
+
+            # Quilombos
+            quilombo_codigo_para_label = {
+                str(row["codigo"]): f"{row['nome']} ({row['codigo']})"
+                for _, row in dados_quilombos.iterrows()
+            }
+            
+            # Bacias Hidrográficas
+            bacia_micro_codigo_para_label = {
+                str(row["codigo"]): f"{row['nome']} ({row['codigo']})" for _, row in dados_bacias_micro.iterrows()
+            }
+            bacia_meso_codigo_para_label = {
+                str(row["codigo"]): f"{row['nome']} ({row['codigo']})" for _, row in dados_bacias_meso.iterrows()
+            }
+            bacia_macro_codigo_para_label = {
+                str(row["codigo"]): f"{row['nome']} ({row['codigo']})" for _, row in dados_bacias_macro.iterrows()
+            }
+            
+
+            # ----------------------- TERRAS INDÍGENAS -----------------------
+            col1, col2, col3 = st.columns(3)
+
+            ufs_selecionadas = col1.multiselect(
+                "Estados",
+                options=list(uf_codigo_para_label.values()),
+                placeholder=""
+            )
+
+            municipios_selecionadas = col2.multiselect(
+                "Municípios",
+                options=list(municipios_codigo_para_label.values()),
+                placeholder=""
+            )
+
+            biomas_selecionados = col3.multiselect(
+                "Biomas",
+                options=list(biomas_codigo_para_label.values()),
+                placeholder=""
+            )
+
+            # ----------------------- TERRAS INDÍGENAS -----------------------
+            col1, col2 = st.columns(2)
+
+            tis_selecionadas = col1.multiselect(
+                "Terras Indígenas",
+                options=list(ti_codigo_para_label.values()),
+                placeholder=""
+            )
+
+            # ----------------------- UNIDADES DE CONSERVAÇÃO -----------------------
+            ucs_selecionadas = col2.multiselect(
+                "Unidades de Conservação",
+                options=list(uc_codigo_para_label.values()),
+                placeholder=""
+            )
+
+            # ----------------------- ASSENTAMENTOS -----------------------
+            col1, col2 = st.columns(2)
+            assentamentos_selecionados = col1.multiselect(
+                "Assentamentos",
+                options=list(assent_codigo_para_label.values()),
+                placeholder=""
+            )
+
+            # ----------------------- QUILOMBOS -----------------------
+            quilombos_selecionados = col2.multiselect(
+                "Quilombos",
+                options=list(quilombo_codigo_para_label.values()),
+                placeholder=""
+            )
+
+            # ----------------------- BACIAS HIDROGRÁFICAS -----------------------
+            col1, col2, col3 = st.columns(3)
+
+            bacias_macro_sel = col1.multiselect(
+                "Bacias Hidrográficas - Macro",
+                options=list(bacia_macro_codigo_para_label.values()),
+                placeholder=""
+            )
+
+            bacias_meso_sel = col2.multiselect(
+                "Bacias Hidrográficas - Meso",
+                options=list(bacia_meso_codigo_para_label.values()),
+                placeholder=""
+            )
+
+            bacias_micro_sel = col3.multiselect(
+                "Bacias Hidrográficas - Micro",
+                options=list(bacia_micro_codigo_para_label.values()),
+                placeholder=""
+            )
+
             st.write('')
+
+
 
             # --- Botão de salvar ---
             submit = st.form_submit_button("Cadastrar", icon=":material/save:", width=200, type="primary")
@@ -648,6 +894,36 @@ with tab2:
                     doador_objid = bson.ObjectId(doador) if doador else None
                     programa_objid = bson.ObjectId(programa) if programa else None
 
+                    # ----------------------------------------------------------
+                    # MONTAR LISTA DE REGIÕES DE ATUAÇÃO PARA SALVAR NO MONGODB
+                    # ----------------------------------------------------------
+
+                    # Função auxiliar
+                    def get_codigo_por_label(dicionario, valor):
+                        return next((codigo for codigo, label in dicionario.items() if label == valor), None)
+
+                    regioes_atuacao = []
+
+                    # Tipos simples com lookup
+                    for tipo, selecionados, dicionario in [
+                        ("uf", ufs_selecionadas, uf_codigo_para_label),
+                        ("municipio", municipios_selecionadas, municipios_codigo_para_label),
+                        ("bioma", biomas_selecionados, biomas_codigo_para_label),
+                        ("terra_indigena", tis_selecionadas, ti_codigo_para_label),
+                        ("uc", ucs_selecionadas, uc_codigo_para_label),
+                        ("assentamento", assentamentos_selecionados, assent_codigo_para_label),
+                        ("quilombo", quilombos_selecionados, quilombo_codigo_para_label),
+                        ("bacia_micro", bacias_micro_sel, bacia_micro_codigo_para_label),
+                        ("bacia_meso", bacias_meso_sel, bacia_meso_codigo_para_label),
+                        ("bacia_macro", bacias_macro_sel, bacia_macro_codigo_para_label),
+                    ]:
+                        for item in selecionados:
+                            codigo_atuacao = get_codigo_por_label(dicionario, item)
+                            if codigo_atuacao:
+                                regioes_atuacao.append({"tipo": tipo, "codigo": codigo_atuacao})
+
+                    # ----------------------------------------------------------
+
                     # --- Montar documento ---
                     doc = {
                         "_id": projeto_id,
@@ -663,7 +939,8 @@ with tab2:
                         "status": status,
                         "data_inicio_contrato": data_inicio.strftime("%d/%m/%Y"),
                         "data_fim_contrato": data_fim.strftime("%d/%m/%Y"),
-                        "objetivo_geral": objetivo_geral
+                        "objetivo_geral": objetivo_geral,
+                        "regioes_atuacao": regioes_atuacao,  
                     }
 
                     # --- Inserir no MongoDB ---
@@ -705,9 +982,115 @@ with tab2:
             # Função do diálogo para gerenciar projeto
             @st.dialog("Editar Projeto", width="large")
             def dialog_editar_projeto():
-
+                
                 # Aumentar largura do diálogo
                 st.html("<span class='big-dialog'></span>")
+                
+                ######################################################################################################
+                # Funções de carregamento
+                ######################################################################################################
+
+
+                @st.cache_data(show_spinner="Carregando estados...")
+                def carregar_ufs(ano=2020):
+                    return read_state(year=ano)
+
+                @st.cache_data(show_spinner="Carregando biomas...")
+                def carregar_municipios(ano=2024):
+                    return read_municipality(year=ano)
+
+                @st.cache_data(show_spinner="Carregando terras indígenas...")
+                def carregar_terras_indigenas(data=201907):
+                    return read_indigenous_land(date=data)
+
+                @st.cache_data(show_spinner="Carregando unidades de conservação...")
+                def carregar_uc(data=201909):
+                    return read_conservation_units(date=data)
+
+                @st.cache_data(show_spinner="Carregando biomas...")
+                def carregar_biomas(ano=2019):
+                    return read_biomes(year=ano)
+
+                @st.cache_data(show_spinner="Carregando assentamentos...")
+                def carregar_assentamentos():
+                    return gpd.read_file("shapefiles/Assentamentos-SAB-INCRA.shp")
+
+                @st.cache_data(show_spinner="Carregando quilombos...")
+                def carregar_quilombos():
+                    return gpd.read_file("shapefiles/Quilombos-SAB-INCRA.shp")
+
+                @st.cache_data(show_spinner="Carregando bacias hidrográficas (micro)...")
+                def carregar_bacias_micro():
+                    return gpd.read_file("shapefiles/micro_RH.shp")
+
+                @st.cache_data(show_spinner="Carregando bacias hidrográficas (meso)...")
+                def carregar_bacias_meso():
+                    return gpd.read_file("shapefiles/meso_RH.shp")
+
+                @st.cache_data(show_spinner="Carregando bacias hidrográficas (macro)...")
+                def carregar_bacias_macro():
+                    return gpd.read_file("shapefiles/macro_RH.shp")
+
+                ######################################################################
+                # CARREGAR DADOS
+                ######################################################################
+
+
+                # --- Carregar dados ---
+                dados_ufs = carregar_ufs()
+                dados_municipios = carregar_municipios()
+                dados_ti = carregar_terras_indigenas()
+                dados_uc = carregar_uc()
+                dados_assentamentos = carregar_assentamentos()
+                dados_quilombos = carregar_quilombos()
+
+                dados_biomas = carregar_biomas()
+                # Remover linha "Sistema Costeiro" e ordenar alfabeticamente
+                dados_biomas = (
+                    dados_biomas[dados_biomas["name_biome"] != "Sistema Costeiro"]
+                    .sort_values(by="name_biome", ascending=True)
+                    .reset_index(drop=True)
+                )
+
+
+                dados_bacias_macro = carregar_bacias_macro()
+                dados_bacias_meso = carregar_bacias_meso()
+                dados_bacias_micro = carregar_bacias_micro()
+
+
+                # --- Padronizar nomes das colunas das bacias ---
+                dados_bacias_macro = dados_bacias_macro.rename(columns={"cd_macroRH": "codigo", "nm_macroRH": "nome"})
+                dados_bacias_meso = dados_bacias_meso.rename(columns={"cd_mesoRH": "codigo", "nm_mesoRH": "nome"})
+                dados_bacias_micro = dados_bacias_micro.rename(columns={"cd_microRH": "codigo", "nm_microRH": "nome"})
+
+                # Padronizar assentamentos e quilombos (ajuste conforme seus shapefiles)
+                if "cd_sipra" in dados_assentamentos.columns:
+                    dados_assentamentos = dados_assentamentos.rename(columns={"cd_sipra": "codigo", "nome_proje": "nome"})
+                if "id" in dados_quilombos.columns:
+                    dados_quilombos = dados_quilombos.rename(columns={"id": "codigo", "name": "nome"})
+                    
+                # --- Ordenar alfabeticamente pelo nome ---
+                dados_ti = dados_ti.sort_values(by="terrai_nom", ascending=True, ignore_index=True) if "terrai_nom" in dados_ti.columns else dados_ti
+                dados_uc = dados_uc.sort_values(by="name_conservation_unit", ascending=True, ignore_index=True) if "name_conservation_unit" in dados_uc.columns else dados_uc
+                dados_biomas = dados_biomas.sort_values(by="name_biome", ascending=True, ignore_index=True) if "name_biome" in dados_biomas.columns else dados_biomas
+                dados_bacias_macro = dados_bacias_macro.sort_values(by="nome", ascending=True, ignore_index=True)
+                dados_bacias_meso = dados_bacias_meso.sort_values(by="nome", ascending=True, ignore_index=True)
+                dados_bacias_micro = dados_bacias_micro.sort_values(by="nome", ascending=True, ignore_index=True)
+                dados_assentamentos = dados_assentamentos.sort_values(by="nome", ascending=True, ignore_index=True)
+                dados_quilombos = dados_quilombos.sort_values(by="nome", ascending=True, ignore_index=True)
+                dados_municipios = dados_municipios.sort_values(by="name_muni", ascending=True, ignore_index=True) if "name_muni" in dados_municipios.columns else dados_municipios
+                dados_ufs = dados_ufs.sort_values(by="name_state", ascending=True, ignore_index=True) if "name_state" in dados_ufs.columns else dados_ufs
+
+                # --- Corrigir tipos de código para int (sem casas decimais) ---
+                def corrigir_codigo(df, colunas):
+                    for col in colunas:
+                        if col in df.columns:
+                            df[col] = df[col].apply(lambda x: int(x) if pd.notna(x) else None)
+                    return df
+
+                dados_ufs = corrigir_codigo(dados_ufs, ["code_state"])
+                dados_municipios = corrigir_codigo(dados_municipios, ["code_muni"])
+                dados_biomas = corrigir_codigo(dados_biomas, ["code_biome"])
 
                 projeto_info = df_projetos_ispn[df_projetos_ispn["sigla"] == projeto_selecionado].iloc[0]
 
@@ -826,6 +1209,164 @@ with tab2:
                         "Objetivo Geral",
                         value=str(projeto_info.get("objetivo_geral", "")) if pd.notna(projeto_info.get("objetivo_geral")) else ""
                     )
+
+                    ######################################################################
+                    # REGIÕES DE ATUAÇÃO
+                    ######################################################################
+
+                    # Estados
+                    uf_codigo_para_label = {
+                        str(row["code_state"]): f"{row['name_state']} ({int(row['code_state'])})"
+                        for _, row in dados_ufs.iterrows()
+                    }
+
+                    # Municípios
+                    municipios_codigo_para_label = {
+                        str(row["code_muni"]): f"{row['name_muni']} ({int(row['code_muni'])})"
+                        for _, row in dados_municipios.iterrows()
+                    }
+
+                    # Biomas
+                    biomas_codigo_para_label = {
+                        str(row["code_biome"]): f"{row['name_biome']} ({int(row['code_biome'])})"
+                        for _, row in dados_biomas.iterrows()
+                    }
+
+                    # Terras Indígenas
+                    ti_codigo_para_label = {
+                        str(row["code_terrai"]): f"{row['terrai_nom']} ({int(row['code_terrai'])})"
+                        for _, row in dados_ti.iterrows()
+                    }
+
+                    # Unidades de Conservação
+                    uc_codigo_para_label = {
+                        str(row["code_conservation_unit"]): f"{row['name_conservation_unit']} ({row['code_conservation_unit']})"
+                        for _, row in dados_uc.iterrows()
+                    }
+
+                    # Assentamentos
+                    assent_codigo_para_label = {
+                        str(row["codigo"]): f"{row['nome']} ({row['codigo']})"
+                        for _, row in dados_assentamentos.iterrows()
+                    }
+
+                    # Quilombos
+                    quilombo_codigo_para_label = {
+                        str(row["codigo"]): f"{row['nome']} ({row['codigo']})"
+                        for _, row in dados_quilombos.iterrows()
+                    }
+
+                    # Bacias Hidrográficas
+                    bacia_micro_codigo_para_label = {
+                        str(row["codigo"]): f"{row['nome']} ({row['codigo']})"
+                        for _, row in dados_bacias_micro.iterrows()
+                    }
+                    bacia_meso_codigo_para_label = {
+                        str(row["codigo"]): f"{row['nome']} ({row['codigo']})"
+                        for _, row in dados_bacias_meso.iterrows()
+                    }
+                    bacia_macro_codigo_para_label = {
+                        str(row["codigo"]): f"{row['nome']} ({row['codigo']})"
+                        for _, row in dados_bacias_macro.iterrows()
+                    }
+
+                    # -------------------- VALORES PADRÃO (REGIÕES JÁ CADASTRADAS) --------------------
+                    regioes = projeto.get("regioes_atuacao", [])
+
+                    ufs_default = [r["codigo"] for r in regioes if r["tipo"] == "uf"]
+                    muni_default = [r["codigo"] for r in regioes if r["tipo"] == "municipio"]
+                    biomas_default = [r["codigo"] for r in regioes if r["tipo"] == "bioma"]
+                    ti_default = [r["codigo"] for r in regioes if r["tipo"] == "terra_indigena"]
+                    uc_default = [r["codigo"] for r in regioes if r["tipo"] == "uc"]
+                    assent_default = [r["codigo"] for r in regioes if r["tipo"] == "assentamento"]
+                    quilombo_default = [r["codigo"] for r in regioes if r["tipo"] == "quilombo"]
+                    bacia_micro_default = [r["codigo"] for r in regioes if r["tipo"] == "bacia_micro"]
+                    bacia_meso_default = [r["codigo"] for r in regioes if r["tipo"] == "bacia_meso"]
+                    bacia_macro_default = [r["codigo"] for r in regioes if r["tipo"] == "bacia_macro"]
+
+                    # ----------------------- ESTADOS, MUNICÍPIOS E BIOMAS -----------------------
+                    col1, col2, col3 = st.columns(3)
+
+                    ufs_selecionadas = col1.multiselect(
+                        "Estados",
+                        options=list(uf_codigo_para_label.values()),
+                        default=[uf_codigo_para_label[c] for c in ufs_default if c in uf_codigo_para_label],
+                        placeholder=""
+                    )
+
+                    municipios_selecionadas = col2.multiselect(
+                        "Municípios",
+                        options=list(municipios_codigo_para_label.values()),
+                        default=[municipios_codigo_para_label[c] for c in muni_default if c in municipios_codigo_para_label],
+                        placeholder=""
+                    )
+
+                    biomas_selecionados = col3.multiselect(
+                        "Biomas",
+                        options=list(biomas_codigo_para_label.values()),
+                        default=[biomas_codigo_para_label[c] for c in biomas_default if c in biomas_codigo_para_label],
+                        placeholder=""
+                    )
+
+                    # ----------------------- TERRAS INDÍGENAS E UCs -----------------------
+                    col1, col2 = st.columns(2)
+
+                    tis_selecionadas = col1.multiselect(
+                        "Terras Indígenas",
+                        options=list(ti_codigo_para_label.values()),
+                        default=[ti_codigo_para_label[c] for c in ti_default if c in ti_codigo_para_label],
+                        placeholder=""
+                    )
+
+                    ucs_selecionadas = col2.multiselect(
+                        "Unidades de Conservação",
+                        options=list(uc_codigo_para_label.values()),
+                        default=[uc_codigo_para_label[c] for c in uc_default if c in uc_codigo_para_label],
+                        placeholder=""
+                    )
+
+                    # ----------------------- ASSENTAMENTOS E QUILOMBOS -----------------------
+                    col1, col2 = st.columns(2)
+
+                    assentamentos_selecionados = col1.multiselect(
+                        "Assentamentos",
+                        options=list(assent_codigo_para_label.values()),
+                        default=[assent_codigo_para_label[c] for c in assent_default if c in assent_codigo_para_label],
+                        placeholder=""
+                    )
+
+                    quilombos_selecionados = col2.multiselect(
+                        "Quilombos",
+                        options=list(quilombo_codigo_para_label.values()),
+                        default=[quilombo_codigo_para_label[c] for c in quilombo_default if c in quilombo_codigo_para_label],
+                        placeholder=""
+                    )
+
+                    # ----------------------- BACIAS HIDROGRÁFICAS -----------------------
+                    col1, col2, col3 = st.columns(3)
+
+                    bacias_macro_sel = col1.multiselect(
+                        "Bacias Hidrográficas - Macro",
+                        options=list(bacia_macro_codigo_para_label.values()),
+                        default=[bacia_macro_codigo_para_label[c] for c in bacia_macro_default if c in bacia_macro_codigo_para_label],
+                        placeholder=""
+                    )
+
+                    bacias_meso_sel = col2.multiselect(
+                        "Bacias Hidrográficas - Meso",
+                        options=list(bacia_meso_codigo_para_label.values()),
+                        default=[bacia_meso_codigo_para_label[c] for c in bacia_meso_default if c in bacia_meso_codigo_para_label],
+                        placeholder=""
+                    )
+
+                    bacias_micro_sel = col3.multiselect(
+                        "Bacias Hidrográficas - Micro",
+                        options=list(bacia_micro_codigo_para_label.values()),
+                        default=[bacia_micro_codigo_para_label[c] for c in bacia_micro_default if c in bacia_micro_codigo_para_label],
+                        placeholder=""
+                    )
+
+
                     st.write('')
 
                     # Botão de salvar
@@ -848,7 +1389,32 @@ with tab2:
                         elif codigo_existente:
                             st.warning(f"O código '{codigo}' já está cadastrado em outro projeto. Escolha outro.")
                         else:
-                            # Se não houver duplicidade, salva no banco
+
+                            # Função auxiliar
+                            def get_codigo_por_label(dicionario, valor):
+                                return next((codigo for codigo, label in dicionario.items() if label == valor), None)
+
+                            regioes_atuacao = []
+
+                            # Tipos simples com lookup
+                            for tipo, selecionados, dicionario in [
+                                ("uf", ufs_selecionadas, uf_codigo_para_label),
+                                ("municipio", municipios_selecionadas, municipios_codigo_para_label),
+                                ("bioma", biomas_selecionados, biomas_codigo_para_label),
+                                ("terra_indigena", tis_selecionadas, ti_codigo_para_label),
+                                ("uc", ucs_selecionadas, uc_codigo_para_label),
+                                ("assentamento", assentamentos_selecionados, assent_codigo_para_label),
+                                ("quilombo", quilombos_selecionados, quilombo_codigo_para_label),
+                                ("bacia_micro", bacias_micro_sel, bacia_micro_codigo_para_label),
+                                ("bacia_meso", bacias_meso_sel, bacia_meso_codigo_para_label),
+                                ("bacia_macro", bacias_macro_sel, bacia_macro_codigo_para_label),
+                            ]:
+                                for item in selecionados:
+                                    codigo_atuacao = get_codigo_por_label(dicionario, item)
+                                    if codigo_atuacao:
+                                        regioes_atuacao.append({"tipo": tipo, "codigo": codigo_atuacao})
+
+                            # Agora salva no MongoDB
                             update_doc = {
                                 "codigo": codigo,
                                 "sigla": sigla,
@@ -862,7 +1428,8 @@ with tab2:
                                 "status": status,
                                 "data_inicio_contrato": data_inicio.strftime("%d/%m/%Y"),
                                 "data_fim_contrato": data_fim.strftime("%d/%m/%Y"),
-                                "objetivo_geral": objetivo_geral
+                                "objetivo_geral": objetivo_geral,
+                                "regioes_atuacao": regioes_atuacao
                             }
 
                             projetos_ispn.update_one({"_id": projeto_info["_id"]}, {"$set": update_doc})
