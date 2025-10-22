@@ -964,6 +964,12 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
             key=f"objetivo_geral_{projeto.get('_id', 'novo')}"
         )
 
+        st.divider()
+
+
+        ######################################################################
+        # REGIÕES DE ATUAÇÃO
+        ######################################################################
 
 
         # Linha 3 - UFs, município principal e municípios de atuação //////////////////////////////////////////////
@@ -998,8 +1004,7 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
             key=f"municipios_{form_key}",
             placeholder=""
         )
-        
-        st.divider()
+
 
         # Linha 4 - Latitude e longitude, observações sobre o local //////////////////////////////////////////////
         col1, col2 = st.columns([1, 2])
@@ -1013,11 +1018,15 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
             key=f"latlong_{form_key}",
             help="Você pode usar o Google Maps para obter as coordenadas nesse formato '-23.175173, -45.856398'"
         )
-        
-        
-        ######################################################################
-        # REGIÕES DE ATUAÇÃO
-        ######################################################################
+
+
+        #  UNIDADES DE CONSERVAÇÃO 
+
+        # Unidades de Conservação
+        uc_codigo_para_label = {
+            str(row["code_conservation_unit"]): f"{row['name_conservation_unit']} ({row['code_conservation_unit']})"
+            for _, row in dados_uc.iterrows()
+        }
 
         # Terras Indígenas
         ti_codigo_para_label = {
@@ -1025,11 +1034,6 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
             for _, row in dados_ti.iterrows()
         }
 
-        # Unidades de Conservação
-        uc_codigo_para_label = {
-            str(row["code_conservation_unit"]): f"{row['name_conservation_unit']} ({row['code_conservation_unit']})"
-            for _, row in dados_uc.iterrows()
-        }
 
         # Assentamentos
         assent_codigo_para_label = {
@@ -1065,8 +1069,19 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         bacia_meso_default = [r["codigo"] for r in regioes if r["tipo"] == "bacia_meso"]
         bacia_macro_default = [r["codigo"] for r in regioes if r["tipo"] == "bacia_macro"]
 
+        ucs_selecionadas = col2.multiselect(
+            "Unidades de Conservação",
+            options=list(uc_codigo_para_label.values()),
+            default=[uc_codigo_para_label[c] for c in uc_default if c in uc_codigo_para_label],
+            placeholder=""
+        )
+
+
+
         # ----------------------- TERRAS INDÍGENAS -----------------------
+       
         col1, col2, col3 = st.columns(3)
+       
         tis_selecionadas = col1.multiselect(
             "Terras Indígenas",
             options=list(ti_codigo_para_label.values()),
@@ -1090,15 +1105,7 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
             default=[quilombo_codigo_para_label[c] for c in quilombo_default if c in quilombo_codigo_para_label],
             placeholder=""
         )
-        
 
-        # ----------------------- UNIDADES DE CONSERVAÇÃO -----------------------
-        ucs_selecionadas = st.multiselect(
-            "Unidades de Conservação",
-            options=list(uc_codigo_para_label.values()),
-            default=[uc_codigo_para_label[c] for c in uc_default if c in uc_codigo_para_label],
-            placeholder=""
-        )
 
         # ----------------------- BACIAS HIDROGRÁFICAS -----------------------
         col1, col2, col3 = st.columns(3)
