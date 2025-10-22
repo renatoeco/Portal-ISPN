@@ -2279,23 +2279,26 @@ with lista:
     if set(st.session_state.tipo_usuario) & {"admin", "gestao_fundo_ecos"}:
         
 
-        container_botoes = st.container(horizontal=True, horizontal_alignment="center")
+        container_botoes = st.container(horizontal=True, horizontal_alignment="right")
 
         container_botoes.download_button(
             label="Baixar tabela",
             data=output,
             file_name=f"tabela_de_projetos_{data_de_hoje}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True,
+            # use_container_width=True,
+            width=260,
             icon=":material/file_download:"
         )
 
         container_botoes.button("Cadastrar proponente", on_click=cadastrar_proponente, 
-                                use_container_width=True, 
+                                # use_container_width=True,
+                                width=260, 
                                 icon=":material/add_business:")
 
         container_botoes.button("Gerenciar projetos", on_click=gerenciar_projetos, 
-                                use_container_width=True, 
+                                # use_container_width=True,
+                                width=260, 
                                 icon=":material/contract_edit:")
         
         
