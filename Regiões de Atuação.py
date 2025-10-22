@@ -322,7 +322,7 @@ if not df.empty:
             folium.GeoJson(
                 sel,
                 name=f"Município {row['codigo']}", 
-                style_function=lambda x: {"color": "orange", "weight":  0.3, "fillOpacity": 0.6},
+                style_function=lambda x: {"color": "orange", "weight": 0, "fillOpacity": 0.6},
                 tooltip=folium.GeoJsonTooltip(fields=["name_muni"], aliases=["Município:"], sticky=True)
             ).add_to(mapa)
 
@@ -331,7 +331,7 @@ if not df.empty:
             folium.GeoJson(
                 sel, 
                 name=f"Estado {row['codigo']}", 
-                style_function=lambda x: {"color": "purple", "weight": 0.3, "fillOpacity": 0.3}, 
+                style_function=lambda x: {"color": "purple", "weight": 0, "fillOpacity": 0.3}, 
                 tooltip=folium.GeoJsonTooltip(fields=["name_state"], aliases=["Estado:"], sticky=True)
             ).add_to(mapa)
 
@@ -340,7 +340,7 @@ if not df.empty:
             folium.GeoJson(
                 sel,
                 name=f"TI {row['codigo']}", 
-                style_function=lambda x: {"color": "brown", "weight":  0.3, "fillOpacity": 0.5},
+                style_function=lambda x: {"color": "brown", "weight": 0, "fillOpacity": 0.5},
                 tooltip=folium.GeoJsonTooltip(fields=["terrai_nom"], aliases=["Terra Indígena:"], sticky=True)
             ).add_to(mapa)
 
@@ -353,7 +353,7 @@ if not df.empty:
                 folium.GeoJson(
                     sel.to_json(),
                     name=f"UC {codigo_uc}",
-                    style_function=lambda x: {"color": "darkgreen", "weight":  0.3, "fillOpacity": 0.5},
+                    style_function=lambda x: {"color": "darkgreen", "weight": 0, "fillOpacity": 0.5},
                     tooltip=folium.GeoJsonTooltip(
                         fields=["name_conservation_unit"],
                         aliases=["Unidade de Conservação:"],
@@ -371,7 +371,7 @@ if not df.empty:
                 folium.GeoJson(
                     sel.to_json(),
                     name=f"Bioma {codigo_bioma}",
-                    style_function=lambda x: {"color": "blue", "weight":  0.3, "fillOpacity": 0.3},
+                    style_function=lambda x: {"color": "blue", "weight": 0, "fillOpacity": 0.3},
                     tooltip=folium.GeoJsonTooltip(
                         fields=["name_biome"],
                         aliases=["Bioma:"],
@@ -385,7 +385,7 @@ if not df.empty:
                 folium.GeoJson(
                     sel.to_json(),
                     name=f"Assentamento {row['codigo']}",
-                    style_function=lambda x: {"color": "yellow", "weight":  0.3, "fillOpacity": 0.5},
+                    style_function=lambda x: {"color": "yellow", "weight": 0, "fillOpacity": 0.5},
                     tooltip=folium.GeoJsonTooltip(
                         fields=["nome_proje"],
                         aliases=["Assentamento:"],
@@ -405,7 +405,7 @@ if not df.empty:
                 folium.GeoJson(
                     sel_json.to_json(),
                     name=f"Quilombo {row['codigo']}",
-                    style_function=lambda x: {"color": "black", "weight":  0.3, "fillOpacity": 0.5},
+                    style_function=lambda x: {"color": "black", "weight": 0, "fillOpacity": 0.5},
                     tooltip=folium.GeoJsonTooltip(
                         fields=["name"],
                         aliases=["Quilombo:"],
@@ -421,7 +421,7 @@ if not df.empty:
                 folium.GeoJson(
                     sel.to_json(),
                     name=f"Bacia Micro {row['codigo']}",
-                    style_function=lambda x: {"color": "cyan", "weight":  0.3, "fillOpacity": 0.3},
+                    style_function=lambda x: {"color": "cyan", "weight": 0, "fillOpacity": 0.3},
                     tooltip=folium.GeoJsonTooltip(fields=[nome_col], aliases=["Bacia Micro:"], sticky=True)
                 ).add_to(mapa)
 
@@ -433,7 +433,7 @@ if not df.empty:
                 folium.GeoJson(
                     sel.to_json(),
                     name=f"Bacia Meso {row['codigo']}",
-                    style_function=lambda x: {"color": "blue", "weight":  0.3, "fillOpacity": 0.3},
+                    style_function=lambda x: {"color": "blue", "weight": 0, "fillOpacity": 0.3},
                     tooltip=folium.GeoJsonTooltip(fields=[nome_col], aliases=["Bacia Meso:"], sticky=True)
                 ).add_to(mapa)
 
@@ -445,7 +445,7 @@ if not df.empty:
                 folium.GeoJson(
                     sel.to_json(),
                     name=f"Bacia Macro {row['codigo']}",
-                    style_function=lambda x: {"color": "navy", "weight":  0.3, "fillOpacity": 0.3},
+                    style_function=lambda x: {"color": "navy", "weight": 0, "fillOpacity": 0.3},
                     tooltip=folium.GeoJsonTooltip(fields=[nome_col], aliases=["Bacia Macro:"], sticky=True)
                 ).add_to(mapa)
 
