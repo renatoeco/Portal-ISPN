@@ -2262,11 +2262,6 @@ with geral:
         margin=dict(t=60, b=60, l=40, r=10)
     )
 
-    # fig.update_traces(
-    #     marker_pattern_shape=["", "/", "\\", "x", "-", "|", "."],
-    # )
-
-
     # Mostrar
     st.plotly_chart(fig, use_container_width=True)
 
