@@ -17,7 +17,7 @@ st.set_page_config(layout="wide")
 
 
 db = conectar_mongo_portal_ispn()
-estatistica = db["estatistica"]
+#estatistica = db["estatistica"]
 
 
 ###########################################################################################################
@@ -88,12 +88,34 @@ def carregar_bacias_macro():
 
 
 ######################################################################
-# CARREGAR DADOS
+# CARREGAR DADOS DAS REGIÕES DE ATUAÇÃO (de projetos)
 ######################################################################
 
+colecoes = ["projetos_pf", "projetos_pj", "projetos_ispn"]
 
-# Dados cadastrados no Mongo
-df = pd.DataFrame(list(db.areas_atuacao.find()))
+regioes = []
+
+for nome_colecao in colecoes:
+    colecao = db[nome_colecao]
+    documentos = colecao.find({"regioes_atuacao": {"$exists": True, "$ne": []}})
+
+    for doc in documentos:
+        for regiao in doc.get("regioes_atuacao", []):
+            tipo = regiao.get("tipo")
+            codigo = regiao.get("codigo")
+
+            if tipo and codigo:
+                regioes.append({
+                    "tipo": tipo,
+                    "codigo": str(codigo),
+                    "colecao_origem": nome_colecao,
+                    "projeto_id": str(doc["_id"]),
+                    "nome_projeto": doc.get("nome_do_projeto", ""),
+                    "proponente": doc.get("proponente", "")
+                })
+
+# Converte para DataFrame
+df = pd.DataFrame(regioes)
 
 # Dados geográficos cacheados
 munis = carregar_municipios()
@@ -114,180 +136,6 @@ bacias_meso = carregar_bacias_meso().rename(
 bacias_macro = carregar_bacias_macro().rename(
     columns={"cd_macroRH": "codigo", "nm_macroRH": "nome"}
 )
-
-
-
-######################################################################
-# CADASTRAR NOVAS ÁREAS
-######################################################################
-
-
-st.sidebar.header("Cadastrar nova área de atuação")
-
-tipo_area = st.sidebar.selectbox(
-    "Tipo de área",
-    [
-        "Município", "Estado", "Terra Indígena", "Unidade de Conservação", "Bioma",
-        "Assentamento", "Quilombo",
-        "Bacia Hidrográfica - Macro", "Bacia Hidrográfica - Meso", "Bacia Hidrográfica - Micro"
-    ]
-)
-
-# ----------------------- MUNICÍPIOS -----------------------
-if tipo_area == "Município":
-    opcoes = munis[["code_muni", "name_muni", "abbrev_state"]]
-    selecao = st.sidebar.selectbox(
-        "Selecione o município",
-        opcoes.apply(lambda x: f"{x['name_muni']} - {x['abbrev_state']} ({int(x['code_muni'])})", axis=1)
-    )
-    if st.sidebar.button("Adicionar município"):
-        codigo = int(float(selecao.split("(")[-1].replace(")", "")))
-        if db.areas_atuacao.find_one({"tipo": "municipio", "codigo": codigo}):
-            st.sidebar.warning("Esse município já está cadastrado!")
-        else:
-            db.areas_atuacao.insert_one({"tipo": "municipio", "codigo": codigo})
-            st.sidebar.success("Município adicionado!")
-
-# ----------------------- ESTADOS -----------------------
-elif tipo_area == "Estado":
-    opcoes = estados[["code_state", "name_state"]]
-    selecao = st.sidebar.selectbox(
-        "Selecione o estado",
-        opcoes.apply(lambda x: f"{x['name_state']} ({x['code_state']})", axis=1)
-    )
-    if st.sidebar.button("Adicionar estado"):
-        codigo = int(float(selecao.split("(")[-1].replace(")", "")))
-        if db.areas_atuacao.find_one({"tipo": "estado", "codigo": codigo}):
-            st.sidebar.warning("Esse estado já está cadastrado!")
-        else:
-            db.areas_atuacao.insert_one({"tipo": "estado", "codigo": codigo})
-            st.sidebar.success("Estado adicionado!")
-
-# ----------------------- TERRAS INDÍGENAS -----------------------
-elif tipo_area == "Terra Indígena":
-    opcoes = terras_ind[["code_terrai", "terrai_nom"]]
-    selecao = st.sidebar.selectbox(
-        "Selecione a Terra Indígena",
-        opcoes.apply(lambda x: f"{x['terrai_nom']} ({int(x['code_terrai'])})", axis=1)
-    )
-    if st.sidebar.button("Adicionar TI"):
-        codigo = int(selecao.split("(")[-1].replace(")", ""))
-        if db.areas_atuacao.find_one({"tipo": "terra_indigena", "codigo": codigo}):
-            st.sidebar.warning("Essa Terra Indígena já está cadastrada!")
-        else:
-            db.areas_atuacao.insert_one({"tipo": "terra_indigena", "codigo": codigo})
-            st.sidebar.success("Terra Indígena adicionada!")
-
-# ----------------------- UNIDADES DE CONSERVAÇÃO -----------------------
-elif tipo_area == "Unidade de Conservação":
-    opcoes = uc[["code_conservation_unit", "name_conservation_unit"]]
-    selecao = st.sidebar.selectbox(
-        "Selecione a UC",
-        opcoes.apply(lambda x: f"{x['name_conservation_unit']} ({x['code_conservation_unit']})", axis=1)
-    )
-    if st.sidebar.button("Adicionar UC"):
-        codigo = int(float(selecao.split("(")[-1].replace(")", "")))
-        if db.areas_atuacao.find_one({"tipo": "uc", "codigo": codigo}):
-            st.sidebar.warning("Essa UC já está cadastrada!")
-        else:
-            db.areas_atuacao.insert_one({"tipo": "uc", "codigo": codigo})
-            st.sidebar.success("UC adicionada!")
-
-# ----------------------- BIOMAS -----------------------
-elif tipo_area == "Bioma":
-    opcoes = biomas[["code_biome", "name_biome"]].dropna(subset=["code_biome"])
-    selecao = st.sidebar.selectbox(
-        "Selecione o Bioma",
-        opcoes.apply(lambda x: f"{x['name_biome']} ({int(float(x['code_biome']))})", axis=1)
-    )
-    if st.sidebar.button("Adicionar Bioma"):
-        codigo = int(float(selecao.split("(")[-1].replace(")", "")))
-        if db.areas_atuacao.find_one({"tipo": "bioma", "codigo": codigo}):
-            st.sidebar.warning("Esse bioma já está cadastrado!")
-        else:
-            db.areas_atuacao.insert_one({"tipo": "bioma", "codigo": codigo})
-            st.sidebar.success("Bioma adicionado!")
-
-# ----------------------- ASSENTAMENTOS -----------------------
-elif tipo_area == "Assentamento":
-    opcoes = assentamentos[["cd_sipra", "nome_proje"]]
-    selecao = st.sidebar.selectbox(
-        "Selecione o Assentamento",
-        opcoes.apply(lambda x: f"{x['nome_proje']} ({x['cd_sipra']})", axis=1)
-    )
-    if st.sidebar.button("Adicionar Assentamento"):
-        codigo = selecao.split("(")[-1].replace(")", "").strip()
-        if db.areas_atuacao.find_one({"tipo": "assentamento", "codigo": codigo}):
-            st.sidebar.warning("Esse assentamento já está cadastrado!")
-        else:
-            db.areas_atuacao.insert_one({"tipo": "assentamento", "codigo": codigo})
-            st.sidebar.success("Assentamento adicionado!")
-
-# ----------------------- QUILOMBOS -----------------------
-elif tipo_area == "Quilombo":
-    opcoes = quilombos[["id", "name"]]
-    selecao = st.sidebar.selectbox(
-        "Selecione o Quilombo",
-        opcoes.apply(lambda x: f"{x['name']} ({x['id']})", axis=1)
-    )
-    if st.sidebar.button("Adicionar Quilombo"):
-        codigo = selecao.split("(")[-1].replace(")", "").strip()
-        if db.areas_atuacao.find_one({"tipo": "quilombo", "codigo": codigo}):
-            st.sidebar.warning("Esse quilombo já está cadastrado!")
-        else:
-            db.areas_atuacao.insert_one({"tipo": "quilombo", "codigo": codigo})
-            st.sidebar.success("Quilombo adicionado!")
-            
-# ----------------------- BACIA HIDROGRÁFICA - MICRO -----------------------
-elif tipo_area == "Bacia Hidrográfica - Micro":
-    nome_col = next((c for c in bacias_micro.columns if "nome" in c.lower() or "bacia" in c.lower()), None)
-    codigo_col = next((c for c in bacias_micro.columns if "cod" in c.lower() or "id" in c.lower()), None)
-    opcoes = bacias_micro[[codigo_col, nome_col]]
-    selecao = st.sidebar.selectbox(
-        "Selecione a Bacia (Micro)",
-        opcoes.apply(lambda x: f"{x[nome_col]} ({x[codigo_col]})", axis=1)
-    )
-    if st.sidebar.button("Adicionar Bacia Micro"):
-        codigo = selecao.split("(")[-1].replace(")", "").strip()
-        if db.areas_atuacao.find_one({"tipo": "bacia_micro", "codigo": codigo}):
-            st.sidebar.warning("Essa Bacia Micro já está cadastrada!")
-        else:
-            db.areas_atuacao.insert_one({"tipo": "bacia_micro", "codigo": codigo})
-            st.sidebar.success("Bacia Micro adicionada!")
-
-# ----------------------- BACIA HIDROGRÁFICA - MESO -----------------------
-elif tipo_area == "Bacia Hidrográfica - Meso":
-    nome_col = next((c for c in bacias_meso.columns if "nome" in c.lower() or "bacia" in c.lower()), None)
-    codigo_col = next((c for c in bacias_meso.columns if "cod" in c.lower() or "id" in c.lower()), None)
-    opcoes = bacias_meso[[codigo_col, nome_col]]
-    selecao = st.sidebar.selectbox(
-        "Selecione a Bacia (Meso)",
-        opcoes.apply(lambda x: f"{x[nome_col]} ({x[codigo_col]})", axis=1)
-    )
-    if st.sidebar.button("Adicionar Bacia Meso"):
-        codigo = selecao.split("(")[-1].replace(")", "").strip()
-        if db.areas_atuacao.find_one({"tipo": "bacia_meso", "codigo": codigo}):
-            st.sidebar.warning("Essa Bacia Meso já está cadastrada!")
-        else:
-            db.areas_atuacao.insert_one({"tipo": "bacia_meso", "codigo": codigo})
-            st.sidebar.success("Bacia Meso adicionada!")
-
-# ----------------------- BACIA HIDROGRÁFICA - MACRO -----------------------
-elif tipo_area == "Bacia Hidrográfica - Macro":
-    nome_col = next((c for c in bacias_macro.columns if "nome" in c.lower() or "bacia" in c.lower()), None)
-    codigo_col = next((c for c in bacias_macro.columns if "cod" in c.lower() or "id" in c.lower()), None)
-    opcoes = bacias_macro[[codigo_col, nome_col]]
-    selecao = st.sidebar.selectbox(
-        "Selecione a Bacia (Macro)",
-        opcoes.apply(lambda x: f"{x[nome_col]} ({x[codigo_col]})", axis=1)
-    )
-    if st.sidebar.button("Adicionar Bacia Macro"):
-        codigo = selecao.split("(")[-1].replace(")", "").strip()
-        if db.areas_atuacao.find_one({"tipo": "bacia_macro", "codigo": codigo}):
-            st.sidebar.warning("Essa Bacia Macro já está cadastrada!")
-        else:
-            db.areas_atuacao.insert_one({"tipo": "bacia_macro", "codigo": codigo})
-            st.sidebar.success("Bacia Macro adicionada!")
 
 
 ######################################################################
@@ -316,111 +164,89 @@ show_bacias_micro = st.checkbox("Bacias Hidrográficas - Micro", value=False)
 # Adiciona áreas de atuação cadastradas
 if not df.empty:
     for _, row in df.iterrows():
+        codigo_str = str(row["codigo"]).strip()  # garante tipo string e remove espaços
 
         if row["tipo"] == "municipio" and show_munis:
-            sel = munis[munis["code_muni"] == row["codigo"]]
-            folium.GeoJson(
-                sel,
-                name=f"Município {row['codigo']}", 
-                style_function=lambda x: {"color": "orange", "weight": 0, "fillOpacity": 0.6},
-                tooltip=folium.GeoJsonTooltip(fields=["name_muni"], aliases=["Município:"], sticky=True)
-            ).add_to(mapa)
-
-        elif row["tipo"] == "estado" and show_estados:
-            sel = estados[estados["code_state"] == row["codigo"]]
-            folium.GeoJson(
-                sel, 
-                name=f"Estado {row['codigo']}", 
-                style_function=lambda x: {"color": "purple", "weight": 0, "fillOpacity": 0.3}, 
-                tooltip=folium.GeoJsonTooltip(fields=["name_state"], aliases=["Estado:"], sticky=True)
-            ).add_to(mapa)
-
-        elif row["tipo"] == "terra_indigena" and show_terras_indigenas:
-            sel = terras_ind[terras_ind["code_terrai"] == row["codigo"]]
-            folium.GeoJson(
-                sel,
-                name=f"TI {row['codigo']}", 
-                style_function=lambda x: {"color": "brown", "weight": 0, "fillOpacity": 0.5},
-                tooltip=folium.GeoJsonTooltip(fields=["terrai_nom"], aliases=["Terra Indígena:"], sticky=True)
-            ).add_to(mapa)
-
-        elif row["tipo"] == "uc" and show_uc:
-            uc["code_conservation_unit"] = uc["code_conservation_unit"].astype(int)
-            codigo_uc = int(row["codigo"])
-            sel = uc[uc["code_conservation_unit"] == codigo_uc].copy()
+            sel = munis[munis["code_muni"].astype(str) == codigo_str]
             if not sel.empty:
-                sel["name_conservation_unit"] = sel["name_conservation_unit"].astype(str)
                 folium.GeoJson(
                     sel.to_json(),
-                    name=f"UC {codigo_uc}",
+                    name=f"Município {codigo_str}",
+                    style_function=lambda x: {"color": "orange", "weight": 0, "fillOpacity": 0.6},
+                    tooltip=folium.GeoJsonTooltip(fields=["name_muni"], aliases=["Município:"], sticky=True)
+                ).add_to(mapa)
+
+        elif row["tipo"] == "estado" and show_estados:
+            sel = estados[estados["code_state"].astype(str) == codigo_str]
+            if not sel.empty:
+                folium.GeoJson(
+                    sel.to_json(),
+                    name=f"Estado {codigo_str}",
+                    style_function=lambda x: {"color": "purple", "weight": 0, "fillOpacity": 0.3},
+                    tooltip=folium.GeoJsonTooltip(fields=["name_state"], aliases=["Estado:"], sticky=True)
+                ).add_to(mapa)
+
+        elif row["tipo"] == "terra_indigena" and show_terras_indigenas:
+            sel = terras_ind[terras_ind["code_terrai"].astype(str) == codigo_str]
+            if not sel.empty:
+                folium.GeoJson(
+                    sel.to_json(),
+                    name=f"TI {codigo_str}",
+                    style_function=lambda x: {"color": "brown", "weight": 0, "fillOpacity": 0.5},
+                    tooltip=folium.GeoJsonTooltip(fields=["terrai_nom"], aliases=["Terra Indígena:"], sticky=True)
+                ).add_to(mapa)
+
+        elif row["tipo"] == "uc" and show_uc:
+            sel = uc[uc["code_conservation_unit"].astype(str) == codigo_str]
+            if not sel.empty:
+                folium.GeoJson(
+                    sel.to_json(),
+                    name=f"UC {codigo_str}",
                     style_function=lambda x: {"color": "darkgreen", "weight": 0, "fillOpacity": 0.5},
-                    tooltip=folium.GeoJsonTooltip(
-                        fields=["name_conservation_unit"],
-                        aliases=["Unidade de Conservação:"],
-                        sticky=True
-                    )
+                    tooltip=folium.GeoJsonTooltip(fields=["name_conservation_unit"], aliases=["Unidade de Conservação:"], sticky=True)
                 ).add_to(mapa)
 
         elif row["tipo"] == "bioma" and show_biomas:
-            biomas = biomas.dropna(subset=["code_biome"]).copy()
-            biomas["code_biome"] = biomas["code_biome"].astype(int)
-            codigo_bioma = int(row["codigo"])
-            sel = biomas[biomas["code_biome"] == codigo_bioma].copy()
+            sel = biomas[biomas["code_biome"].astype(str) == codigo_str]
             if not sel.empty:
-                sel["name_biome"] = sel["name_biome"].astype(str)
                 folium.GeoJson(
                     sel.to_json(),
-                    name=f"Bioma {codigo_bioma}",
+                    name=f"Bioma {codigo_str}",
                     style_function=lambda x: {"color": "blue", "weight": 0, "fillOpacity": 0.3},
-                    tooltip=folium.GeoJsonTooltip(
-                        fields=["name_biome"],
-                        aliases=["Bioma:"],
-                        sticky=True
-                    )
+                    tooltip=folium.GeoJsonTooltip(fields=["name_biome"], aliases=["Bioma:"], sticky=True)
                 ).add_to(mapa)
 
         elif row["tipo"] == "assentamento" and show_assentamentos:
-            sel = assentamentos[assentamentos["cd_sipra"] == row["codigo"]]
+            sel = assentamentos[assentamentos["cd_sipra"].astype(str) == codigo_str]
             if not sel.empty:
                 folium.GeoJson(
                     sel.to_json(),
-                    name=f"Assentamento {row['codigo']}",
+                    name=f"Assentamento {codigo_str}",
                     style_function=lambda x: {"color": "yellow", "weight": 0, "fillOpacity": 0.5},
-                    tooltip=folium.GeoJsonTooltip(
-                        fields=["nome_proje"],
-                        aliases=["Assentamento:"],
-                        sticky=True
-                    )
+                    tooltip=folium.GeoJsonTooltip(fields=["nome_proje"], aliases=["Assentamento:"], sticky=True)
                 ).add_to(mapa)
 
         elif row["tipo"] == "quilombo" and show_quilombos:
-            sel = quilombos[quilombos["id"].astype(str) == str(row["codigo"])]
-
-            sel_json = sel.copy()
-
-            for col in sel_json.select_dtypes(include=["datetime64[ns]"]).columns:
-                sel_json[col] = sel_json[col].astype(str)
-
+            sel = quilombos[quilombos["id"].astype(str) == codigo_str]
             if not sel.empty:
+                sel_json = sel.copy()
+                for col in sel_json.select_dtypes(include=["datetime64[ns]"]).columns:
+                    sel_json[col] = sel_json[col].astype(str)
                 folium.GeoJson(
                     sel_json.to_json(),
-                    name=f"Quilombo {row['codigo']}",
+                    name=f"Quilombo {codigo_str}",
                     style_function=lambda x: {"color": "black", "weight": 0, "fillOpacity": 0.5},
-                    tooltip=folium.GeoJsonTooltip(
-                        fields=["name"],
-                        aliases=["Quilombo:"],
-                        sticky=True
-                    )
+                    tooltip=folium.GeoJsonTooltip(fields=["name"], aliases=["Quilombo:"], sticky=True)
                 ).add_to(mapa)
-                
+
         elif row["tipo"] == "bacia_micro" and show_bacias_micro:
             nome_col = next((c for c in bacias_micro.columns if "nome" in c.lower() or "bacia" in c.lower()), "nome")
             codigo_col = next((c for c in bacias_micro.columns if "cod" in c.lower() or "id" in c.lower()), "codigo")
-            sel = bacias_micro[bacias_micro[codigo_col].astype(str) == str(row["codigo"])]
+            sel = bacias_micro[bacias_micro[codigo_col].astype(str) == codigo_str]
             if not sel.empty:
                 folium.GeoJson(
                     sel.to_json(),
-                    name=f"Bacia Micro {row['codigo']}",
+                    name=f"Bacia Micro {codigo_str}",
                     style_function=lambda x: {"color": "cyan", "weight": 0, "fillOpacity": 0.3},
                     tooltip=folium.GeoJsonTooltip(fields=[nome_col], aliases=["Bacia Micro:"], sticky=True)
                 ).add_to(mapa)
@@ -428,11 +254,11 @@ if not df.empty:
         elif row["tipo"] == "bacia_meso" and show_bacias_meso:
             nome_col = next((c for c in bacias_meso.columns if "nome" in c.lower() or "bacia" in c.lower()), "nome")
             codigo_col = next((c for c in bacias_meso.columns if "cod" in c.lower() or "id" in c.lower()), "codigo")
-            sel = bacias_meso[bacias_meso[codigo_col].astype(str) == str(row["codigo"])]
+            sel = bacias_meso[bacias_meso[codigo_col].astype(str) == codigo_str]
             if not sel.empty:
                 folium.GeoJson(
                     sel.to_json(),
-                    name=f"Bacia Meso {row['codigo']}",
+                    name=f"Bacia Meso {codigo_str}",
                     style_function=lambda x: {"color": "blue", "weight": 0, "fillOpacity": 0.3},
                     tooltip=folium.GeoJsonTooltip(fields=[nome_col], aliases=["Bacia Meso:"], sticky=True)
                 ).add_to(mapa)
@@ -440,14 +266,15 @@ if not df.empty:
         elif row["tipo"] == "bacia_macro" and show_bacias_macro:
             nome_col = next((c for c in bacias_macro.columns if "nome" in c.lower() or "bacia" in c.lower()), "nome")
             codigo_col = next((c for c in bacias_macro.columns if "cod" in c.lower() or "id" in c.lower()), "codigo")
-            sel = bacias_macro[bacias_macro[codigo_col].astype(str) == str(row["codigo"])]
+            sel = bacias_macro[bacias_macro[codigo_col].astype(str) == codigo_str]
             if not sel.empty:
                 folium.GeoJson(
                     sel.to_json(),
-                    name=f"Bacia Macro {row['codigo']}",
+                    name=f"Bacia Macro {codigo_str}",
                     style_function=lambda x: {"color": "navy", "weight": 0, "fillOpacity": 0.3},
                     tooltip=folium.GeoJsonTooltip(fields=[nome_col], aliases=["Bacia Macro:"], sticky=True)
                 ).add_to(mapa)
+
 
 
 # Adiciona controle de camadas

@@ -15,7 +15,8 @@ from funcoes_auxiliares import conectar_mongo_portal_ispn
 
 st.set_page_config(page_title="Relatórios de Visitação - ISPN", layout="wide")
 st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
-st.title("Relatórios de Visitação dos Sites do ISPN")
+st.header("Relatórios de Visitação dos Sites do ISPN")
+st.write("")
 
 db = conectar_mongo_portal_ispn()
 
@@ -156,7 +157,7 @@ abas = st.tabs(["Visão Geral"] + list(SITES.keys()))
 # ---------------------------------------------------------------------------------
 
 with abas[0]:
-    st.header("Visão Geral")
+    #st.header("Visão Geral")
     
     st.write("")
     st.write("")
