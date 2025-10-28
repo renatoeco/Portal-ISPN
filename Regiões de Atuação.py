@@ -144,27 +144,21 @@ biomas = corrigir_codigo(carregar_biomas(), "code_biome")
 biomas["geometry"] = biomas["geometry"].simplify(tolerance=0.01, preserve_topology=True)
 
 assentamentos = carregar_assentamentos()
-assentamentos["geometry"] = assentamentos["geometry"].simplify(tolerance=0.01, preserve_topology=True)
 
 quilombos = carregar_quilombos()
-quilombos["geometry"] = quilombos["geometry"].simplify(tolerance=0.01, preserve_topology=True)
 
 # --- Carregar e padronizar nomes das colunas das bacias ---
 bacias_micro = carregar_bacias_micro().rename(
     columns={"cd_microRH": "codigo", "nm_microRH": "nome"}
 )
-bacias_micro["geometry"] = bacias_micro["geometry"].simplify(tolerance=0.01, preserve_topology=True)
-
 
 bacias_meso = carregar_bacias_meso().rename(
     columns={"cd_mesoRH": "codigo", "nm_mesoRH": "nome"}
 )
-bacias_meso["geometry"] = bacias_meso["geometry"].simplify(tolerance=0.01, preserve_topology=True)
 
 bacias_macro = carregar_bacias_macro().rename(
     columns={"cd_macroRH": "codigo", "nm_macroRH": "nome"}
 )
-bacias_macro["geometry"] = bacias_macro["geometry"].simplify(tolerance=0.01, preserve_topology=True)
 
 
 ######################################################################
@@ -195,9 +189,6 @@ show_bacias_micro = st.checkbox("Bacias Hidrográficas - Micro", value=False)
 # AGRUPAR REGIÕES E CONTAR PROJETOS
 ######################################################################
 
-# Garante que todos os códigos são strings sem espaços
-df["codigo"] = df["codigo"].astype(str).str.strip()
-df["tipo"] = df["tipo"].astype(str).str.strip()
 
 # Contagem de quantos projetos estão em cada região
 contagem = df.groupby(["tipo", "codigo"]).size().reset_index(name="qtd_projetos")
@@ -209,138 +200,196 @@ df_unico = (
     .fillna({"qtd_projetos": 0})
 )
 
-# Adiciona áreas de atuação cadastradas
+
+######################################################################
+# FUNÇÃO DE NORMALIZAÇÃO DE CÓDIGOS
+######################################################################
+
+
+def normalizar_codigo(valor):
+    """Padroniza o código para comparação (sem espaços, zeros à esquerda, sufixos .0 etc)."""
+    if pd.isna(valor):
+        return ""
+    return str(valor).strip().replace(".0", "").replace(",", "").replace(" ", "")
+
+
+######################################################################
+# PADRONIZAR CÓDIGOS EM TODOS OS DATAFRAMES GEOGRÁFICOS
+######################################################################
+
+# MongoDB
+df["codigo"] = df["codigo"].apply(normalizar_codigo)
+df["tipo"] = df["tipo"].astype(str).str.strip()
+
+# Shapefiles
+def aplicar_normalizacao(df_geo, coluna_codigo):
+    if coluna_codigo in df_geo.columns:
+        df_geo[coluna_codigo] = df_geo[coluna_codigo].apply(normalizar_codigo)
+        df_geo["codigo_norm"] = df_geo[coluna_codigo]
+    else:
+        df_geo["codigo_norm"] = ""
+    return df_geo
+
+munis = aplicar_normalizacao(munis, "code_muni")
+estados = aplicar_normalizacao(estados, "code_state")
+terras_ind = aplicar_normalizacao(terras_ind, "code_terrai")
+uc = aplicar_normalizacao(uc, "code_conservation_unit")
+biomas = aplicar_normalizacao(biomas, "code_biome")
+assentamentos = aplicar_normalizacao(assentamentos, "cd_sipra")
+quilombos = aplicar_normalizacao(quilombos, "id")
+
+bacias_micro = aplicar_normalizacao(bacias_micro, "codigo")
+bacias_meso = aplicar_normalizacao(bacias_meso, "codigo")
+bacias_macro = aplicar_normalizacao(bacias_macro, "codigo")
+
+
+######################################################################
+# PLOTAGEM DAS REGIÕES 
+######################################################################
+
 if not df.empty:
     for _, row in df_unico.iterrows():
-        codigo_str = str(row["codigo"]).strip()
+        codigo_str = normalizar_codigo(row["codigo"])
         qtd = int(row.get("qtd_projetos", 0))
 
         if row["tipo"] == "municipio" and show_munis:
-            sel = munis[munis["code_muni"].astype(str).str.strip() == codigo_str]
+            sel = munis[munis["codigo_norm"] == codigo_str]
             if not sel.empty:
                 sel = sel.copy()
-                sel["tooltip_info"] = sel["name_muni"] + f" — {qtd} projeto(s)"
+                sel.loc[:, "tooltip_info"] = sel["name_muni"] + f" — {qtd} projeto(s)"
+                sel_copy = sel.copy()
+                sel_copy = sel_copy.apply(lambda col: col.map(lambda x: x.isoformat() if isinstance(x, pd.Timestamp) else x))
                 folium.GeoJson(
-                    sel.to_json(),
+                    sel_copy.to_json(),
                     name=f"Município {codigo_str}",
                     style_function=lambda x: {"color": "orange", "weight": 0, "fillOpacity": 0.6},
-                    tooltip=folium.GeoJsonTooltip(fields=["tooltip_info"], aliases=["Município:"], sticky=True, labels=True)
+                    tooltip=folium.GeoJsonTooltip(fields=["tooltip_info"], aliases=["Município:"], sticky=True)
                 ).add_to(mapa)
 
         elif row["tipo"] == "estado" and show_estados:
-            sel = estados[estados["code_state"].astype(str).str.strip() == codigo_str]
+            sel = estados[estados["codigo_norm"] == codigo_str]
             if not sel.empty:
                 sel = sel.copy()
-                sel["tooltip_info"] = sel["name_state"] + f" — {qtd} projeto(s)"
+                sel.loc[:, "tooltip_info"] = sel["name_state"] + f" — {qtd} projeto(s)"
+                sel_copy = sel.copy()
+                sel_copy = sel_copy.apply(lambda col: col.map(lambda x: x.isoformat() if isinstance(x, pd.Timestamp) else x))
                 folium.GeoJson(
-                    sel.to_json(),
+                    sel_copy.to_json(),
                     name=f"Estado {codigo_str}",
                     style_function=lambda x: {"color": "purple", "weight": 0, "fillOpacity": 0.3},
-                    tooltip=folium.GeoJsonTooltip(fields=["tooltip_info"], aliases=["Estado:"], sticky=True, labels=True)
+                    tooltip=folium.GeoJsonTooltip(fields=["tooltip_info"], aliases=["Estado:"], sticky=True)
                 ).add_to(mapa)
 
         elif row["tipo"] == "terra_indigena" and show_terras_indigenas:
-            sel = terras_ind[terras_ind["code_terrai"].astype(str) == codigo_str]
+            sel = terras_ind[terras_ind["codigo_norm"] == codigo_str]
             if not sel.empty:
                 sel = sel.copy()
-                sel["tooltip_info"] = sel["terrai_nom"] + f" — {qtd} projeto(s)"
+                sel.loc[:, "tooltip_info"] = sel["terrai_nom"] + f" — {qtd} projeto(s)"
+                sel_copy = sel.copy()
+                sel_copy = sel_copy.apply(lambda col: col.map(lambda x: x.isoformat() if isinstance(x, pd.Timestamp) else x))
                 folium.GeoJson(
-                    sel.to_json(),
+                    sel_copy.to_json(),
                     name=f"TI {codigo_str}",
                     style_function=lambda x: {"color": "brown", "weight": 0, "fillOpacity": 0.5},
-                    tooltip=folium.GeoJsonTooltip(fields=["tooltip_info"], aliases=["Terra Indígena:"], sticky=True, labels=True)
+                    tooltip=folium.GeoJsonTooltip(fields=["tooltip_info"], aliases=["Terra Indígena:"], sticky=True)
                 ).add_to(mapa)
 
         elif row["tipo"] == "uc" and show_uc:
-            sel = uc[uc["code_conservation_unit"].astype(str) == codigo_str]
+            sel = uc[uc["codigo_norm"] == codigo_str]
             if not sel.empty:
                 sel = sel.copy()
-                sel["tooltip_info"] = sel["name_conservation_unit"] + f" — {qtd} projeto(s)"
+                sel.loc[:, "tooltip_info"] = sel["name_conservation_unit"] + f" — {qtd} projeto(s)"
+                sel_copy = sel.copy()
+                sel_copy = sel_copy.apply(lambda col: col.map(lambda x: x.isoformat() if isinstance(x, pd.Timestamp) else x))
                 folium.GeoJson(
-                    sel.to_json(),
+                    sel_copy.to_json(),
                     name=f"UC {codigo_str}",
                     style_function=lambda x: {"color": "darkgreen", "weight": 0, "fillOpacity": 0.5},
-                    tooltip=folium.GeoJsonTooltip(fields=["tooltip_info"], aliases=["Unidade de Conservação:"], sticky=True, labels=True)
+                    tooltip=folium.GeoJsonTooltip(fields=["tooltip_info"], aliases=["UC:"], sticky=True)
                 ).add_to(mapa)
 
         elif row["tipo"] == "bioma" and show_biomas:
-            sel = biomas[biomas["code_biome"].astype(str) == codigo_str]
+            sel = biomas[biomas["codigo_norm"] == codigo_str]
             if not sel.empty:
                 sel = sel.copy()
-                sel["tooltip_info"] = sel["name_biome"] + f" — {qtd} projeto(s)"
+                sel.loc[:, "tooltip_info"] = sel["name_biome"] + f" — {qtd} projeto(s)"
+                sel_copy = sel.copy()
+                sel_copy = sel_copy.apply(lambda col: col.map(lambda x: x.isoformat() if isinstance(x, pd.Timestamp) else x))
                 folium.GeoJson(
-                    sel.to_json(),
+                    sel_copy.to_json(),
                     name=f"Bioma {codigo_str}",
                     style_function=lambda x: {"color": "blue", "weight": 0, "fillOpacity": 0.3},
-                    tooltip=folium.GeoJsonTooltip(fields=["tooltip_info"], aliases=["Bioma:"], sticky=True, labels=True)
+                    tooltip=folium.GeoJsonTooltip(fields=["tooltip_info"], aliases=["Bioma:"], sticky=True)
                 ).add_to(mapa)
 
         elif row["tipo"] == "assentamento" and show_assentamentos:
-            sel = assentamentos[assentamentos["cd_sipra"].astype(str) == codigo_str]
+            sel = assentamentos[assentamentos["codigo_norm"] == codigo_str]
             if not sel.empty:
                 sel = sel.copy()
-                sel["tooltip_info"] = sel["nome_proje"] + f" — {qtd} projeto(s)"
+                sel.loc[:, "tooltip_info"] = sel["nome_proje"] + f" — {qtd} projeto(s)"
+                sel_copy = sel.copy()
+                sel_copy = sel_copy.apply(lambda col: col.map(lambda x: x.isoformat() if isinstance(x, pd.Timestamp) else x))
                 folium.GeoJson(
-                    sel.to_json(),
+                    sel_copy.to_json(),
                     name=f"Assentamento {codigo_str}",
                     style_function=lambda x: {"color": "yellow", "weight": 0, "fillOpacity": 0.5},
-                    tooltip=folium.GeoJsonTooltip(fields=["tooltip_info"], aliases=["Assentamento:"], sticky=True, labels=True)
+                    tooltip=folium.GeoJsonTooltip(fields=["tooltip_info"], aliases=["Assentamento:"], sticky=True)
                 ).add_to(mapa)
 
         elif row["tipo"] == "quilombo" and show_quilombos:
-            sel = quilombos[quilombos["id"].astype(str) == codigo_str]
+            sel = quilombos[quilombos["codigo_norm"] == codigo_str]
             if not sel.empty:
                 sel = sel.copy()
-                sel["tooltip_info"] = sel["name"] + f" — {qtd} projeto(s)"
-                for col in sel.select_dtypes(include=["datetime64[ns]"]).columns:
-                    sel[col] = sel[col].astype(str)
+                sel.loc[:, "tooltip_info"] = sel["name"] + f" — {qtd} projeto(s)"
+                sel_copy = sel.copy()
+                sel_copy = sel_copy.apply(lambda col: col.map(lambda x: x.isoformat() if isinstance(x, pd.Timestamp) else x))
                 folium.GeoJson(
-                    sel.to_json(),
+                    sel_copy.to_json(),
                     name=f"Quilombo {codigo_str}",
                     style_function=lambda x: {"color": "black", "weight": 0, "fillOpacity": 0.5},
-                    tooltip=folium.GeoJsonTooltip(fields=["tooltip_info"], aliases=["Quilombo:"], sticky=True, labels=True)
+                    tooltip=folium.GeoJsonTooltip(fields=["tooltip_info"], aliases=["Quilombo:"], sticky=True)
                 ).add_to(mapa)
 
         elif row["tipo"] == "bacia_micro" and show_bacias_micro:
-            nome_col = next((c for c in bacias_micro.columns if "nome" in c.lower() or "bacia" in c.lower()), "nome")
-            codigo_col = next((c for c in bacias_micro.columns if "cod" in c.lower() or "id" in c.lower()), "codigo")
-            sel = bacias_micro[bacias_micro[codigo_col].astype(str) == codigo_str]
+            sel = bacias_micro[bacias_micro["codigo_norm"] == codigo_str]
             if not sel.empty:
                 sel = sel.copy()
-                sel["tooltip_info"] = sel[nome_col] + f" — {qtd} projeto(s)"
+                sel.loc[:, "tooltip_info"] = sel["nome"] + f" — {qtd} projeto(s)"
+                sel_copy = sel.copy()
+                sel_copy = sel_copy.apply(lambda col: col.map(lambda x: x.isoformat() if isinstance(x, pd.Timestamp) else x))
                 folium.GeoJson(
-                    sel.to_json(),
+                    sel_copy.to_json(),
                     name=f"Bacia Micro {codigo_str}",
                     style_function=lambda x: {"color": "cyan", "weight": 0, "fillOpacity": 0.3},
-                    tooltip=folium.GeoJsonTooltip(fields=["tooltip_info"], aliases=["Bacia Micro:"], sticky=True, labels=True)
+                    tooltip=folium.GeoJsonTooltip(fields=["tooltip_info"], aliases=["Bacia Micro:"], sticky=True)
                 ).add_to(mapa)
 
         elif row["tipo"] == "bacia_meso" and show_bacias_meso:
-            nome_col = next((c for c in bacias_meso.columns if "nome" in c.lower() or "bacia" in c.lower()), "nome")
-            codigo_col = next((c for c in bacias_meso.columns if "cod" in c.lower() or "id" in c.lower()), "codigo")
-            sel = bacias_meso[bacias_meso[codigo_col].astype(str) == codigo_str]
+            sel = bacias_meso[bacias_meso["codigo_norm"] == codigo_str]
             if not sel.empty:
                 sel = sel.copy()
-                sel["tooltip_info"] = sel[nome_col] + f" — {qtd} projeto(s)"
+                sel.loc[:, "tooltip_info"] = sel["nome"] + f" — {qtd} projeto(s)"
+                sel_copy = sel.copy()
+                sel_copy = sel_copy.apply(lambda col: col.map(lambda x: x.isoformat() if isinstance(x, pd.Timestamp) else x))
                 folium.GeoJson(
-                    sel.to_json(),
+                    sel_copy.to_json(),
                     name=f"Bacia Meso {codigo_str}",
                     style_function=lambda x: {"color": "blue", "weight": 0, "fillOpacity": 0.3},
-                    tooltip=folium.GeoJsonTooltip(fields=["tooltip_info"], aliases=["Bacia Meso:"], sticky=True, labels=True)
+                    tooltip=folium.GeoJsonTooltip(fields=["tooltip_info"], aliases=["Bacia Meso:"], sticky=True)
                 ).add_to(mapa)
 
         elif row["tipo"] == "bacia_macro" and show_bacias_macro:
-            nome_col = next((c for c in bacias_macro.columns if "nome" in c.lower() or "bacia" in c.lower()), "nome")
-            codigo_col = next((c for c in bacias_macro.columns if "cod" in c.lower() or "id" in c.lower()), "codigo")
-            sel = bacias_macro[bacias_macro[codigo_col].astype(str) == codigo_str]
+            sel = bacias_macro[bacias_macro["codigo_norm"] == codigo_str]
             if not sel.empty:
                 sel = sel.copy()
-                sel["tooltip_info"] = sel[nome_col] + f" — {qtd} projeto(s)"
+                sel.loc[:, "tooltip_info"] = sel["nome"] + f" — {qtd} projeto(s)"
+                sel_copy = sel.copy()
+                sel_copy = sel_copy.apply(lambda col: col.map(lambda x: x.isoformat() if isinstance(x, pd.Timestamp) else x))
                 folium.GeoJson(
-                    sel.to_json(),
+                    sel_copy.to_json(),
                     name=f"Bacia Macro {codigo_str}",
                     style_function=lambda x: {"color": "navy", "weight": 0, "fillOpacity": 0.3},
-                    tooltip=folium.GeoJsonTooltip(fields=["tooltip_info"], aliases=["Bacia Macro:"], sticky=True, labels=True)
+                    tooltip=folium.GeoJsonTooltip(fields=["tooltip_info"], aliases=["Bacia Macro:"], sticky=True)
                 ).add_to(mapa)
 
 # Adiciona controle de camadas
