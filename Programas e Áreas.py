@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 from funcoes_auxiliares import conectar_mongo_portal_ispn
 from pymongo import UpdateOne
+from bson import ObjectId
+import time
 import datetime
 import plotly.express as px
 
@@ -19,6 +21,7 @@ estatistica = db["estatistica"]  # Coleção de estatísticas
 
 programas_areas = db["programas_areas"]
 projetos_ispn = db["projetos_ispn"] 
+estrategia = db["estrategia"] 
 doadores = db["doadores"]
 colaboradores_raw = list(db["pessoas"].find())
 
@@ -107,6 +110,224 @@ moedas = {
     "euro": "€"
 }
 
+
+@st.dialog("Gerenciar programa", width="large")
+def gerenciar_programa_dialog(programa):
+
+    # Busca o documento completo do programa
+    programa_doc = programas_areas.find_one({"_id": ObjectId(programa["id"])})
+    nome_atual = programa_doc.get("nome_programa_area", "")
+    coordenador_id_atual = str(programa_doc.get("coordenador_id", ""))
+    acoes_estrategicas = programa_doc.get("acoes_estrategicas", [])
+
+    dados_estrategia = list(estrategia.find({}))
+
+    resultados_medio = []
+    resultados_longo = []
+
+    for doc in dados_estrategia:
+        if "resultados_medio_prazo" in doc:
+            resultados_medio.extend(
+                [r.get("titulo") for r in doc["resultados_medio_prazo"].get("resultados_mp", []) if r.get("titulo")]
+            )
+        if "resultados_longo_prazo" in doc:
+            resultados_longo.extend(
+                [r.get("titulo") for r in doc["resultados_longo_prazo"].get("resultados_lp", []) if r.get("titulo")]
+            )
+
+    # ------------------- Aba principal -------------------
+    aba_principal, aba_acoes = st.tabs(["Informações Gerais", "Ações Estratégicas"])
+
+    # ======================================================
+    # ABA 1 - INFORMAÇÕES GERAIS
+    # ======================================================
+    with aba_principal:
+
+        # Lista de coordenadores (sem mostrar ID no selectbox)
+        nomes_coordenadores_lista = [
+            c.get("nome_completo", "")
+            for c in colaboradores_raw
+            if c.get("status", "").lower() == "ativo"
+        ]
+
+        # Obter nome do coordenador atual (se houver)
+        nome_coordenador_atual = colaborador_id_para_nome.get(coordenador_id_atual, "")
+
+        modo_edicao = st.toggle("Editar", value=False)
+
+        st.write("")
+
+        if not modo_edicao:
+
+            col1, col2 = st.columns(2)
+
+            col1.write(f"**Nome do programa**: {nome_atual}")
+            col2.write(f"**Coordenador**: {nome_coordenador_atual}")
+
+        else:
+
+            with st.form(key=f"form_programa_{programa['id']}", clear_on_submit=False, border=False):
+                #st.markdown("### Informações do Programa")
+
+                novo_nome = st.text_input("Nome do programa", value=nome_atual)
+
+                # Selecionar coordenador pelo nome
+                coordenador_selecionado = st.selectbox(
+                    "Coordenador(a)",
+                    nomes_coordenadores_lista,
+                    index=nomes_coordenadores_lista.index(nome_coordenador_atual)
+                    if nome_coordenador_atual in nomes_coordenadores_lista
+                    else 0,
+                    key=f"coord_{programa['id']}"
+                )
+
+                # Descobrir o _id do coordenador selecionado
+                coordenador_id_novo = next(
+                    (
+                        str(c["_id"])
+                        for c in colaboradores_raw
+                        if c.get("nome_completo", "") == coordenador_selecionado
+                    ),
+                    ""
+                )
+
+                st.write("")
+
+                # Botão salvar
+                salvar = st.form_submit_button("Salvar alterações", use_container_width=False)
+
+                if salvar:
+                    programas_areas.update_one(
+                        {"_id": ObjectId(programa["id"])},
+                        {"$set": {
+                            "nome_programa_area": novo_nome,
+                            "coordenador_id": ObjectId(coordenador_id_novo) if coordenador_id_novo else None
+                        }}
+                    )
+                    st.success("Informações atualizadas com sucesso!")
+                    st.rerun()
+
+    # ======================================================
+    # ABA 2 - AÇÕES ESTRATÉGICAS
+    # ======================================================
+    with aba_acoes:
+
+        # ---------------- EXPANDER PARA ADICIONAR AÇÃO ----------------
+        with st.expander("Adicionar nova ação estratégica", expanded=False, icon=":material/add_notes:"):
+
+            with st.form(key=f"form_add_acao_{programa['id']}", clear_on_submit=True, border=False):
+                nova_acao = st.text_input("Título da nova ação estratégica")
+
+                resultados_mp_sel = st.multiselect(
+                    "Contribui com quais resultados de médio prazo?",
+                    options=resultados_medio,
+                    key=f"mp_add_{programa['id']}",
+                    placeholder=""
+                )
+
+                resultados_lp_sel = st.multiselect(
+                    "Contribui com quais resultados de longo prazo?",
+                    options=resultados_longo,
+                    key=f"lp_add_{programa['id']}",
+                    placeholder=""
+                )
+
+                st.write("")
+
+                adicionar = st.form_submit_button("Adicionar ação", use_container_width=False)
+                if adicionar and nova_acao.strip():
+                    nova_entrada = {
+                        "acao_estrategica": nova_acao.strip(),
+                        "resultados_medio_prazo_relacionados": resultados_mp_sel,
+                        "resultados_longo_prazo_relacionados": resultados_lp_sel
+                    }
+                    programas_areas.update_one(
+                        {"_id": ObjectId(programa["id"])},
+                        {"$push": {"acoes_estrategicas": nova_entrada}}
+                    )
+                    st.success("Nova ação adicionada com sucesso!")
+                    time.sleep(2)
+                    st.rerun()
+
+        # ---------------- EDITAR AÇÃO EXISTENTE ----------------
+        if acoes_estrategicas:
+
+            st.write("")
+            st.write("**Ações estratégicas registradas:**")
+
+            for idx, acao in enumerate(acoes_estrategicas):
+                titulo_atual = acao.get("acao_estrategica", "")
+                relacionados_mp = acao.get("resultados_medio_prazo_relacionados", [])
+                relacionados_lp = acao.get("resultados_longo_prazo_relacionados", [])
+
+                with st.expander(f"{titulo_atual or 'Sem título'}", expanded=False):
+                    toggle_edicao = st.toggle(
+                        "Editar ação",
+                        key=f"toggle_edicao_acao_{programa['id']}_{idx}",
+                        value=False
+                    )
+
+                    if toggle_edicao:
+                        # ---------------- MODO EDIÇÃO ----------------
+                        novo_titulo = st.text_input(
+                            "Título da ação estratégica",
+                            value=titulo_atual,
+                            key=f"titulo_{idx}"
+                        )
+
+                        resultados_mp_sel = st.multiselect(
+                            "Contribui com quais resultados de médio prazo?",
+                            options=resultados_medio,
+                            default=relacionados_mp,
+                            key=f"mp_edit_{idx}",
+                        )
+
+                        resultados_lp_sel = st.multiselect(
+                            "Contribui com quais resultados de longo prazo?",
+                            options=resultados_longo,
+                            default=relacionados_lp,
+                            key=f"lp_edit_{idx}"
+                        )
+
+                        st.write("")
+                        botoes = st.container(horizontal=True)
+
+                        if botoes.button("Salvar alterações", key=f"salvar_acao_{idx}"):
+                            programas_areas.update_one(
+                                {
+                                    "_id": ObjectId(programa["id"]),
+                                    "acoes_estrategicas.acao_estrategica": titulo_atual
+                                },
+                                {
+                                    "$set": {
+                                        "acoes_estrategicas.$.acao_estrategica": novo_titulo,
+                                        "acoes_estrategicas.$.resultados_medio_prazo_relacionados": resultados_mp_sel,
+                                        "acoes_estrategicas.$.resultados_longo_prazo_relacionados": resultados_lp_sel
+                                    }
+                                }
+                            )
+                            st.success("Ação estratégica atualizada com sucesso!")
+                            time.sleep(2)
+            
+
+                    else:
+                        # ---------------- MODO VISUALIZAÇÃO ----------------
+                        st.markdown(f"**Ação estratégica:** {titulo_atual}")
+
+                        st.write("")
+
+                        if relacionados_mp:
+                            st.markdown("**Contribui com os seguintes resultados de médio prazo:**")
+                            for r in relacionados_mp:
+                                st.markdown(f"- {r}")
+
+                        if relacionados_lp:
+                            st.markdown("**Contribui com os seguintes resultados de longo prazo:**")
+                            for r in relacionados_lp:
+                                st.markdown(f"- {r}")
+
+
+
 ######################################################################################################
 # TRATAMENTO DOS DADOS
 ######################################################################################################
@@ -131,7 +352,7 @@ if programas_sem_coordenador:
             for pessoa in colaboradores_raw:
                 if (
                     pessoa.get("tipo de usuário", "").strip().lower() == "coordenador"
-                    and pessoa.get("programa_area", "").strip() == nome_programa.strip()
+                    and str(pessoa.get("programa_area", "")).strip() == nome_programa.strip()
                 ):
                     novo_id = pessoa["_id"]
                     atualizacoes.append(UpdateOne(
@@ -307,6 +528,21 @@ for i, aba in enumerate(abas):
 
         st.write("")
 
+        programas_dialog = list(programas_areas.find({}))
+
+        if set(st.session_state.get("tipo_usuario", [])) & {"admin", "coordenador(a)"}:
+        
+            container_botoes = st.container(horizontal=True, horizontal_alignment="right")
+
+            container_botoes.button(
+                "Gerenciar programa",
+                key=f"btn_gerenciar_{programa['id']}",
+                on_click=lambda prog=programa: gerenciar_programa_dialog(prog),
+                width=260,
+                icon=":material/contract_edit:"
+            )
+
+
         col1, col2 = st.columns([2, 1])
 
         with col1:
@@ -386,10 +622,6 @@ for i, aba in enumerate(abas):
         st.plotly_chart(fig)
 
         st.divider()
-
-
-
-
 
 
         # PROJETOS #################################################################################################
