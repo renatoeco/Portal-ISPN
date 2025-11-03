@@ -124,6 +124,7 @@ def gerenciar_programa_dialog(programa):
 
     resultados_medio = []
     resultados_longo = []
+    eixos_da_estrategia = []
 
     for doc in dados_estrategia:
         if "resultados_medio_prazo" in doc:
@@ -134,6 +135,11 @@ def gerenciar_programa_dialog(programa):
             resultados_longo.extend(
                 [r.get("titulo") for r in doc["resultados_longo_prazo"].get("resultados_lp", []) if r.get("titulo")]
             )
+        if "eixos_da_estrategia" in doc and isinstance(doc["eixos_da_estrategia"], list):
+            eixos_da_estrategia.extend(
+                [e.get("eixo") for e in doc["eixos_da_estrategia"] if isinstance(e, dict) and e.get("eixo")]
+            )
+
 
     # ------------------- Aba principal -------------------
     aba_principal, aba_acoes = st.tabs(["Informações Gerais", "Ações Estratégicas"])
@@ -218,6 +224,13 @@ def gerenciar_programa_dialog(programa):
             with st.form(key=f"form_add_acao_{programa['id']}", clear_on_submit=True, border=False):
                 nova_acao = st.text_input("Título da nova ação estratégica")
 
+                eixo_sel = st.selectbox(
+                    "Contribui com quais eixos da estratégia?",
+                    options=eixos_da_estrategia,
+                    index=None,
+                    placeholder=""
+                )
+
                 resultados_mp_sel = st.multiselect(
                     "Contribui com quais resultados de médio prazo?",
                     options=resultados_medio,
@@ -238,6 +251,7 @@ def gerenciar_programa_dialog(programa):
                 if adicionar and nova_acao.strip():
                     nova_entrada = {
                         "acao_estrategica": nova_acao.strip(),
+                        "eixo_relacionado": eixo_sel or "",
                         "resultados_medio_prazo_relacionados": resultados_mp_sel,
                         "resultados_longo_prazo_relacionados": resultados_lp_sel
                     }
@@ -257,6 +271,7 @@ def gerenciar_programa_dialog(programa):
 
             for idx, acao in enumerate(acoes_estrategicas):
                 titulo_atual = acao.get("acao_estrategica", "")
+                eixo_atual = acao.get("eixo_da_estrategia", "")
                 relacionados_mp = acao.get("resultados_medio_prazo_relacionados", [])
                 relacionados_lp = acao.get("resultados_longo_prazo_relacionados", [])
 
@@ -275,10 +290,20 @@ def gerenciar_programa_dialog(programa):
                             key=f"titulo_{idx}"
                         )
 
+                        eixo_sel = st.selectbox(
+                            "Contribui com quais eixos da estratégia?",
+                            options=eixos_da_estrategia,
+                            index=eixos_da_estrategia.index(eixo_atual)
+                            if eixo_atual in eixos_da_estrategia else None,
+                            placeholder="",
+                            key=f"eixo_edit_{idx}"
+                        )
+
                         resultados_mp_sel = st.multiselect(
                             "Contribui com quais resultados de médio prazo?",
                             options=resultados_medio,
                             default=relacionados_mp,
+                            placeholder="",
                             key=f"mp_edit_{idx}",
                         )
 
@@ -286,6 +311,7 @@ def gerenciar_programa_dialog(programa):
                             "Contribui com quais resultados de longo prazo?",
                             options=resultados_longo,
                             default=relacionados_lp,
+                            placeholder="",
                             key=f"lp_edit_{idx}"
                         )
 
@@ -301,6 +327,7 @@ def gerenciar_programa_dialog(programa):
                                 {
                                     "$set": {
                                         "acoes_estrategicas.$.acao_estrategica": novo_titulo,
+                                        "acoes_estrategicas.$.eixo_relacionado": eixo_sel or "",
                                         "acoes_estrategicas.$.resultados_medio_prazo_relacionados": resultados_mp_sel,
                                         "acoes_estrategicas.$.resultados_longo_prazo_relacionados": resultados_lp_sel
                                     }
@@ -308,11 +335,14 @@ def gerenciar_programa_dialog(programa):
                             )
                             st.success("Ação estratégica atualizada com sucesso!")
                             time.sleep(2)
-            
+                            st.rerun()
 
                     else:
                         # ---------------- MODO VISUALIZAÇÃO ----------------
                         st.markdown(f"**Ação estratégica:** {titulo_atual}")
+
+                        if eixo_atual:
+                            st.markdown(f"**Eixo da estratégia:** {eixo_atual}")
 
                         st.write("")
 

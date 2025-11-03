@@ -15,7 +15,7 @@ from bson import ObjectId
 db = conectar_mongo_portal_ispn()
 
 # Define as coleções específicas que serão utilizadas a partir do banco
-estatistica = db["estatistica"]
+#estatistica = db["estatistica"]
 colaboradores = db["colaboradores"]
 estrategia = db["estrategia"]
 
@@ -314,14 +314,38 @@ def editar_titulo_de_cada_resultado_mp_dialog(resultado_idx):
             time.sleep(2)
             st.rerun()
 
-    # Aba de Metas
+    # -------------------------- #
+    # ABA 2 - METAS
+    # -------------------------- #
     with aba2:
         metas = resultado.get("metas", [])
+        
+        # 🔹 Expander para adicionar nova meta
+        with st.expander("Adicionar meta", expanded=False, icon=":material/add_notes:"):
+            novo_nome_meta = st.text_input("Título da meta", key=f"nova_meta_nome_{resultado_idx}")
+            novo_objetivo = st.text_input("Objetivo da meta", key=f"nova_meta_obj_{resultado_idx}")
+
+            if st.button("Adicionar Meta", key=f"btn_add_meta_{resultado_idx}"):
+                nova_meta = {
+                    "_id": str(ObjectId()),
+                    "nome_meta_mp": novo_nome_meta,
+                    "objetivo": novo_objetivo
+                }
+                resultados[resultado_idx].setdefault("metas", []).append(nova_meta)
+
+                estrategia.update_one(
+                    {"_id": doc["_id"]},
+                    {"$set": {"resultados_medio_prazo.resultados_mp": resultados}}
+                )
+                st.success("Nova meta adicionada com sucesso!")
+                time.sleep(2)
+                st.rerun()
+                
+        st.write("")
+
         for m_idx, meta in enumerate(metas):
             titulo_meta = meta.get("nome_meta_mp", f"Meta {m_idx + 1}")
             with st.expander(f"{titulo_meta}", expanded=False):
-                st.markdown(f"### Editar Meta {m_idx + 1}")
-                
                 novo_nome_meta = st.text_input(
                     "Título",
                     value=meta.get("nome_meta_mp", ""),
@@ -333,13 +357,10 @@ def editar_titulo_de_cada_resultado_mp_dialog(resultado_idx):
                     key=f"obj_{resultado_idx}_{m_idx}"
                 )
 
-                st.write("")
-
-                if st.button(f"Salvar", key=f"salvar_meta_{resultado_idx}_{m_idx}"):
+                if st.button("Salvar", key=f"salvar_meta_{resultado_idx}_{m_idx}"):
                     resultados[resultado_idx]["metas"][m_idx]["nome_meta_mp"] = novo_nome_meta
                     resultados[resultado_idx]["metas"][m_idx]["objetivo"] = novo_objetivo
 
-                    # Gera ObjectId caso não tenha ainda
                     if "_id" not in resultados[resultado_idx]["metas"][m_idx]:
                         resultados[resultado_idx]["metas"][m_idx]["_id"] = str(ObjectId())
 
@@ -347,35 +368,107 @@ def editar_titulo_de_cada_resultado_mp_dialog(resultado_idx):
                         {"_id": doc["_id"]},
                         {"$set": {"resultados_medio_prazo.resultados_mp": resultados}}
                     )
-                    st.success(f"Meta atualizada com sucesso!")
+                    st.success("Meta atualizada com sucesso!")
                     time.sleep(2)
                     st.rerun()
 
+        
 
 
-
-    # Aba de Ações Estratégicas
+    # -------------------------- #
+    # ABA 3 - AÇÕES ESTRATÉGICAS
+    # -------------------------- #
     with aba3:
         acoes = resultado.get("acoes_estrategicas", [])
+        
+        # 🔹 Expander para adicionar nova ação estratégica (com atividades e anotações)
+        with st.expander("Adicionar nova ação estratégica", expanded=False, icon=":material/add_notes:"):
+            novo_titulo_acao = st.text_input("Título da nova ação estratégica", key=f"nova_acao_titulo_{resultado_idx}")
+
+            st.markdown("---")
+            st.markdown("### Atividades")
+            nova_atividade = st.text_input("Descrição da atividade", key=f"nova_acao_atividade_{resultado_idx}")
+            novo_responsavel = st.text_input("Responsável", key=f"nova_acao_responsavel_{resultado_idx}")
+
+            # ✅ Campos de data convertidos para date_input e salvos como str
+            nova_data_inicio = st.date_input("Data de início", key=f"nova_acao_data_inicio_{resultado_idx}", format="DD/MM/YYYY")
+            nova_data_fim = st.date_input("Data de fim", key=f"nova_acao_data_fim_{resultado_idx}", format="DD/MM/YYYY")
+
+            novo_status = st.selectbox(
+                "Status",
+                ["Pendente", "Em andamento", "Concluída"],
+                index=0,
+                key=f"nova_acao_status_{resultado_idx}"
+            )
+
+            st.markdown("---")
+            st.markdown("### Anotações")
+            nova_data_anot = st.date_input("Data da anotação", key=f"nova_acao_anot_data_{resultado_idx}", format="DD/MM/YYYY")
+            novo_autor_anot = st.text_input("Autor da anotação", key=f"nova_acao_anot_autor_{resultado_idx}")
+            novo_texto_anot = st.text_area("Anotação", key=f"nova_acao_anot_texto_{resultado_idx}")
+
+            if st.button("Adicionar Ação Estratégica", key=f"btn_add_acao_{resultado_idx}"):
+                nova_acao = {
+                    "_id": str(ObjectId()),
+                    "nome_acao_estrategica": novo_titulo_acao,
+                    "atividades": [],
+                }
+
+                # Adiciona atividade se preenchida
+                if nova_atividade.strip():
+                    nova_atividade_dict = {
+                        "_id": str(ObjectId()),
+                        "atividade": nova_atividade,
+                        "responsavel": novo_responsavel,
+                        "data_inicio": nova_data_inicio.strftime("%d/%m/%Y"),
+                        "data_fim": nova_data_fim.strftime("%d/%m/%Y"),
+                        "status": novo_status,
+                    }
+
+                    # Adiciona anotação se preenchida
+                    if novo_texto_anot.strip():
+                        nova_atividade_dict["anotacoes"] = [{
+                            "_id": str(ObjectId()),
+                            "data": nova_data_anot.strftime("%d/%m/%Y"),
+                            "autor": novo_autor_anot,
+                            "anotacao": novo_texto_anot,
+                        }]
+                    else:
+                        nova_atividade_dict["anotacoes"] = []
+
+                    nova_acao["atividades"].append(nova_atividade_dict)
+
+                resultados[resultado_idx].setdefault("acoes_estrategicas", []).append(nova_acao)
+
+                estrategia.update_one(
+                    {"_id": doc["_id"]},
+                    {"$set": {"resultados_medio_prazo.resultados_mp": resultados}}
+                )
+
+                st.success("Nova ação estratégica adicionada com sucesso!")
+                time.sleep(2)
+                st.rerun()
+        
+        st.write("")
+        
+        # 🔹 Edição das ações estratégicas existentes
         for a_idx, acao in enumerate(acoes):
             titulo_acao = acao.get("nome_acao_estrategica", f"Ação Estratégica {a_idx + 1}")
             with st.expander(f"{titulo_acao}"):
-                st.markdown(f"### Editar Ação Estratégica {a_idx + 1}")
-
                 abas = st.tabs(["Título", "Atividades", "Anotações"])
 
-                with abas[0]:  # Aba Título
+                # ---- Título ----
+                with abas[0]:
                     novo_nome_acao = st.text_input(
                         "Título da Ação Estratégica",
                         value=titulo_acao,
                         key=f"acao_estrat_{resultado_idx}_{a_idx}"
                     )
 
-                with abas[1]:  # Aba Atividades
+                # ---- Atividades ----
+                with abas[1]:
                     atividades = acao.get("atividades", [])
                     for atv_idx, atividade in enumerate(atividades):
-                        st.markdown(f"#### Atividade {atv_idx + 1}")
-
                         nova_atividade = st.text_input(
                             "Descrição da Atividade",
                             value=atividade.get("atividade", ""),
@@ -386,16 +479,33 @@ def editar_titulo_de_cada_resultado_mp_dialog(resultado_idx):
                             value=atividade.get("responsavel", ""),
                             key=f"responsavel_{resultado_idx}_{a_idx}_{atv_idx}"
                         )
-                        nova_data_inicio = st.text_input(
+
+                        # ✅ Conversão para date_input com fallback se for string
+                        data_inicio_str = atividade.get("data_inicio", "")
+                        data_fim_str = atividade.get("data_fim", "")
+
+                        try:
+                            data_inicio_dt = datetime.strptime(data_inicio_str, "%d/%m/%Y").date()
+                        except:
+                            data_inicio_dt = datetime.today().date()
+                        try:
+                            data_fim_dt = datetime.strptime(data_fim_str, "%d/%m/%Y").date()
+                        except:
+                            data_fim_dt = datetime.today().date()
+
+                        nova_data_inicio = st.date_input(
                             "Data de Início",
-                            value=atividade.get("data_inicio", ""),
-                            key=f"data_inicio_{resultado_idx}_{a_idx}_{atv_idx}"
+                            value=data_inicio_dt,
+                            key=f"data_inicio_{resultado_idx}_{a_idx}_{atv_idx}",
+                            format="DD/MM/YYYY"
                         )
-                        nova_data_fim = st.text_input(
+                        nova_data_fim = st.date_input(
                             "Data de Fim",
-                            value=atividade.get("data_fim", ""),
-                            key=f"data_fim_{resultado_idx}_{a_idx}_{atv_idx}"
+                            value=data_fim_dt,
+                            key=f"data_fim_{resultado_idx}_{a_idx}_{atv_idx}",
+                            format="DD/MM/YYYY"
                         )
+
                         novo_status = st.selectbox(
                             "Status",
                             ["Pendente", "Em andamento", "Concluída"],
@@ -405,27 +515,36 @@ def editar_titulo_de_cada_resultado_mp_dialog(resultado_idx):
                             key=f"status_{resultado_idx}_{a_idx}_{atv_idx}"
                         )
 
-                        atividade["atividade"] = nova_atividade
-                        atividade["responsavel"] = novo_responsavel
-                        atividade["data_inicio"] = nova_data_inicio
-                        atividade["data_fim"] = nova_data_fim
-                        atividade["status"] = novo_status
-
-                        # Gera ObjectId caso não tenha ainda
+                        atividade.update({
+                            "atividade": nova_atividade,
+                            "responsavel": novo_responsavel,
+                            "data_inicio": nova_data_inicio.strftime("%d/%m/%Y"),
+                            "data_fim": nova_data_fim.strftime("%d/%m/%Y"),
+                            "status": novo_status,
+                        })
                         if "_id" not in atividade:
                             atividade["_id"] = str(ObjectId())
 
-
-                with abas[2]:  # Aba Anotações
+                # ---- Anotações ----
+                with abas[2]:
                     atividades = acao.get("atividades", [])
                     for atv_idx, atividade in enumerate(atividades):
                         anotacoes = atividade.get("anotacoes", [])
-                        st.markdown(f"#### Atividade {atv_idx + 1} - Anotações")
                         for nota_idx, anotacao in enumerate(anotacoes):
                             st.markdown(f"**Anotação {nota_idx + 1}**")
-                            nova_data = st.text_input(
-                                "Data", value=anotacao.get("data", ""),
-                                key=f"anot_data_{resultado_idx}_{a_idx}_{atv_idx}_{nota_idx}"
+
+                            # ✅ Date input com conversão
+                            data_str = anotacao.get("data", "")
+                            try:
+                                data_dt = datetime.strptime(data_str, "%d/%m/%Y").date()
+                            except:
+                                data_dt = datetime.today().date()
+
+                            nova_data = st.date_input(
+                                "Data",
+                                value=data_dt,
+                                key=f"anot_data_{resultado_idx}_{a_idx}_{atv_idx}_{nota_idx}",
+                                format="DD/MM/YYYY"
                             )
                             novo_autor = st.text_input(
                                 "Autor", value=anotacao.get("autor", ""),
@@ -435,30 +554,26 @@ def editar_titulo_de_cada_resultado_mp_dialog(resultado_idx):
                                 "Anotação", value=anotacao.get("anotacao", ""),
                                 key=f"anot_texto_{resultado_idx}_{a_idx}_{atv_idx}_{nota_idx}"
                             )
+                            anotacao.update({
+                                "data": nova_data.strftime("%d/%m/%Y"),
+                                "autor": novo_autor,
+                                "anotacao": novo_texto
+                            })
 
-                            # Atualizar anotação no objeto local
-                            anotacoes[nota_idx]["data"] = nova_data
-                            anotacoes[nota_idx]["autor"] = novo_autor
-                            anotacoes[nota_idx]["anotacao"] = novo_texto
-
-                st.write("")
-                if st.button(f"Salvar", key=f"salvar_atividade_{resultado_idx}_{a_idx}"):
-                    for atv_idx, atividade in enumerate(atividades):
-                        resultados[resultado_idx]["acoes_estrategicas"][a_idx]["atividades"][atv_idx]["atividade"] = atividade.get("atividade")
-                        resultados[resultado_idx]["acoes_estrategicas"][a_idx]["atividades"][atv_idx]["responsavel"] = atividade.get("responsavel")
-                        resultados[resultado_idx]["acoes_estrategicas"][a_idx]["atividades"][atv_idx]["data_inicio"] = str(atividade.get("data_inicio"))
-                        resultados[resultado_idx]["acoes_estrategicas"][a_idx]["atividades"][atv_idx]["data_fim"] = str(atividade.get("data_fim"))
-                        resultados[resultado_idx]["acoes_estrategicas"][a_idx]["atividades"][atv_idx]["status"] = atividade.get("status")
-                        resultados[resultado_idx]["acoes_estrategicas"][a_idx]["atividades"][atv_idx]["anotacoes"] = atividade.get("anotacoes")
-                    resultados[resultado_idx]["acoes_estrategicas"][a_idx]["nome_acao_estrategica"] = novo_nome_acao
-
+                if st.button(f"Salvar", key=f"salvar_acao_{resultado_idx}_{a_idx}"):
+                    resultados[resultado_idx]["acoes_estrategicas"][a_idx].update({
+                        "nome_acao_estrategica": novo_nome_acao,
+                        "atividades": atividades
+                    })
                     estrategia.update_one(
                         {"_id": doc["_id"]},
                         {"$set": {"resultados_medio_prazo.resultados_mp": resultados}}
                     )
-                    st.success(f"Ação estratégica, atividades e anotações atualizadas com sucesso!")
+                    st.success("Ação estratégica atualizada com sucesso!")
                     time.sleep(2)
                     st.rerun()
+
+        
 
 
 
@@ -621,7 +736,7 @@ with aba_res_mp:
 
         if st.session_state.modo_edicao:
             with col2:
-                st.button("Editar página", icon=":material/edit:", key="editar_result_mp", on_click=editar_titulo_pagina_resultados_mp_dialog, use_container_width=True)
+                st.button("Editar página", icon=":material/edit:", key="editar_titulo_result_mp", on_click=editar_titulo_pagina_resultados_mp_dialog, use_container_width=True)
 
     st.subheader(titulo_pagina)
     st.write('')
@@ -651,6 +766,17 @@ with aba_res_mp:
     for idx, resultado in enumerate(lista_resultados):
         with st.expander(resultado["titulo"]):
             
+            # Botão para editar o título do resultado — aparece apenas no modo de edição
+            if st.session_state.modo_edicao:
+                col1, col2 = st.columns([2, 1])
+                col2.button(
+                    "Editar resultado",
+                    icon=":material/edit:",
+                    key=f"editar_resultado_{idx}",
+                    on_click=lambda i=idx: editar_titulo_de_cada_resultado_mp_dialog(i),
+                    use_container_width=True
+                )
+            
             # Metas
             metas = resultado.get("metas", [])
             if metas:
@@ -665,58 +791,31 @@ with aba_res_mp:
 
                 # Modo edição
                 if st.session_state.modo_edicao:
-                    
-                    # Guarda o original na sessão
                     if "df_original" not in st.session_state:
                         st.session_state.df_original = df_metas.copy()
 
-                    # Renderiza o data_editor
                     df_metas_editado = st.data_editor(
                         st.session_state.df_original,
                         hide_index=True,
                         key=f"tabela_metas_{idx}"
                     )
 
-
-                    # Detecta mudanças usando a função reutilizável
                     if df_tem_mudancas(df_metas_editado, st.session_state.df_original):
                         st.session_state.df_original = df_metas_editado.copy()
                         nova_lista = df_metas_editado.to_dict(orient="records")
 
-                        # Atualiza no MongoDB o campo específico no documento correto
                         estrategia.update_one(
                             {"_id": documento["_id"]},
                             {"$set": {"resultados_medio_prazo.resultados_mp": nova_lista}}
                         )
-                        st.success("Alterações salvas automaticamente no MongoDB ✅")
-
-
-
-
-
+                        st.success("Alterações salvas automaticamente no MongoDB")
 
                 # Modo leitura
                 else:
-
-                    # Renderiza o dataframe somente para leitura.
-                    st.dataframe(
-                        df_metas,
-                        # selection_mode="single-row",
-                        hide_index=True,
-                        # on_select=on_select_linha,
-                        key=f"tabela_metas_{idx}"
-                    )
-
-
+                    st.dataframe(df_metas, hide_index=True)
 
             else:
                 st.info("Nenhuma meta cadastrada.")
-
-
-
-
-
-
 
             # Ações estratégicas
             st.write("")
@@ -759,7 +858,6 @@ with aba_res_mp:
                             for atv in atividades
                         ])
                         st.dataframe(df_atividades, hide_index=True)
-                    
                     else:
                         st.info("Nenhuma atividade registrada.")
 
@@ -769,36 +867,33 @@ with aba_res_lp:
     st.subheader('Resultados de Longo Prazo - 2030')
     st.write('')
 
-    with st.expander('**RESULTADO 1 - x**'):
-        st.write('')
+    # Busca o documento que contenha resultados de longo prazo
+    estrategia_doc = estrategia.find_one({"resultados_longo_prazo": {"$exists": True}})
 
-        st.write('**INDICADORES**')
+    if estrategia_doc and "resultados_longo_prazo" in estrategia_doc:
+        resultados_lp_data = estrategia_doc["resultados_longo_prazo"]
 
-        indicadores_data = {
-            "Indicadores": [
-                "x",
-                "x"
-            ],
-            "Meta": [
-                6,
-                15000,
-            ],
-            "Alcançado": [
-                2,
-                1500,
-            ]
-        }
+        resultados_lp = resultados_lp_data.get("resultados_lp", [])
 
-        df_indicadores_meta = pd.DataFrame(indicadores_data)
-        st.dataframe(df_indicadores_meta, hide_index=True)
+        if resultados_lp:
+            for resultado in resultados_lp:
+                titulo_resultado = resultado.get("titulo", "Sem título")
+                with st.expander(f"**{titulo_resultado}**"):
+                    st.write('')
+                    st.write('**INDICADORES**')
 
+                    indicadores_data = {
+                        "Indicadores": ["x", "x"],
+                        "Meta": [6, 15000],
+                        "Alcançado": [2, 1500]
+                    }
 
-    with st.expander('**RESULTADO 2 - x**'):
-        st.write('')
-
-    with st.expander('**RESULTADO 3 - x**'):
-        st.write('')        
-
+                    df_indicadores_meta = pd.DataFrame(indicadores_data)
+                    st.dataframe(df_indicadores_meta, hide_index=True)
+        else:
+            st.info("Nenhum resultado listado dentro de 'resultados_lp'.")
+    else:
+        st.info("Nenhum documento de 'resultados_longo_prazo' encontrado no banco de dados.")
 
 
 with aba_ebj_est_ins:
