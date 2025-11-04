@@ -14,8 +14,7 @@ from folium.plugins import MarkerCluster
 from plotly.colors import diverging, sequential
 from streamlit_folium import st_folium
 import geopandas as gpd
-from geobr import read_indigenous_land, read_conservation_units, read_biomes         
-from geobr import read_indigenous_land, read_conservation_units, read_biomes         
+from geobr import read_indigenous_land, read_conservation_units, read_biomes               
 from funcoes_auxiliares import conectar_mongo_portal_ispn
 import streamlit_shadcn_ui as ui
 
@@ -310,11 +309,11 @@ def mostrar_detalhes(codigo_proj: str):
 
     @st.cache_data(show_spinner="Carregando terras indígenas...")
     def carregar_terras_indigenas(data=201907):
-        return read_indigenous_land(date=data)
+        return read_indigenous_land(date=data, simplified=True)
 
     @st.cache_data(show_spinner="Carregando unidades de conservação...")
     def carregar_uc(data=201909):
-        return read_conservation_units(date=data)
+        return read_conservation_units(date=data, simplified=True)
 
     @st.cache_data(show_spinner="Carregando assentamentos (sem geometria)...")
     def carregar_assentamentos():
@@ -895,11 +894,11 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
 
     @st.cache_data(show_spinner="Carregando terras indígenas...")
     def carregar_terras_indigenas(data=201907):
-        return read_indigenous_land(date=data)
+        return read_indigenous_land(date=data, simplified=True)
 
     @st.cache_data(show_spinner="Carregando unidades de conservação...")
     def carregar_uc(data=201909):
-        return read_conservation_units(date=data)
+        return read_conservation_units(date=data, simplified=True)
 
     @st.cache_data(show_spinner="Carregando assentamentos...")
     def carregar_assentamentos():

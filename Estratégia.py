@@ -155,87 +155,87 @@ def editar_estrategia_dialog():
         else:
             st.error("Documento não encontrado.")
 
-    st.markdown("---")
+    # st.markdown("---")
 
-    # Organiza as estratégias por ordem alfabética
-    estrategias_ordenadas = sorted(lista_estrategias_atual, key=lambda x: x.get("titulo", "").lower())
-    opcoes_estrategias = ["- Nova estratégia -"] + [e["titulo"] for e in estrategias_ordenadas]
+    # # Organiza as estratégias por ordem alfabética
+    # estrategias_ordenadas = sorted(lista_estrategias_atual, key=lambda x: x.get("titulo", "").lower())
+    # opcoes_estrategias = ["- Nova estratégia -"] + [e["titulo"] for e in estrategias_ordenadas]
 
-    titulo_selecionado = st.selectbox("Selecione a estratégia para editar", options=opcoes_estrategias)
-    estrategia_selecionada = None
-    index_estrategia = None
+    # titulo_selecionado = st.selectbox("Selecione a estratégia para editar", options=opcoes_estrategias)
+    # estrategia_selecionada = None
+    # index_estrategia = None
 
-    if titulo_selecionado != "- Nova estratégia -":
-        # Encontrar a estratégia com base no título
-        estrategia_selecionada = next((e for e in lista_estrategias_atual if e["titulo"] == titulo_selecionado), None)
-        index_estrategia = lista_estrategias_atual.index(estrategia_selecionada) if estrategia_selecionada else None
+    # if titulo_selecionado != "- Nova estratégia -":
+    #     # Encontrar a estratégia com base no título
+    #     estrategia_selecionada = next((e for e in lista_estrategias_atual if e["titulo"] == titulo_selecionado), None)
+    #     index_estrategia = lista_estrategias_atual.index(estrategia_selecionada) if estrategia_selecionada else None
 
-    st.subheader("Editar estratégia" if estrategia_selecionada else "Adicionar nova estratégia")
+    # st.subheader("Editar estratégia" if estrategia_selecionada else "Adicionar nova estratégia")
 
-    novo_titulo = st.text_input("Título", value=estrategia_selecionada.get("titulo", "") if estrategia_selecionada else "")
+    # novo_titulo = st.text_input("Título", value=estrategia_selecionada.get("titulo", "") if estrategia_selecionada else "")
 
-    # Atualizar estratégia existente
-    if estrategia_selecionada and st.button("Atualizar estratégia", key="atualizar_estrategia", icon=":material/save:"):
-        lista_estrategias_atual[index_estrategia]["titulo"] = novo_titulo
+    # # Atualizar estratégia existente
+    # if estrategia_selecionada and st.button("Atualizar estratégia", key="atualizar_estrategia", icon=":material/save:"):
+    #     lista_estrategias_atual[index_estrategia]["titulo"] = novo_titulo
 
-        update_data = {"estrategia.estrategias": lista_estrategias_atual}
-        if novo_titulo_pagina != titulo_pagina_atual:
-            update_data["estrategia.titulo_pagina_estrategia"] = novo_titulo_pagina
+    #     update_data = {"estrategia.estrategias": lista_estrategias_atual}
+    #     if novo_titulo_pagina != titulo_pagina_atual:
+    #         update_data["estrategia.titulo_pagina_estrategia"] = novo_titulo_pagina
 
-        estrategia.update_one(
-            {"_id": estrategia_doc["_id"]},
-            {"$set": update_data}
-        )
-        st.success("Estratégia atualizada com sucesso!")
-        time.sleep(2)
-        st.rerun()
+    #     estrategia.update_one(
+    #         {"_id": estrategia_doc["_id"]},
+    #         {"$set": update_data}
+    #     )
+    #     st.success("Estratégia atualizada com sucesso!")
+    #     time.sleep(2)
+    #     st.rerun()
 
-    # Excluir estratégia
-    if estrategia_selecionada and st.button("Excluir estratégia", key="excluir_estrategia", icon=":material/delete:"):
-        lista_estrategias_atual.pop(index_estrategia)
+    # # Excluir estratégia
+    # if estrategia_selecionada and st.button("Excluir estratégia", key="excluir_estrategia", icon=":material/delete:"):
+    #     lista_estrategias_atual.pop(index_estrategia)
 
-        update_data = {"estrategia.estrategias": lista_estrategias_atual}
-        if novo_titulo_pagina != titulo_pagina_atual:
-            update_data["estrategia.titulo_pagina_estrategia"] = novo_titulo_pagina
+    #     update_data = {"estrategia.estrategias": lista_estrategias_atual}
+    #     if novo_titulo_pagina != titulo_pagina_atual:
+    #         update_data["estrategia.titulo_pagina_estrategia"] = novo_titulo_pagina
 
-        estrategia.update_one(
-            {"_id": estrategia_doc["_id"]},
-            {"$set": update_data}
-        )
-        st.success("Estratégia excluída com sucesso!")
-        time.sleep(2)
-        st.rerun()
+    #     estrategia.update_one(
+    #         {"_id": estrategia_doc["_id"]},
+    #         {"$set": update_data}
+    #     )
+    #     st.success("Estratégia excluída com sucesso!")
+    #     time.sleep(2)
+    #     st.rerun()
 
-    # Adicionar nova estratégia
-    if not estrategia_selecionada and st.button("Adicionar estratégia", key="adicionar_estrategia", icon=":material/add:"):
-        update_data = {}
+    # # Adicionar nova estratégia
+    # if not estrategia_selecionada and st.button("Adicionar estratégia", key="adicionar_estrategia", icon=":material/add:"):
+    #     update_data = {}
 
-        if novo_titulo.strip():
-            nova_estrategia = {
-                "_id": str(ObjectId()),  # Gerar um novo ObjectId para a estratégia
-                "titulo": novo_titulo
-            }
-            lista_estrategias_atual.append(nova_estrategia)
-            update_data["estrategia.estrategias"] = lista_estrategias_atual
+    #     if novo_titulo.strip():
+    #         nova_estrategia = {
+    #             "_id": str(ObjectId()),  # Gerar um novo ObjectId para a estratégia
+    #             "titulo": novo_titulo
+    #         }
+    #         lista_estrategias_atual.append(nova_estrategia)
+    #         update_data["estrategia.estrategias"] = lista_estrategias_atual
 
-            if estrategia_doc:
-                if novo_titulo_pagina != titulo_pagina_atual:
-                    update_data["estrategia.titulo_pagina_estrategia"] = novo_titulo_pagina
-                estrategia.update_one(
-                    {"_id": estrategia_doc["_id"]},
-                    {"$set": update_data}
-                )
-            else:
-                estrategia.insert_one({
-                    "estrategia": {
-                        "titulo_pagina_estrategia": novo_titulo_pagina,
-                        "estrategias": [nova_estrategia]
-                    }
-                })
-            st.success("Nova estratégia adicionada com sucesso!")
+    #         if estrategia_doc:
+    #             if novo_titulo_pagina != titulo_pagina_atual:
+    #                 update_data["estrategia.titulo_pagina_estrategia"] = novo_titulo_pagina
+    #             estrategia.update_one(
+    #                 {"_id": estrategia_doc["_id"]},
+    #                 {"$set": update_data}
+    #             )
+    #         else:
+    #             estrategia.insert_one({
+    #                 "estrategia": {
+    #                     "titulo_pagina_estrategia": novo_titulo_pagina,
+    #                     "estrategias": [nova_estrategia]
+    #                 }
+    #             })
+    #         st.success("Nova estratégia adicionada com sucesso!")
 
-        time.sleep(2)
-        st.rerun()
+    #     time.sleep(2)
+    #     st.rerun()
 
 
 # Função que adiciona uma nova anotação vazia para a atividade correspondente
@@ -574,8 +574,89 @@ def editar_titulo_de_cada_resultado_mp_dialog(resultado_idx):
                     st.rerun()
 
         
+@st.dialog("Editar eixo da estratégia")
+def editar_eixos_da_estrategia_dialog(estrategia_item, estrategia_doc, estrategia):
+    novo_titulo = st.text_input("Eixo da estratégia:", estrategia_item.get("titulo", ""))
+    
+    st.write("")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Salvar", use_container_width=False, icon=":material/save:"):
+            # Atualiza o título no documento original
+            for eixo in estrategia_doc["estrategia"]["eixos_da_estrategia"]:
+                if eixo["titulo"] == estrategia_item["titulo"]:
+                    eixo["titulo"] = novo_titulo
+                    break
 
+            # Salva no MongoDB
+            estrategia.update_one(
+                {"_id": estrategia_doc["_id"]},
+                {"$set": {"estrategia.eixos_da_estrategia": estrategia_doc["estrategia"]["eixos_da_estrategia"]}}
+            )
 
+            st.success("Título atualizado com sucesso!")
+            st.rerun()
+            
+
+@st.dialog("Editar título da página")
+def editar_titulo_pagina_resultados_lp_dialog():
+
+    # Buscar documento
+    doc = estrategia.find_one({"resultados_longo_prazo": {"$exists": True}})
+    if not doc:
+        st.error("Nenhum documento encontrado com 'resultados_longo_prazo'.")
+        return
+
+    dados_lp = doc.get("resultados_longo_prazo", {})
+    titulo_atual = dados_lp.get("titulo_pagina_resultados_lp", "")
+
+    # Campos editáveis
+    novo_titulo = st.text_input("Título da página", value=titulo_atual)
+
+    # Botão de salvar
+    if st.button("Salvar alterações", icon=":material/save:", use_container_width=False):
+        estrategia.update_one(
+            {"_id": doc["_id"]},
+            {"$set": {
+                "resultados_longo_prazo.titulo_pagina_resultados_lp": novo_titulo,
+            }}
+        )
+        st.success("Título da página atualizado com sucesso!")
+        time.sleep(2)
+        st.rerun()
+            
+            
+@st.dialog("Editar resultado de longo prazo")
+def editar_titulo_de_cada_resultado_lp_dialog(resultado_idx):
+    # Buscar documento
+    doc = estrategia.find_one({"resultados_longo_prazo": {"$exists": True}})
+    if not doc:
+        st.error("Nenhum documento encontrado com 'resultados_longo_prazo'.")
+        return
+
+    resultados_lp = doc.get("resultados_longo_prazo", {}).get("resultados_lp", [])
+    if resultado_idx is None or resultado_idx >= len(resultados_lp):
+        st.error("Índice de resultado inválido.")
+        return
+
+    resultado = resultados_lp[resultado_idx]
+
+    # Campos principais
+    novo_titulo = st.text_input("Título do resultado", value=resultado.get("titulo", ""))
+
+    # Botão de salvar
+    if st.button("Salvar alterações", icon=":material/save:", use_container_width=False):
+
+        estrategia.update_one(
+            {"_id": doc["_id"]},
+            {"$set": {
+                f"resultados_longo_prazo.resultados_lp.{resultado_idx}.titulo": novo_titulo,
+            }}
+        )
+        st.success("Resultado atualizado com sucesso!")
+        time.sleep(2)
+        st.rerun()
 
 
 ###########################################################################################################
@@ -646,13 +727,16 @@ with aba_est:
 
     # Acessa o título e a lista de estratégias de forma segura
     titulo_pagina_atual = estrategia_doc.get("estrategia", {}).get("titulo_pagina_estrategia", "") if estrategia_doc else ""
-    lista_estrategias_atual = estrategia_doc.get("estrategia", {}).get("estrategias", []) if estrategia_doc else []
+    lista_estrategias_atual = estrategia_doc.get("estrategia", {}).get("eixos_da_estrategia", []) if estrategia_doc else []
 
-    tipos_usuario = st.session_state.get("tipo_usuario", [])
-    if "admin" in tipos_usuario:
-        col1, col2 = st.columns([7, 1])
-        with col2:
-            st.button("Editar página", icon=":material/edit:", key="editar_titulo_estrategia", on_click=editar_estrategia_dialog, use_container_width=True)
+    # Roteamento de tipo de usuário
+    if set(st.session_state.tipo_usuario) & {"admin"}:
+        col1, col2 = st.columns([7, 1])  # Ajuste os pesos conforme necessário
+        col1.toggle('Modo de edição', value=False, key='modo_edicao_1')
+
+        if st.session_state.modo_edicao_1:
+            with col2:
+                st.button("Editar página", icon=":material/edit:", key="editar_titulo_estrategia", on_click=editar_estrategia_dialog, use_container_width=True)
 
     st.write('')
     st.subheader(titulo_pagina_atual if titulo_pagina_atual else 'Promoção de Paisagens Produtivas Ecossociais')
@@ -683,6 +767,19 @@ with aba_est:
 
     for estrategia_item in lista_estrategias_ordenada:
         with st.expander(f"**{estrategia_item.get('titulo', 'Título não definido')}**"):
+            
+            if st.session_state.modo_edicao_1:
+                
+                col1, col2 = st.columns([7, 1])
+                
+                col2.button(
+                    "Editar eixo",
+                    key=f"editar_{estrategia_item['titulo']}",
+                    on_click=editar_eixos_da_estrategia_dialog,
+                    args=(estrategia_item, estrategia_doc, estrategia),
+                    use_container_width=True, 
+                    icon=":material/edit:"
+                )
 
             st.write('')
             st.write('**ENTREGAS PLANEJADAS / REALIZADAS:**')
@@ -732,12 +829,13 @@ with aba_res_mp:
     # Roteamento de tipo de usuário
     if set(st.session_state.tipo_usuario) & {"admin"}:
         col1, col2 = st.columns([7, 1])  # Ajuste os pesos conforme necessário
-        col1.toggle('Modo de edição', value=False, key='modo_edicao')
+        col1.toggle('Modo de edição', value=False, key='modo_edicao_2')
 
-        if st.session_state.modo_edicao:
+        if st.session_state.modo_edicao_2:
             with col2:
                 st.button("Editar página", icon=":material/edit:", key="editar_titulo_result_mp", on_click=editar_titulo_pagina_resultados_mp_dialog, use_container_width=True)
 
+    st.write('')
     st.subheader(titulo_pagina)
     st.write('')
 
@@ -767,7 +865,7 @@ with aba_res_mp:
         with st.expander(resultado["titulo"]):
             
             # Botão para editar o título do resultado — aparece apenas no modo de edição
-            if st.session_state.modo_edicao:
+            if st.session_state.modo_edicao_2:
                 col1, col2 = st.columns([2, 1])
                 col2.button(
                     "Editar resultado",
@@ -863,37 +961,96 @@ with aba_res_mp:
 
 
 with aba_res_lp:
+    # --- Buscar dados no MongoDB ---
+    doc = estrategia.find_one({"resultados_longo_prazo": {"$exists": True}})
+    resultados_lp_data = doc.get("resultados_longo_prazo", {}) if doc else {}
+
+    titulo_pagina_lp = resultados_lp_data.get("titulo_pagina_resultados_lp", "Resultados de Longo Prazo - 2030")
+    lista_resultados_lp = resultados_lp_data.get("resultados_lp", [])
+
+    # ==============================================================
+    # Cabeçalho e controle de edição
+    # ==============================================================
+    if set(st.session_state.tipo_usuario) & {"admin"}:
+        col1, col2 = st.columns([7, 1])
+        col1.toggle('Modo de edição', value=False, key='modo_edicao_lp')
+
+        if st.session_state.modo_edicao_lp:
+            with col2:
+                st.button(
+                    "Editar página",
+                    icon=":material/edit:",
+                    key="editar_titulo_result_lp",
+                    on_click=editar_titulo_pagina_resultados_lp_dialog,
+                    use_container_width=True
+                )
+
     st.write('')
-    st.subheader('Resultados de Longo Prazo - 2030')
+    st.subheader(titulo_pagina_lp)
     st.write('')
 
-    # Busca o documento que contenha resultados de longo prazo
-    estrategia_doc = estrategia.find_one({"resultados_longo_prazo": {"$exists": True}})
+    # ==============================================================
+    # Lista de Resultados de Longo Prazo
+    # ==============================================================
+    if lista_resultados_lp:
+        for idx, resultado in enumerate(lista_resultados_lp):
+            with st.expander(resultado.get("titulo", f"Resultado {idx+1}")):
+                
+                # Botão para editar o resultado (somente no modo edição)
+                if st.session_state.modo_edicao_lp:
+                    col1, col2 = st.columns([7, 1])
+                    col2.button(
+                        "Editar resultado",
+                        icon=":material/edit:",
+                        key=f"editar_resultado_lp_{idx}",
+                        on_click=lambda i=idx: editar_titulo_de_cada_resultado_lp_dialog(i),
+                        use_container_width=True
+                    )
 
-    if estrategia_doc and "resultados_longo_prazo" in estrategia_doc:
-        resultados_lp_data = estrategia_doc["resultados_longo_prazo"]
+                st.write('')
+                st.write('**INDICADORES:**')
 
-        resultados_lp = resultados_lp_data.get("resultados_lp", [])
+                indicadores = resultado.get("indicadores", [])
+                if indicadores:
+                    df_indicadores = pd.DataFrame([
+                        {
+                            "Indicador": ind.get("nome_indicador", ""),
+                            "Meta": ind.get("meta", ""),
+                            "Alcançado": ind.get("alcancado", "")
+                        }
+                        for ind in indicadores
+                    ])
 
-        if resultados_lp:
-            for resultado in resultados_lp:
-                titulo_resultado = resultado.get("titulo", "Sem título")
-                with st.expander(f"**{titulo_resultado}**"):
-                    st.write('')
-                    st.write('**INDICADORES**')
+                    # --- Modo de edição ---
+                    if st.session_state.modo_edicao_lp:
+                        if f"df_original_lp_{idx}" not in st.session_state:
+                            st.session_state[f"df_original_lp_{idx}"] = df_indicadores.copy()
 
-                    indicadores_data = {
-                        "Indicadores": ["x", "x"],
-                        "Meta": [6, 15000],
-                        "Alcançado": [2, 1500]
-                    }
+                        df_editado = st.data_editor(
+                            st.session_state[f"df_original_lp_{idx}"],
+                            hide_index=True,
+                            key=f"tabela_indicadores_lp_{idx}"
+                        )
 
-                    df_indicadores_meta = pd.DataFrame(indicadores_data)
-                    st.dataframe(df_indicadores_meta, hide_index=True)
-        else:
-            st.info("Nenhum resultado listado dentro de 'resultados_lp'.")
+                        # Verifica se houve alterações e atualiza no MongoDB
+                        if df_tem_mudancas(df_editado, st.session_state[f"df_original_lp_{idx}"]):
+                            st.session_state[f"df_original_lp_{idx}"] = df_editado.copy()
+                            nova_lista = df_editado.to_dict(orient="records")
+
+                            estrategia.update_one(
+                                {"_id": doc["_id"]},
+                                {f"$set": {f"resultados_longo_prazo.resultados_lp.{idx}.indicadores": nova_lista}}
+                            )
+                            st.success("Alterações salvas automaticamente no MongoDB")
+
+                    # --- Modo leitura ---
+                    else:
+                        st.dataframe(df_indicadores, hide_index=True)
+
+                else:
+                    st.info("Nenhum indicador cadastrado.")
     else:
-        st.info("Nenhum documento de 'resultados_longo_prazo' encontrado no banco de dados.")
+        st.info("Nenhum resultado de longo prazo encontrado no banco de dados.")
 
 
 with aba_ebj_est_ins:
