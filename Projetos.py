@@ -592,23 +592,23 @@ with tab2:
 
         @st.cache_data(show_spinner="Carregando estados...")
         def carregar_ufs(ano=2020):
-            return read_state(year=ano)
+            return read_state(year=ano, simplified=True)
 
         @st.cache_data(show_spinner="Carregando municipios...")
         def carregar_municipios(ano=2024):
-            return read_municipality(year=ano)
+            return read_municipality(year=ano, simplified=True)
 
         @st.cache_data(show_spinner="Carregando terras indígenas...")
         def carregar_terras_indigenas(data=201907):
-            return read_indigenous_land(date=data)
+            return read_indigenous_land(date=data, simplified=True)
 
         @st.cache_data(show_spinner="Carregando unidades de conservação...")
         def carregar_uc(data=201909):
-            return read_conservation_units(date=data)
+            return read_conservation_units(date=data, simplified=True)
 
         @st.cache_data(show_spinner="Carregando biomas...")
         def carregar_biomas(ano=2019):
-            return read_biomes(year=ano)
+            return read_biomes(year=ano, simplified=True)
 
         @st.cache_data(show_spinner="Carregando assentamentos (sem geometria)...")
         def carregar_assentamentos():
@@ -1010,19 +1010,39 @@ with tab2:
                 ######################################################################################################
 
 
+                def carregar_atributos_shp(caminho_shp: str, campos: list = None):
+                    """
+                    Lê apenas os atributos (properties) de um shapefile usando fiona,
+                    ignorando completamente as geometrias.
+
+                    Parâmetros:
+                        caminho_shp (str): Caminho do arquivo .shp
+                        campos (list, opcional): Lista de colunas específicas a carregar.
+                                                Se None, carrega todas as propriedades.
+
+                    Retorna:
+                        pd.DataFrame: DataFrame apenas com atributos.
+                    """
+                    with fiona.open(caminho_shp) as src:
+                        if campos:
+                            records = [{c: feat["properties"].get(c) for c in campos} for feat in src]
+                        else:
+                            records = [feat["properties"] for feat in src]
+                    return pd.DataFrame(records)
+
                 @st.cache_data(show_spinner="Carregando estados...")
                 def carregar_ufs(ano=2020):
                     return read_state(year=ano, simplified=True)
 
-                @st.cache_data(show_spinner="Carregando biomas...")
+                @st.cache_data(show_spinner="Carregando municípios...")
                 def carregar_municipios(ano=2024):
                     return read_municipality(year=ano, simplified=True)
 
-                @st.cache_data(show_spinner="Carregando terras indígenas...")
+                @st.cache_data(show_spinner="Carregando TIs...")
                 def carregar_terras_indigenas(data=201907):
                     return read_indigenous_land(date=data, simplified=True)
 
-                @st.cache_data(show_spinner="Carregando unidades de conservação...")
+                @st.cache_data(show_spinner="Carregando UCs...")
                 def carregar_uc(data=201909):
                     return read_conservation_units(date=data, simplified=True)
 
@@ -1030,25 +1050,25 @@ with tab2:
                 def carregar_biomas(ano=2019):
                     return read_biomes(year=ano, simplified=True)
 
-                @st.cache_data(show_spinner="Carregando assentamentos...")
+                @st.cache_data(show_spinner="Carregando assentamentos (sem geometria)...")
                 def carregar_assentamentos():
-                    return gpd.read_file("shapefiles/Assentamentos-SAB-INCRA.shp")
+                    return carregar_atributos_shp("shapefiles/Assentamentos-SAB-INCRA.shp")
 
-                @st.cache_data(show_spinner="Carregando quilombos...")
+                @st.cache_data(show_spinner="Carregando quilombos (sem geometria)...")
                 def carregar_quilombos():
-                    return gpd.read_file("shapefiles/Quilombos-SAB-INCRA.shp")
+                    return carregar_atributos_shp("shapefiles/Quilombos-SAB-INCRA.shp")
 
-                @st.cache_data(show_spinner="Carregando bacias hidrográficas (micro)...")
+                @st.cache_data(show_spinner="Carregando bacias hidrográficas (micro, sem geometria)...")
                 def carregar_bacias_micro():
-                    return gpd.read_file("shapefiles/micro_RH.shp")
+                    return carregar_atributos_shp("shapefiles/micro_RH.shp")
 
-                @st.cache_data(show_spinner="Carregando bacias hidrográficas (meso)...")
+                @st.cache_data(show_spinner="Carregando bacias hidrográficas (meso, sem geometria)...")
                 def carregar_bacias_meso():
-                    return gpd.read_file("shapefiles/meso_RH.shp")
+                    return carregar_atributos_shp("shapefiles/meso_RH.shp")
 
-                @st.cache_data(show_spinner="Carregando bacias hidrográficas (macro)...")
+                @st.cache_data(show_spinner="Carregando bacias hidrográficas (macro, sem geometria)...")
                 def carregar_bacias_macro():
-                    return gpd.read_file("shapefiles/macro_RH.shp")
+                    return carregar_atributos_shp("shapefiles/macro_RH.shp")
 
                 ######################################################################
                 # CARREGAR DADOS
