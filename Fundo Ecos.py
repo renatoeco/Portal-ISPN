@@ -2063,190 +2063,106 @@ st.header("Fundo Ecos")
 st.write('')
 
 with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
-    df_base = df_projetos.copy()  # nunca mexa no original
+    with st.form("form_filtros", border=False):
+        df_base = df_projetos.copy()
+        mask = pd.Series(True, index=df_base.index)
 
-    # Começa com máscara True
-    mask = pd.Series(True, index=df_base.index)
+        # ===== PRIMEIRA LINHA =====
+        col1, col2 = st.columns([1, 5])
+        tipos_disponiveis = ["Projetos PJ", "Projetos PF"]
+        tipo_sel = col1.pills("Tipo", tipos_disponiveis, selection_mode="multi")
+        busca_geral = col2.text_input("Buscar por Sigla, Proponente, CNPJ ou CPF").strip()
 
-    # ===== PRIMEIRA LINHA =====
-    
-    col1, col2 = st.columns([1, 5])
-    tipos_disponiveis = ["Projetos PJ", "Projetos PF"]
-    tipo_sel = col1.pills("Tipo", tipos_disponiveis, selection_mode="multi")
+        # ===== Segunda Linha =====
+        pessoas_dict = {str(p["_id"]): p["nome_completo"] for p in pessoas.find()}
+        programas_dict = {str(p["_id"]): p["nome_programa_area"] for p in programas.find()}
 
-    if tipo_sel:
-        if "Projetos PJ" in tipo_sel and "Projetos PF" not in tipo_sel:
-            mask &= (df_base["Tipo"] == "PJ")
-        elif "Projetos PF" in tipo_sel and "Projetos PJ" not in tipo_sel:
-            mask &= (df_base["Tipo"] == "PF")
-            
-    # Campo de busca geral
-    busca_geral = col2.text_input("Buscar por Sigla, Proponente, CNPJ ou CPF").strip()
+        df_base["Ponto Focal"] = df_base["Ponto Focal"].apply(lambda x: pessoas_dict.get(str(x), "Não informado") if pd.notna(x) else "Não informado")
+        df_base["Programa"] = df_base["Programa"].apply(lambda x: programas_dict.get(str(x), "Não informado") if pd.notna(x) else "Não informado")
 
-    if busca_geral:
-        termo = normalizar(busca_geral)
-        
-        def corresponde(row):
-            return (
-                termo in normalizar(row["Sigla"]) or
-                termo in normalizar(row["Proponente"]) or
-                termo in normalizar(row["CNPJ"]) or
-                termo in normalizar(row["CPF"])
-            )
+        col1, col2, col3, col4 = st.columns(4)
+        categoria_sel = col1.multiselect("Categoria", sorted(df_base["Categoria"].dropna().unique()), placeholder="Todos")
+        ponto_focal_sel = col2.multiselect("Ponto Focal", sorted(df_base["Ponto Focal"].dropna().unique()), placeholder="Todos")
+        programa_sel = col3.multiselect("Programa", sorted(df_base["Programa"].dropna().unique()), placeholder="Todos")
+        genero_sel = col4.multiselect("Gênero", sorted(df_base["Gênero"].dropna().unique()), placeholder="Todos")
 
-        mask &= df_base.apply(corresponde, axis=1)
-    
+        # ===== Terceira Linha =====
+        col1, col2, col3, col4 = st.columns(4)
+        edital_sel = col1.multiselect("Edital", sorted(df_base["Edital"].dropna().unique(), key=edital_key), placeholder="Todos")
+        ano_sel = col2.multiselect("Ano", sorted(df_base["Ano"].dropna().unique()), placeholder="Todos")
+        doador_sel = col3.multiselect("Doador", sorted(df_base["Doador"].dropna().unique()), placeholder="Todos")
+        codigo_sel = col4.multiselect("Código", sorted(df_base["Código"].dropna().unique()), placeholder="Todos")
 
-    # ===== Segunda Linha =====
+        # ===== Quarta Linha =====
+        col1, col2, col3, col4 = st.columns(4)
+        temas_disponiveis = sorted(df_base["Temas"].dropna().apply(lambda x: [m.strip() for m in x.split(",")]).explode().unique(), key=normalizar)
+        temas_sel = col1.multiselect("Temas", temas_disponiveis, placeholder="Todos")
 
-    # Dicionários de ID -> Nome
-    pessoas_dict = {str(p["_id"]): p["nome_completo"] for p in pessoas.find()}
-    programas_dict = {str(p["_id"]): p["nome_programa_area"] for p in programas.find()}
+        publicos_disponiveis = sorted(df_base["Público"].dropna().apply(lambda x: [m.strip() for m in x.split(",")]).explode().unique(), key=normalizar)
+        publicos_sel = col2.multiselect("Público", publicos_disponiveis, placeholder="Todos")
 
-    #st.write(df_base)
+        biomas_disponiveis = sorted(df_base["Bioma"].dropna().apply(lambda x: [m.strip() for m in x.split(",")]).explode().unique(), key=normalizar)
+        biomas_sel = col3.multiselect("Bioma", biomas_disponiveis, placeholder="Todos")
 
-    df_base["Ponto Focal"] = df_base["Ponto Focal"].apply(lambda x: pessoas_dict.get(str(x), "Não informado") if pd.notna(x) else "Não informado")
-    df_base["Programa"] = df_base["Programa"].apply(lambda x: programas_dict.get(str(x), "Não informado") if pd.notna(x) else "Não informado")
+        status_sel = col4.multiselect("Status", sorted(df_base["Status"].dropna().unique()), placeholder="Todos")
 
-    col1, col2, col3, col4 = st.columns(4)
+        # ===== Quinta Linha =====
+        col5, col6 = st.columns(2)
+        estados_unicos = sorted(df_base["Estado(s)"].dropna().apply(lambda x: [m.strip() for m in x.split(",")]).explode().unique())
+        uf_sel = col5.multiselect("Estado(s)", estados_unicos, placeholder="Todos")
 
-    # Filtro Categoria
-    categoria_disponiveis = sorted(df_base["Categoria"].dropna().unique())
-    categoria_sel = col1.multiselect("Categoria", options=categoria_disponiveis, placeholder="Todos")
-    if categoria_sel:
-        mask &= df_base["Categoria"].isin(categoria_sel)
+        municipios_unicos = sorted(df_base["Município(s)"].dropna().apply(lambda x: [m.strip() for m in x.split(",")]).explode().unique())
+        municipio_sel = col6.multiselect("Município(s)", municipios_unicos, placeholder="Todos")
 
-    # Filtro Ponto Focal
-    ponto_focal_disponiveis = sorted(df_base["Ponto Focal"].dropna().unique())
-    ponto_focal_sel = col2.multiselect("Ponto Focal", options=ponto_focal_disponiveis, placeholder="Todos")
-    if ponto_focal_sel:
-        mask &= df_base["Ponto Focal"].isin(ponto_focal_sel)
+        # ===== Botão =====
+        aplicar = st.form_submit_button("Aplicar filtros")
 
-    # Filtro Programa
-    programa_disponiveis = sorted(df_base["Programa"].dropna().unique())
-    programa_sel = col3.multiselect("Programa", options=programa_disponiveis, placeholder="Todos")
-    if programa_sel:
-        mask &= df_base["Programa"].isin(programa_sel)
+    # ===== Valor padrão =====
+    df_filtrado = df_base.copy()
 
-    # Filtro Gênero
-    genero_disponiveis = sorted(df_base["Gênero"].dropna().unique())
-    genero_sel = col4.multiselect("Gênero", options=genero_disponiveis, placeholder="Todos")
-    if genero_sel:
-        mask &= df_base["Gênero"].isin(genero_sel)
-        
-    # ===== Terceira Linha =====
+    # ===== Se clicou, aplica =====
+    if aplicar:
+        # Aplica todos os filtros (como no código anterior)
+        if tipo_sel:
+            if "Projetos PJ" in tipo_sel and "Projetos PF" not in tipo_sel:
+                mask &= (df_base["Tipo"] == "PJ")
+            elif "Projetos PF" in tipo_sel and "Projetos PJ" not in tipo_sel:
+                mask &= (df_base["Tipo"] == "PF")
 
-    col1, col2, col3, col4 = st.columns(4)
+        if busca_geral:
+            termo = normalizar(busca_geral)
+            def corresponde(row):
+                return (
+                    termo in normalizar(row["Sigla"]) or
+                    termo in normalizar(row["Proponente"]) or
+                    termo in normalizar(row["CNPJ"]) or
+                    termo in normalizar(row["CPF"])
+                )
+            mask &= df_base.apply(corresponde, axis=1)
 
-    # Edital
-    editais_disponiveis = sorted(df_base["Edital"].dropna().unique(), key=edital_key)
+        # Demais filtros...
+        if categoria_sel: mask &= df_base["Categoria"].isin(categoria_sel)
+        if ponto_focal_sel: mask &= df_base["Ponto Focal"].isin(ponto_focal_sel)
+        if programa_sel: mask &= df_base["Programa"].isin(programa_sel)
+        if genero_sel: mask &= df_base["Gênero"].isin(genero_sel)
+        if edital_sel: mask &= df_base["Edital"].isin(edital_sel)
+        if ano_sel: mask &= df_base["Ano"].isin(ano_sel)
+        if doador_sel: mask &= df_base["Doador"].isin(doador_sel)
+        if codigo_sel: mask &= df_base["Código"].isin(codigo_sel)
+        if temas_sel: mask &= df_base["Temas"].apply(lambda x: any(m.strip() in temas_sel for m in x.split(",")) if isinstance(x, str) else False)
+        if publicos_sel: mask &= df_base["Público"].apply(lambda x: any(m.strip() in publicos_sel for m in x.split(",")) if isinstance(x, str) else False)
+        if biomas_sel: mask &= df_base["Bioma"].apply(lambda x: any(m.strip() in biomas_sel for m in x.split(",")) if isinstance(x, str) else False)
+        if status_sel: mask &= df_base["Status"].isin(status_sel)
+        if uf_sel: mask &= df_base["Estado(s)"].apply(lambda x: any(m.strip() in uf_sel for m in x.split(",")) if isinstance(x, str) else False)
+        if municipio_sel: mask &= df_base["Município(s)"].apply(lambda x: any(m.strip() in municipio_sel for m in x.split(",")) if isinstance(x, str) else False)
 
-    edital_sel = col1.multiselect("Edital", options=editais_disponiveis, placeholder="Todos")
-    if edital_sel:
-        mask &= df_base["Edital"].isin(edital_sel)
+        df_filtrado = df_base.loc[mask].copy()
 
-    # Ano
-    anos_disponiveis = sorted(df_base["Ano"].dropna().unique())
-    ano_sel = col2.multiselect("Ano", options=anos_disponiveis, placeholder="Todos")
-    if ano_sel:
-        mask &= df_base["Ano"].isin(ano_sel)
+        if df_filtrado.empty:
+            st.warning("Nenhum projeto encontrado")
+        #else:
+            #st.success(f"{len(df_filtrado)} projetos encontrados")
 
-    # Doador
-    doadores_disponiveis = sorted(df_base["Doador"].dropna().unique())
-    doador_sel = col3.multiselect("Doador", options=doadores_disponiveis, placeholder="Todos")
-    if doador_sel:
-        mask &= df_base["Doador"].isin(doador_sel)
-
-    # Código
-    codigos_disponiveis = sorted(df_base["Código"].dropna().unique())
-    codigo_sel = col4.multiselect("Código", options=codigos_disponiveis, placeholder="Todos")
-    if codigo_sel:
-        mask &= df_base["Código"].isin(codigo_sel)
-
-    # ===== Quarta Linha =====
-
-    col1, col2, col3, col4 = st.columns(4)
-
-    temas_disponiveis = sorted(
-        df_base["Temas"]
-        .dropna()
-        .apply(lambda x: [m.strip() for m in x.split(",")])
-        .explode()
-        .unique(),
-        key=normalizar
-    )
-
-    temas_sel = col1.multiselect("Temas", options=temas_disponiveis, placeholder="Todos")
-    if temas_sel:
-        mask &= df_base["Temas"].apply(
-            lambda x: any(m.strip() in temas_sel for m in x.split(",")) if isinstance(x, str) else False
-        )
-
-    publicos_disponiveis = sorted(
-        df_base["Público"]
-        .dropna()
-        .apply(lambda x: [m.strip() for m in x.split(",")])
-        .explode()
-        .unique(),
-        key=normalizar
-    )
-
-    publicos_sel = col2.multiselect("Público", options=publicos_disponiveis, placeholder="Todos")
-    if publicos_sel:
-        mask &= df_base["Público"].apply(
-            lambda x: any(m.strip() in publicos_sel for m in x.split(",")) if isinstance(x, str) else False
-        )
-
-    biomas_disponiveis = sorted(
-        df_base["Bioma"]
-        .dropna()
-        .apply(lambda x: [m.strip() for m in x.split(",")])
-        .explode()
-        .unique(),
-        key=normalizar
-    )
-
-    biomas_sel = col3.multiselect("Bioma", options=biomas_disponiveis, placeholder="Todos")
-    if biomas_sel:
-        mask &= df_base["Bioma"].apply(
-            lambda x: any(m.strip() in biomas_sel for m in x.split(",")) if isinstance(x, str) else False
-        )
-
-    status_disponiveis = sorted(df_base["Status"].dropna().unique())
-    status_sel = col4.multiselect("Status", options=status_disponiveis, placeholder="Todos")
-    if status_sel:
-        mask &= df_base["Status"].isin(status_sel)
-
-
-    # ===== Quinta Linha =====
-    
-    col5, col6 = st.columns(2)
-
-    # Estado
-    estados_unicos = sorted(
-        df_base["Estado(s)"].dropna().apply(lambda x: [m.strip() for m in x.split(",")]).explode().unique()
-    )
-    uf_sel = col5.multiselect("Estado(s)", options=estados_unicos, placeholder="Todos")
-    if uf_sel:
-        mask &= df_base["Estado(s)"].apply(
-            lambda x: any(m.strip() in uf_sel for m in x.split(",")) if isinstance(x, str) else False
-        )
-
-    # Município
-    municipios_unicos = sorted(
-        df_base["Município(s)"].dropna().apply(lambda x: [m.strip() for m in x.split(",")]).explode().unique()
-    )
-    municipio_sel = col6.multiselect("Município(s)", options=municipios_unicos, placeholder="Todos")
-    if municipio_sel:
-        mask &= df_base["Município(s)"].apply(
-            lambda x: any(m.strip() in municipio_sel for m in x.split(",")) if isinstance(x, str) else False
-        )
-
-    # Aplica filtro UMA vez e gera cópia segura
-    df_filtrado = df_base.loc[mask].copy()
-
-    if df_filtrado.empty:
-        st.warning("Nenhum projeto encontrado")
 
 # Salva no session_state para o diálogo de detalhes
 st.session_state["df_filtrado"] = df_filtrado

@@ -1896,7 +1896,7 @@ with tab2:
 
 
     # ABAS
-    tab_equipe, tab_indicadores, tab_anotacoes = st.tabs([":material/group: Equipe", ":material/show_chart: Indicadores", ":material/notes: Anotações"])
+    tab_equipe, tab_indicadores, tab_entregas, tab_anotacoes = st.tabs([":material/group: Equipe", ":material/show_chart: Indicadores", ":material/show_chart: Entregas", ":material/notes: Anotações"])
 
 
 
@@ -2318,6 +2318,129 @@ with tab2:
                                         linhas_adicionais=1,
                                         hide_index=True, 
                                         use_container_width=True)
+
+
+    # ##########################################################
+    # Entregas
+    # ##########################################################
+
+
+    with tab_entregas:
+        st.write("")
+
+        # Obter o documento completo do projeto selecionado
+        projeto_doc = projetos_ispn.find_one({"_id": projeto_id})
+
+        # Obter lista de entregas (ou lista vazia se não houver)
+        entregas = projeto_doc.get("entregas", [])
+
+        if not entregas:
+            st.write("_Não há entregas cadastradas para este projeto._")
+        else:
+            # Criar dicionário de ObjectId -> nome_completo dos responsáveis
+            df_pessoas_ordenado = df_pessoas.sort_values("nome_completo", ascending=True)
+            responsaveis_dict = {
+                str(row["_id"]): row["nome_completo"]
+                for _, row in df_pessoas_ordenado.iterrows()
+            }
+
+            # Montar lista com apenas as colunas desejadas
+            dados_entregas = []
+            for entrega in entregas:
+                responsaveis_ids = [
+                    str(r.get("$oid")) if isinstance(r, dict) else str(r)
+                    for r in entrega.get("responsaveis", [])
+                ]
+                responsaveis_nomes = [
+                    responsaveis_dict.get(rid, f"ID não encontrado: {rid}")
+                    for rid in responsaveis_ids
+                ]
+                dados_entregas.append({
+                    "Entregas": entrega.get("nome_da_entrega", "-"),
+                    "Previsão de Conclusão": entrega.get("previsao_da_conclusao", "-"),
+                    "Responsáveis": ", ".join(responsaveis_nomes) if responsaveis_nomes else "-",
+                    "Situação": entrega.get("situacao", "-"),
+                    "Anos de Referência": ", ".join(entrega.get("anos_de_referencia", [])),
+                    "Anotações": entrega.get("anotacoes", "-")
+                })
+
+            # Converter para DataFrame e exibir como tabela
+            df_entregas = pd.DataFrame(dados_entregas)
+
+            # ===============================================================
+            # FILTROS
+            # ===============================================================
+            #st.subheader("Filtros")
+
+            col1, col2 = st.columns(2)
+
+            # Opções únicas para filtros
+            situacoes = sorted(df_entregas["Situação"].dropna().unique().tolist())
+            anos_disponiveis = sorted(
+                set(
+                    ano.strip()
+                    for sublist in df_entregas["Anos de Referência"].dropna()
+                    for ano in sublist.split(",")
+                )
+            )
+
+            with col1:
+                filtro_situacao = st.multiselect(
+                    "Filtrar por Situação:",
+                    options=situacoes,
+                    default=[],
+                    placeholder="",
+                )
+
+            with col2:
+                filtro_ano = st.multiselect(
+                    "Filtrar por Ano de Referência:",
+                    options=anos_disponiveis,
+                    default=[],
+                    placeholder="",
+                )
+
+            # Aplicar filtros
+            df_filtrado = df_entregas.copy()
+
+            if filtro_situacao:
+                df_filtrado = df_filtrado[df_filtrado["Situação"].isin(filtro_situacao)]
+
+            if filtro_ano:
+                df_filtrado = df_filtrado[
+                    df_filtrado["Anos de Referência"].apply(
+                        lambda x: any(ano in x for ano in filtro_ano)
+                    )
+                ]
+
+            # ===============================================================
+            # EXIBIÇÃO DA TABELA
+            # ===============================================================
+            st.markdown(
+                """
+                <style>
+                    thead tr th:first-child { display: none !important; }
+                    tbody th { display: none !important; }
+
+                    table {
+                        table-layout: fixed;
+                        width: 100%;
+                    }
+
+                    th:nth-child(4), td:nth-child(4) { width: 30%; }
+                    th:nth-child(7), td:nth-child(7) { width: 30%; }
+
+                    td {
+                        white-space: normal !important;
+                        word-wrap: break-word !important;
+                    }
+                </style>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            st.table(df_filtrado)
+            st.dataframe(df_filtrado, hide_index=True)
 
 
 

@@ -271,7 +271,7 @@ def gerenciar_programa_dialog(programa):
 
             for idx, acao in enumerate(acoes_estrategicas):
                 titulo_atual = acao.get("acao_estrategica", "")
-                eixo_atual = acao.get("eixo_da_estrategia", [])
+                eixo_atual = acao.get("eixo_relacionado", [])
                 relacionados_mp = acao.get("resultados_medio_prazo_relacionados", [])
                 relacionados_lp = acao.get("resultados_longo_prazo_relacionados", [])
 
@@ -334,27 +334,31 @@ def gerenciar_programa_dialog(programa):
                             )
                             st.success("Ação estratégica atualizada com sucesso!")
                             time.sleep(2)
-                            st.rerun()
+                            #st.rerun()
 
                     else:
                         # ---------------- MODO VISUALIZAÇÃO ----------------
-                        st.markdown(f"**Ação estratégica:** {titulo_atual}")
+                        #st.markdown(f"**Ação estratégica:** {titulo_atual}")
 
-                        if eixo_atual:
-                            st.markdown(f"**Eixo da estratégia:** {eixo_atual}")
+                        # if eixo_atual:
+                        #     st.markdown(f"**Eixo da estratégia:** {eixo_atual}")
 
                         st.write("")
 
+                        if eixo_atual:
+                            st.markdown("**Contribui com os eixos estratégicos:**")
+                            for e in eixo_atual:
+                                st.markdown(f"- {e}")
+
                         if relacionados_mp:
-                            st.markdown("**Contribui com os seguintes resultados de médio prazo:**")
+                            st.markdown("**Contribui com os resultados de médio prazo:**")
                             for r in relacionados_mp:
                                 st.markdown(f"- {r}")
 
                         if relacionados_lp:
-                            st.markdown("**Contribui com os seguintes resultados de longo prazo:**")
+                            st.markdown("**Contribui com os resultados de longo prazo:**")
                             for r in relacionados_lp:
                                 st.markdown(f"- {r}")
-
 
 
 ######################################################################################################
