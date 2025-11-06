@@ -6,6 +6,7 @@ from google.oauth2 import service_account
 from google.analytics.data_v1beta import BetaAnalyticsDataClient
 from google.analytics.data_v1beta.types import RunReportRequest, DateRange, Dimension, Metric
 from funcoes_auxiliares import conectar_mongo_portal_ispn
+import datetime
 
 
 # ---------------------------------------------------------------------------------
@@ -107,8 +108,8 @@ def mostrar_relatorio(df, nome_site):
         .sort_values(by="Visualizações", ascending=False)
     )
 
-    st.subheader(f"Páginas mais visitadas ({nome_site})")
-    st.dataframe(visitas_pagina, use_container_width='stretch', height=350, hide_index=True)
+    st.subheader(f"Páginas mais visitadas")
+    st.dataframe(visitas_pagina, use_container_width='stretch', height=400, hide_index=True)
 
     # Gráfico diário
     visitas_dia = df.groupby("Data")["Visualizações"].sum().reset_index()
@@ -120,29 +121,50 @@ def mostrar_relatorio(df, nome_site):
     
     st.plotly_chart(fig, use_container_width='stretch')
 
-    # Top 10 páginas
-    top_paginas = visitas_pagina.head(10)
-    fig2 = px.bar(
-        top_paginas,
-        x="Visualizações",
-        y="Título",
-        orientation="h",
-        title="Top 10 Páginas Mais Visitadas",
-    )
-    st.plotly_chart(fig2, use_container_width='stretch')
+
 
 # ---------------------------------------------------------------------------------
 # FILTROS DE DATA (formato brasileiro)
 # ---------------------------------------------------------------------------------
 
-st.sidebar.header("Filtros de Período")
+with st.container(horizontal=True):
+ 
+    # Selecão do período
+    periodo = st.selectbox(
+        'Período',
+        ['hoje', '7 dias', '1 mês', '3 meses', '12 meses', 'personalizado'],
+        index=2,
+        width=300
+    )
 
-# formato: DD/MM/YYYY
-data_inicio_default = pd.to_datetime("2024-01-01")
-data_fim_default = pd.Timestamp.today()
+    hoje = datetime.date.today()
 
-inicio = st.sidebar.date_input("Data inicial", data_inicio_default, format="DD/MM/YYYY")
-fim = st.sidebar.date_input("Data final", data_fim_default, format="DD/MM/YYYY")
+    if periodo == 'hoje':
+        inicio = hoje
+        fim = hoje
+    elif periodo == '7 dias':
+        inicio = hoje - datetime.timedelta(days=7)
+        fim = hoje
+    elif periodo == '1 mês':
+        inicio = hoje - datetime.timedelta(days=30)
+        fim = hoje
+    elif periodo == '3 meses':
+        inicio = hoje - datetime.timedelta(days=90)
+        fim = hoje
+    elif periodo == '12 meses':
+        inicio = hoje - datetime.timedelta(days=365)
+        fim = hoje
+    elif periodo == 'personalizado':
+        inicio = st.date_input("Data inicial",
+                                format="DD/MM/YYYY",
+                                width=300)
+        fim = st.date_input("Data final",
+                            format="DD/MM/YYYY",
+                            width=300)
+
+st.write('')
+
+
 
 # ---------------------------------------------------------------------------------
 # CRIAR ABAS (Visão Geral + 8 sites)
@@ -165,7 +187,9 @@ with abas[0]:
     totais = []
 
     for nome_site, property_id in SITES.items():
+
         df_site = consultar_dados(property_id, inicio, fim)
+
         dfs[nome_site] = df_site
 
         if not df_site.empty:
@@ -176,6 +200,7 @@ with abas[0]:
         st.warning("Nenhum dado encontrado em nenhum site para o período selecionado.")
     else:
         df_totais = pd.DataFrame(totais)
+        df_totais = df_totais.sort_values(by="Visualizações", ascending=False)
         total_geral = df_totais["Visualizações"].sum()
 
         col1, col2 = st.columns(2)
@@ -202,6 +227,11 @@ with abas[0]:
         
         st.plotly_chart(fig2, use_container_width='stretch')
         
+
+
+
+
+
         # ---------------------------------------------------------------------------------
         # GRÁFICO DE VELOCÍMETRO - USO DO MONGODB
         # ---------------------------------------------------------------------------------
