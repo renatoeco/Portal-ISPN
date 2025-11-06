@@ -18,6 +18,7 @@ db = conectar_mongo_portal_ispn()
 #estatistica = db["estatistica"]
 colaboradores = db["colaboradores"]
 estrategia = db["estrategia"]
+projetos_ispn = db["projetos_ispn"]
 
 
 ###########################################################################################################
@@ -297,7 +298,7 @@ def editar_titulo_de_cada_resultado_mp_dialog(resultado_idx):
 
         st.write("")
 
-        if st.button("Salvar Título", key=f"salvar_titulo_{resultado_idx}"):
+        if st.button("Salvar Título", key=f"salvar_titulo_{resultado_idx}", icon=":material/save:"):
             # Atualiza título
             resultados[resultado_idx]["titulo"] = novo_titulo
 
@@ -325,7 +326,7 @@ def editar_titulo_de_cada_resultado_mp_dialog(resultado_idx):
             novo_nome_meta = st.text_input("Título da meta", key=f"nova_meta_nome_{resultado_idx}")
             novo_objetivo = st.text_input("Objetivo da meta", key=f"nova_meta_obj_{resultado_idx}")
 
-            if st.button("Adicionar Meta", key=f"btn_add_meta_{resultado_idx}"):
+            if st.button("Adicionar Meta", key=f"btn_add_meta_{resultado_idx}", icon=":material/add:"):
                 nova_meta = {
                     "_id": str(ObjectId()),
                     "nome_meta_mp": novo_nome_meta,
@@ -357,7 +358,7 @@ def editar_titulo_de_cada_resultado_mp_dialog(resultado_idx):
                     key=f"obj_{resultado_idx}_{m_idx}"
                 )
 
-                if st.button("Salvar", key=f"salvar_meta_{resultado_idx}_{m_idx}"):
+                if st.button("Salvar", key=f"salvar_meta_{resultado_idx}_{m_idx}", icon=":material/save:"):
                     resultados[resultado_idx]["metas"][m_idx]["nome_meta_mp"] = novo_nome_meta
                     resultados[resultado_idx]["metas"][m_idx]["objetivo"] = novo_objetivo
 
@@ -560,7 +561,7 @@ def editar_titulo_de_cada_resultado_mp_dialog(resultado_idx):
                                 "anotacao": novo_texto
                             })
 
-                if st.button(f"Salvar", key=f"salvar_acao_{resultado_idx}_{a_idx}"):
+                if st.button(f"Salvar", key=f"salvar_acao_{resultado_idx}_{a_idx}", icon=":material/save:"):
                     resultados[resultado_idx]["acoes_estrategicas"][a_idx].update({
                         "nome_acao_estrategica": novo_nome_acao,
                         "atividades": atividades
@@ -721,7 +722,10 @@ with aba_tm:
     st.write(impacto)
 
 
-# Aba Estratégia
+# ==============================================================
+# ABA ESTRATÉGIA
+# ==============================================================
+
 with aba_est:
     estrategia_doc = estrategia.find_one({"estrategia": {"$exists": True}})
 
@@ -736,7 +740,13 @@ with aba_est:
 
         if st.session_state.modo_edicao_1:
             with col2:
-                st.button("Editar página", icon=":material/edit:", key="editar_titulo_estrategia", on_click=editar_estrategia_dialog, use_container_width=True)
+                st.button(
+                    "Editar página",
+                    icon=":material/edit:",
+                    key="editar_titulo_estrategia",
+                    on_click=editar_estrategia_dialog,
+                    use_container_width=True
+                )
 
     st.write('')
     st.subheader(titulo_pagina_atual if titulo_pagina_atual else 'Promoção de Paisagens Produtivas Ecossociais')
@@ -756,6 +766,12 @@ with aba_est:
 
     st.write('')
 
+    # =====================
+    # COLEÇÕES
+    # =====================
+    #pessoas_dict = {str(p["_id"]): p.get("nome_completo", "") for p in colaboradores.find({}, {"nome_completo": 1})}
+    projetos = list(projetos_ispn.find({}, {"entregas": 1, "sigla": 1, "programa": 1}))
+
     # Função para ordenar estratégias com base no número do título
     def extrair_numero(estrategia):
         try:
@@ -765,56 +781,77 @@ with aba_est:
 
     lista_estrategias_ordenada = sorted(lista_estrategias_atual, key=extrair_numero)
 
-    for estrategia_item in lista_estrategias_ordenada:
-        with st.expander(f"**{estrategia_item.get('titulo', 'Título não definido')}**"):
-            
+    # =====================
+    # LOOP DE EIXOS
+    # =====================
+    for eixo in lista_estrategias_ordenada:
+        titulo_eixo = eixo.get("titulo", "Título não definido")
+
+        with st.expander(f"**{titulo_eixo}**"):
             if st.session_state.modo_edicao_1:
-                
                 col1, col2 = st.columns([7, 1])
-                
                 col2.button(
                     "Editar eixo",
-                    key=f"editar_{estrategia_item['titulo']}",
+                    key=f"editar_{titulo_eixo}",
                     on_click=editar_eixos_da_estrategia_dialog,
-                    args=(estrategia_item, estrategia_doc, estrategia),
-                    use_container_width=True, 
+                    args=(eixo, estrategia_doc, estrategia),
+                    use_container_width=True,
                     icon=":material/edit:"
                 )
 
             st.write('')
-            st.write('**ENTREGAS PLANEJADAS / REALIZADAS:**')
-
-            # Dados simulados - substituir futuramente se necessário
-            st.write('**Programa 1**')
-            st.write('**Projeto 1**')
-            st.dataframe(pd.DataFrame({
-                "Entregas": ["Entrega 1", "Entrega 2", "Entrega 3"],
-                "Status": ["realizado", "realizado", "não realizado"],
-                "Ano": ['2020', '2021', '2022'],
-            }), hide_index=True)
-
+            st.write("**Entregas Planejadas / Realizadas:**")
             st.write('')
-            st.write('**Programa 2**')
-            st.write('**Projeto 2**')
-            st.dataframe(pd.DataFrame({
-                "Entregas": ["Entrega 1", "Entrega 2", "Entrega 3"],
-                "Status": ["realizado", "realizado", "não realizado"],
-                "Ano": ['2020', '2021', '2022'],
-            }), hide_index=True)
+            
+            entregas_filtradas = []
+
+            # === Buscar entregas reais ===
+            for projeto in projetos:
+                for entrega in projeto.get("entregas", []):
+                    if titulo_eixo in entrega.get("eixos_relacionados", []):
+
+                        df_pessoas = pd.DataFrame(list(db["pessoas"].find()))
+                        df_pessoas_ordenado = df_pessoas.sort_values("nome_completo", ascending=True)
+                        responsaveis_dict = {
+                            str(row["_id"]): row["nome_completo"]
+                            for _, row in df_pessoas_ordenado.iterrows()
+                        }
+
+                        from bson import ObjectId
+
+                        responsaveis_formatados = ", ".join(
+                            responsaveis_dict.get(
+                                str(r["$oid"]) if isinstance(r, dict) and "$oid" in r
+                                else str(r) if isinstance(r, (ObjectId, str))
+                                else None,
+                                "Desconhecido"
+                            )
+                            for r in entrega.get("responsaveis", [])
+                        )
+
+                        #st.write(f"**Responsáveis:** {responsaveis_formatados}")
+
+
+                        entregas_filtradas.append({
+                            "Projeto": projeto.get("sigla", "-"),
+                            "Entrega": entrega.get("nome_da_entrega", "-"),
+                            "Previsão de Conclusão": entrega.get("previsao_da_conclusao", "-"),
+                            "Responsáveis": responsaveis_formatados,
+                            "Situação": entrega.get("situacao", "-"),
+                            "Anos de Referência": ", ".join(entrega.get("anos_de_referencia", [])),
+                            "Anotações": entrega.get("anotacoes", "-"),
+                        })
+
+            if entregas_filtradas:
+                df_entregas = pd.DataFrame(entregas_filtradas)
+                st.dataframe(df_entregas, hide_index=True)
+            else:
+                st.info("Nenhuma entrega registrada para este eixo.")
 
             st.divider()
-            st.write('')
-            st.write('**INDICADORES:**')
-            st.dataframe(pd.DataFrame({
-                "Indicador": [
-                    "1.1 - Indicador x",
-                    "1.2 - Indicador x",
-                    "1.3 - Indicador x",
-                    "1.4 - Indicador x",
-                    "1.5 - Indicador x",
-                ],
-                "Alcançado": [120, 500, 2000, 3000, 1000]
-            }), hide_index=True)
+            st.markdown("### Indicadores")
+            st.write("Indicadores ainda não integrados.")
+
 
 
 
@@ -866,13 +903,13 @@ with aba_res_mp:
             
             # Botão para editar o título do resultado — aparece apenas no modo de edição
             if st.session_state.modo_edicao_2:
-                col1, col2 = st.columns([2, 1])
+                col1, col2 = st.columns([6, 1])
                 col2.button(
                     "Editar resultado",
                     icon=":material/edit:",
                     key=f"editar_resultado_{idx}",
                     on_click=lambda i=idx: editar_titulo_de_cada_resultado_mp_dialog(i),
-                    use_container_width=True
+                    use_container_width=False
                 )
             
             # Metas
@@ -998,7 +1035,7 @@ with aba_res_lp:
                 
                 # Botão para editar o resultado (somente no modo edição)
                 if st.session_state.modo_edicao_lp:
-                    col1, col2 = st.columns([7, 1])
+                    col1, col2 = st.columns([6, 1])
                     col2.button(
                         "Editar resultado",
                         icon=":material/edit:",

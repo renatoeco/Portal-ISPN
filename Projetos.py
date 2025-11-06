@@ -1497,7 +1497,8 @@ with tab2:
                     #st.write("")
 
                     entregas_existentes = projeto_info.get("entregas", [])
-                    if entregas_existentes is None:
+                    # Garante que entregas_existentes seja sempre uma lista
+                    if not isinstance(entregas_existentes, list):
                         entregas_existentes = []
                         
                     dados_estrategia = list(estrategia.find({}))
