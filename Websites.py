@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
 from google.oauth2 import service_account
 from google.analytics.data_v1beta import BetaAnalyticsDataClient
 from google.analytics.data_v1beta.types import RunReportRequest, DateRange, Dimension, Metric
@@ -207,14 +206,34 @@ with abas[0]:
         col1.metric("Total de Visualizações", f"{total_geral:,}".replace(",", "."))
         col2.metric("Total de sites", len(df_totais))
 
+
+
+
         # Gráfico de visitas por site
-        fig = px.bar(df_totais, x="Site", y="Visualizações", title="Total de Visualizações por Site")
-        
+        fig = px.bar(
+            df_totais,
+            x="Site",
+            y="Visualizações",
+            title="Total de Visualizações por Site",
+            text="Visualizações"  # <- adiciona os números às barras
+        )
+
+        fig.update_traces(
+            texttemplate='%{text}',        # mostra exatamente o valor
+            textposition='inside',         # coloca o número dentro da barra
+            insidetextanchor='middle'      # centraliza verticalmente
+        )
+
         fig.update_layout(
             xaxis_title=None,
-            yaxis_title="Visualizações",)
-        
-        st.plotly_chart(fig, use_container_width='stretch')
+            yaxis_title="Visualizações",
+            uniformtext_minsize=8,
+            uniformtext_mode='hide'  # evita sobreposição se os textos ficarem grandes
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+
+
 
         # Evolução diária consolidada
         df_consolidado = pd.concat([df for df in dfs.values() if not df.empty], ignore_index=True)
@@ -223,68 +242,15 @@ with abas[0]:
         
         fig2.update_layout(
             xaxis_title=None,
-            yaxis_title="Visualizações",)
+            yaxis_title="Visualizações",
+            yaxis=dict(
+                side="right"  # <- move os valores do eixo Y para o lado direito
+            )
+            )
         
         st.plotly_chart(fig2, use_container_width='stretch')
         
 
-
-
-
-
-        # ---------------------------------------------------------------------------------
-        # GRÁFICO DE VELOCÍMETRO - USO DO MONGODB
-        # ---------------------------------------------------------------------------------
-        
-        #st.markdown("###### **Capacidade do Banco de Dados (MB)**")
-
-        # Obtém estatísticas do banco de dados inteiro
-        stats = db.command("dbStats")
-
-        # Extrai o tamanho total usado (em MB)
-        usado_mb = stats.get("storageSize", 0) / (1024 * 1024)
-        capacidade_total_mb = 500  # defina o limite da capacidade total estimada
-        porcentagem_usada = (usado_mb / capacidade_total_mb) * 100
-
-         # Cores de acordo com a porcentagem usada
-        if porcentagem_usada <= 50:
-            cor = "green"
-        elif porcentagem_usada <= 75:
-            cor = "yellow"
-        else:
-            cor = "red"
-
-        # Velocímetro em MB (com 1 casa decimal, sem legenda)
-        fig_gauge = go.Figure(go.Indicator(
-            mode="gauge+number",
-            value=round(usado_mb, 1),
-            number={'suffix': " MB", "font": {"size": 36}, "valueformat": ".1f"},
-            gauge={
-                'axis': {'range': [0, capacidade_total_mb], 'tickwidth': 1, 'tickcolor': "gray"},
-                'bar': {'color': cor},
-                'bgcolor': "white",
-                'borderwidth': 2,
-                'bordercolor': "gray",
-                'steps': [
-                    {'range': [0, capacidade_total_mb * 0.5], 'color': 'rgba(0, 255, 0, 0.2)'},
-                    {'range': [capacidade_total_mb * 0.5, capacidade_total_mb * 0.75], 'color': 'rgba(255, 255, 0, 0.2)'},
-                    {'range': [capacidade_total_mb * 0.75, capacidade_total_mb], 'color': 'rgba(255, 0, 0, 0.2)'},
-                ],
-                'threshold': {
-                    'line': {'color': cor, 'width': 6},
-                    'thickness': 0.75,
-                    'value': usado_mb
-                }
-            }
-        ))
-
-        fig_gauge.update_layout(
-            height=400,
-            margin=dict(l=30, r=30, t=60, b=30),
-            title="Capacidade do Banco de Dados (MB)"
-        )
-
-        st.plotly_chart(fig_gauge, use_container_width='stretch')
 
 # ---------------------------------------------------------------------------------
 # ABAS INDIVIDUAIS (1 a 8)
