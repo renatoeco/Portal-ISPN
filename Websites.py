@@ -15,13 +15,13 @@ from funcoes_auxiliares import conectar_mongo_portal_ispn
 
 st.set_page_config(page_title="Relatórios de Visitação - ISPN", layout="wide")
 st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
-st.header("Relatórios de Visitação dos Sites do ISPN")
+st.header("Websites do ISPN")
 st.write("")
 
 db = conectar_mongo_portal_ispn()
 
 # ---------------------------------------------------------------------------------
-# AUTENTICAÇÃO VIA st.secrets (sem arquivo físico)
+# AUTENTICAÇÃO VIA st.secrets
 # ---------------------------------------------------------------------------------
 
 # Carrega as credenciais diretamente do secrets.toml
@@ -40,14 +40,12 @@ client = BetaAnalyticsDataClient(credentials=credentials)
 
 
 SITES = {
-    "ISPN": "316090559",
-    "Cerratinga": "316085384",
-    "Fundo Ecos": "408525258",
-    "Capta": "316132374",
-    "Agroindústria": "406735991",
-    "Cerrado": "329431429",
-    #"Coruja": "XXXXXXXXX",
-    #"Colab": "XXXXXXXXX"
+    "ISPN": st.secrets["sites_analytics"]["site_ispn"],
+    "Cerratinga": st.secrets["sites_analytics"]["site_cerratinga"],
+    "Fundo Ecos": st.secrets["sites_analytics"]["site_fundo_ecos"],
+    "Capta": st.secrets["sites_analytics"]["site_capta"],
+    "Agroindústria": st.secrets["sites_analytics"]["site_agroindustria"],
+    "Cerrado": st.secrets["sites_analytics"]["site_cerrado"],
 }
 
 
@@ -110,7 +108,7 @@ def mostrar_relatorio(df, nome_site):
     )
 
     st.subheader(f"Páginas mais visitadas ({nome_site})")
-    st.dataframe(visitas_pagina, use_container_width=True, height=350, hide_index=True)
+    st.dataframe(visitas_pagina, use_container_width='stretch', height=350, hide_index=True)
 
     # Gráfico diário
     visitas_dia = df.groupby("Data")["Visualizações"].sum().reset_index()
@@ -120,7 +118,7 @@ def mostrar_relatorio(df, nome_site):
             xaxis_title=None,
             yaxis_title="Visualizações",)
     
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width='stretch')
 
     # Top 10 páginas
     top_paginas = visitas_pagina.head(10)
@@ -131,7 +129,7 @@ def mostrar_relatorio(df, nome_site):
         orientation="h",
         title="Top 10 Páginas Mais Visitadas",
     )
-    st.plotly_chart(fig2, use_container_width=True)
+    st.plotly_chart(fig2, use_container_width='stretch')
 
 # ---------------------------------------------------------------------------------
 # FILTROS DE DATA (formato brasileiro)
@@ -191,7 +189,7 @@ with abas[0]:
             xaxis_title=None,
             yaxis_title="Visualizações",)
         
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width='stretch')
 
         # Evolução diária consolidada
         df_consolidado = pd.concat([df for df in dfs.values() if not df.empty], ignore_index=True)
@@ -202,7 +200,7 @@ with abas[0]:
             xaxis_title=None,
             yaxis_title="Visualizações",)
         
-        st.plotly_chart(fig2, use_container_width=True)
+        st.plotly_chart(fig2, use_container_width='stretch')
         
         # ---------------------------------------------------------------------------------
         # GRÁFICO DE VELOCÍMETRO - USO DO MONGODB
@@ -256,7 +254,7 @@ with abas[0]:
             title="Capacidade do Banco de Dados (MB)"
         )
 
-        st.plotly_chart(fig_gauge, use_container_width=True)
+        st.plotly_chart(fig_gauge, use_container_width='stretch')
 
 # ---------------------------------------------------------------------------------
 # ABAS INDIVIDUAIS (1 a 8)

@@ -12,6 +12,7 @@ import time
 import bson
 
 
+
 st.set_page_config(layout="wide")
 st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
 
@@ -2301,7 +2302,7 @@ with tab2:
             ajustar_altura_dataframe(df_indicadores.drop(columns=["Valor_num"], errors="ignore"), 
                                         linhas_adicionais=1,
                                         hide_index=True, 
-                                        use_container_width=True)
+                                        use_container_width='stretch')
 
 
     # ##########################################################
@@ -2400,31 +2401,10 @@ with tab2:
             # ===============================================================
             # EXIBIÇÃO DA TABELA
             # ===============================================================
-            st.markdown(
-                """
-                <style>
-                    thead tr th:first-child { display: none !important; }
-                    tbody th { display: none !important; }
 
-                    table {
-                        table-layout: fixed;
-                        width: 100%;
-                    }
+            st.write('')
+            ui.table(data=df_filtrado)
 
-                    th:nth-child(4), td:nth-child(4) { width: 30%; }
-                    th:nth-child(7), td:nth-child(7) { width: 30%; }
-
-                    td {
-                        white-space: normal !important;
-                        word-wrap: break-word !important;
-                    }
-                </style>
-                """,
-                unsafe_allow_html=True,
-            )
-
-            st.table(df_filtrado)
-            st.dataframe(df_filtrado, hide_index=True)
 
 
 
