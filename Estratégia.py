@@ -1,9 +1,11 @@
 import streamlit as st
 import pandas as pd
 import time
+import streamlit_shadcn_ui as ui
 from datetime import datetime
 from funcoes_auxiliares import conectar_mongo_portal_ispn 
 from bson import ObjectId
+import re
 
 
 
@@ -659,6 +661,92 @@ def editar_titulo_de_cada_resultado_lp_dialog(resultado_idx):
         time.sleep(2)
         st.rerun()
 
+def _safe_key(text):
+    """Gera uma chave segura para Streamlit a partir de um texto (sem chars especiais)."""
+    if text is None:
+        return "none"
+    return re.sub(r"\W+", "_", str(text)).strip("_").lower()
+
+def _format_responsaveis_list(responsaveis_list, responsaveis_dict):
+    """
+    Recebe lista de responsáveis (pode conter dicts com {'$oid': '...'} ou ObjectId/str)
+    e retorna string formatada com nomes.
+    """
+    nomes = []
+    for r in responsaveis_list:
+        if isinstance(r, dict) and "$oid" in r:
+            key = str(r["$oid"])
+        else:
+            key = str(r)
+        nomes.append(responsaveis_dict.get(key, "Desconhecido"))
+    return ", ".join(nomes) if nomes else "-"
+
+def buscar_entregas_relacionadas(titulo_referencia):
+    """
+    Busca entregas em todos os projetos que tenham o titulo_referencia em
+    eixos_relacionados OR resultados_medio_prazo_relacionados OR resultados_longo_prazo_relacionados.
+    Retorna lista de dicionários prontos para DataFrame.
+    """
+    entregas_filtradas = []
+
+    # Obter projetos e dicionário de pessoas (para nomes dos responsáveis)
+    projetos = list(projetos_ispn.find({}, {"entregas": 1, "sigla": 1, "programa": 1}))
+    df_pessoas = pd.DataFrame(list(db["pessoas"].find()))
+    if df_pessoas.empty:
+        responsaveis_dict = {}
+    else:
+        df_pessoas_ordenado = df_pessoas.sort_values("nome_completo", ascending=True)
+        responsaveis_dict = {
+            str(row["_id"]): row["nome_completo"]
+            for _, row in df_pessoas_ordenado.iterrows()
+        }
+
+    for projeto in projetos:
+        sigla = projeto.get("sigla", "-")
+        for entrega in projeto.get("entregas", []) or []:
+            # Verifica as três possíveis ligações (eixo / resultado mp / resultado lp)
+            if (
+                titulo_referencia in entrega.get("eixos_relacionados", [])
+                or titulo_referencia in entrega.get("resultados_medio_prazo_relacionados", [])
+                or titulo_referencia in entrega.get("resultados_longo_prazo_relacionados", [])
+            ):
+                responsaveis_formatados = _format_responsaveis_list(entrega.get("responsaveis", []), responsaveis_dict)
+
+                entregas_filtradas.append({
+                    "Projeto": sigla,
+                    "Entrega": entrega.get("nome_da_entrega", "-"),
+                    "Previsão de Conclusão": entrega.get("previsao_da_conclusao", "-"),
+                    "Responsáveis": responsaveis_formatados,
+                    "Situação": entrega.get("situacao", "-"),
+                    "Anos de Referência": ", ".join(entrega.get("anos_de_referencia", []) or []),
+                    "Anotações": entrega.get("anotacoes", "-"),
+                })
+
+    return entregas_filtradas
+
+def exibir_entregas_como_tabela(entregas_list, key_prefix="tabela", key_suffix=None):
+    """
+    Recebe a lista de entregas (lista de dicts) e exibe como ui.table com key única.
+    Faz parsing da coluna 'Previsão de Conclusão' para ordenar corretamente (DD/MM/YYYY).
+    """
+    if not entregas_list:
+        return None
+
+    df = pd.DataFrame(entregas_list)
+
+    # Parse para datetime considerando dia/mês/ano; mantém strings inválidas como NaT
+    if "Previsão de Conclusão" in df.columns:
+        df["_dt_previsao"] = pd.to_datetime(df["Previsão de Conclusão"], dayfirst=True, errors="coerce")
+        df = df.sort_values(by="_dt_previsao", ascending=True).drop(columns=["_dt_previsao"])
+
+    # montar key única
+    if key_suffix is None:
+        key_suffix = pd.util.hash_pandas_object(df).sum()  # fallback (não muito legível, mas único)
+    key = f"{key_prefix}_{_safe_key(key_suffix)}"
+
+    # exibir
+    ui.table(data=df, key=key)
+    return df
 
 ###########################################################################################################
 # INTERFACE PRINCIPAL
@@ -722,20 +810,18 @@ with aba_tm:
     st.write(impacto)
 
 
-# ==============================================================
+# ---------------------------
 # ABA ESTRATÉGIA
-# ==============================================================
-
+# ---------------------------
 with aba_est:
     estrategia_doc = estrategia.find_one({"estrategia": {"$exists": True}})
 
-    # Acessa o título e a lista de estratégias de forma segura
     titulo_pagina_atual = estrategia_doc.get("estrategia", {}).get("titulo_pagina_estrategia", "") if estrategia_doc else ""
     lista_estrategias_atual = estrategia_doc.get("estrategia", {}).get("eixos_da_estrategia", []) if estrategia_doc else []
 
-    # Roteamento de tipo de usuário
+    # Modo edição (mantém sua lógica)
     if set(st.session_state.tipo_usuario) & {"admin"}:
-        col1, col2 = st.columns([7, 1])  # Ajuste os pesos conforme necessário
+        col1, col2 = st.columns([7, 1])
         col1.toggle('Modo de edição', value=False, key='modo_edicao_1')
 
         if st.session_state.modo_edicao_1:
@@ -753,37 +839,28 @@ with aba_est:
     st.write('')
 
     col1, col2, col3 = st.columns(3)
-
     with col1:
         anos = list(range(1994, datetime.now().year + 1))
         ano_selecionado = st.selectbox("Selecione o ano:", sorted(anos, reverse=True))
-
     with col2:
         programa_selecionado = st.selectbox("Selecione o programa:", ["Todos os programas", "Programa 1", "Programa 2", "Programa 3"])
-
     with col3:
         projeto_selecionado = st.selectbox("Selecione o projeto:", ["Todos os projetos", "Projeto 1", "Projeto 2", "Projeto 3"])
 
     st.write('')
 
-    # =====================
-    # COLEÇÕES
-    # =====================
-    #pessoas_dict = {str(p["_id"]): p.get("nome_completo", "") for p in colaboradores.find({}, {"nome_completo": 1})}
+    # Carrega projetos uma vez
     projetos = list(projetos_ispn.find({}, {"entregas": 1, "sigla": 1, "programa": 1}))
 
-    # Função para ordenar estratégias com base no número do título
-    def extrair_numero(estrategia):
+    # Ordena eixos
+    def extrair_numero(estrategia_item):
         try:
-            return int(estrategia["titulo"].split(" - ")[0])
+            return int(estrategia_item["titulo"].split(" - ")[0])
         except:
-            return float('inf')  # Coloca no final se não for possível extrair
+            return float('inf')
 
     lista_estrategias_ordenada = sorted(lista_estrategias_atual, key=extrair_numero)
 
-    # =====================
-    # LOOP DE EIXOS
-    # =====================
     for eixo in lista_estrategias_ordenada:
         titulo_eixo = eixo.get("titulo", "Título não definido")
 
@@ -792,7 +869,7 @@ with aba_est:
                 col1, col2 = st.columns([7, 1])
                 col2.button(
                     "Editar eixo",
-                    key=f"editar_{titulo_eixo}",
+                    key=f"editar_{_safe_key(titulo_eixo)}",
                     on_click=editar_eixos_da_estrategia_dialog,
                     args=(eixo, estrategia_doc, estrategia),
                     use_container_width=True,
@@ -802,49 +879,13 @@ with aba_est:
             st.write('')
             st.write("**Entregas Planejadas / Realizadas:**")
             st.write('')
-            
-            entregas_filtradas = []
 
-            # === Buscar entregas reais ===
-            for projeto in projetos:
-                for entrega in projeto.get("entregas", []):
-                    if titulo_eixo in entrega.get("eixos_relacionados", []):
-
-                        df_pessoas = pd.DataFrame(list(db["pessoas"].find()))
-                        df_pessoas_ordenado = df_pessoas.sort_values("nome_completo", ascending=True)
-                        responsaveis_dict = {
-                            str(row["_id"]): row["nome_completo"]
-                            for _, row in df_pessoas_ordenado.iterrows()
-                        }
-
-                        from bson import ObjectId
-
-                        responsaveis_formatados = ", ".join(
-                            responsaveis_dict.get(
-                                str(r["$oid"]) if isinstance(r, dict) and "$oid" in r
-                                else str(r) if isinstance(r, (ObjectId, str))
-                                else None,
-                                "Desconhecido"
-                            )
-                            for r in entrega.get("responsaveis", [])
-                        )
-
-                        #st.write(f"**Responsáveis:** {responsaveis_formatados}")
-
-
-                        entregas_filtradas.append({
-                            "Projeto": projeto.get("sigla", "-"),
-                            "Entrega": entrega.get("nome_da_entrega", "-"),
-                            "Previsão de Conclusão": entrega.get("previsao_da_conclusao", "-"),
-                            "Responsáveis": responsaveis_formatados,
-                            "Situação": entrega.get("situacao", "-"),
-                            "Anos de Referência": ", ".join(entrega.get("anos_de_referencia", [])),
-                            "Anotações": entrega.get("anotacoes", "-"),
-                        })
+            # Usa a função para buscar entregas relacionadas ao eixo
+            entregas_filtradas = buscar_entregas_relacionadas(titulo_eixo)
 
             if entregas_filtradas:
-                df_entregas = pd.DataFrame(entregas_filtradas)
-                st.dataframe(df_entregas, hide_index=True)
+                # exibir com key única por eixo
+                exibir_entregas_como_tabela(entregas_filtradas, key_prefix="tabela_entregas_eixo", key_suffix=titulo_eixo)
             else:
                 st.info("Nenhuma entrega registrada para este eixo.")
 
@@ -852,20 +893,19 @@ with aba_est:
             st.markdown("### Indicadores")
             st.write("Indicadores ainda não integrados.")
 
-
-
+# ---------------------------
+# ABA RESULTADOS DE MÉDIO PRAZO
+# ---------------------------
 
 with aba_res_mp:
-    # Título da seção
     doc = estrategia.find_one({"resultados_medio_prazo": {"$exists": True}})
     resultados_data = doc.get("resultados_medio_prazo", {}) if doc else {}
 
     titulo_pagina = resultados_data.get("titulo_pagina_resultados_mp", "Resultados de Médio Prazo")
     lista_resultados = resultados_data.get("resultados_mp", [])
 
-    # Roteamento de tipo de usuário
     if set(st.session_state.tipo_usuario) & {"admin"}:
-        col1, col2 = st.columns([7, 1])  # Ajuste os pesos conforme necessário
+        col1, col2 = st.columns([7, 1])
         col1.toggle('Modo de edição', value=False, key='modo_edicao_2')
 
         if st.session_state.modo_edicao_2:
@@ -876,138 +916,114 @@ with aba_res_mp:
     st.subheader(titulo_pagina)
     st.write('')
 
-
-
-    # # Botão de adicionar novo resultado de médio prazo só para admin
-    # # Roteamento de tipo de usuário
-    # if set(st.session_state.tipo_usuario) & {"admin"}:
-
-    #     col1, col2 = st.columns([1, 7])  
-
-    #     # Botão para adicionar novo resultado de médio prazo
-    #     with col1:
-    #         st.button(
-    #             "Adicionar",
-    #             key="adicionar_result_mp",
-    #             icon=":material/add:",
-    #             on_click=editar_titulo_de_cada_resultado_mp_dialog,
-    #             kwargs={"resultado_idx": None}
-    #         )
-
-
-
-
-    # Lista os resultados de médio prazo
     for idx, resultado in enumerate(lista_resultados):
-        with st.expander(resultado["titulo"]):
-            
-            # Botão para editar o título do resultado — aparece apenas no modo de edição
+        titulo_result = resultado.get("titulo", f"Resultado {idx+1}")
+        with st.expander(titulo_result):
+            # Botão editar título do resultado
             if st.session_state.modo_edicao_2:
                 col1, col2 = st.columns([6, 1])
                 col2.button(
                     "Editar resultado",
                     icon=":material/edit:",
-                    key=f"editar_resultado_{idx}",
+                    key=f"editar_resultado_mp_{idx}",
                     on_click=lambda i=idx: editar_titulo_de_cada_resultado_mp_dialog(i),
                     use_container_width=False
                 )
-            
-            # Metas
+
+            # Metas (mantive sua lógica)
             metas = resultado.get("metas", [])
             if metas:
                 df_metas = pd.DataFrame([
-                    {
-                        "Meta": m.get("nome_meta_mp", ""),
-                        "Objetivo": m.get("objetivo", ""),
-                        "Alcançado": ""
-                    }
+                    {"Meta": m.get("nome_meta_mp", ""), "Objetivo": m.get("objetivo", ""), "Alcançado": ""}
                     for m in metas
                 ])
-
-                # Modo edição
-                if st.session_state.modo_edicao:
-                    if "df_original" not in st.session_state:
-                        st.session_state.df_original = df_metas.copy()
+                if st.session_state.get("modo_edicao"):
+                    if f"df_original_mp_{idx}" not in st.session_state:
+                        st.session_state[f"df_original_mp_{idx}"] = df_metas.copy()
 
                     df_metas_editado = st.data_editor(
-                        st.session_state.df_original,
+                        st.session_state[f"df_original_mp_{idx}"],
                         hide_index=True,
-                        key=f"tabela_metas_{idx}"
+                        key=f"tabela_metas_mp_{idx}"
                     )
 
-                    if df_tem_mudancas(df_metas_editado, st.session_state.df_original):
-                        st.session_state.df_original = df_metas_editado.copy()
+                    if df_tem_mudancas(df_metas_editado, st.session_state[f"df_original_mp_{idx}"]):
+                        st.session_state[f"df_original_mp_{idx}"] = df_metas_editado.copy()
                         nova_lista = df_metas_editado.to_dict(orient="records")
 
                         estrategia.update_one(
-                            {"_id": documento["_id"]},
+                            {"_id": doc["_id"]},
                             {"$set": {"resultados_medio_prazo.resultados_mp": nova_lista}}
                         )
                         st.success("Alterações salvas automaticamente no MongoDB")
-
-                # Modo leitura
                 else:
                     st.dataframe(df_metas, hide_index=True)
-
             else:
                 st.info("Nenhuma meta cadastrada.")
 
-            # Ações estratégicas
+            # Ações estratégicas (mantive sua lógica)
             st.write("")
-            st.write("**ENTREGAS:**")
-            acoes = resultado.get("acoes_estrategicas", [])
-            if not acoes:
-                st.info("Nenhuma ação estratégica cadastrada.")
+            # st.write("**ENTREGAS:**")
+            # acoes = resultado.get("acoes_estrategicas", [])
+            # if not acoes:
+            #     st.info("Nenhuma ação estratégica cadastrada.")
+            # else:
+            #     for a_idx, acao in enumerate(acoes):
+            #         col_acao, col_popover = st.columns([7, 1])
+            #         with col_acao:
+            #             st.write(f"**{a_idx + 1} - {acao.get('nome_acao_estrategica', '')}**")
+            #         with col_popover:
+            #             with st.popover("Anotações"):
+            #                 atividades = acao.get("atividades", [])
+            #                 if atividades:
+            #                     for atv in atividades:
+            #                         anotacoes = atv.get("anotacoes", [])
+            #                         if anotacoes:
+            #                             for anot in anotacoes:
+            #                                 st.markdown(f"- **{anot.get('data', '')}**")
+            #                                 st.markdown(f"*{anot.get('autor', '')}*")
+            #                                 st.write(f"Anotação: {anot.get('anotacao', '')}")
+            #                                 st.write("---")
+            #                         else:
+            #                             st.write("Sem anotações para esta atividade.")
+            #                 else:
+            #                     st.write("Sem atividades registradas.")
+
+            #         atividades = acao.get("atividades", [])
+            #         if atividades:
+            #             df_atividades = pd.DataFrame([
+            #                 {
+            #                     "Atividade": atv.get("atividade", ""),
+            #                     "Responsável": atv.get("responsavel", ""),
+            #                     "Início": atv.get("data_inicio", ""),
+            #                     "Fim": atv.get("data_fim", ""),
+            #                     "Status": atv.get("status", "")
+            #                 }
+            #                 for atv in atividades
+            #             ])
+            #             st.dataframe(df_atividades, hide_index=True)
+            #         else:
+            #             st.info("Nenhuma atividade registrada.")
+
+            # --- Exibir entregas relacionadas a este resultado de médio prazo ---
+            st.write('')
+            st.markdown("**Entregas Planejadas / Realizadas:**")
+            entregas_mp = buscar_entregas_relacionadas(titulo_result)
+            if entregas_mp:
+                exibir_entregas_como_tabela(entregas_mp, key_prefix="tabela_entregas_mp", key_suffix=f"{idx}_{titulo_result}")
             else:
-                for a_idx, acao in enumerate(acoes):
-                    col_acao, col_popover = st.columns([7, 1])
-                    with col_acao:
-                        st.write(f"**{a_idx + 1} - {acao.get('nome_acao_estrategica', '')}**")
-                    with col_popover:
-                        with st.popover("Anotações"):
-                            atividades = acao.get("atividades", [])
-                            if atividades:
-                                for atv in atividades:
-                                    anotacoes = atv.get("anotacoes", [])
-                                    if anotacoes:
-                                        for anot in anotacoes:
-                                            st.markdown(f"- **{anot.get('data', '')}**")
-                                            st.markdown(f"*{anot.get('autor', '')}*")
-                                            st.write(f"Anotação: {anot.get('anotacao', '')}")
-                                            st.write("---")
-                                    else:
-                                        st.write("Sem anotações para esta atividade.")
-                            else:
-                                st.write("Sem atividades registradas.")
+                st.info("Nenhuma entrega registrada para este resultado de médio prazo.")
 
-                    atividades = acao.get("atividades", [])
-                    if atividades:
-                        df_atividades = pd.DataFrame([
-                            {
-                                "Atividade": atv.get("atividade", ""),
-                                "Responsável": atv.get("responsavel", ""),
-                                "Início": atv.get("data_inicio", ""),
-                                "Fim": atv.get("data_fim", ""),
-                                "Status": atv.get("status", "")
-                            }
-                            for atv in atividades
-                        ])
-                        st.dataframe(df_atividades, hide_index=True)
-                    else:
-                        st.info("Nenhuma atividade registrada.")
-
-
+# ---------------------------
+# ABA RESULTADOS DE LONGO PRAZO
+# ---------------------------
 with aba_res_lp:
-    # --- Buscar dados no MongoDB ---
     doc = estrategia.find_one({"resultados_longo_prazo": {"$exists": True}})
     resultados_lp_data = doc.get("resultados_longo_prazo", {}) if doc else {}
 
     titulo_pagina_lp = resultados_lp_data.get("titulo_pagina_resultados_lp", "Resultados de Longo Prazo - 2030")
     lista_resultados_lp = resultados_lp_data.get("resultados_lp", [])
 
-    # ==============================================================
-    # Cabeçalho e controle de edição
-    # ==============================================================
     if set(st.session_state.tipo_usuario) & {"admin"}:
         col1, col2 = st.columns([7, 1])
         col1.toggle('Modo de edição', value=False, key='modo_edicao_lp')
@@ -1026,14 +1042,11 @@ with aba_res_lp:
     st.subheader(titulo_pagina_lp)
     st.write('')
 
-    # ==============================================================
-    # Lista de Resultados de Longo Prazo
-    # ==============================================================
     if lista_resultados_lp:
         for idx, resultado in enumerate(lista_resultados_lp):
-            with st.expander(resultado.get("titulo", f"Resultado {idx+1}")):
-                
-                # Botão para editar o resultado (somente no modo edição)
+            titulo_result_lp = resultado.get("titulo", f"Resultado {idx+1}")
+            with st.expander(titulo_result_lp):
+                # Botão editar
                 if st.session_state.modo_edicao_lp:
                     col1, col2 = st.columns([6, 1])
                     col2.button(
@@ -1058,7 +1071,6 @@ with aba_res_lp:
                         for ind in indicadores
                     ])
 
-                    # --- Modo de edição ---
                     if st.session_state.modo_edicao_lp:
                         if f"df_original_lp_{idx}" not in st.session_state:
                             st.session_state[f"df_original_lp_{idx}"] = df_indicadores.copy()
@@ -1069,7 +1081,6 @@ with aba_res_lp:
                             key=f"tabela_indicadores_lp_{idx}"
                         )
 
-                        # Verifica se houve alterações e atualiza no MongoDB
                         if df_tem_mudancas(df_editado, st.session_state[f"df_original_lp_{idx}"]):
                             st.session_state[f"df_original_lp_{idx}"] = df_editado.copy()
                             nova_lista = df_editado.to_dict(orient="records")
@@ -1079,15 +1090,234 @@ with aba_res_lp:
                                 {f"$set": {f"resultados_longo_prazo.resultados_lp.{idx}.indicadores": nova_lista}}
                             )
                             st.success("Alterações salvas automaticamente no MongoDB")
-
-                    # --- Modo leitura ---
                     else:
                         st.dataframe(df_indicadores, hide_index=True)
-
                 else:
                     st.info("Nenhum indicador cadastrado.")
+
+                # --- Exibir entregas relacionadas a este resultado de longo prazo ---
+                st.write('')
+                st.markdown("**Entregas Planejadas / Realizadas:**")
+                entregas_lp = buscar_entregas_relacionadas(titulo_result_lp)
+                if entregas_lp:
+                    exibir_entregas_como_tabela(entregas_lp, key_prefix="tabela_entregas_lp", key_suffix=f"{idx}_{titulo_result_lp}")
+                else:
+                    st.info("Nenhuma entrega registrada para este resultado de longo prazo.")
     else:
         st.info("Nenhum resultado de longo prazo encontrado no banco de dados.")
+
+
+
+    # # Botão de adicionar novo resultado de médio prazo só para admin
+    # # Roteamento de tipo de usuário
+    # if set(st.session_state.tipo_usuario) & {"admin"}:
+
+    #     col1, col2 = st.columns([1, 7])  
+
+    #     # Botão para adicionar novo resultado de médio prazo
+    #     with col1:
+    #         st.button(
+    #             "Adicionar",
+    #             key="adicionar_result_mp",
+    #             icon=":material/add:",
+    #             on_click=editar_titulo_de_cada_resultado_mp_dialog,
+    #             kwargs={"resultado_idx": None}
+    #         )
+
+
+
+
+#     # Lista os resultados de médio prazo
+#     for idx, resultado in enumerate(lista_resultados):
+#         with st.expander(resultado["titulo"]):
+            
+#             # Botão para editar o título do resultado — aparece apenas no modo de edição
+#             if st.session_state.modo_edicao_2:
+#                 col1, col2 = st.columns([6, 1])
+#                 col2.button(
+#                     "Editar resultado",
+#                     icon=":material/edit:",
+#                     key=f"editar_resultado_{idx}",
+#                     on_click=lambda i=idx: editar_titulo_de_cada_resultado_mp_dialog(i),
+#                     use_container_width=False
+#                 )
+            
+#             # Metas
+#             metas = resultado.get("metas", [])
+#             if metas:
+#                 df_metas = pd.DataFrame([
+#                     {
+#                         "Meta": m.get("nome_meta_mp", ""),
+#                         "Objetivo": m.get("objetivo", ""),
+#                         "Alcançado": ""
+#                     }
+#                     for m in metas
+#                 ])
+
+#                 # Modo edição
+#                 if st.session_state.modo_edicao:
+#                     if "df_original" not in st.session_state:
+#                         st.session_state.df_original = df_metas.copy()
+
+#                     df_metas_editado = st.data_editor(
+#                         st.session_state.df_original,
+#                         hide_index=True,
+#                         key=f"tabela_metas_{idx}"
+#                     )
+
+#                     if df_tem_mudancas(df_metas_editado, st.session_state.df_original):
+#                         st.session_state.df_original = df_metas_editado.copy()
+#                         nova_lista = df_metas_editado.to_dict(orient="records")
+
+#                         estrategia.update_one(
+#                             {"_id": documento["_id"]},
+#                             {"$set": {"resultados_medio_prazo.resultados_mp": nova_lista}}
+#                         )
+#                         st.success("Alterações salvas automaticamente no MongoDB")
+
+#                 # Modo leitura
+#                 else:
+#                     st.dataframe(df_metas, hide_index=True)
+
+#             else:
+#                 st.info("Nenhuma meta cadastrada.")
+
+#             # Ações estratégicas
+#             st.write("")
+#             st.write("**ENTREGAS:**")
+#             acoes = resultado.get("acoes_estrategicas", [])
+#             if not acoes:
+#                 st.info("Nenhuma ação estratégica cadastrada.")
+#             else:
+#                 for a_idx, acao in enumerate(acoes):
+#                     col_acao, col_popover = st.columns([7, 1])
+#                     with col_acao:
+#                         st.write(f"**{a_idx + 1} - {acao.get('nome_acao_estrategica', '')}**")
+#                     with col_popover:
+#                         with st.popover("Anotações"):
+#                             atividades = acao.get("atividades", [])
+#                             if atividades:
+#                                 for atv in atividades:
+#                                     anotacoes = atv.get("anotacoes", [])
+#                                     if anotacoes:
+#                                         for anot in anotacoes:
+#                                             st.markdown(f"- **{anot.get('data', '')}**")
+#                                             st.markdown(f"*{anot.get('autor', '')}*")
+#                                             st.write(f"Anotação: {anot.get('anotacao', '')}")
+#                                             st.write("---")
+#                                     else:
+#                                         st.write("Sem anotações para esta atividade.")
+#                             else:
+#                                 st.write("Sem atividades registradas.")
+
+#                     atividades = acao.get("atividades", [])
+#                     if atividades:
+#                         df_atividades = pd.DataFrame([
+#                             {
+#                                 "Atividade": atv.get("atividade", ""),
+#                                 "Responsável": atv.get("responsavel", ""),
+#                                 "Início": atv.get("data_inicio", ""),
+#                                 "Fim": atv.get("data_fim", ""),
+#                                 "Status": atv.get("status", "")
+#                             }
+#                             for atv in atividades
+#                         ])
+#                         st.dataframe(df_atividades, hide_index=True)
+#                     else:
+#                         st.info("Nenhuma atividade registrada.")
+
+
+# with aba_res_lp:
+#     # --- Buscar dados no MongoDB ---
+#     doc = estrategia.find_one({"resultados_longo_prazo": {"$exists": True}})
+#     resultados_lp_data = doc.get("resultados_longo_prazo", {}) if doc else {}
+
+#     titulo_pagina_lp = resultados_lp_data.get("titulo_pagina_resultados_lp", "Resultados de Longo Prazo - 2030")
+#     lista_resultados_lp = resultados_lp_data.get("resultados_lp", [])
+
+#     # ==============================================================
+#     # Cabeçalho e controle de edição
+#     # ==============================================================
+#     if set(st.session_state.tipo_usuario) & {"admin"}:
+#         col1, col2 = st.columns([7, 1])
+#         col1.toggle('Modo de edição', value=False, key='modo_edicao_lp')
+
+#         if st.session_state.modo_edicao_lp:
+#             with col2:
+#                 st.button(
+#                     "Editar página",
+#                     icon=":material/edit:",
+#                     key="editar_titulo_result_lp",
+#                     on_click=editar_titulo_pagina_resultados_lp_dialog,
+#                     use_container_width=True
+#                 )
+
+#     st.write('')
+#     st.subheader(titulo_pagina_lp)
+#     st.write('')
+
+#     # ==============================================================
+#     # Lista de Resultados de Longo Prazo
+#     # ==============================================================
+#     if lista_resultados_lp:
+#         for idx, resultado in enumerate(lista_resultados_lp):
+#             with st.expander(resultado.get("titulo", f"Resultado {idx+1}")):
+                
+#                 # Botão para editar o resultado (somente no modo edição)
+#                 if st.session_state.modo_edicao_lp:
+#                     col1, col2 = st.columns([6, 1])
+#                     col2.button(
+#                         "Editar resultado",
+#                         icon=":material/edit:",
+#                         key=f"editar_resultado_lp_{idx}",
+#                         on_click=lambda i=idx: editar_titulo_de_cada_resultado_lp_dialog(i),
+#                         use_container_width=True
+#                     )
+
+#                 st.write('')
+#                 st.write('**INDICADORES:**')
+
+#                 indicadores = resultado.get("indicadores", [])
+#                 if indicadores:
+#                     df_indicadores = pd.DataFrame([
+#                         {
+#                             "Indicador": ind.get("nome_indicador", ""),
+#                             "Meta": ind.get("meta", ""),
+#                             "Alcançado": ind.get("alcancado", "")
+#                         }
+#                         for ind in indicadores
+#                     ])
+
+#                     # --- Modo de edição ---
+#                     if st.session_state.modo_edicao_lp:
+#                         if f"df_original_lp_{idx}" not in st.session_state:
+#                             st.session_state[f"df_original_lp_{idx}"] = df_indicadores.copy()
+
+#                         df_editado = st.data_editor(
+#                             st.session_state[f"df_original_lp_{idx}"],
+#                             hide_index=True,
+#                             key=f"tabela_indicadores_lp_{idx}"
+#                         )
+
+#                         # Verifica se houve alterações e atualiza no MongoDB
+#                         if df_tem_mudancas(df_editado, st.session_state[f"df_original_lp_{idx}"]):
+#                             st.session_state[f"df_original_lp_{idx}"] = df_editado.copy()
+#                             nova_lista = df_editado.to_dict(orient="records")
+
+#                             estrategia.update_one(
+#                                 {"_id": doc["_id"]},
+#                                 {f"$set": {f"resultados_longo_prazo.resultados_lp.{idx}.indicadores": nova_lista}}
+#                             )
+#                             st.success("Alterações salvas automaticamente no MongoDB")
+
+#                     # --- Modo leitura ---
+#                     else:
+#                         st.dataframe(df_indicadores, hide_index=True)
+
+#                 else:
+#                     st.info("Nenhum indicador cadastrado.")
+#     else:
+#         st.info("Nenhum resultado de longo prazo encontrado no banco de dados.")
 
 
 with aba_ebj_est_ins:
