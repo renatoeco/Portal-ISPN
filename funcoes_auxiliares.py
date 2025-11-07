@@ -22,7 +22,7 @@ def ajustar_altura_dataframe(
     df_nao_atualizado,
     linhas_adicionais=0,
     altura_maxima=None,  # Se None, não aplica limite
-    use_container_width=True,
+    width="stretch",
     hide_index=True,
     column_config={
         "Link": st.column_config.Column(
@@ -52,7 +52,7 @@ def ajustar_altura_dataframe(
     st.dataframe(
         df_nao_atualizado,
         height=altura_total,
-        use_container_width=use_container_width,
+        width=width,
         hide_index=hide_index,
         column_config=column_config
     )

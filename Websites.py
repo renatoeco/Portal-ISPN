@@ -108,7 +108,7 @@ def mostrar_relatorio(df, nome_site):
     )
 
     st.subheader(f"Páginas mais visitadas")
-    st.dataframe(visitas_pagina, use_container_width='stretch', height=400, hide_index=True)
+    st.dataframe(visitas_pagina, width='stretch', height=400, hide_index=True)
 
     # Gráfico diário
     visitas_dia = df.groupby("Data")["Visualizações"].sum().reset_index()
@@ -118,7 +118,7 @@ def mostrar_relatorio(df, nome_site):
             xaxis_title=None,
             yaxis_title="Visualizações",)
     
-    st.plotly_chart(fig, use_container_width='stretch')
+    st.plotly_chart(fig, width='stretch')
 
 
 
@@ -231,7 +231,7 @@ with abas[0]:
             uniformtext_mode='hide'  # evita sobreposição se os textos ficarem grandes
         )
 
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig)
 
 
 
@@ -248,7 +248,7 @@ with abas[0]:
             )
             )
         
-        st.plotly_chart(fig2, use_container_width='stretch')
+        st.plotly_chart(fig2)
         
 
 

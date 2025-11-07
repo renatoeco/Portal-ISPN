@@ -88,79 +88,6 @@ estatistica = db["estatistica"]
 # FUNÇÕES AUXILIARES
 # ###########################################################################
 
-# # Função para renderizar a página de ferias individual na aba Minhas férias
-# def minhas_ferias():
-
-#     colaborador_selecionado = st.session_state.nome
-
-#     st.write('')
-#     st.write(f'Registros de férias e recessos de **{colaborador_selecionado}**')
-
-#     # Filtra os dados do colaborador selecionado
-#     colaborador_dados = next(
-#         (registro for registro in colaboradores if registro["nome_completo"] == colaborador_selecionado),
-#         None
-#     )
-
-
-#     if colaborador_dados:
-
-#         # Ordena os anos disponíveis nos dados do colaborador, do mais recente para o mais antigo
-#         anos_disponiveis = sorted(
-#             colaborador_dados.get("férias", {}).get("anos", {}).keys(),
-#             reverse=True
-#         )
-
-#         # Itera sobre os anos disponíveis para exibir as informações de saldo e solicitações de cada ano
-#         for ano in anos_disponiveis:
-            
-#             # Adiciona uma linha divisória para separar os anos exibidos
-#             # st.divider()
-#             st.write('')
-
-#             st.subheader(ano)  # Exibe o ano como um subtítulo para identificar a seção correspondente
-
-#             # Define a estrutura de colunas para layout: coluna 1 (saldo), espaço entre colunas, coluna 2 (solicitações)
-#             coluna1, espaco_entre, coluna2 = st.columns([12, 1, 30])
-
-#             # # Obtém os dados do saldo do ano atual
-#             ano_dados = colaborador_dados.get("férias", {}).get("anos", {}).get(ano, {})
-#             # ano_dados = colaborador_dados.get("anos", {}).get(ano, {})
-
-#             # Cria um DataFrame com os dados de saldo e o exibe na primeira coluna
-#             df_saldo = montar_dataframe_saldo_do_ano(ano, ano_dados)
-#             coluna1.dataframe(df_saldo, hide_index=True, use_container_width=True)
-            
-#             # Mostrar a_receber
-#             if ano_dados.get("a_receber"):
-#                 coluna1.write(f'\\* Na virada do ano receberá {ano_dados.get("a_receber")} dias.')
-
-#             # Obtém as solicitações de férias do ano atual
-#             solicitacoes = ano_dados.get("solicitacoes", [])
-#             solicitacoes_ano = [  # Cria uma lista formatada com os detalhes das solicitações
-#                 {
-#                     "Data do registro": solicitacao.get('data_solicitacao', 'Data não disponível'),  # Data da criação da solicitação
-#                     # "Data da Solicitação": solicitacao.get('data_solicitacao', 'Data não disponível'),  # Data da criação da solicitação
-#                     "Período solicitado": solicitacao['lista_de_dias'],  # Lista de dias solicitados
-#                     # "Dias solicitados": solicitacao['lista_de_dias'],  # Lista de dias solicitados
-#                     "Total de dias úteis": solicitacao.get('numero_dias_uteis', 'Dias não disponíveis'),  # Total de dias úteis na solicitação
-#                     "Observações": solicitacao.get('observacoes', 'Nenhuma observação')  # Comentários ou notas da solicitação
-#                 }
-#                 for solicitacao in solicitacoes
-#             ]
-
-#             # Cria um DataFrame com os dados das solicitações e o exibe na segunda coluna
-#             global df_solicitacoes
-#             df_solicitacoes = pd.DataFrame(solicitacoes_ano)
-
-#             if not df_solicitacoes.empty:
-#                 # Calcula a altura necessária para exibir o DataFrame, baseada no número de linhas
-#                 altura_df_solicitacoes_individual = ((len(df_solicitacoes) + 1) * 35) + 2
-#                 # Exibe o DataFrame na segunda coluna com a altura ajustada
-#                 coluna2.dataframe(df_solicitacoes, hide_index=True, use_container_width=True, height=altura_df_solicitacoes_individual)
-#             else:
-#                 # Mensagem exibida caso não existam solicitações de férias para o ano
-#                 coluna2.write(f"Não há solicitações de férias para {ano} até o momento.")
 
 
 # Função para enviar e-mail
@@ -319,46 +246,6 @@ def atualizar_dados_colaborador():
 
             colecao.update_one(filtro, {"$set": novos_valores})
 
-
-# Função para atualizar os dados dos colaboradores, usada na virada do ano
-# def atualizar_dados_colaboradores(colecao):
-#     colaboradores = list(colecao.find())  # Recupera todos os documentos da coleção e os transforma em uma lista
-
-#     for colaborador in colaboradores:
-#         colaborador_nome = list(colaborador.keys())[1]  # Nome do colaborador
-#         colaborador_dados = colaborador.get(colaborador_nome, {})
-#         colaborador_dados_anos = colaborador_dados.get("anos", {})
-
-#         # Ordena os anos para garantir que o cálculo ocorra na ordem correta
-#         anos_ordenados = sorted(colaborador_dados_anos.keys())
-
-#         for i, ano in enumerate(anos_ordenados):
-#             dados_ano = colaborador_dados_anos[ano]
-
-#             # if 'solicitacoes' in dados_ano:
-#             total_gozado = sum(
-#                 solicitacao.get('numero_dias_uteis', 0) for solicitacao in dados_ano.get('solicitacoes', [])
-#             )
-#             residual_ano_anterior = (
-#                 colaborador_dados_anos[anos_ordenados[i - 1]].get('saldo_atual', 0) if i > 0 else
-#                 dados_ano.get('residual_ano_anterior', 0)
-#             )
-#             valor_inicial_ano_atual = dados_ano.get('valor_inicial_ano_atual', 0)
-#             saldo_atual = residual_ano_anterior + valor_inicial_ano_atual - total_gozado
-
-#             filtro = {
-#                 "_id": colaborador["_id"],
-#                 f"{colaborador_nome}.anos.{ano}": {"$exists": True}
-#             }
-
-#             novos_valores = {
-#                 f"{colaborador_nome}.anos.{ano}.total_gozado": total_gozado,
-#                 f"{colaborador_nome}.anos.{ano}.saldo_atual": saldo_atual,
-#                 f"{colaborador_nome}.anos.{ano}.residual_ano_anterior": residual_ano_anterior,
-#                 f"{colaborador_nome}.anos.{ano}.valor_inicial_ano_atual": valor_inicial_ano_atual,
-#             }
-
-#             colecao.update_one(filtro, {"$set": novos_valores})
 
 
 # Função para gerar o gráfico e a tabela, usado para todo tipo de usuário
@@ -720,7 +607,7 @@ def gerar_grafico_tabela(colaborador_selecionado):
                 container_mês.dataframe(
                     df_todas_solicitacoes,
                     hide_index=True,
-                    use_container_width=True,
+                    width="stretch",
                     height=altura_df_solicitacoes,
                     column_config={
                         "Setor": "Programa / Setor"
@@ -768,7 +655,7 @@ def gerar_grafico_tabela(colaborador_selecionado):
 
                     # Cria um DataFrame com os dados de saldo e o exibe na primeira coluna
                     df_saldo = montar_dataframe_saldo_do_ano(ano, ano_dados)
-                    coluna1.dataframe(df_saldo, hide_index=True, use_container_width=True)
+                    coluna1.dataframe(df_saldo, hide_index=True, width="stretch")
                     
                     # Mostrar a_receber
                     if ano_dados.get("a_receber"):
@@ -796,7 +683,7 @@ def gerar_grafico_tabela(colaborador_selecionado):
                         # Calcula a altura necessária para exibir o DataFrame, baseada no número de linhas
                         altura_df_solicitacoes_individual = ((len(df_solicitacoes) + 1) * 35) + 2
                         # Exibe o DataFrame na segunda coluna com a altura ajustada
-                        coluna2.dataframe(df_solicitacoes, hide_index=True, use_container_width=True, height=altura_df_solicitacoes_individual)
+                        coluna2.dataframe(df_solicitacoes, hide_index=True, width="stretch", height=altura_df_solicitacoes_individual)
                     else:
                         # Mensagem exibida caso não existam solicitações de férias para o ano
                         coluna2.write(f"Não há solicitações de férias para {ano} até o momento.")
@@ -909,7 +796,7 @@ if set(st.session_state.tipo_usuario) & {"admin", "gestao_ferias", "supervisao_f
             df_saldos = df_saldos.rename(columns={'Setor': 'Programa / Área'})
 
             # Exibe o DataFrame formatado
-            st.dataframe(df_saldos, hide_index=True, use_container_width=True)
+            st.dataframe(df_saldos, hide_index=True, width="stretch")
 
         # Botão para abrir o diálogo de lista de colaboradores
         colunas_botoes[4].write('')
@@ -918,7 +805,7 @@ if set(st.session_state.tipo_usuario) & {"admin", "gestao_ferias", "supervisao_f
             "Colaboradores e saldos",
             on_click=lista_colaboradores,
             icon=":material/groups:",
-            use_container_width=True
+            width=300
         )
 
 
@@ -995,7 +882,8 @@ if set(st.session_state.tipo_usuario) & {"admin", "gestao_ferias", "supervisao_f
                         observacoes = st.text_input("Observações: (opcional)")
 
                         # Botão para enviar o formulário e registrar a solicitação
-                        if st.form_submit_button('Registrar férias', use_container_width=True, icon=":material/check:", type="primary"):
+                        st.write('')
+                        if st.form_submit_button('Registrar férias', width=200, icon=":material/check:", type="primary"):
                         
                             # Verifica se o total de dias úteis foi informado
                             if total_dias_uteis < 1:
@@ -1043,7 +931,7 @@ if set(st.session_state.tipo_usuario) & {"admin", "gestao_ferias", "supervisao_f
                                 st.rerun()  # Recarrega a aplicação
 
                 # Botão para abrir o modal de nova solicitação
-                colunas_botoes[0].button("Nova solicitação", on_click=nova_solicitacao, use_container_width=True, icon=":material/calendar_add_on:")
+                colunas_botoes[0].button("Nova solicitação", on_click=nova_solicitacao, width=300, icon=":material/calendar_add_on:")
 
 
 
@@ -1118,7 +1006,8 @@ if set(st.session_state.tipo_usuario) & {"admin", "gestao_ferias", "supervisao_f
                                 observacoes = st.text_input("Observações (opcional)", value=solicitacao_editar.get('observacoes', ''))
 
                                 # Botão para salvar as alterações realizadas
-                                if st.form_submit_button("Salvar alterações", use_container_width=True, icon=":material/save:", type="primary"):
+                                st.write('')
+                                if st.form_submit_button("Salvar alterações", width=200, icon=":material/save:", type="primary"):
                                     # Atualiza a solicitação específica na lista local
                                     solicitacoes_ano[solicitacao_selecionada_indice] = {
                                         'data_solicitacao': data_solicitacao,
@@ -1156,7 +1045,8 @@ if set(st.session_state.tipo_usuario) & {"admin", "gestao_ferias", "supervisao_f
                                 st.write(f'**{formatar_opcao(solicitacao_selecionada_indice)}**')
                                 st.markdown('<p style="color:red;">Após apertar o botão, a operação não poderá ser desfeita!</p>', unsafe_allow_html=True)
                                 
-                                if st.button("Excluir período", icon=":material/delete:", type="primary", key=f'deletar_solicitacao_{solicitacao_selecionada_indice}', use_container_width=True):
+                                st.write('')
+                                if st.button("Excluir período", icon=":material/delete:", type="secondary", key=f'deletar_solicitacao_{solicitacao_selecionada_indice}', width=200):
                                     # Remove a solicitação selecionada
                                     del solicitacoes_ano[solicitacao_selecionada_indice]
 
@@ -1183,7 +1073,7 @@ if set(st.session_state.tipo_usuario) & {"admin", "gestao_ferias", "supervisao_f
                             st.write("Não há solicitações neste ano.")
 
                 # Botão para abrir o modal de "Editar solicitação"
-                colunas_botoes[1].button("Editar solicitação", on_click=editar_solicitacao, use_container_width=True, icon=":material/edit:")
+                colunas_botoes[1].button("Editar solicitação", on_click=editar_solicitacao, width=300, icon=":material/edit:")
 
 
 
@@ -1233,7 +1123,8 @@ if set(st.session_state.tipo_usuario) & {"admin", "gestao_ferias", "supervisao_f
                         df_mail = montar_dataframe_saldo_do_ano(ano_selecionado, ano_dados)
 
                     # Botão para enviar o e-mail
-                    if st.button("Enviar e-mail", use_container_width=True, icon=":material/mail:", type="primary"):
+                    st.write('')
+                    if st.button("Enviar e-mail", width=200, icon=":material/mail:", type="primary"):
                         # Extrai os valores do DataFrame com base nas linhas e colunas
                         residual_ano_anterior = df_mail.iloc[0, 1]  # Primeira linha, segunda coluna
                         saldo_inicio_ano = df_mail.iloc[1, 1]      # Segunda linha, segunda coluna
@@ -1477,7 +1368,7 @@ if set(st.session_state.tipo_usuario) & {"admin", "gestao_ferias", "supervisao_f
 
 
                 # Botão para abrir o modal "Enviar saldo"
-                colunas_botoes[2].button("Enviar saldo", on_click=enviar_saldo, use_container_width=True, icon=":material/mail:")
+                colunas_botoes[2].button("Enviar saldo", on_click=enviar_saldo, width=300, icon=":material/mail:")
 
 
 
@@ -1567,7 +1458,7 @@ if set(st.session_state.tipo_usuario) & {"admin", "gestao_ferias", "supervisao_f
                 # Botão para editar colaborardor
                 colunas_botoes[3].button("Editar colaborador(a)", 
                                     on_click=lambda: editar_colaborador(colaborador_selecionado, colaborador_dados), 
-                                    use_container_width=True, 
+                                    width=300, 
                                     icon=":material/person_edit:")
 
 
