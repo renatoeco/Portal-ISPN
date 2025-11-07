@@ -322,7 +322,7 @@ def mostrar_detalhes(rede_doc):
                     st.write(anotacao.get("anotacao", ""))
 
 
-@st.dialog("Cadastrar rede", width="large") 
+@st.dialog("Cadastrar rede", width="medium") 
 def cadastro_rede():
     
     # =====================
@@ -381,7 +381,7 @@ def cadastro_rede():
     # Botão salvar
     # =====================
     
-    if st.button("Adicionar rede", icon=":material/check:", type="primary"):
+    if st.button("Adicionar rede", width=200, icon=":material/check:", type="primary"):
         
         # -----------------
         # Validação obrigatórios
@@ -460,7 +460,7 @@ container_botoes = st.container(horizontal=True, horizontal_alignment="right")
 if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)"}:
 
     # Botão para abrir o diálogo de gerenciamento de colaboradores
-    container_botoes.button("Cadastrar rede", on_click=cadastro_rede, icon=":material/network_node:")
+    container_botoes.button("Cadastrar rede", on_click=cadastro_rede, icon=":material/network_node:", width=300)
     st.write('')
 
 

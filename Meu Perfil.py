@@ -525,7 +525,7 @@ if pessoa_logada:
 
                 # Cria um DataFrame com os dados de saldo e o exibe na primeira coluna
                 df_saldo = montar_dataframe_saldo_do_ano(ano, ano_dados)
-                coluna1.dataframe(df_saldo, hide_index=True, use_container_width=True)
+                coluna1.dataframe(df_saldo, hide_index=True, width='stretch')
                 
                 # Mostrar a_receber
                 if ano_dados.get("a_receber"):
@@ -553,7 +553,7 @@ if pessoa_logada:
                     # Calcula a altura necessária para exibir o DataFrame, baseada no número de linhas
                     altura_df_solicitacoes_individual = ((len(df_solicitacoes) + 1) * 35) + 2
                     # Exibe o DataFrame na segunda coluna com a altura ajustada
-                    coluna2.dataframe(df_solicitacoes, hide_index=True, use_container_width=True, height=altura_df_solicitacoes_individual)
+                    coluna2.dataframe(df_solicitacoes, hide_index=True, width="stretch", height=altura_df_solicitacoes_individual)
                 else:
                     # Mensagem exibida caso não existam solicitações de férias para o ano
                     coluna2.write(f"Não há solicitações de férias para {ano} até o momento.")

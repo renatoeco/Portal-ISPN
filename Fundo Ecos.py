@@ -530,7 +530,7 @@ def mostrar_detalhes(codigo_proj: str):
                 df = pd.DataFrame({"lat": [lat], "lon": [lon]})
 
                 # Plota o mapa
-                st.map(df, zoom=6, use_container_width='stretch')        
+                st.map(df, zoom=6)        
 
 
     with aba_indicadores:
@@ -663,7 +663,7 @@ def mostrar_detalhes(codigo_proj: str):
                 st.dataframe(
                     df_indicadores.drop(columns=["Valor_num"], errors="ignore"),
                     hide_index=True,
-                    use_container_width='stretch'
+                    width='stretch'
                 )
 
 
@@ -2336,7 +2336,7 @@ with geral:
     )
 
     # Mostrar
-    st.plotly_chart(fig, use_container_width='stretch')
+    st.plotly_chart(fig)
 
 
 with lista:
@@ -2361,18 +2361,15 @@ with lista:
             data=output,
             file_name=f"tabela_de_projetos_{data_de_hoje}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            # use_container_width='stretch',
             width=260,
             icon=":material/file_download:"
         )
 
         container_botoes.button("Cadastrar proponente", on_click=cadastrar_proponente, 
-                                # use_container_width='stretch',
                                 width=260, 
                                 icon=":material/add_business:")
 
         container_botoes.button("Gerenciar projetos", on_click=gerenciar_projetos, 
-                                # use_container_width='stretch',
                                 width=260, 
                                 icon=":material/contract_edit:")
         
@@ -2386,7 +2383,7 @@ with lista:
             data=output,
             file_name=f"projetos_filtrados_{data_de_hoje}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width='stretch',
+            width=300,
             icon=":material/file_download:"
         )
 
@@ -2476,7 +2473,7 @@ with lista:
             on_click=mostrar_detalhes,
             args=(codigo_proj,),
             icon=":material/menu:",
-            use_container_width='stretch'
+            width=200
         )
         st.divider()
 

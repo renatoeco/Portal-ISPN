@@ -207,9 +207,13 @@ with tab1:
         anos_disponiveis = []
 
     # Selectboxes dinâmicos
-    col1, col2, col3 = st.columns(3)
-    ano_inicio = col1.selectbox("Projetos vigentes entre", anos_disponiveis, index=0)
-    ano_fim = col2.selectbox("e", anos_disponiveis, index=len(anos_disponiveis)-1)
+    
+    # col1, col2, col3 = st.columns(3)
+
+    with st.container(horizontal=True):
+
+        ano_inicio = st.selectbox("Projetos vigentes entre", anos_disponiveis, index=0, width=200)
+        ano_fim = st.selectbox("e", anos_disponiveis, index=len(anos_disponiveis)-1, width=200)
 
     # Garantir que são inteiros
     ano_inicio = int(ano_inicio)
@@ -282,9 +286,13 @@ with tab1:
     # Pega todos os doadores que têm projetos no período filtrado
     doadores_filtrados = sorted(df_filtrado["nome_doador"].dropna().unique())
 
+    st.write('')
+
     # Ajusta singular/plural
     texto = "doador com projeto(s)" if len(doadores_filtrados) == 1 else "doadores com projeto(s)"
     col1.subheader(f'{len(doadores_filtrados)} {texto}')
+
+
 
     resumo_final = resumo_final[["Doador", "Tipo de Doador", "Número de projetos", "Valor"]]
 
@@ -376,7 +384,7 @@ with tab1:
         legend=dict(x=0.5, y=1.1, orientation='h', xanchor='center')
     )
 
-    st.plotly_chart(fig_reais, use_container_width=True)
+    st.plotly_chart(fig_reais)
 
     # -----------------------------
     # Dólares
@@ -439,7 +447,7 @@ with tab1:
         legend=dict(x=0.5, y=1.1, orientation='h', xanchor='center')
     )
 
-    st.plotly_chart(fig_dolares, use_container_width=True)
+    st.plotly_chart(fig_dolares)
 
 
     st.write("")
@@ -451,8 +459,10 @@ with tab2:
     st.write('')
     
     if set(st.session_state.tipo_usuario) & {"admin", "gestao_projetos_doadores"}:
-        col1, col2, col3 = st.columns([2, 2, 1])
-        col3.button("Gerenciar doadores", on_click=gerenciar_doadores, use_container_width=True, icon=":material/wallet:")
+        col1, col2, col3, col4, col5 = st.columns([2, 1, 1, 3, 2])
+
+        col5.write('')
+        col5.button("Gerenciar doadores", on_click=gerenciar_doadores, width=300, icon=":material/wallet:")
 
     df = df.dropna(subset=["valor"])
     df["doador"] = df["doador"].fillna("Desconhecido")
@@ -460,13 +470,15 @@ with tab2:
     df["data_fim_contrato"] = df["data_fim_contrato"].fillna("")
 
     st.write("")
+    
 
     todos_doadores = sorted(doadores_dict.values())
     
     # Adiciona opção vazia no topo
     todos_doadores_opcoes = [""] + todos_doadores
 
-    col1, col2, col3 = st.columns(3)
+    # col1, col2, col3, col4 = st.columns([2, 1, 1, 3])
+
     doador_selecionado = col1.selectbox("Selecione o doador", todos_doadores_opcoes)
     
     # Só processa se um doador foi selecionado
@@ -545,6 +557,7 @@ with tab2:
             # Junta os valores separados por " | "
             valor_total_formatado = " | ".join(valores_formatados)
 
+            st.write('')
             st.metric('Valor total dos apoios', valor_total_formatado)
 
             st.write('')

@@ -272,14 +272,14 @@ def main():
 
     # Roteamento de tipo de usuário
     if set(st.session_state.tipo_usuario) & {"admin", "gestao_pls"}:
-        col2.button("Gerenciar PLs", icon=":material/settings:", use_container_width=True, on_click=dial_gerenciar_pls)
+        col2.button("Gerenciar PLs", icon=":material/settings:", width=300, on_click=dial_gerenciar_pls)
 
     
 
 
 # Aba 2 - Pessoas ////////////////////////////////////////////////////////////////
     with aba2: 
-        @st.dialog("Gerenciar e-mails", width="large")
+        @st.dialog("Gerenciar e-mails", width="small")
         def dial_gerenciar_pessoas():
 
             # Cria as abas: Adicionar, Editar e Excluir PLs
@@ -387,7 +387,7 @@ def main():
         st.write('')
 
         if set(st.session_state.tipo_usuario) & {"admin", "gestao_pls"}:
-            st.button("Gerenciar e-mails", icon=":material/mail:", use_container_width=False, on_click=dial_gerenciar_pessoas)
+            st.button("Gerenciar e-mails", icon=":material/mail:", width=300, on_click=dial_gerenciar_pessoas)
 
         st.write('')
 
@@ -399,7 +399,7 @@ def main():
         df_emails = df_emails.reset_index(drop=True)
         df_emails.columns = df_emails.columns.str.strip()
 
-        st.dataframe(df_emails.sort_values(by="Nome"), hide_index=True, use_container_width=False, column_config={
+        st.dataframe(df_emails.sort_values(by="Nome"), hide_index=True, width="stretch", column_config={
             # configurar a largura da coluna
             "Nome": st.column_config.Column(width="medium"),
             "E-mail": st.column_config.Column(width="medium")

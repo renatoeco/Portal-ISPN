@@ -1906,7 +1906,6 @@ with aba_pessoas:
     # exibir gráfico estático
     col2.plotly_chart(
         fig,
-        use_container_width=True,
         config={'staticPlot': True}
     )
 
@@ -1964,7 +1963,6 @@ with aba_pessoas:
     # desativa interação
     col1.plotly_chart(
         fig,
-        use_container_width=True,
         config={'staticPlot': True}
     )
 
@@ -1998,7 +1996,6 @@ with aba_pessoas:
     # plota gráfico estático
     col2.plotly_chart(
         fig,
-        use_container_width=True,
         config={'staticPlot': True}
     )
 
@@ -2046,7 +2043,6 @@ with aba_pessoas:
     # exibir gráfico estático
     col1.plotly_chart(
         fig,
-        use_container_width=True,
         config={'staticPlot': True}
     )
 
@@ -2075,7 +2071,6 @@ with aba_pessoas:
 
     col2.plotly_chart(
         fig,
-        use_container_width=True,
         # config={'staticPlot': True}
     )
 
@@ -2115,7 +2110,6 @@ with aba_pessoas:
     # desativa interação
     col1.plotly_chart(
         fig,
-        use_container_width=True,
         config={'staticPlot': True}
     )
 
@@ -2146,7 +2140,6 @@ with aba_pessoas:
 
     col2.plotly_chart(
         fig,
-        use_container_width=True,
         # config={'staticPlot': True}
     )
 
@@ -2301,18 +2294,13 @@ with aba_contratos:
             showlegend=False
         )
 
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig)
     else:
         st.info("Nenhum contrato válido encontrado.")
 
 
 
-
-
 with aba_reajustes:
-
-
-
 
     mes_atual_str = meses_pt[datetime.date.today().month - 1]
 
