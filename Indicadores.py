@@ -22,7 +22,7 @@ projetos_ispn = db["projetos_ispn"]
 indicadores = db["indicadores"]
 lancamentos = db["lancamentos_indicadores"]
 pessoas = db["pessoas"]
-estatistica = db["estatistica"]
+estrategia = db["estrategia"]
 
 
 ###########################################################################################################
@@ -332,6 +332,191 @@ def carregar_lancamentos():
 @st.cache_data(ttl=600, show_spinner=False)
 def carregar_programas():
     return list(db["programas_areas"].find({}, {"_id": 1, "nome_programa_area": 1}))
+
+@st.dialog("Gerenciar indicadores", width="large")   
+def gerenciar_indicadores():
+
+    tab_add, tab_edit = st.tabs([
+        ":material/add: Adicionar", 
+        ":material/edit: Editar"
+    ])
+
+    # =======================================================
+    # FUNÇÃO AUXILIAR: CARREGAR OPÇÕES DINÂMICAS
+    # =======================================================
+    def carregar_opcoes_estrategia():
+        estrategia_doc = estrategia.find_one({"estrategia": {"$exists": True}})
+        resultados_mp_doc = estrategia.find_one({"resultados_medio_prazo": {"$exists": True}})
+        resultados_lp_doc = estrategia.find_one({"resultados_longo_prazo": {"$exists": True}})
+
+        eixos = estrategia_doc.get("estrategia", {}).get("eixos_da_estrategia", []) if estrategia_doc else []
+        opcoes_estrategia = [e["titulo"] for e in eixos]
+
+        resultados_mp = resultados_mp_doc.get("resultados_medio_prazo", {}).get("resultados_mp", []) if resultados_mp_doc else []
+        opcoes_mp = [r["titulo"] for r in resultados_mp]
+
+        resultados_lp = resultados_lp_doc.get("resultados_longo_prazo", {}).get("resultados_lp", []) if resultados_lp_doc else []
+        opcoes_lp = [r["titulo"] for r in resultados_lp]
+
+        return opcoes_estrategia, opcoes_mp, opcoes_lp
+
+    # =======================================================
+    # CARREGAR CATEGORIAS EXISTENTES DO BANCO
+    # =======================================================
+    categorias_existentes = sorted(list({
+        i.get("categoria_indicador", "").strip() 
+        for i in indicadores.find({}, {"categoria_indicador": 1}) 
+        if i.get("categoria_indicador")
+    }))
+
+    # =======================================================
+    # ABA ADICIONAR
+    # =======================================================
+    with tab_add:
+        st.subheader("Adicionar novo indicador")
+
+        col1, col2 = st.columns([2,1])
+
+        nome_indicador = col1.text_input("Nome do indicador (interno, sem acento)")
+
+        categoria_indicador = col2.selectbox(
+            "Categoria do indicador",
+            options=categorias_existentes,
+            index=None,
+            placeholder=""
+        )
+
+        opcoes_estrategia, opcoes_mp, opcoes_lp = carregar_opcoes_estrategia()
+
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            colabora_estrategia = st.multiselect(
+                "Corrobora com qual(is) estratégia(s)?",
+                options=opcoes_estrategia,
+                placeholder=""
+            )
+        with col2:
+            colabora_resultado_mp = st.multiselect(
+                "Corrobora com qual(is) resultado(s) de médio prazo?",
+                options=opcoes_mp,
+                placeholder=""
+            )
+        with col3:
+            colabora_resultado_lp = st.multiselect(
+                "Corrobora com qual(is) resultado(s) de longo prazo?",
+                options=opcoes_lp,
+                placeholder=""
+            )
+
+        st.write("")
+
+        if st.button("Adicionar indicador", use_container_width=False, icon=":material/add:"):
+            if not nome_indicador.strip():
+                st.warning("Digite um nome para o indicador.")
+            else:
+                novo_indicador = {
+                    "nome_indicador": nome_indicador.strip(),
+                    "categoria_indicador": categoria_indicador.strip() if categoria_indicador else "",
+                    "colabora_estrategia": colabora_estrategia,
+                    "colabora_resultado_mp": colabora_resultado_mp,
+                    "colabora_resultado_lp": colabora_resultado_lp
+                }
+                indicadores.insert_one(novo_indicador)
+                st.success(f"Indicador **{nome_indicador}** adicionado com sucesso!")
+                st.rerun()
+
+    # =======================================================
+    # ABA EDITAR
+    # =======================================================
+    with tab_edit:
+        st.subheader("Editar indicador existente")
+
+        indicadores_lista = list(indicadores.find().sort("nome_indicador", 1))
+        nomes_indicadores = [i["nome_indicador"] for i in indicadores_lista]
+
+        if not nomes_indicadores:
+            st.warning("Nenhum indicador cadastrado.")
+        else:
+            col1, col2 = st.columns([2, 1])
+
+            nome_indicador_selecionado = col1.selectbox(
+                "Selecione o indicador para editar:",
+                nomes_indicadores,
+                index=None,
+                placeholder=""
+            )
+
+            if nome_indicador_selecionado:
+                indicador_doc = next(i for i in indicadores_lista if i["nome_indicador"] == nome_indicador_selecionado)
+
+                categoria = col2.selectbox(
+                    "Categoria do indicador",
+                    options=categorias_existentes,
+                    index=categorias_existentes.index(indicador_doc.get("categoria_indicador"))
+                    if indicador_doc.get("categoria_indicador") in categorias_existentes else None,
+                    placeholder=""
+                )
+
+                opcoes_estrategia, opcoes_mp, opcoes_lp = carregar_opcoes_estrategia()
+
+                def filtrar_valores_validos(valores, opcoes):
+                    if not isinstance(valores, list):
+                        return []
+                    return [v for v in valores if v in opcoes]
+
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    colabora_estrategia = st.multiselect(
+                        "Corrobora com qual(is) estratégia(s)?",
+                        options=opcoes_estrategia,
+                        default=filtrar_valores_validos(indicador_doc.get("colabora_estrategia", []), opcoes_estrategia),
+                        placeholder="",
+                        key=f"edit_estrategia_{nome_indicador_selecionado}"
+                    )
+                with col2:
+                    colabora_resultado_mp = st.multiselect(
+                        "Corrobora com qual(is) resultado(s) de médio prazo?",
+                        options=opcoes_mp,
+                        default=filtrar_valores_validos(indicador_doc.get("colabora_resultado_mp", []), opcoes_mp),
+                        placeholder="",
+                        key=f"edit_mp_{nome_indicador_selecionado}"
+                    )
+                with col3:
+                    colabora_resultado_lp = st.multiselect(
+                        "Corrobora com qual(is) resultado(s) de longo prazo?",
+                        options=opcoes_lp,
+                        default=filtrar_valores_validos(indicador_doc.get("colabora_resultado_lp", []), opcoes_lp),
+                        placeholder="",
+                        key=f"edit_lp_{nome_indicador_selecionado}"
+                    )
+
+                st.write("")
+
+                # Botões de ação
+                col1, col2, col3 = st.columns([1, 1, 4])
+                with col1:
+                    if st.button("Salvar alterações", use_container_width=False, icon=":material/save:"):
+                        indicadores.update_one(
+                            {"_id": indicador_doc["_id"]},
+                            {"$set": {
+                                "categoria_indicador": categoria,
+                                "colabora_estrategia": colabora_estrategia,
+                                "colabora_resultado_mp": colabora_resultado_mp,
+                                "colabora_resultado_lp": colabora_resultado_lp
+                            }}
+                        )
+                        st.success("Indicador atualizado com sucesso!")
+                        st.rerun()
+
+                with col2:
+                    if st.button("Excluir indicador", use_container_width=False, type="secondary", icon=":material/delete:"):
+                        st.error(f"Tem certeza que deseja excluir o indicador **{indicador_doc['nome_indicador']}**?")
+                        confirm = st.button("Confirmar exclusão", use_container_width=True)
+                        if confirm:
+                            indicadores.delete_one({"_id": indicador_doc["_id"]})
+                            st.success("Indicador excluído com sucesso!")
+                            st.rerun()
+
 
 @st.dialog("Gerenciar lançamentos", width="large")   
 def gerenciar_lancamentos():
@@ -819,7 +1004,8 @@ st.write('')
 
 # Roteamento de tipo de usuário
 if set(st.session_state.tipo_usuario) & {"admin", "gestao_fundo_ecos"}:
-    col1, col2, col3 = st.columns([2, 2, 1])
+    col1, col2, col3 = st.columns([3, 1, 1])
+    col2.button("Gerenciar indicadores", on_click=gerenciar_indicadores, use_container_width=True, icon=":material/stylus_note:")
     col3.button("Gerenciar lançamentos", on_click=gerenciar_lancamentos, use_container_width=True, icon=":material/stylus_note:")
 
 
