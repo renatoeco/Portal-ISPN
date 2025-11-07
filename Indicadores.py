@@ -1005,8 +1005,10 @@ st.write('')
 # Roteamento de tipo de usuário
 if set(st.session_state.tipo_usuario) & {"admin", "gestao_fundo_ecos"}:
     col1, col2, col3 = st.columns([3, 1, 1])
-    col2.button("Gerenciar indicadores", on_click=gerenciar_indicadores, use_container_width=True, icon=":material/stylus_note:")
     col3.button("Gerenciar lançamentos", on_click=gerenciar_lancamentos, use_container_width=True, icon=":material/stylus_note:")
+
+if set(st.session_state.tipo_usuario) & {"admin"}:
+    col2.button("Gerenciar indicadores", on_click=gerenciar_indicadores, use_container_width=True, icon=":material/stylus_note:")
 
 
 # ===== FILTROS =====
