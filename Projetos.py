@@ -593,11 +593,11 @@ with tab2:
 
         @st.cache_data(show_spinner="Carregando estados...")
         def carregar_ufs(ano=2020):
-            return read_state(year=ano, simplified=True)
+            return carregar_atributos_shp(r"shapefiles\BR_UF_2024.shp")
 
         @st.cache_data(show_spinner="Carregando municipios...")
         def carregar_municipios(ano=2024):
-            return read_municipality(year=ano, simplified=True)
+            return carregar_atributos_shp(r"shapefiles\BR_Municipios_2024.shp")
 
         @st.cache_data(show_spinner="Carregando terras indígenas...")
         def carregar_terras_indigenas(data=201907):
@@ -609,7 +609,7 @@ with tab2:
 
         @st.cache_data(show_spinner="Carregando biomas...")
         def carregar_biomas(ano=2019):
-            return read_biomes(year=ano, simplified=True)
+            return carregar_atributos_shp(r"shapefiles\lm_bioma_250.shp")
 
         @st.cache_data(show_spinner="Carregando assentamentos (sem geometria)...")
         def carregar_assentamentos():
@@ -644,16 +644,7 @@ with tab2:
         dados_uc = carregar_uc()
         dados_assentamentos = carregar_assentamentos()
         dados_quilombos = carregar_quilombos()
-
         dados_biomas = carregar_biomas()
-        # Remover linha "Sistema Costeiro" e ordenar alfabeticamente
-        dados_biomas = (
-            dados_biomas[dados_biomas["name_biome"] != "Sistema Costeiro"]
-            .sort_values(by="name_biome", ascending=True)
-            .reset_index(drop=True)
-        )
-
-
         dados_bacias_macro = carregar_bacias_macro()
         dados_bacias_meso = carregar_bacias_meso()
         dados_bacias_micro = carregar_bacias_micro()
@@ -765,22 +756,23 @@ with tab2:
             # REGIÕES DE ATUAÇÃO
             ######################################################################
 
-            # Estados
+            # Estados 
             uf_codigo_para_label = {
-                str(row["code_state"]): f"{row['name_state']} ({int(row['code_state'])})"
-                for _, row in dados_ufs.iterrows()
+                str(row["CD_UF"]): f"{row['NM_UF']} ({int(row['CD_UF'])})"
+                for _, row in dados_ufs.sort_values("NM_UF").iterrows()
             }
 
-            # Estados
+            # Municípios
             municipios_codigo_para_label = {
-                str(row["code_muni"]): f"{row['name_muni']} ({int(row['code_muni'])})"
-                for _, row in dados_municipios.iterrows()
+                str(row["CD_MUN"]): f"{row['NM_MUN']} ({int(row['CD_MUN'])})"
+                for _, row in dados_municipios.sort_values("NM_MUN").iterrows()
             }
 
-            # Estados
+
+            # Biomas
             biomas_codigo_para_label = {
-                str(row["code_biome"]): f"{row['name_biome']} ({int(row['code_biome'])})"
-                for _, row in dados_biomas.iterrows()
+                str(row["CD_Bioma"]): f"{row['Bioma']} ({int(row['CD_Bioma'])})"
+                for _, row in dados_biomas.sort_values("Bioma").iterrows()
             }
 
             # Terras Indígenas
@@ -1033,11 +1025,11 @@ with tab2:
 
                 @st.cache_data(show_spinner="Carregando estados...")
                 def carregar_ufs(ano=2020):
-                    return read_state(year=ano, simplified=True)
+                    return carregar_atributos_shp(r"shapefiles\BR_UF_2024.shp")
 
-                @st.cache_data(show_spinner="Carregando municípios...")
+                @st.cache_data(show_spinner="Carregando municipios...")
                 def carregar_municipios(ano=2024):
-                    return read_municipality(year=ano, simplified=True)
+                    return carregar_atributos_shp(r"shapefiles\BR_Municipios_2024.shp")
 
                 @st.cache_data(show_spinner="Carregando TIs...")
                 def carregar_terras_indigenas(data=201907):
@@ -1049,7 +1041,7 @@ with tab2:
 
                 @st.cache_data(show_spinner="Carregando biomas...")
                 def carregar_biomas(ano=2019):
-                    return read_biomes(year=ano, simplified=True)
+                    return carregar_atributos_shp(r"shapefiles\lm_bioma_250.shp")
 
                 @st.cache_data(show_spinner="Carregando assentamentos (sem geometria)...")
                 def carregar_assentamentos():
@@ -1083,16 +1075,7 @@ with tab2:
                 dados_uc = carregar_uc()
                 dados_assentamentos = carregar_assentamentos()
                 dados_quilombos = carregar_quilombos()
-
                 dados_biomas = carregar_biomas()
-                # Remover linha "Sistema Costeiro" e ordenar alfabeticamente
-                dados_biomas = (
-                    dados_biomas[dados_biomas["name_biome"] != "Sistema Costeiro"]
-                    .sort_values(by="name_biome", ascending=True)
-                    .reset_index(drop=True)
-                )
-
-
                 dados_bacias_macro = carregar_bacias_macro()
                 dados_bacias_meso = carregar_bacias_meso()
                 dados_bacias_micro = carregar_bacias_micro()
@@ -1265,22 +1248,22 @@ with tab2:
                         # REGIÕES DE ATUAÇÃO
                         ######################################################################
 
-                        # Estados
+                        # Estados 
                         uf_codigo_para_label = {
-                            str(row["code_state"]): f"{row['name_state']} ({int(row['code_state'])})"
-                            for _, row in dados_ufs.iterrows()
+                            str(row["CD_UF"]): f"{row['NM_UF']} ({int(row['CD_UF'])})"
+                            for _, row in dados_ufs.sort_values("NM_UF").iterrows()
                         }
 
                         # Municípios
                         municipios_codigo_para_label = {
-                            str(row["code_muni"]): f"{row['name_muni']} ({int(row['code_muni'])})"
-                            for _, row in dados_municipios.iterrows()
+                            str(row["CD_MUN"]): f"{row['NM_MUN']} ({int(row['CD_MUN'])})"
+                            for _, row in dados_municipios.sort_values("NM_MUN").iterrows()
                         }
 
                         # Biomas
                         biomas_codigo_para_label = {
-                            str(row["code_biome"]): f"{row['name_biome']} ({int(row['code_biome'])})"
-                            for _, row in dados_biomas.iterrows()
+                            str(row["CD_Bioma"]): f"{row['Bioma']} ({int(row['CD_Bioma'])})"
+                            for _, row in dados_biomas.sort_values("Bioma").iterrows()
                         }
 
                         # Terras Indígenas
