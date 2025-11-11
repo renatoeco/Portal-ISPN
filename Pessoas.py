@@ -583,7 +583,7 @@ def gerenciar_pessoas():
                         opcoes_tipo_usuario = [
                             "coordenador(a)", "admin", "gestao_pessoas", "gestao_ferias", "supervisao_ferias", 
                             "gestao_noticias", "gestao_pls", "gestao_projetos_doadores", 
-                            "gestao_fundo_ecos", "gestao_viagens", "gestao_manuais"
+                            "gestao_fundo_ecos", "gestao_viagens", "gestao_eventos", "gestao_manuais"
                         ]
 
                     else: # Se não for admin, não aparece a permissão admin disponível
@@ -591,7 +591,7 @@ def gerenciar_pessoas():
                         opcoes_tipo_usuario = [
                             "coordenador(a)", "gestao_pessoas", "gestao_ferias", "supervisao_ferias", 
                             "gestao_noticias", "gestao_pls", "gestao_projetos_doadores", 
-                            "gestao_fundo_ecos", "gestao_viagens", "gestao_manuais"
+                            "gestao_fundo_ecos", "gestao_viagens", "gestao_eventos", "gestao_manuais"
                         ]
 
 

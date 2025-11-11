@@ -17,7 +17,7 @@ from google.oauth2.service_account import Credentials
 # CONFIGURAÇÕES DA INTERFACE
 # ##################################################################
 
-st.set_page_config(layout="wide")
+# st.set_page_config(layout="wide")
 st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
 
 st.header("Portal de Viagens do ISPN")
@@ -80,7 +80,7 @@ creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
 client = gspread.authorize(creds)
 
 # ID da planilha
-sheet_id = st.secrets.ids.id_planilha_recebimento
+sheet_id = st.secrets.ids.id_planilha_recebimento_viagens
 
 
 
