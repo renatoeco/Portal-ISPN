@@ -322,71 +322,76 @@ def mostrar_detalhes(codigo_proj: str):
     dados_ti = []
     dados_quilombos = []
     dados_uc = []
-    dados_bacias_macro = []
-    dados_bacias_meso = []
-    dados_bacias_micro = []
+    
+    # Encontrar o documento que tem o campo bacias_hidrograficas
+    doc_bacias = next((d for d in docs if "bacias_hidrograficas" in d), None)
+    bacias = doc_bacias.get("bacias_hidrograficas", []) if doc_bacias else []
+
+    # Normalizar os dados das bacias (criar dict padronizado)
+    dados_bacias_macro = [
+        {"codigo": b["codigo_bacia_nivel_2"], "label": b["nome_bacia_nivel_2"]}
+        for b in bacias if "nome_bacia_nivel_2" in b
+    ]
+
+    dados_bacias_meso = [
+        {"codigo": b["codigo_bacia_nivel_3"], "label": b["nome_bacia_nivel_3"]}
+        for b in bacias if "nome_bacia_nivel_3" in b
+    ]
+
+    dados_bacias_micro = [
+        {"codigo": b["codigo_bacia_nivel_4"], "label": b["nome_bacia_nivel_4"]}
+        for b in bacias if "nome_bacia_nivel_4" in b
+    ]
 
     # ---- Identificar cada documento pela chave existente ----
     for doc in docs:
         if "assentamentos" in doc:
             dados_assentamentos = doc["assentamentos"]
 
-        elif "terras_indigenas" in doc:
-            dados_ti = doc["terras_indigenas"]
+        elif "tis" in doc:
+            dados_ti = doc["tis"]
 
         elif "quilombos" in doc:
             dados_quilombos = doc["quilombos"]
 
         elif "ucs" in doc:
             dados_uc = doc["ucs"]
-
-        elif "bacias" in doc:
-            # bacias vem separadas por níveis
-            dados_bacias_macro = doc["bacias"].get("nivel_2", [])
-            dados_bacias_meso = doc["bacias"].get("nivel_3", [])
-            dados_bacias_micro = doc["bacias"].get("nivel_4", [])
     
-    #  UNIDADES DE CONSERVAÇÃO 
+    #  Regiões de Atuação 
 
-    # Unidades de Conservação
-    uc_codigo_para_label = {
-        u["codigo_uc"]: f"{u['nome_uc']} ({u['codigo_uc']})"
-        for u in dados_uc
-    }
-
-
-    # Terras Indígenas
-    ti_codigo_para_label = {
-        t["codigo_ti"]: f"{t['nome_ti']} ({t['codigo_ti']})"
-        for t in dados_ti
-    }
-
-
-    # Assentamentos
     assent_codigo_para_label = {
-        a["codigo_assentamento"]: f"{a['nome_assentamento']} ({a['codigo_assentamento']})"
+        a["codigo_assentamento"]: f"{a['nome_assentamento']}"
         for a in dados_assentamentos
     }
 
-
-    # Quilombos
     quilombo_codigo_para_label = {
-        q["codigo_quilombo"]: f"{q['nome_quilombo']} ({q['codigo_quilombo']})"
+        q["codigo_quilombo"]: f"{q['nome_quilombo']}"
         for q in dados_quilombos
     }
 
-    
-    # Bacias Hidrográficas
+    ti_codigo_para_label = {
+        ti["codigo_ti"]: f"{ti['nome_ti']}"
+        for ti in dados_ti
+    }
+
+    uc_codigo_para_label = {
+        u["codigo_uc"]: f"{u['nome_uc']}"
+        for u in dados_uc
+    }
+
     bacia_macro_codigo_para_label = {
-        b["codigo_bacia_nivel_2"]: b["nome_bacia_nivel_2"] for b in dados_bacias_macro
+        b["codigo"]: f"{b['label']}" 
+        for b in dados_bacias_macro
     }
 
     bacia_meso_codigo_para_label = {
-        b["codigo_bacia_nivel_3"]: b["nome_bacia_nivel_3"] for b in dados_bacias_meso
+        b["codigo"]: f"{b['label']}" 
+        for b in dados_bacias_meso
     }
 
     bacia_micro_codigo_para_label = {
-        b["codigo_bacia_nivel_4"]: b["nome_bacia_nivel_4"] for b in dados_bacias_micro
+        b["codigo"]: f"{b['label']}" 
+        for b in dados_bacias_micro
     }
 
 
@@ -455,41 +460,6 @@ def mostrar_detalhes(codigo_proj: str):
         col1.write(f"**Município principal:** {converter_codigos_para_nomes(projeto.get('municipio_principal', ''))}")
         col1.write(f"**Município(s):** {converter_codigos_para_nomes(projeto.get('municipios', ''))}")
         col1.write(f"**Latitude/Longitude principal:** {projeto.get('lat_long_principal', '')}")
-        
-        # Regiões de atuação (ignorando estados e municípios)
-        regioes_atuacao = projeto.get("regioes_atuacao", [])  # lista de dicionários com tipo e código
-        regioes_filtradas = []
-
-        # Dicionário que mapeia tipo → dicionário de códigos para labels
-        tipo_para_label = {
-            "terra_indigena": ti_codigo_para_label,
-            "uc": uc_codigo_para_label,
-            "assentamento": assent_codigo_para_label,
-            "quilombo": quilombo_codigo_para_label,
-            "bacia_macro": bacia_macro_codigo_para_label,
-            "bacia_meso": bacia_meso_codigo_para_label,
-            "bacia_micro": bacia_micro_codigo_para_label
-        }
-
-        for reg in regioes_atuacao:
-            tipo = reg.get("tipo", "").lower()
-            codigo = str(reg.get("codigo", ""))
-            
-            # Ignora estados e municípios
-            if tipo in ["estado", "municipio", "bioma"] or codigo == "":
-                continue
-            
-            label_dict = tipo_para_label.get(tipo)
-            if label_dict:
-                nome = label_dict.get(codigo)
-                if nome:
-                    regioes_filtradas.append(nome)
-
-        if regioes_filtradas:
-            col1.write("**Regiões de atuação:**")
-            for r in regioes_filtradas:
-                col1.write(f"- {r}")
-        
         col1.write(f"**Data de início:** {projeto.get('data_inicio_do_contrato', '')}")
         col1.write(f"**Data de fim:** {projeto.get('data_final_do_contrato', '')}")
         col1.write(f"**Ponto Focal:** {nome_ponto_focal}")
@@ -511,7 +481,61 @@ def mostrar_detalhes(codigo_proj: str):
                 df = pd.DataFrame({"lat": [lat], "lon": [lon]})
 
                 # Plota o mapa
-                st.map(df, zoom=6)        
+                st.map(df, zoom=6)   
+                
+        # ---------------------------------------------------------
+        #  TABELA COMPLETA DE REGIÕES DE ATUAÇÃO
+        # ---------------------------------------------------------
+
+        st.write("**Regiões de atuação:**")
+
+        # Criar DF vazio com todas as colunas
+        df_regioes = pd.DataFrame(columns=[
+            "Terra Indígena",
+            "UC",
+            "Assentamento",
+            "Quilombo",
+            "Bacia Hidrográfica Nível 2",
+            "Bacia Hidrográfica Nível 3",
+            "Bacia Hidrográfica Nível 4"
+        ])
+
+        # Mapeamento tipo → coluna do DF e dicionário de labels
+        mapa_tipos = {
+            "terra_indigena": ("Terra Indígena", ti_codigo_para_label),
+            "uc": ("UC", uc_codigo_para_label),
+            "assentamento": ("Assentamento", assent_codigo_para_label),
+            "quilombo": ("Quilombo", quilombo_codigo_para_label),
+            "bacia_nivel_2": ("Bacia Hidrográfica Nível 2", bacia_macro_codigo_para_label),
+            "bacia_nivel_3": ("Bacia Hidrográfica Nível 3", bacia_meso_codigo_para_label),
+            "bacia_nivel_4": ("Bacia Hidrográfica Nível 4", bacia_micro_codigo_para_label)
+        }
+
+        linhas = []
+
+        for reg in projeto.get("regioes_atuacao", []):
+            tipo = reg.get("tipo", "").lower().strip()
+            codigo = str(reg.get("codigo", "")).strip()
+
+            # Ignorar estados e municípios
+            if tipo in ["estado", "municipio", "bioma"] or codigo == "":
+                continue
+
+            if tipo not in mapa_tipos:
+                continue
+
+            nome_coluna, label_dict = mapa_tipos[tipo]
+            nome = label_dict.get(codigo, f"Desconhecido ({codigo})")
+
+            linhas.append({
+                "Tipo de região": nome_coluna,
+                "Nome": nome,
+                "Código": codigo
+            })
+
+        df_regioes = pd.DataFrame(linhas)
+
+        st.dataframe(df_regioes, use_container_width=True, hide_index=True)    
 
 
     with aba_indicadores:
@@ -892,17 +916,17 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
 
     # Normalizar os dados das bacias (criar dict padronizado)
     dados_bacias_macro = [
-        {"codigo": b["código_bacia_nivel_2"], "label": b["nome_bacia_nivel_2"]}
+        {"codigo": b["codigo_bacia_nivel_2"], "label": b["nome_bacia_nivel_2"]}
         for b in bacias if "nome_bacia_nivel_2" in b
     ]
 
     dados_bacias_meso = [
-        {"codigo": b["código_bacia_nivel_3"], "label": b["nome_bacia_nivel_3"]}
+        {"codigo": b["codigo_bacia_nivel_3"], "label": b["nome_bacia_nivel_3"]}
         for b in bacias if "nome_bacia_nivel_3" in b
     ]
 
     dados_bacias_micro = [
-        {"codigo": b["código_bacia_nivel_4"], "label": b["nome_bacia_nivel_4"]}
+        {"codigo": b["codigo_bacia_nivel_4"], "label": b["nome_bacia_nivel_4"]}
         for b in bacias if "nome_bacia_nivel_4" in b
     ]
     
@@ -1196,12 +1220,6 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         bacia_meso_default = [r["codigo"] for r in regioes if r["tipo"] == "bacia_nivel_3"]
         bacia_macro_default = [r["codigo"] for r in regioes if r["tipo"] == "bacia_nivel_2"]
 
-        quilombo_default_labels = [
-            quilombo_codigo_para_label[c]
-            for c in quilombo_default
-            if c in quilombo_codigo_para_label
-        ]
-
 
         # ----------------------- UNIDADES DE CONSERVAÇÃO -----------------------
 
@@ -1239,7 +1257,7 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         quilombos_selecionados = col3.multiselect(
             "Quilombos",
             options=list(quilombo_codigo_para_label.values()),
-            default=quilombo_default_labels,
+            default=[quilombo_codigo_para_label[c] for c in quilombo_default],
             placeholder=""
         )
 
@@ -1251,6 +1269,7 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         bacias_macro_sel = col1.multiselect(
             "Bacias Hidrográficas - Nível 2",
             options=list(bacia_macro_codigo_para_label.values()),
+            default=[bacia_macro_codigo_para_label[c] for c in bacia_macro_default],
             placeholder=""
         )
         
@@ -1258,12 +1277,14 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         bacias_meso_sel = col2.multiselect(
             "Bacias Hidrográficas - Nível 3",
             options=list(bacia_meso_codigo_para_label.values()),
+            default=[bacia_meso_codigo_para_label[c] for c in bacia_meso_default],
             placeholder=""
         )
         
         bacias_micro_sel = col3.multiselect(
             "Bacias Hidrográficas - Nível 4",
             options=list(bacia_micro_codigo_para_label.values()),
+            default=[bacia_micro_codigo_para_label[c] for c in bacia_micro_default],
             placeholder=""
         )
         
