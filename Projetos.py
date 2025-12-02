@@ -1053,7 +1053,7 @@ def dialog_editar_projeto():
 
     projeto_info = df_projetos_ispn[df_projetos_ispn["sigla"] == projeto_selecionado].iloc[0]
 
-    aba1, aba2 = st.tabs(["Informações gerais", "Entregas"])
+    # aba1, aba2 = st.tabs(["Informações gerais", "Entregas"])
 
     # ==============================================================
     # INTERFACE DO DIÁLOGO DE EDITAR PROJETO
@@ -1062,7 +1062,7 @@ def dialog_editar_projeto():
         
     st.write("")
 
-    with st.form("form_editar_projeto"):
+    with st.form("form_editar_projeto", border=False):
 
         col1, col2 = st.columns(2)
         
