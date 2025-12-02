@@ -387,26 +387,24 @@ def gerenciar_indicadores():
         )
 
         opcoes_estrategia, opcoes_mp, opcoes_lp = carregar_opcoes_estrategia()
+        
+        colabora_estrategia = st.multiselect(
+            "Colabora com quais eixos da estratégia?",
+            options=opcoes_estrategia,
+            placeholder=""
+        )
 
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            colabora_estrategia = st.multiselect(
-                "Corrobora com qual(is) estratégia(s)?",
-                options=opcoes_estrategia,
-                placeholder=""
-            )
-        with col2:
-            colabora_resultado_mp = st.multiselect(
-                "Corrobora com qual(is) resultado(s) de médio prazo?",
-                options=opcoes_mp,
-                placeholder=""
-            )
-        with col3:
-            colabora_resultado_lp = st.multiselect(
-                "Corrobora com qual(is) resultado(s) de longo prazo?",
-                options=opcoes_lp,
-                placeholder=""
-            )
+        colabora_resultado_mp = st.multiselect(
+            "Colabora com quais resultados de médio prazo?",
+            options=opcoes_mp,
+            placeholder=""
+        )
+
+        colabora_resultado_lp = st.multiselect(
+            "Colabora com quais resultados de longo prazo?",
+            options=opcoes_lp,
+            placeholder=""
+        )
 
         st.write("")
 
@@ -464,58 +462,50 @@ def gerenciar_indicadores():
                         return []
                     return [v for v in valores if v in opcoes]
 
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    colabora_estrategia = st.multiselect(
-                        "Corrobora com qual(is) estratégia(s)?",
-                        options=opcoes_estrategia,
-                        default=filtrar_valores_validos(indicador_doc.get("colabora_estrategia", []), opcoes_estrategia),
-                        placeholder="",
-                        key=f"edit_estrategia_{nome_indicador_selecionado}"
-                    )
-                with col2:
-                    colabora_resultado_mp = st.multiselect(
-                        "Corrobora com qual(is) resultado(s) de médio prazo?",
-                        options=opcoes_mp,
-                        default=filtrar_valores_validos(indicador_doc.get("colabora_resultado_mp", []), opcoes_mp),
-                        placeholder="",
-                        key=f"edit_mp_{nome_indicador_selecionado}"
-                    )
-                with col3:
-                    colabora_resultado_lp = st.multiselect(
-                        "Corrobora com qual(is) resultado(s) de longo prazo?",
-                        options=opcoes_lp,
-                        default=filtrar_valores_validos(indicador_doc.get("colabora_resultado_lp", []), opcoes_lp),
-                        placeholder="",
-                        key=f"edit_lp_{nome_indicador_selecionado}"
-                    )
+        
+                colabora_estrategia = st.multiselect(
+                    "Colabora com quais eixos da estratégia?",
+                    options=opcoes_estrategia,
+                    default=filtrar_valores_validos(indicador_doc.get("colabora_estrategia", []), opcoes_estrategia),
+                    placeholder="",
+                    key=f"edit_estrategia_{nome_indicador_selecionado}"
+                )
+
+                colabora_resultado_mp = st.multiselect(
+                    "Colabora com quais resultados de médio prazo?",
+                    options=opcoes_mp,
+                    default=filtrar_valores_validos(indicador_doc.get("colabora_resultado_mp", []), opcoes_mp),
+                    placeholder="",
+                    key=f"edit_mp_{nome_indicador_selecionado}"
+                )
+        
+                colabora_resultado_lp = st.multiselect(
+                    "Colabora com quais resultados de longo prazo?",
+                    options=opcoes_lp,
+                    default=filtrar_valores_validos(indicador_doc.get("colabora_resultado_lp", []), opcoes_lp),
+                    placeholder="",
+                    key=f"edit_lp_{nome_indicador_selecionado}"
+                )
 
                 st.write("")
 
                 # Botões de ação
-                col1, col2, col3 = st.columns([1, 1, 4])
-                with col1:
-                    if st.button("Salvar alterações", use_container_width=False, icon=":material/save:"):
-                        indicadores.update_one(
-                            {"_id": indicador_doc["_id"]},
-                            {"$set": {
-                                "categoria_indicador": categoria,
-                                "colabora_estrategia": colabora_estrategia,
-                                "colabora_resultado_mp": colabora_resultado_mp,
-                                "colabora_resultado_lp": colabora_resultado_lp
-                            }}
-                        )
-                        st.success("Indicador atualizado com sucesso!")
-                        st.rerun()
+                col1, col2 = st.columns(2)
+              
+                if col1.button("Salvar alterações", use_container_width=False, icon=":material/save:"):
+                    indicadores.update_one(
+                        {"_id": indicador_doc["_id"]},
+                        {"$set": {
+                            "categoria_indicador": categoria,
+                            "colabora_estrategia": colabora_estrategia,
+                            "colabora_resultado_mp": colabora_resultado_mp,
+                            "colabora_resultado_lp": colabora_resultado_lp
+                        }}
+                    )
+                    st.success("Indicador atualizado com sucesso!")
+                    st.rerun()
 
-                with col2:
-                    if st.button("Excluir indicador", use_container_width=False, type="secondary", icon=":material/delete:"):
-                        st.error(f"Tem certeza que deseja excluir o indicador **{indicador_doc['nome_indicador']}**?")
-                        confirm = st.button("Confirmar exclusão", use_container_width=True)
-                        if confirm:
-                            indicadores.delete_one({"_id": indicador_doc["_id"]})
-                            st.success("Indicador excluído com sucesso!")
-                            st.rerun()
+                
 
 
 @st.dialog("Gerenciar lançamentos", width="large")   

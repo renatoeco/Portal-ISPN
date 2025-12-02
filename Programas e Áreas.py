@@ -271,9 +271,10 @@ def gerenciar_programa_dialog(programa):
 
             for idx, acao in enumerate(acoes_estrategicas):
                 titulo_atual = acao.get("acao_estrategica", "")
-                eixo_atual = acao.get("eixo_relacionado", [])
-                relacionados_mp = acao.get("resultados_medio_prazo_relacionados", [])
-                relacionados_lp = acao.get("resultados_longo_prazo_relacionados", [])
+                eixo_atual = acao.get("eixo_relacionado") or []
+                relacionados_mp = acao.get("resultados_medio_prazo_relacionados") or []
+                relacionados_lp = acao.get("resultados_longo_prazo_relacionados") or []
+
 
                 with st.expander(f"{titulo_atual or 'Sem título'}", expanded=False):
                     toggle_edicao = st.toggle(
@@ -284,11 +285,14 @@ def gerenciar_programa_dialog(programa):
 
                     if toggle_edicao:
                         # ---------------- MODO EDIÇÃO ----------------
-                        novo_titulo = st.text_input(
-                            "Título da ação estratégica",
-                            value=titulo_atual,
-                            key=f"titulo_{idx}"
-                        )
+                        
+                        if "admin" in st.session_state.tipo_usuario:
+                        
+                            novo_titulo = st.text_area(
+                                "Título da ação estratégica",
+                                value=titulo_atual,
+                                key=f"titulo_{idx}"
+                            )
 
                         eixo_sel = st.multiselect(
                             "Contribui com quais eixos da estratégia?",
