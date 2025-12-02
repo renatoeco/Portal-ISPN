@@ -2355,9 +2355,6 @@ with tab2:
             # ===============================================================
             # FILTROS
             # ===============================================================
-            #st.subheader("Filtros")
-
-            col1, col2 = st.columns(2)
 
             # Opções únicas para filtros
             situacoes = sorted(df_entregas["Situação"].dropna().unique().tolist())
@@ -2369,20 +2366,22 @@ with tab2:
                 )
             )
 
-            with col1:
+            with st.container(horizontal=True):
+
                 filtro_situacao = st.multiselect(
                     "Filtrar por Situação:",
                     options=situacoes,
                     default=[],
                     placeholder="",
+                    width=250
                 )
 
-            with col2:
                 filtro_ano = st.multiselect(
                     "Filtrar por Ano de Referência:",
                     options=anos_disponiveis,
                     default=[],
                     placeholder="",
+                    width=250
                 )
 
             # Aplicar filtros
