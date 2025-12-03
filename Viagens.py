@@ -874,6 +874,11 @@ with nova_sav:
 
 with terceiros:
 
+    id_usuario = st.session_state.get("id_usuario")
+
+    usuario = get_usuario_normalizado(pessoas, id_usuario)
+
+
     # NOVA SOLICITAÇÃO PARA TERCEIROS
 
     df_usuarios_externos = carregar_externos()
