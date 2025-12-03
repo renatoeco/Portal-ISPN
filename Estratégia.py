@@ -309,29 +309,29 @@ def editar_titulo_de_cada_resultado_mp_dialog(resultado_idx):
             
             st.write("")
         
-        # 🔹 Edição das ações estratégicas existentes
-        for a_idx, acao in enumerate(acoes):
-            titulo_acao = acao.get("nome_acao_estrategica", f"Ação Estratégica {a_idx + 1}")
-            with st.expander(f"{titulo_acao}"):
-               
-                novo_nome_acao = st.text_area(
-                    "Título da ação estratégica",
-                    value=titulo_acao,
-                    height="content",
-                    key=f"acao_estrat_{resultado_idx}_{a_idx}"
-                )
-
-                if st.button(f"Salvar", key=f"salvar_acao_{resultado_idx}_{a_idx}", icon=":material/save:"):
-                    resultados[resultado_idx]["acoes_estrategicas"][a_idx].update({
-                        "nome_acao_estrategica": novo_nome_acao,
-                    })
-                    estrategia.update_one(
-                        {"_id": doc["_id"]},
-                        {"$set": {"resultados_medio_prazo.resultados_mp": resultados}}
+            # Edição das ações estratégicas existentes
+            for a_idx, acao in enumerate(acoes):
+                titulo_acao = acao.get("nome_acao_estrategica", f"Ação Estratégica {a_idx + 1}")
+                with st.expander(f"{titulo_acao}"):
+                
+                    novo_nome_acao = st.text_area(
+                        "Título da ação estratégica",
+                        value=titulo_acao,
+                        height="content",
+                        key=f"acao_estrat_{resultado_idx}_{a_idx}"
                     )
-                    st.success("Ação estratégica atualizada com sucesso!")
-                    time.sleep(2)
-                    st.rerun()
+
+                    if st.button(f"Salvar", key=f"salvar_acao_{resultado_idx}_{a_idx}", icon=":material/save:"):
+                        resultados[resultado_idx]["acoes_estrategicas"][a_idx].update({
+                            "nome_acao_estrategica": novo_nome_acao,
+                        })
+                        estrategia.update_one(
+                            {"_id": doc["_id"]},
+                            {"$set": {"resultados_medio_prazo.resultados_mp": resultados}}
+                        )
+                        st.success("Ação estratégica atualizada com sucesso!")
+                        time.sleep(2)
+                        st.rerun()
                     
     else:
         
@@ -537,7 +537,7 @@ def buscar_entregas_relacionadas(titulo_referencia):
                     "Previsão de Conclusão": entrega.get("previsao_da_conclusao", "-"),
                     "Responsáveis": responsaveis_formatados,
                     "Situação": entrega.get("situacao", "-"),
-                    "Anos de Referência": ", ".join(entrega.get("anos_de_referencia", []) or []),
+                    "Ano(s) de Referência": ", ".join(entrega.get("anos_de_referencia", []) or []),
                     "Anotações": entrega.get("anotacoes", "-"),
                 })
 
@@ -739,7 +739,7 @@ def buscar_entregas_por_acao(nome_acao):
                     "Entrega": entrega.get("nome_da_entrega", ""),
                     "Situação": entrega.get("situacao", ""),
                     "Previsão": entrega.get("previsao_da_conclusao", ""),
-                    "Anos de Referência": ", ".join(entrega.get("anos_de_referencia", [])),
+                    "Ano(s) de Referência": ", ".join(entrega.get("anos_de_referencia", [])),
                     "Observações": entrega.get("anotacoes", "")
                 })
 
@@ -825,7 +825,7 @@ with aba_res_mp:
             
 
             # --- Exibir entregas relacionadas a este resultado de médio prazo ---
-            st.markdown("##### Ações estratégicas do resultado:")
+            st.markdown("##### Ações estratégicas e Entregas:")
 
             st.write("")
             #st.divider()
@@ -973,42 +973,6 @@ with aba_ebj_est_ins:
     # Objetivo 1
     with st.expander(f'**Objetivo 1 - {objetivos[0]["titulo"]}**'):
         st.write('')
-
-        st.write('**METAS:**')
-
-        metas = {
-            "Meta": [
-                "Fontes de recursos flexíveis captadas para fortalecimento institucional",
-            ],
-            "Indicador": [
-                "Contratos para fortalecimento institucional"
-            ],
-            "Objetivo": [
-                "2",
-            ],
-            "Alcançado": [
-                '1',
-            ]
-        }
-
-        df_metas = pd.DataFrame(metas)
-        st.dataframe(df_metas, hide_index=True)
-
-        st.write('**AÇÕES ESTRATÉGICAS:**')
-
-        st.write('**1 - x**')
-
-        acoes = {
-            "Ações estratégicas": ["x", "x", "x", "x"],
-            "Responsável": ["Equipe Fundo Ecos", "", "x", "x"],
-            "Início": ["janeiro/2024", "", "janeiro/2024", ""],
-            "Fim": ["dezembro/2024", "dezembro/2024", "dezembro/2024", ""],
-            "Status": ["Em andamento", "Aguardando recursos", "", "Em andamento"],
-            "Observações": ["", "", "", ""]
-        }
-
-        df_acoes_est = pd.DataFrame(acoes)
-        st.dataframe(df_acoes_est, hide_index=True)
 
     # Objetivo 2
     with st.expander(f'**Objetivo 2 - {objetivos[1]["titulo"]}**'):

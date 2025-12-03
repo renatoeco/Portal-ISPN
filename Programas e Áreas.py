@@ -795,7 +795,8 @@ for i, aba in enumerate(abas):
         })
 
         if not estrategia_programa or not estrategia_programa.get("acoes_estrategicas"):
-            st.info("Nenhuma ação estratégica cadastrada para este programa.")
+            # st.info("Nenhuma ação estratégica cadastrada para este programa.")
+            st.warning("Nenhuma ação estratégica cadastrada para este programa.")
   
         else:
 
@@ -849,6 +850,6 @@ for i, aba in enumerate(abas):
                         )
 
                     else:
-                        st.info("Nenhuma entrega vinculada a esta ação estratégica do programa.")
+                        st.warning("Nenhuma entrega vinculada a esta ação estratégica do programa.")
 
 
