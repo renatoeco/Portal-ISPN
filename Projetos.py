@@ -921,10 +921,10 @@ def dialog_editar_entregas():
                             ", ".join(entrega.get("anos_de_referencia", []))
                         )
 
-                        entrega_editada["resultados_medio_prazo_relacionados"] = st.multiselect(
-                            "Contribui com quais resultados de médio prazo?",
-                            options=resultados_medio,
-                            default=entrega.get("resultados_medio_prazo_relacionados", []),
+                        entrega_editada["acoes_resultados_medio_prazo"] = st.multiselect(
+                            "Contribui com quais ações estratégicas dos resultados de médio prazo?",
+                            options=acoes_medio_prazo,
+                            default=entrega.get("acoes_resultados_medio_prazo", []),
                             placeholder=""
                         )
 

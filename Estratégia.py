@@ -720,6 +720,31 @@ with aba_est:
             st.markdown("**Indicadores**")
             st.write("Indicadores ainda não integrados.")
 
+def buscar_entregas_por_acao(nome_acao):
+    entregas_relacionadas = []
+
+    projetos = projetos_ispn.find(
+        {"entregas.acoes_resultados_medio_prazo": nome_acao},
+        {"sigla": 1, "entregas": 1}
+    )
+
+    for projeto in projetos:
+        sigla = projeto.get("sigla", "")
+
+        for entrega in projeto.get("entregas", []):
+            if nome_acao in entrega.get("acoes_resultados_medio_prazo", []):
+
+                entregas_relacionadas.append({
+                    "Projeto": sigla,
+                    "Entrega": entrega.get("nome_da_entrega", ""),
+                    "Situação": entrega.get("situacao", ""),
+                    "Previsão": entrega.get("previsao_da_conclusao", ""),
+                    "Anos de Referência": ", ".join(entrega.get("anos_de_referencia", [])),
+                    "Observações": entrega.get("anotacoes", "")
+                })
+
+    return entregas_relacionadas
+
 # ---------------------------
 # ABA RESULTADOS DE MÉDIO PRAZO
 # ---------------------------
@@ -763,6 +788,9 @@ with aba_res_mp:
             # Metas (mantive sua lógica)
             metas = resultado.get("metas", [])
             if metas:
+                st.markdown("##### Metas:")
+                st.write("")
+
                 df_metas = pd.DataFrame([
                     {"Meta": m.get("nome_meta_mp", ""), "Objetivo": m.get("objetivo", ""), "Alcançado": m.get("alcancado", "")}
                     for m in metas
@@ -792,17 +820,45 @@ with aba_res_mp:
                 st.info("Nenhuma meta cadastrada.")
 
             
-            st.write("")
+            st.divider()
+           # st.write("")
             
 
             # --- Exibir entregas relacionadas a este resultado de médio prazo ---
-            st.write('')
-            st.markdown("**Entregas Planejadas / Realizadas:**")
-            entregas_mp = buscar_entregas_relacionadas(titulo_result)
-            if entregas_mp:
-                exibir_entregas_como_tabela(entregas_mp, key_prefix="tabela_entregas_mp", key_suffix=f"{idx}_{titulo_result}")
+            st.markdown("##### Ações estratégicas do resultado:")
+
+            st.write("")
+            #st.divider()
+
+            acoes_estrategicas = resultado.get("acoes_estrategicas", [])
+
+            if not acoes_estrategicas:
+                st.info("Nenhuma ação estratégica cadastrada para este resultado.")
             else:
-                st.info("Nenhuma entrega registrada para este resultado de médio prazo.")
+                for idx_acao, acao in enumerate(acoes_estrategicas):
+
+                    nome_acao = acao.get("nome_acao_estrategica", f"Ação {idx_acao+1}")
+
+                    # Título da ação (SEM expander)
+                    st.write(f"**{nome_acao}**")
+
+                    # Buscar entregas vinculadas a esta ação
+                    entregas_vinculadas = buscar_entregas_por_acao(nome_acao)
+
+                    if entregas_vinculadas:
+                        exibir_entregas_como_tabela(
+                            entregas_vinculadas,
+                            key_prefix="tabela_entrega_por_acao",
+                            key_suffix=f"{idx}_{idx_acao}"
+                        )
+                    else:
+                        st.info("Nenhuma entrega vinculada a esta ação estratégica.")
+
+                    # ✅ Separador visual entre as ações
+                    st.divider()
+
+
+
 
 # ---------------------------
 # ABA RESULTADOS DE LONGO PRAZO
