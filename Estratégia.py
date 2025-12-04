@@ -3,9 +3,10 @@ import pandas as pd
 import time
 import streamlit_shadcn_ui as ui
 from datetime import datetime
-from funcoes_auxiliares import conectar_mongo_portal_ispn 
+from funcoes_auxiliares import conectar_mongo_portal_ispn, formatar_nome_legivel, br_to_float, float_to_br
 from bson import ObjectId
 import re
+
 
 
 
@@ -21,7 +22,8 @@ db = conectar_mongo_portal_ispn()
 colaboradores = db["colaboradores"]
 estrategia = db["estrategia"]
 projetos_ispn = db["projetos_ispn"]
-
+indicadores = db["indicadores"]
+lancamentos_indicadores = db["lancamentos_indicadores"]
 
 ###########################################################################################################
 # CONTADOR DE ACESSOS À PÁGINA
@@ -567,125 +569,6 @@ def exibir_entregas_como_tabela(entregas_list, key_prefix="tabela", key_suffix=N
     ui.table(data=df, key=key)
     return df
 
-###########################################################################################################
-# INTERFACE PRINCIPAL
-###########################################################################################################
-
-
-st.set_page_config(layout="wide")
-st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
-
-if "modo_edicao" not in st.session_state:
-    st.session_state.modo_edicao = False
-
-
-st.header("Planejamento Estratégico")
-st.write('')
-
-
-# aba_tm, aba_est, aba_res_mp, aba_res_lp, aba_ebj_est_ins = st.tabs(['Teoria da mudança', 'Estratégia', 'Resultados de Médio Prazo', 'Resultados de Longo Prazo', 'Objetivos Estratégicos Institucionais'])
-aba_est, aba_res_mp, aba_res_lp, aba_ebj_est_ins = st.tabs(['Estratégia', 'Resultados de Médio Prazo', 'Resultados de Longo Prazo', 'Objetivos Estratégicos Institucionais'])
-
-
-
-# ---------------------------
-# ABA ESTRATÉGIA
-# ---------------------------
-with aba_est:
-    
-    if "modo_edicao_1" not in st.session_state:
-        st.session_state.modo_edicao_1 = False
-
-    estrategia_doc = estrategia.find_one({"estrategia": {"$exists": True}})
-
-    titulo_pagina_atual = estrategia_doc.get("estrategia", {}).get("titulo_pagina_estrategia", "") if estrategia_doc else ""
-    lista_estrategias_atual = estrategia_doc.get("estrategia", {}).get("eixos_da_estrategia", []) if estrategia_doc else []
-
-    # Modo edição (mantém sua lógica)
-    if set(st.session_state.tipo_usuario) & {"admin"}:
-        col1, col2 = st.columns([4, 1])
-        col1.toggle('Modo de edição', value=False, key='modo_edicao_1')
-
-        if st.session_state.modo_edicao_1:
-            with col2:
-                st.button(
-                    "Editar página",
-                    icon=":material/edit:",
-                    key="editar_titulo_estrategia",
-                    on_click=editar_estrategia_dialog,
-                    use_container_width=True
-                )
-
-    st.write('')
-    st.subheader(titulo_pagina_atual if titulo_pagina_atual else 'Promoção de Paisagens Produtivas Ecossociais')
-    st.write('')
-
-    # Filtros
-
-    ver_filtros = st.toggle("Ver filtros", key="ver_filtros")
-
-    if ver_filtros:
-
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            anos = list(range(1994, datetime.now().year + 1))
-            ano_selecionado = st.selectbox("Selecione o ano:", sorted(anos, reverse=True))
-        with col2:
-            programa_selecionado = st.selectbox("Selecione o programa:", ["Todos os programas", "Programa 1", "Programa 2", "Programa 3"])
-        with col3:
-            projeto_selecionado = st.selectbox("Selecione o projeto:", ["Todos os projetos", "Projeto 1", "Projeto 2", "Projeto 3"])
-
-    st.write('')
-
-    # Carrega projetos uma vez
-    projetos = list(projetos_ispn.find({}, {"entregas": 1, "sigla": 1, "programa": 1}))
-
-    # Ordena eixos
-    def extrair_numero(estrategia_item):
-        try:
-            return int(estrategia_item["titulo"].split(" - ")[0])
-        except:
-            return float('inf')
-
-    lista_estrategias_ordenada = sorted(lista_estrategias_atual, key=extrair_numero)
-
-    for eixo in lista_estrategias_ordenada:
-        titulo_eixo = eixo.get("titulo", "Título não definido")
-
-        with st.expander(f"**{titulo_eixo}**"):
-            if st.session_state.modo_edicao_1:
-                col1, col2 = st.columns([4, 1])
-                col2.button(
-                    "Editar eixo",
-                    key=f"editar_{_safe_key(titulo_eixo)}",
-                    on_click=editar_eixos_da_estrategia_dialog,
-                    args=(eixo, estrategia_doc, estrategia),
-                    use_container_width=True,
-                    icon=":material/edit:"
-                )
-
-            st.write('')
-            st.write("**Entregas Planejadas / Realizadas:**")
-            st.write('')
-
-            # Usa a função para buscar entregas relacionadas ao eixo
-            entregas_filtradas = buscar_entregas_relacionadas(titulo_eixo)
-
-            if entregas_filtradas:
-                # exibir com key única por eixo
-                exibir_entregas_como_tabela(entregas_filtradas, key_prefix="tabela_entregas_eixo", key_suffix=titulo_eixo)
-            else:
-                st.warning("Nenhuma entrega registrada para este eixo.")
-
-            st.divider()
-            st.markdown("**Indicadores**")
-            st.write("Indicadores ainda não integrados.")
-
-
-
-
-
-
 def buscar_entregas_por_acao(nome_acao):
     entregas_relacionadas = []
 
@@ -710,6 +593,226 @@ def buscar_entregas_por_acao(nome_acao):
                 })
 
     return entregas_relacionadas
+
+
+###########################################################################################################
+# INTERFACE PRINCIPAL
+###########################################################################################################
+
+
+st.set_page_config(layout="wide")
+st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
+
+if "modo_edicao" not in st.session_state:
+    st.session_state.modo_edicao = False
+
+
+st.header("Planejamento Estratégico")
+st.write('')
+
+
+# aba_tm, aba_est, aba_res_mp, aba_res_lp, aba_ebj_est_ins = st.tabs(['Teoria da mudança', 'Estratégia', 'Resultados de Médio Prazo', 'Resultados de Longo Prazo', 'Objetivos Estratégicos Institucionais'])
+aba_est, aba_res_mp, aba_res_lp, aba_ebj_est_ins = st.tabs(['Estratégia', 'Resultados de Médio Prazo', 'Resultados de Longo Prazo', 'Objetivos Estratégicos Institucionais'])
+
+
+
+
+
+# ---------------------------
+# ABA ESTRATÉGIA
+# ---------------------------
+with aba_est:
+
+    # ----------------------------------------------------
+    # ESTADO INICIAL
+    # ----------------------------------------------------
+    if "modo_edicao_1" not in st.session_state:
+        st.session_state.modo_edicao_1 = False
+
+    # ----------------------------------------------------
+    # CARREGAR ESTRATÉGIA
+    # ----------------------------------------------------
+    estrategia_doc = estrategia.find_one({"estrategia": {"$exists": True}})
+
+    titulo_pagina_atual = (
+        estrategia_doc.get("estrategia", {}).get("titulo_pagina_estrategia", "")
+        if estrategia_doc else ""
+    )
+
+    lista_estrategias_atual = (
+        estrategia_doc.get("estrategia", {}).get("eixos_da_estrategia", [])
+        if estrategia_doc else []
+    )
+
+    # ----------------------------------------------------
+    # MODO EDIÇÃO
+    # ----------------------------------------------------
+    if set(st.session_state.tipo_usuario) & {"admin"}:
+        col1, col2 = st.columns([4, 1])
+        col1.toggle("Modo de edição", value=False, key="modo_edicao_1")
+
+        if st.session_state.modo_edicao_1:
+            with col2:
+                st.button(
+                    "Editar página",
+                    icon=":material/edit:",
+                    key="editar_titulo_estrategia",
+                    on_click=editar_estrategia_dialog,
+                    use_container_width=True
+                )
+
+    st.write("")
+    st.subheader(
+        titulo_pagina_atual
+        if titulo_pagina_atual
+        else "Promoção de Paisagens Produtivas Ecossociais"
+    )
+    st.write("")
+
+    # ----------------------------------------------------
+    # FILTRO POR ANO (MULTISELECT)
+    # ----------------------------------------------------
+    ver_filtros = st.toggle("Ver filtros", key="ver_filtros")
+
+    anos_selecionados = []
+
+    if ver_filtros:
+        # Buscar apenas anos existentes nos lançamentos
+        anos_disponiveis = sorted(
+            {
+                lanc.get("ano")
+                for lanc in lancamentos_indicadores.find(
+                    {"ano": {"$exists": True, "$ne": ""}},
+                    {"ano": 1}
+                )
+            },
+            reverse=True
+        )
+
+        anos_selecionados = st.multiselect(
+            "Selecione o(s) ano(s):",
+            options=anos_disponiveis,
+            default=anos_disponiveis[:1] if anos_disponiveis else []
+        )
+
+    st.write("")
+
+    # ----------------------------------------------------
+    # PREPARAR FILTRO PARA LANÇAMENTOS
+    # ----------------------------------------------------
+    filtro_lancamentos = {}
+    if anos_selecionados:
+        filtro_lancamentos["ano"] = {"$in": anos_selecionados}
+
+    # ----------------------------------------------------
+    # PRÉ-CARREGAR LANÇAMENTOS E SOMAR POR INDICADOR
+    # ----------------------------------------------------
+    todos_lancamentos = list(
+        lancamentos_indicadores.find(filtro_lancamentos)
+    )
+
+    mapa_soma_indicadores = {}
+
+    for lanc in todos_lancamentos:
+        id_indicador = str(lanc.get("id_do_indicador"))
+
+        valor = br_to_float(lanc.get("valor"))
+
+        mapa_soma_indicadores[id_indicador] = (
+            mapa_soma_indicadores.get(id_indicador, 0) + valor
+        )
+
+
+    # ----------------------------------------------------
+    # ORDENAR EIXOS
+    # ----------------------------------------------------
+    def extrair_numero(item):
+        try:
+            return int(item["titulo"].split(" - ")[0])
+        except:
+            return float("inf")
+
+    lista_estrategias_ordenada = sorted(
+        lista_estrategias_atual,
+        key=extrair_numero
+    )
+
+    # ----------------------------------------------------
+    # MAPA DE INDICADORES POR EIXO
+    # ----------------------------------------------------
+    todos_indicadores = list(indicadores.find())
+
+    mapa_indicadores_por_eixo = {}
+
+    for ind in todos_indicadores:
+        for eixo_nome in ind.get("colabora_estrategia", []):
+            mapa_indicadores_por_eixo.setdefault(eixo_nome, []).append(ind)
+
+    # ----------------------------------------------------
+    # LOOP DOS EIXOS
+    # ----------------------------------------------------
+    for eixo in lista_estrategias_ordenada:
+
+        titulo_eixo = eixo.get("titulo", "Título não definido")
+
+        with st.expander(f"**{titulo_eixo}**"):
+
+            # --------------------------------------------
+            # BOTÃO EDITAR EIXO
+            # --------------------------------------------
+            if st.session_state.modo_edicao_1:
+                col1, col2 = st.columns([4, 1])
+                col2.button(
+                    "Editar eixo",
+                    key=f"editar_{_safe_key(titulo_eixo)}",
+                    on_click=editar_eixos_da_estrategia_dialog,
+                    args=(eixo, estrategia_doc, estrategia),
+                    use_container_width=True,
+                    icon=":material/edit:"
+                )
+
+            st.write("")
+            st.write("**:material/package_2: Entregas Planejadas / Realizadas:**")
+            st.write("")
+
+            # --------------------------------------------
+            # ENTREGAS DO EIXO
+            # --------------------------------------------
+            entregas_filtradas = buscar_entregas_relacionadas(titulo_eixo)
+
+            if entregas_filtradas:
+                exibir_entregas_como_tabela(
+                    entregas_filtradas,
+                    key_prefix="tabela_entregas_eixo",
+                    key_suffix=_safe_key(titulo_eixo)
+                )
+            else:
+                st.write("Nenhuma entrega registrada para este eixo.")
+
+            # --------------------------------------------
+            # INDICADORES DO EIXO (COM SOMA FILTRADA POR ANO)
+            # --------------------------------------------
+            st.divider()
+            st.markdown("**:material/monitoring: Indicadores**")
+
+            indicadores_eixo = mapa_indicadores_por_eixo.get(titulo_eixo, [])
+
+            if not indicadores_eixo:
+                st.write("Nenhum indicador relacionado a este eixo.")
+            else:
+                for ind in indicadores_eixo:
+                    nome_bruto = ind.get("nome_indicador", "Indicador sem nome")
+                    nome_legivel = formatar_nome_legivel(nome_bruto)
+
+                    id_indicador = str(ind["_id"])
+                    valor_total = mapa_soma_indicadores.get(id_indicador, 0)
+
+                    valor_formatado = float_to_br(valor_total)
+
+                    st.markdown(f"{nome_legivel}: {valor_formatado}")
+
+
+
 
 # ---------------------------
 # ABA RESULTADOS DE MÉDIO PRAZO
