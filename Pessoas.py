@@ -1770,7 +1770,7 @@ def gerenciar_pessoas():
 # Container horizontal de botões
 container_botoes = st.container(horizontal=True, horizontal_alignment="right")
 # Roteamento de tipo de usuário
-if set(st.session_state.tipo_usuario) & {"admin", "gestao_pessoas"}:
+if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_pessoas"}:
 
     # Botão para abrir o diálogo de gerenciamento de colaboradores
     container_botoes.button("Gerenciar colaboradores", on_click=gerenciar_pessoas, icon=":material/group:")

@@ -583,54 +583,9 @@ st.header("Planejamento Estratégico")
 st.write('')
 
 
-aba_tm, aba_est, aba_res_mp, aba_res_lp, aba_ebj_est_ins = st.tabs(['Teoria da mudança', 'Estratégia', 'Resultados de Médio Prazo', 'Resultados de Longo Prazo', 'Objetivos Estratégicos Institucionais'])
+# aba_tm, aba_est, aba_res_mp, aba_res_lp, aba_ebj_est_ins = st.tabs(['Teoria da mudança', 'Estratégia', 'Resultados de Médio Prazo', 'Resultados de Longo Prazo', 'Objetivos Estratégicos Institucionais'])
+aba_est, aba_res_mp, aba_res_lp, aba_ebj_est_ins = st.tabs(['Estratégia', 'Resultados de Médio Prazo', 'Resultados de Longo Prazo', 'Objetivos Estratégicos Institucionais'])
 
-# Aba Teoria da mudança
-with aba_tm:
-    
-    # Busca o documento da coleção 'estrategia' que contenha a chave "teoria da mudança"
-    teoria_doc = estrategia.find_one({"teoria da mudança": {"$exists": True}})
-
-    # Inicializa os textos com valores padrão
-    problema = "Problema não cadastrado ainda."
-    proposito = "Propósito não cadastrado ainda."
-    impacto = "Impacto não cadastrado ainda."
-
-    # Se o documento for encontrado, percorre a lista e extrai os textos
-    if teoria_doc:
-        lista_tm = teoria_doc.get("teoria da mudança", [])
-        for item in lista_tm:
-            if "problema" in item:
-                problema = item["problema"]
-            if "proposito" in item:
-                proposito = item["proposito"]
-            if "impacto" in item:
-                impacto = item["impacto"]
-   
-    # Modo edição (mantém sua lógica)
-    if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)"}:
-        col1, col2 = st.columns([4, 1])
-        col1.toggle('Modo de edição', value=False, key='modo_edicao_0')
-
-        if st.session_state.modo_edicao_0:
-            with col2:
-                st.button("Editar página", icon=":material/edit:", key="editar_info_tm", on_click=editar_info_teoria_mudanca_dialog, use_container_width=True)
-
-    
-    st.write('')
-    st.subheader('Teoria da Mudança')
-    st.write('')
-
-    st.write('**Problema:**')
-    st.write(problema)
-
-    st.write('')
-    st.write('**Propósito:**')
-    st.write(proposito)
-
-    st.write('')
-    st.write('**Impacto:**')
-    st.write(impacto)
 
 
 # ---------------------------
@@ -665,14 +620,20 @@ with aba_est:
     st.subheader(titulo_pagina_atual if titulo_pagina_atual else 'Promoção de Paisagens Produtivas Ecossociais')
     st.write('')
 
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        anos = list(range(1994, datetime.now().year + 1))
-        ano_selecionado = st.selectbox("Selecione o ano:", sorted(anos, reverse=True))
-    with col2:
-        programa_selecionado = st.selectbox("Selecione o programa:", ["Todos os programas", "Programa 1", "Programa 2", "Programa 3"])
-    with col3:
-        projeto_selecionado = st.selectbox("Selecione o projeto:", ["Todos os projetos", "Projeto 1", "Projeto 2", "Projeto 3"])
+    # Filtros
+
+    ver_filtros = st.toggle("Ver filtros", key="ver_filtros")
+
+    if ver_filtros:
+
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            anos = list(range(1994, datetime.now().year + 1))
+            ano_selecionado = st.selectbox("Selecione o ano:", sorted(anos, reverse=True))
+        with col2:
+            programa_selecionado = st.selectbox("Selecione o programa:", ["Todos os programas", "Programa 1", "Programa 2", "Programa 3"])
+        with col3:
+            projeto_selecionado = st.selectbox("Selecione o projeto:", ["Todos os projetos", "Projeto 1", "Projeto 2", "Projeto 3"])
 
     st.write('')
 
@@ -714,11 +675,16 @@ with aba_est:
                 # exibir com key única por eixo
                 exibir_entregas_como_tabela(entregas_filtradas, key_prefix="tabela_entregas_eixo", key_suffix=titulo_eixo)
             else:
-                st.info("Nenhuma entrega registrada para este eixo.")
+                st.warning("Nenhuma entrega registrada para este eixo.")
 
             st.divider()
             st.markdown("**Indicadores**")
             st.write("Indicadores ainda não integrados.")
+
+
+
+
+
 
 def buscar_entregas_por_acao(nome_acao):
     entregas_relacionadas = []
@@ -817,7 +783,7 @@ with aba_res_mp:
                 else:
                     st.dataframe(df_metas, hide_index=True)
             else:
-                st.info("Nenhuma meta cadastrada.")
+                st.warning("Nenhuma meta cadastrada.")
 
             
             st.divider()
@@ -833,7 +799,7 @@ with aba_res_mp:
             acoes_estrategicas = resultado.get("acoes_estrategicas", [])
 
             if not acoes_estrategicas:
-                st.info("Nenhuma ação estratégica cadastrada para este resultado.")
+                st.warning("Nenhuma ação estratégica cadastrada para este resultado.")
             else:
                 for idx_acao, acao in enumerate(acoes_estrategicas):
 
@@ -852,7 +818,7 @@ with aba_res_mp:
                             key_suffix=f"{idx}_{idx_acao}"
                         )
                     else:
-                        st.info("Nenhuma entrega vinculada a esta ação estratégica.")
+                        st.warning("Nenhuma entrega vinculada a esta ação estratégica.")
 
                     # ✅ Separador visual entre as ações
                     st.divider()
@@ -943,7 +909,7 @@ with aba_res_lp:
                     else:
                         st.dataframe(df_indicadores, hide_index=True)
                 else:
-                    st.info("Nenhum indicador cadastrado.")
+                    st.warning("Nenhum indicador cadastrado.")
 
                 # --- Exibir entregas relacionadas a este resultado de longo prazo ---
                 st.write('')
@@ -952,9 +918,9 @@ with aba_res_lp:
                 if entregas_lp:
                     exibir_entregas_como_tabela(entregas_lp, key_prefix="tabela_entregas_lp", key_suffix=f"{idx}_{titulo_result_lp}")
                 else:
-                    st.info("Nenhuma entrega registrada para este resultado de longo prazo.")
+                    st.warning("Nenhuma entrega registrada para este resultado de longo prazo.")
     else:
-        st.info("Nenhum resultado de longo prazo encontrado no banco de dados.")
+        st.warning("Nenhum resultado de longo prazo encontrado no banco de dados.")
 
 
 with aba_ebj_est_ins:

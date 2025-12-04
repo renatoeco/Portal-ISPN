@@ -373,8 +373,6 @@ def editar_info_institucional_dialog():
 # INTERFACE PRINCIPAL DA PÁGINA
 ###########################################################################################################
 
-# Define o layout da página como largura total
-st.set_page_config(layout="wide")
 
 # Exibe o logo
 container_logo = st.container(horizontal=True, horizontal_alignment="center")
@@ -512,46 +510,44 @@ st.write('')
 st.write('**Impacto:**')
 st.write(impacto)
 
-st.write('')
-st.write('')
 
 
 
-# ESTRATÉGIA -------------------------------------------------------------------------------
+# # ESTRATÉGIA -------------------------------------------------------------------------------
 
-st.subheader('Estratégia')
+# st.subheader('Estratégia')
 
-estrategia_doc = estrategia.find_one({"estrategia": {"$exists": True}})
+# estrategia_doc = estrategia.find_one({"estrategia": {"$exists": True}})
 
-# Acessa o título e a lista de estratégias de forma segura
-titulo_pagina_atual = estrategia_doc.get("estrategia", {}).get("titulo_pagina_estrategia", "") if estrategia_doc else ""
-lista_estrategias_atual = estrategia_doc.get("estrategia", {}).get("estrategias", []) if estrategia_doc else []
+# # Acessa o título e a lista de estratégias de forma segura
+# titulo_pagina_atual = estrategia_doc.get("estrategia", {}).get("titulo_pagina_estrategia", "") if estrategia_doc else ""
+# lista_estrategias_atual = estrategia_doc.get("estrategia", {}).get("estrategias", []) if estrategia_doc else []
 
-# tipos_usuario = st.session_state.get("tipo_usuario", [])
-# if "admin" in tipos_usuario:
-#     col1, col2 = st.columns([7, 1])
-#     with col2:
-#         st.button("Editar página", icon=":material/edit:", key="editar_titulo_estrategia", on_click=editar_estrategia_dialog, use_container_width=True)
+# # tipos_usuario = st.session_state.get("tipo_usuario", [])
+# # if "admin" in tipos_usuario:
+# #     col1, col2 = st.columns([7, 1])
+# #     with col2:
+# #         st.button("Editar página", icon=":material/edit:", key="editar_titulo_estrategia", on_click=editar_estrategia_dialog, use_container_width=True)
 
-st.write('')
-st.markdown(f"<h3 style='font-size: 22px; font-style: italic;'>{titulo_pagina_atual if titulo_pagina_atual else 'Promoção de Paisagens Produtivas Ecossociais'}</h3>", unsafe_allow_html=True)
-st.write('')
+# st.write('')
+# st.markdown(f"<h3 style='font-size: 22px; font-style: italic;'>{titulo_pagina_atual if titulo_pagina_atual else 'Promoção de Paisagens Produtivas Ecossociais'}</h3>", unsafe_allow_html=True)
+# st.write('')
 
 
-# Função para ordenar estratégias com base no número do título
-def extrair_numero(estrategia):
-    try:
-        return int(estrategia["titulo"].split(" - ")[0])
-    except:
-        return float('inf')  # Coloca no final se não for possível extrair
+# # Função para ordenar estratégias com base no número do título
+# def extrair_numero(estrategia):
+#     try:
+#         return int(estrategia["titulo"].split(" - ")[0])
+#     except:
+#         return float('inf')  # Coloca no final se não for possível extrair
 
-lista_estrategias_ordenada = sorted(lista_estrategias_atual, key=extrair_numero)
+# lista_estrategias_ordenada = sorted(lista_estrategias_atual, key=extrair_numero)
 
-linha = st.container(horizontal=True)
+# linha = st.container(horizontal=True)
 
-for estrategia_item in lista_estrategias_ordenada:
-    with linha.container(border=True):
-        st.write(f"**{estrategia_item.get('titulo')}**")
-        st.write(estrategia_item.get('texto'))
+# for estrategia_item in lista_estrategias_ordenada:
+#     with linha.container(border=True):
+#         st.write(f"**{estrategia_item.get('titulo')}**")
+#         st.write(estrategia_item.get('texto'))
 
        
