@@ -818,32 +818,88 @@ with aba_est:
 # ABA RESULTADOS DE MÉDIO PRAZO
 # ---------------------------
 
+# ---------------------------
+# ABA RESULTADOS DE MÉDIO PRAZO
+# ---------------------------
 with aba_res_mp:
-    
+
+    # ----------------------------------------------------
+    # ESTADO INICIAL
+    # ----------------------------------------------------
     if "modo_edicao_2" not in st.session_state:
         st.session_state.modo_edicao_2 = False
+
+    # ----------------------------------------------------
+    # CARREGAR DOCUMENTO DE RESULTADOS MP
+    # ----------------------------------------------------
     doc = estrategia.find_one({"resultados_medio_prazo": {"$exists": True}})
     resultados_data = doc.get("resultados_medio_prazo", {}) if doc else {}
 
-    titulo_pagina = resultados_data.get("titulo_pagina_resultados_mp", "Resultados de Médio Prazo")
+    titulo_pagina = resultados_data.get(
+        "titulo_pagina_resultados_mp",
+        "Resultados de Médio Prazo"
+    )
     lista_resultados = resultados_data.get("resultados_mp", [])
 
+    # ----------------------------------------------------
+    # MODO EDIÇÃO
+    # ----------------------------------------------------
     if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)"}:
         col1, col2 = st.columns([4, 1])
-        col1.toggle('Modo de edição', value=False, key='modo_edicao_2')
+        col1.toggle("Modo de edição", value=False, key="modo_edicao_2")
 
         if st.session_state.modo_edicao_2 and "admin" in st.session_state.tipo_usuario:
             with col2:
-                st.button("Editar página", icon=":material/edit:", key="editar_titulo_result_mp", on_click=editar_titulo_pagina_resultados_mp_dialog, use_container_width=True)
+                st.button(
+                    "Editar página",
+                    icon=":material/edit:",
+                    key="editar_titulo_result_mp",
+                    on_click=editar_titulo_pagina_resultados_mp_dialog,
+                    use_container_width=True
+                )
 
-    st.write('')
+    st.write("")
     st.subheader(titulo_pagina)
-    st.write('')
+    st.write("")
 
+    # ----------------------------------------------------
+    # PRÉ-CARREGAR INDICADORES (MAPA POR RESULTADO MP)
+    # ----------------------------------------------------
+    todos_indicadores = list(indicadores.find())
+
+    mapa_indicadores_por_resultado_mp = {}
+    for ind in todos_indicadores:
+        for resultado_mp in ind.get("colabora_resultado_mp", []):
+            mapa_indicadores_por_resultado_mp.setdefault(
+                resultado_mp, []
+            ).append(ind)
+
+    # ----------------------------------------------------
+    # PRÉ-CARREGAR LANÇAMENTOS DE INDICADORES
+    # ----------------------------------------------------
+    todos_lancamentos = list(lancamentos_indicadores.find())
+
+    mapa_soma_indicadores = {}
+    for lanc in todos_lancamentos:
+        id_indicador = str(lanc.get("id_do_indicador"))
+        valor = br_to_float(lanc.get("valor"))
+
+        mapa_soma_indicadores[id_indicador] = (
+            mapa_soma_indicadores.get(id_indicador, 0) + valor
+        )
+
+    # ----------------------------------------------------
+    # LOOP PELOS RESULTADOS DE MÉDIO PRAZO
+    # ----------------------------------------------------
     for idx, resultado in enumerate(lista_resultados):
-        titulo_result = resultado.get("titulo", f"Resultado {idx+1}")
+
+        titulo_result = resultado.get("titulo", f"Resultado {idx + 1}")
+
         with st.expander(titulo_result):
-            # Botão editar título do resultado
+
+            # --------------------------------------------
+            # BOTÃO EDITAR RESULTADO
+            # --------------------------------------------
             if st.session_state.modo_edicao_2:
                 col1, col2 = st.columns([4, 1])
                 col2.button(
@@ -854,16 +910,23 @@ with aba_res_mp:
                     use_container_width=True
                 )
 
-            # Metas (mantive sua lógica)
+            # --------------------------------------------
+            # METAS
+            # --------------------------------------------
             metas = resultado.get("metas", [])
             if metas:
-                st.markdown("##### Metas:")
+                st.markdown("##### :material/target: Metas:")
                 st.write("")
 
                 df_metas = pd.DataFrame([
-                    {"Meta": m.get("nome_meta_mp", ""), "Objetivo": m.get("objetivo", ""), "Alcançado": m.get("alcancado", "")}
+                    {
+                        "Meta": m.get("nome_meta_mp", ""),
+                        "Objetivo": m.get("objetivo", ""),
+                        "Alcançado": m.get("alcancado", "")
+                    }
                     for m in metas
                 ])
+
                 if st.session_state.get("modo_edicao"):
                     if f"df_original_mp_{idx}" not in st.session_state:
                         st.session_state[f"df_original_mp_{idx}"] = df_metas.copy()
@@ -874,13 +937,20 @@ with aba_res_mp:
                         key=f"tabela_metas_mp_{idx}"
                     )
 
-                    if df_tem_mudancas(df_metas_editado, st.session_state[f"df_original_mp_{idx}"]):
+                    if df_tem_mudancas(
+                        df_metas_editado,
+                        st.session_state[f"df_original_mp_{idx}"]
+                    ):
                         st.session_state[f"df_original_mp_{idx}"] = df_metas_editado.copy()
                         nova_lista = df_metas_editado.to_dict(orient="records")
 
                         estrategia.update_one(
                             {"_id": doc["_id"]},
-                            {"$set": {"resultados_medio_prazo.resultados_mp": nova_lista}}
+                            {
+                                "$set": {
+                                    "resultados_medio_prazo.resultados_mp": nova_lista
+                                }
+                            }
                         )
                         st.success("Alterações salvas automaticamente no MongoDB")
                 else:
@@ -888,16 +958,13 @@ with aba_res_mp:
             else:
                 st.warning("Nenhuma meta cadastrada.")
 
-            
             st.divider()
-           # st.write("")
-            
 
-            # --- Exibir entregas relacionadas a este resultado de médio prazo ---
-            st.markdown("##### Ações estratégicas e Entregas:")
-
+            # --------------------------------------------
+            # AÇÕES ESTRATÉGICAS / ENTREGAS
+            # --------------------------------------------
+            st.markdown("##### :material/package_2: Entregas por Ação Estratégica:")
             st.write("")
-            #st.divider()
 
             acoes_estrategicas = resultado.get("acoes_estrategicas", [])
 
@@ -906,13 +973,16 @@ with aba_res_mp:
             else:
                 for idx_acao, acao in enumerate(acoes_estrategicas):
 
-                    nome_acao = acao.get("nome_acao_estrategica", f"Ação {idx_acao+1}")
+                    nome_acao = acao.get(
+                        "nome_acao_estrategica",
+                        f"Ação {idx_acao + 1}"
+                    )
 
-                    # Título da ação (SEM expander)
                     st.write(f"**{nome_acao}**")
 
-                    # Buscar entregas vinculadas a esta ação
                     entregas_vinculadas = buscar_entregas_por_acao(nome_acao)
+
+                    # st.write("**:material/package_2: Entregas:**")
 
                     if entregas_vinculadas:
                         exibir_entregas_como_tabela(
@@ -921,10 +991,159 @@ with aba_res_mp:
                             key_suffix=f"{idx}_{idx_acao}"
                         )
                     else:
-                        st.warning("Nenhuma entrega vinculada a esta ação estratégica.")
+                        st.warning(
+                            "Nenhuma entrega vinculada a esta ação estratégica."
+                        )
 
-                    # ✅ Separador visual entre as ações
                     st.divider()
+
+            # --------------------------------------------
+            # INDICADORES DO RESULTADO DE MÉDIO PRAZO
+            # --------------------------------------------
+            st.markdown("##### :material/monitoring: Indicadores:")
+            st.write("")
+
+            indicadores_resultado = mapa_indicadores_por_resultado_mp.get(
+                titulo_result,
+                []
+            )
+
+            if not indicadores_resultado:
+                st.warning("Nenhum indicador relacionado a este resultado.")
+            else:
+                for ind in indicadores_resultado:
+
+                    nome_bruto = ind.get(
+                        "nome_indicador",
+                        "Indicador sem nome"
+                    )
+                    nome_legivel = formatar_nome_legivel(nome_bruto)
+
+                    id_indicador = str(ind["_id"])
+                    valor_total = mapa_soma_indicadores.get(id_indicador, 0)
+                    valor_formatado = float_to_br(valor_total)
+
+                    st.markdown(
+                        f"**{nome_legivel}: {valor_formatado}**"
+                    )
+
+
+
+
+
+
+
+# with aba_res_mp:
+    
+#     if "modo_edicao_2" not in st.session_state:
+#         st.session_state.modo_edicao_2 = False
+#     doc = estrategia.find_one({"resultados_medio_prazo": {"$exists": True}})
+#     resultados_data = doc.get("resultados_medio_prazo", {}) if doc else {}
+
+#     titulo_pagina = resultados_data.get("titulo_pagina_resultados_mp", "Resultados de Médio Prazo")
+#     lista_resultados = resultados_data.get("resultados_mp", [])
+
+#     if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)"}:
+#         col1, col2 = st.columns([4, 1])
+#         col1.toggle('Modo de edição', value=False, key='modo_edicao_2')
+
+#         if st.session_state.modo_edicao_2 and "admin" in st.session_state.tipo_usuario:
+#             with col2:
+#                 st.button("Editar página", icon=":material/edit:", key="editar_titulo_result_mp", on_click=editar_titulo_pagina_resultados_mp_dialog, use_container_width=True)
+
+#     st.write('')
+#     st.subheader(titulo_pagina)
+#     st.write('')
+
+#     for idx, resultado in enumerate(lista_resultados):
+#         titulo_result = resultado.get("titulo", f"Resultado {idx+1}")
+#         with st.expander(titulo_result):
+#             # Botão editar título do resultado
+#             if st.session_state.modo_edicao_2:
+#                 col1, col2 = st.columns([4, 1])
+#                 col2.button(
+#                     "Editar resultado",
+#                     icon=":material/edit:",
+#                     key=f"editar_resultado_mp_{idx}",
+#                     on_click=lambda i=idx: editar_titulo_de_cada_resultado_mp_dialog(i),
+#                     use_container_width=True
+#                 )
+
+#             # Metas (mantive sua lógica)
+#             metas = resultado.get("metas", [])
+#             if metas:
+#                 st.markdown("##### Metas:")
+#                 st.write("")
+
+#                 df_metas = pd.DataFrame([
+#                     {"Meta": m.get("nome_meta_mp", ""), "Objetivo": m.get("objetivo", ""), "Alcançado": m.get("alcancado", "")}
+#                     for m in metas
+#                 ])
+#                 if st.session_state.get("modo_edicao"):
+#                     if f"df_original_mp_{idx}" not in st.session_state:
+#                         st.session_state[f"df_original_mp_{idx}"] = df_metas.copy()
+
+#                     df_metas_editado = st.data_editor(
+#                         st.session_state[f"df_original_mp_{idx}"],
+#                         hide_index=True,
+#                         key=f"tabela_metas_mp_{idx}"
+#                     )
+
+#                     if df_tem_mudancas(df_metas_editado, st.session_state[f"df_original_mp_{idx}"]):
+#                         st.session_state[f"df_original_mp_{idx}"] = df_metas_editado.copy()
+#                         nova_lista = df_metas_editado.to_dict(orient="records")
+
+#                         estrategia.update_one(
+#                             {"_id": doc["_id"]},
+#                             {"$set": {"resultados_medio_prazo.resultados_mp": nova_lista}}
+#                         )
+#                         st.success("Alterações salvas automaticamente no MongoDB")
+#                 else:
+#                     st.dataframe(df_metas, hide_index=True)
+#             else:
+#                 st.warning("Nenhuma meta cadastrada.")
+
+            
+#             st.divider()
+#            # st.write("")
+            
+
+#             # --- Exibir entregas relacionadas a este resultado de médio prazo ---
+#             st.markdown("##### Ações estratégicas:")
+
+#             st.write("")
+#             #st.divider()
+
+
+#             acoes_estrategicas = resultado.get("acoes_estrategicas", [])
+
+#             if not acoes_estrategicas:
+#                 st.warning("Nenhuma ação estratégica cadastrada para este resultado.")
+#             else:
+#                 for idx_acao, acao in enumerate(acoes_estrategicas):
+
+#                     nome_acao = acao.get("nome_acao_estrategica", f"Ação {idx_acao+1}")
+
+#                     # Título da ação (SEM expander)
+#                     st.write(f"**{nome_acao}**")
+
+#                     # ENTREGAS    
+#                     # Buscar entregas vinculadas a esta ação
+#                     entregas_vinculadas = buscar_entregas_por_acao(nome_acao)
+
+#                     st.write("**:material/package_2: Entregas:**")
+
+#                     if entregas_vinculadas:
+#                         exibir_entregas_como_tabela(
+#                             entregas_vinculadas,
+#                             key_prefix="tabela_entrega_por_acao",
+#                             key_suffix=f"{idx}_{idx_acao}"
+#                         )
+#                     else:
+#                         st.warning("Nenhuma entrega vinculada a esta ação estratégica.")
+
+#                     # Separador visual entre as ações
+#                     st.divider()
 
 
 
