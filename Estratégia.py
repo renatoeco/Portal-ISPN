@@ -1030,141 +1030,35 @@ with aba_res_mp:
 
 
 
-
-
-
-# with aba_res_mp:
-    
-#     if "modo_edicao_2" not in st.session_state:
-#         st.session_state.modo_edicao_2 = False
-#     doc = estrategia.find_one({"resultados_medio_prazo": {"$exists": True}})
-#     resultados_data = doc.get("resultados_medio_prazo", {}) if doc else {}
-
-#     titulo_pagina = resultados_data.get("titulo_pagina_resultados_mp", "Resultados de Médio Prazo")
-#     lista_resultados = resultados_data.get("resultados_mp", [])
-
-#     if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)"}:
-#         col1, col2 = st.columns([4, 1])
-#         col1.toggle('Modo de edição', value=False, key='modo_edicao_2')
-
-#         if st.session_state.modo_edicao_2 and "admin" in st.session_state.tipo_usuario:
-#             with col2:
-#                 st.button("Editar página", icon=":material/edit:", key="editar_titulo_result_mp", on_click=editar_titulo_pagina_resultados_mp_dialog, use_container_width=True)
-
-#     st.write('')
-#     st.subheader(titulo_pagina)
-#     st.write('')
-
-#     for idx, resultado in enumerate(lista_resultados):
-#         titulo_result = resultado.get("titulo", f"Resultado {idx+1}")
-#         with st.expander(titulo_result):
-#             # Botão editar título do resultado
-#             if st.session_state.modo_edicao_2:
-#                 col1, col2 = st.columns([4, 1])
-#                 col2.button(
-#                     "Editar resultado",
-#                     icon=":material/edit:",
-#                     key=f"editar_resultado_mp_{idx}",
-#                     on_click=lambda i=idx: editar_titulo_de_cada_resultado_mp_dialog(i),
-#                     use_container_width=True
-#                 )
-
-#             # Metas (mantive sua lógica)
-#             metas = resultado.get("metas", [])
-#             if metas:
-#                 st.markdown("##### Metas:")
-#                 st.write("")
-
-#                 df_metas = pd.DataFrame([
-#                     {"Meta": m.get("nome_meta_mp", ""), "Objetivo": m.get("objetivo", ""), "Alcançado": m.get("alcancado", "")}
-#                     for m in metas
-#                 ])
-#                 if st.session_state.get("modo_edicao"):
-#                     if f"df_original_mp_{idx}" not in st.session_state:
-#                         st.session_state[f"df_original_mp_{idx}"] = df_metas.copy()
-
-#                     df_metas_editado = st.data_editor(
-#                         st.session_state[f"df_original_mp_{idx}"],
-#                         hide_index=True,
-#                         key=f"tabela_metas_mp_{idx}"
-#                     )
-
-#                     if df_tem_mudancas(df_metas_editado, st.session_state[f"df_original_mp_{idx}"]):
-#                         st.session_state[f"df_original_mp_{idx}"] = df_metas_editado.copy()
-#                         nova_lista = df_metas_editado.to_dict(orient="records")
-
-#                         estrategia.update_one(
-#                             {"_id": doc["_id"]},
-#                             {"$set": {"resultados_medio_prazo.resultados_mp": nova_lista}}
-#                         )
-#                         st.success("Alterações salvas automaticamente no MongoDB")
-#                 else:
-#                     st.dataframe(df_metas, hide_index=True)
-#             else:
-#                 st.warning("Nenhuma meta cadastrada.")
-
-            
-#             st.divider()
-#            # st.write("")
-            
-
-#             # --- Exibir entregas relacionadas a este resultado de médio prazo ---
-#             st.markdown("##### Ações estratégicas:")
-
-#             st.write("")
-#             #st.divider()
-
-
-#             acoes_estrategicas = resultado.get("acoes_estrategicas", [])
-
-#             if not acoes_estrategicas:
-#                 st.warning("Nenhuma ação estratégica cadastrada para este resultado.")
-#             else:
-#                 for idx_acao, acao in enumerate(acoes_estrategicas):
-
-#                     nome_acao = acao.get("nome_acao_estrategica", f"Ação {idx_acao+1}")
-
-#                     # Título da ação (SEM expander)
-#                     st.write(f"**{nome_acao}**")
-
-#                     # ENTREGAS    
-#                     # Buscar entregas vinculadas a esta ação
-#                     entregas_vinculadas = buscar_entregas_por_acao(nome_acao)
-
-#                     st.write("**:material/package_2: Entregas:**")
-
-#                     if entregas_vinculadas:
-#                         exibir_entregas_como_tabela(
-#                             entregas_vinculadas,
-#                             key_prefix="tabela_entrega_por_acao",
-#                             key_suffix=f"{idx}_{idx_acao}"
-#                         )
-#                     else:
-#                         st.warning("Nenhuma entrega vinculada a esta ação estratégica.")
-
-#                     # Separador visual entre as ações
-#                     st.divider()
-
-
-
-
 # ---------------------------
 # ABA RESULTADOS DE LONGO PRAZO
 # ---------------------------
 with aba_res_lp:
-    
+
+    # ----------------------------------------------------
+    # ESTADO INICIAL
+    # ----------------------------------------------------
     if "modo_edicao_lp" not in st.session_state:
         st.session_state.modo_edicao_lp = False
-        
+
+    # ----------------------------------------------------
+    # CARREGAR DOCUMENTO DE RESULTADOS DE LONGO PRAZO
+    # ----------------------------------------------------
     doc = estrategia.find_one({"resultados_longo_prazo": {"$exists": True}})
     resultados_lp_data = doc.get("resultados_longo_prazo", {}) if doc else {}
 
-    titulo_pagina_lp = resultados_lp_data.get("titulo_pagina_resultados_lp", "Resultados de Longo Prazo - 2030")
+    titulo_pagina_lp = resultados_lp_data.get(
+        "titulo_pagina_resultados_lp",
+        "Resultados de Longo Prazo - 2030"
+    )
     lista_resultados_lp = resultados_lp_data.get("resultados_lp", [])
 
+    # ----------------------------------------------------
+    # MODO DE EDIÇÃO
+    # ----------------------------------------------------
     if set(st.session_state.tipo_usuario) & {"admin"}:
         col1, col2 = st.columns([4, 1])
-        col1.toggle('Modo de edição', value=False, key='modo_edicao_lp')
+        col1.toggle("Modo de edição", value=False, key="modo_edicao_lp")
 
         if st.session_state.modo_edicao_lp:
             with col2:
@@ -1176,15 +1070,51 @@ with aba_res_lp:
                     use_container_width=True
                 )
 
-    st.write('')
+    st.write("")
     st.subheader(titulo_pagina_lp)
-    st.write('')
+    st.write("")
 
+    # ----------------------------------------------------
+    # MAPA DE INDICADORES POR RESULTADO DE LONGO PRAZO
+    # (usa campo colabora_resultado_lp na coleção 'indicadores')
+    # ----------------------------------------------------
+    todos_indicadores_lp = list(indicadores.find())
+
+    mapa_indicadores_por_resultado_lp = {}
+    for ind in todos_indicadores_lp:
+        for resultado_lp in ind.get("colabora_resultado_lp", []):
+            mapa_indicadores_por_resultado_lp.setdefault(
+                resultado_lp, []
+            ).append(ind)
+
+    # ----------------------------------------------------
+    # PRÉ-CARREGAR LANÇAMENTOS DE INDICADORES
+    # (usa br_to_float para somar valores em formato BR)
+    # ----------------------------------------------------
+    todos_lancamentos_lp = list(lancamentos_indicadores.find())
+
+    mapa_soma_indicadores_lp = {}
+    for lanc in todos_lancamentos_lp:
+        id_indicador = str(lanc.get("id_do_indicador"))
+        valor = br_to_float(lanc.get("valor"))
+
+        mapa_soma_indicadores_lp[id_indicador] = (
+            mapa_soma_indicadores_lp.get(id_indicador, 0) + valor
+        )
+
+    # ----------------------------------------------------
+    # LOOP DOS RESULTADOS DE LONGO PRAZO
+    # ----------------------------------------------------
     if lista_resultados_lp:
         for idx, resultado in enumerate(lista_resultados_lp):
-            titulo_result_lp = resultado.get("titulo", f"Resultado {idx+1}")
+
+            titulo_result_lp = resultado.get("titulo", f"Resultado {idx + 1}")
+
             with st.expander(titulo_result_lp):
-                # Botão editar
+
+                # --------------------------------------------
+                # BOTÃO EDITAR RESULTADO
+                # --------------------------------------------
                 if st.session_state.modo_edicao_lp:
                     col1, col2 = st.columns([4, 1])
                     col2.button(
@@ -1195,55 +1125,171 @@ with aba_res_lp:
                         use_container_width=True
                     )
 
-                st.write('')
-                st.write('**Indicadores:**')
-
-                indicadores = resultado.get("indicadores", [])
-                if indicadores:
-                    df_indicadores = pd.DataFrame([
-                        {
-                            "Indicador": ind.get("nome_indicador", ""),
-                            "Meta": ind.get("meta", ""),
-                            "Alcançado": ind.get("alcancado", "")
-                        }
-                        for ind in indicadores
-                    ])
-
-                    if st.session_state.modo_edicao_lp:
-                        if f"df_original_lp_{idx}" not in st.session_state:
-                            st.session_state[f"df_original_lp_{idx}"] = df_indicadores.copy()
-
-                        df_editado = st.data_editor(
-                            st.session_state[f"df_original_lp_{idx}"],
-                            hide_index=True,
-                            key=f"tabela_indicadores_lp_{idx}"
-                        )
-
-                        if df_tem_mudancas(df_editado, st.session_state[f"df_original_lp_{idx}"]):
-                            st.session_state[f"df_original_lp_{idx}"] = df_editado.copy()
-                            nova_lista = df_editado.to_dict(orient="records")
-
-                            estrategia.update_one(
-                                {"_id": doc["_id"]},
-                                {f"$set": {f"resultados_longo_prazo.resultados_lp.{idx}.indicadores": nova_lista}}
-                            )
-                            st.success("Alterações salvas automaticamente no MongoDB")
-                    else:
-                        st.dataframe(df_indicadores, hide_index=True)
-                else:
-                    st.warning("Nenhum indicador cadastrado.")
-
-                # --- Exibir entregas relacionadas a este resultado de longo prazo ---
-                st.write('')
+                # ====================================================
+                # ENTREGAS PLANEJADAS / REALIZADAS (PRIMEIRO)
+                # ====================================================
+                st.write("")
                 st.markdown("**Entregas Planejadas / Realizadas:**")
+
                 entregas_lp = buscar_entregas_relacionadas(titulo_result_lp)
+
                 if entregas_lp:
-                    exibir_entregas_como_tabela(entregas_lp, key_prefix="tabela_entregas_lp", key_suffix=f"{idx}_{titulo_result_lp}")
+                    exibir_entregas_como_tabela(
+                        entregas_lp,
+                        key_prefix="tabela_entregas_lp",
+                        key_suffix=f"{idx}_{_safe_key(titulo_result_lp)}"
+                    )
                 else:
-                    st.warning("Nenhuma entrega registrada para este resultado de longo prazo.")
+                    st.warning(
+                        "Nenhuma entrega registrada para este resultado de longo prazo."
+                    )
+
+                st.divider()
+
+                # ====================================================
+                # INDICADORES (VINDOS DA COLEÇÃO 'indicadores')
+                # ====================================================
+                st.markdown("**Indicadores:**")
+
+                indicadores_resultado = mapa_indicadores_por_resultado_lp.get(
+                    titulo_result_lp,
+                    []
+                )
+
+                if not indicadores_resultado:
+                    st.warning(
+                        "Nenhum indicador relacionado a este resultado de longo prazo."
+                    )
+                else:
+                    for ind in indicadores_resultado:
+                        # Nome legível do indicador
+                        nome_bruto = ind.get(
+                            "nome_indicador",
+                            "Indicador sem nome"
+                        )
+                        nome_legivel = formatar_nome_legivel(nome_bruto)
+
+                        # Soma dos lançamentos desse indicador
+                        id_indicador = str(ind["_id"])
+                        valor_total = mapa_soma_indicadores_lp.get(
+                            id_indicador,
+                            0
+                        )
+                        valor_formatado = float_to_br(valor_total)
+
+                        st.markdown(
+                            f"• **{nome_legivel}: {valor_formatado}**"
+                        )
     else:
         st.warning("Nenhum resultado de longo prazo encontrado no banco de dados.")
 
+
+
+
+# # ---------------------------
+# # ABA RESULTADOS DE LONGO PRAZO
+# # ---------------------------
+# with aba_res_lp:
+    
+#     if "modo_edicao_lp" not in st.session_state:
+#         st.session_state.modo_edicao_lp = False
+        
+#     doc = estrategia.find_one({"resultados_longo_prazo": {"$exists": True}})
+#     resultados_lp_data = doc.get("resultados_longo_prazo", {}) if doc else {}
+
+#     titulo_pagina_lp = resultados_lp_data.get("titulo_pagina_resultados_lp", "Resultados de Longo Prazo - 2030")
+#     lista_resultados_lp = resultados_lp_data.get("resultados_lp", [])
+
+#     if set(st.session_state.tipo_usuario) & {"admin"}:
+#         col1, col2 = st.columns([4, 1])
+#         col1.toggle('Modo de edição', value=False, key='modo_edicao_lp')
+
+#         if st.session_state.modo_edicao_lp:
+#             with col2:
+#                 st.button(
+#                     "Editar página",
+#                     icon=":material/edit:",
+#                     key="editar_titulo_result_lp",
+#                     on_click=editar_titulo_pagina_resultados_lp_dialog,
+#                     use_container_width=True
+#                 )
+
+#     st.write('')
+#     st.subheader(titulo_pagina_lp)
+#     st.write('')
+
+#     if lista_resultados_lp:
+#         for idx, resultado in enumerate(lista_resultados_lp):
+#             titulo_result_lp = resultado.get("titulo", f"Resultado {idx+1}")
+#             with st.expander(titulo_result_lp):
+#                 # Botão editar
+#                 if st.session_state.modo_edicao_lp:
+#                     col1, col2 = st.columns([4, 1])
+#                     col2.button(
+#                         "Editar resultado",
+#                         icon=":material/edit:",
+#                         key=f"editar_resultado_lp_{idx}",
+#                         on_click=lambda i=idx: editar_titulo_de_cada_resultado_lp_dialog(i),
+#                         use_container_width=True
+#                     )
+
+#                 st.write('')
+#                 st.write('**Indicadores:**')
+
+#                 indicadores = resultado.get("indicadores", [])
+#                 if indicadores:
+#                     df_indicadores = pd.DataFrame([
+#                         {
+#                             "Indicador": ind.get("nome_indicador", ""),
+#                             "Meta": ind.get("meta", ""),
+#                             "Alcançado": ind.get("alcancado", "")
+#                         }
+#                         for ind in indicadores
+#                     ])
+
+#                     if st.session_state.modo_edicao_lp:
+#                         if f"df_original_lp_{idx}" not in st.session_state:
+#                             st.session_state[f"df_original_lp_{idx}"] = df_indicadores.copy()
+
+#                         df_editado = st.data_editor(
+#                             st.session_state[f"df_original_lp_{idx}"],
+#                             hide_index=True,
+#                             key=f"tabela_indicadores_lp_{idx}"
+#                         )
+
+#                         if df_tem_mudancas(df_editado, st.session_state[f"df_original_lp_{idx}"]):
+#                             st.session_state[f"df_original_lp_{idx}"] = df_editado.copy()
+#                             nova_lista = df_editado.to_dict(orient="records")
+
+#                             estrategia.update_one(
+#                                 {"_id": doc["_id"]},
+#                                 {f"$set": {f"resultados_longo_prazo.resultados_lp.{idx}.indicadores": nova_lista}}
+#                             )
+#                             st.success("Alterações salvas automaticamente no MongoDB")
+#                     else:
+#                         st.dataframe(df_indicadores, hide_index=True)
+#                 else:
+#                     st.warning("Nenhum indicador cadastrado.")
+
+
+#                 # --- Exibir entregas relacionadas a este resultado de longo prazo ---
+#                 st.write('')
+#                 st.markdown("**Entregas Planejadas / Realizadas:**")
+#                 entregas_lp = buscar_entregas_relacionadas(titulo_result_lp)
+#                 if entregas_lp:
+#                     exibir_entregas_como_tabela(entregas_lp, key_prefix="tabela_entregas_lp", key_suffix=f"{idx}_{titulo_result_lp}")
+#                 else:
+#                     st.warning("Nenhuma entrega registrada para este resultado de longo prazo.")
+#     else:
+#         st.warning("Nenhum resultado de longo prazo encontrado no banco de dados.")
+
+
+
+
+
+# -----------------------------------------------------------
+# ABA OBJETIVOS ESTRATEGICOS INSTITUCIONAIS
+# -----------------------------------------------------------
 
 with aba_ebj_est_ins:
     
