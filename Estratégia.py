@@ -957,6 +957,7 @@ with aba_res_mp:
                     st.dataframe(df_metas, hide_index=True)
             else:
                 st.warning("Nenhuma meta cadastrada.")
+                st.warning("Nenhuma meta cadastrada.")
 
             
             st.divider()
@@ -970,7 +971,6 @@ with aba_res_mp:
             acoes_estrategicas = resultado.get("acoes_estrategicas", [])
 
             if not acoes_estrategicas:
-                st.warning("Nenhuma ação estratégica cadastrada para este resultado.")
                 st.warning("Nenhuma ação estratégica cadastrada para este resultado.")
             else:
                 for idx_acao, acao in enumerate(acoes_estrategicas):
