@@ -2211,7 +2211,7 @@ with tab2:
             ajustar_altura_dataframe(df_indicadores.drop(columns=["Valor_num"], errors="ignore"), 
                                         linhas_adicionais=1,
                                         hide_index=True, 
-                                        use_container_width='stretch')
+                                        )
 
 
     # ##########################################################
