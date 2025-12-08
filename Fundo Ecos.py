@@ -1173,13 +1173,18 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         )
 
 
-        # --- Município principal (todos os municípios) ---
+        lista_municipios = sorted(municipios_codigo_para_label.keys())
+
+        if municipio_principal_codigo in lista_municipios:
+            idx = lista_municipios.index(municipio_principal_codigo)
+        else:
+            idx = None   # ← ISSO FAZ O PLACEHOLDER FUNCIONAR
+
         municipio_principal = col2.selectbox(
             "Município principal*",
-            options=sorted(municipios_codigo_para_label.keys()),
+            options=lista_municipios,
             format_func=lambda codigo: municipios_codigo_para_label.get(codigo, ""),
-            index=sorted(municipios_codigo_para_label.keys()).index(municipio_principal_codigo)
-                if municipio_principal_codigo in municipios_codigo_para_label else 0,
+            index=idx,
             key=f"municipio_principal_{form_key}", 
             placeholder=""
         )
