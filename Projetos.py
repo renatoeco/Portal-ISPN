@@ -281,6 +281,7 @@ mapa_coordenador = {str(p["_id"]): p["nome_completo"] for p in db["pessoas"].fin
 # Aplicar mapeamento no df_pessoas
 df_pessoas["programa_area_nome"] = df_pessoas["programa_area"].map(mapa_programa)
 df_pessoas["coordenador_nome"] = df_pessoas["coordenador"].map(mapa_coordenador)
+df_pessoas = df_pessoas.sort_values(by="nome_completo", ascending=True).reset_index(drop=True)
 
 
 ######################################################################################################
@@ -396,6 +397,7 @@ def dialog_cadastrar_projeto():
 
         # --- Coordenador ---
         coordenador_options = [""] + df_pessoas["_id"].astype(str).tolist()
+
         coordenador = col1.selectbox(
             "Coordenador",
             options=coordenador_options,
@@ -424,6 +426,8 @@ def dialog_cadastrar_projeto():
 
         # --- Objetivo Geral ---
         objetivo_geral = st.text_area("Objetivo Geral", value="")
+
+        st.divider()
 
         
         ######################################################################
@@ -1173,6 +1177,8 @@ def dialog_editar_projeto():
             "Objetivo Geral",
             value=str(projeto_info.get("objetivo_geral", "")) if pd.notna(projeto_info.get("objetivo_geral")) else ""
         )
+
+        st.divider()
 
 
         ######################################################################
