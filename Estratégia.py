@@ -714,7 +714,7 @@ with aba_est:
                 # exibir com key única por eixo
                 exibir_entregas_como_tabela(entregas_filtradas, key_prefix="tabela_entregas_eixo", key_suffix=titulo_eixo)
             else:
-                st.info("Nenhuma entrega registrada para este eixo.")
+                st.warning("Nenhuma entrega registrada para este eixo.")
 
             st.divider()
             st.markdown("**Indicadores**")
@@ -817,7 +817,7 @@ with aba_res_mp:
                 else:
                     st.dataframe(df_metas, hide_index=True)
             else:
-                st.info("Nenhuma meta cadastrada.")
+                st.warning("Nenhuma meta cadastrada.")
 
             
             st.divider()
@@ -833,7 +833,7 @@ with aba_res_mp:
             acoes_estrategicas = resultado.get("acoes_estrategicas", [])
 
             if not acoes_estrategicas:
-                st.info("Nenhuma ação estratégica cadastrada para este resultado.")
+                st.warning("Nenhuma ação estratégica cadastrada para este resultado.")
             else:
                 for idx_acao, acao in enumerate(acoes_estrategicas):
 
@@ -852,7 +852,7 @@ with aba_res_mp:
                             key_suffix=f"{idx}_{idx_acao}"
                         )
                     else:
-                        st.info("Nenhuma entrega vinculada a esta ação estratégica.")
+                        st.warning("Nenhuma entrega vinculada a esta ação estratégica.")
 
                     # ✅ Separador visual entre as ações
                     st.divider()
@@ -943,7 +943,7 @@ with aba_res_lp:
                     else:
                         st.dataframe(df_indicadores, hide_index=True)
                 else:
-                    st.info("Nenhum indicador cadastrado.")
+                    st.warning("Nenhum indicador cadastrado.")
 
                 # --- Exibir entregas relacionadas a este resultado de longo prazo ---
                 st.write('')
@@ -952,9 +952,9 @@ with aba_res_lp:
                 if entregas_lp:
                     exibir_entregas_como_tabela(entregas_lp, key_prefix="tabela_entregas_lp", key_suffix=f"{idx}_{titulo_result_lp}")
                 else:
-                    st.info("Nenhuma entrega registrada para este resultado de longo prazo.")
+                    st.warning("Nenhuma entrega registrada para este resultado de longo prazo.")
     else:
-        st.info("Nenhum resultado de longo prazo encontrado no banco de dados.")
+        st.warning("Nenhum resultado de longo prazo encontrado no banco de dados.")
 
 
 with aba_ebj_est_ins:
