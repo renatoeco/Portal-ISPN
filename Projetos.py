@@ -2229,7 +2229,18 @@ with tab2:
         entregas = projeto_doc.get("entregas", [])
 
         if not entregas:
+
+            # ====================
+            # Botão para abrir o diálogo de Gerenciar indicadores
+            # ====================
+
+            with st.container(horizontal_alignment="right"):
+                st.write('')    
+                if st.button("Gerenciar entregas", icon=":material/edit:", width=300):
+                    dialog_editar_entregas()
+            
             st.write("_Não há entregas cadastradas para este projeto._")
+
         else:
             # Criar dicionário de ObjectId -> nome_completo dos responsáveis
             df_pessoas_ordenado = df_pessoas.sort_values("nome_completo", ascending=True)
