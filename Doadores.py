@@ -614,4 +614,12 @@ with tab2:
                 yaxis_title=""
             )
 
+            # Linha pontilhada preta no dia de hoje
+            fig.add_vline(
+                x=datetime.today(),
+                line_width=2,
+                line_dash="dot",
+                line_color="black",
+            )
+
             st.plotly_chart(fig)
