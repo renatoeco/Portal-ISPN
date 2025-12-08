@@ -957,8 +957,6 @@ with aba_res_mp:
                     st.dataframe(df_metas, hide_index=True)
             else:
                 st.warning("Nenhuma meta cadastrada.")
-                st.warning("Nenhuma meta cadastrada.")
-
             
             st.divider()
 
