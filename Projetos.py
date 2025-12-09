@@ -229,6 +229,53 @@ programas = db["programas_areas"]
 projetos_ispn = db["projetos_ispn"]  
 indicadores = db["indicadores"]
 colecao_lancamentos = db["lancamentos_indicadores"]
+estatistica = db["estatistica"] 
+
+
+###########################################################################################################
+# CONTADOR DE ACESSOS À PÁGINA
+###########################################################################################################
+
+
+PAGINA_ID = "pagina_projetos"
+nome_pagina = "Projetos"
+
+hoje = datetime.datetime.now().strftime("%d/%m/%Y")
+
+pagina_anterior = st.session_state.get("pagina_anterior")
+navegou_para_esta_pagina = (pagina_anterior != PAGINA_ID)
+
+if navegou_para_esta_pagina:
+
+    # ============================================================
+    # 0. GARANTIR QUE O CAMPO DA PÁGINA É UM ARRAY
+    # ============================================================
+    doc = estatistica.find_one({}, {nome_pagina: 1})
+
+    if isinstance(doc.get(nome_pagina), dict):  # está como {}
+        # Converter {} -> []
+        estatistica.update_one(
+            {},
+            {"$set": {nome_pagina: []}}
+        )
+
+    else:
+
+        estatistica.update_one(
+            {},
+            {"$inc": {f"{nome_pagina}.$[elem].numero_de_acessos": 1}},
+            array_filters=[{"elem.data": hoje}]
+        )
+
+        estatistica.update_one(
+            {f"{nome_pagina}.data": {"$ne": hoje}},
+            {"$push": {
+                nome_pagina: {"data": hoje, "numero_de_acessos": 1}
+            }}
+        )
+
+# REGISTRAR PÁGINA ANTERIOR
+st.session_state["pagina_anterior"] = PAGINA_ID
 
 
 ######################################################################################################

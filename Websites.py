@@ -19,6 +19,54 @@ st.header("Websites do ISPN")
 st.write("")
 
 db = conectar_mongo_portal_ispn()
+estatistica = db["estatistica"]
+
+
+###########################################################################################################
+# CONTADOR DE ACESSOS À PÁGINA
+###########################################################################################################
+
+
+PAGINA_ID = "pagina_websites"
+nome_pagina = "Websites"
+
+hoje = datetime.datetime.now().strftime("%d/%m/%Y")
+
+pagina_anterior = st.session_state.get("pagina_anterior")
+navegou_para_esta_pagina = (pagina_anterior != PAGINA_ID)
+
+if navegou_para_esta_pagina:
+
+    # ============================================================
+    # 0. GARANTIR QUE O CAMPO DA PÁGINA É UM ARRAY
+    # ============================================================
+    doc = estatistica.find_one({}, {nome_pagina: 1})
+
+    if isinstance(doc.get(nome_pagina), dict):  # está como {}
+        # Converter {} -> []
+        estatistica.update_one(
+            {},
+            {"$set": {nome_pagina: []}}
+        )
+
+    else:
+
+        estatistica.update_one(
+            {},
+            {"$inc": {f"{nome_pagina}.$[elem].numero_de_acessos": 1}},
+            array_filters=[{"elem.data": hoje}]
+        )
+
+        estatistica.update_one(
+            {f"{nome_pagina}.data": {"$ne": hoje}},
+            {"$push": {
+                nome_pagina: {"data": hoje, "numero_de_acessos": 1}
+            }}
+        )
+
+# REGISTRAR PÁGINA ANTERIOR
+st.session_state["pagina_anterior"] = PAGINA_ID
+
 
 # ---------------------------------------------------------------------------------
 # AUTENTICAÇÃO VIA st.secrets
@@ -108,7 +156,7 @@ def mostrar_relatorio(df, nome_site):
     )
 
     st.subheader(f"Páginas mais visitadas")
-    st.dataframe(visitas_pagina, width='stretch', height=400, hide_index=True)
+    st.dataframe(visitas_pagina, height=400, hide_index=True)
 
     # Gráfico diário
     visitas_dia = df.groupby("Data")["Visualizações"].sum().reset_index()
@@ -118,7 +166,7 @@ def mostrar_relatorio(df, nome_site):
             xaxis_title=None,
             yaxis_title="Visualizações",)
     
-    st.plotly_chart(fig, width='stretch')
+    st.plotly_chart(fig)
 
 
 

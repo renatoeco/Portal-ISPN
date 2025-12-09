@@ -20,26 +20,76 @@ institucional = db["institucional"]
 estrategia = db["estrategia"]
 
 
-
 ###########################################################################################################
-# CONTADOR DE ACESSOS À PÁGINA
+# CONTADOR DE ACESSOS À PÁGINA (NOVA LÓGICA)
 ###########################################################################################################
 
-# # Nome da página atual, usado como chave para contagem de acessos
-# nome_pagina = "Institucional"
 
-# # Cria um timestamp formatado com dia/mês/ano hora:minuto:segundo
-# timestamp = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+PAGINA_ID = "pagina_institucional"   # altera conforme a página
+nome_pagina = "Institucional"
+hoje = datetime.now().strftime("%d/%m/%Y")
 
-# # Cria o nome do campo dinamicamente baseado na página
-# campo_timestamp = f"{nome_pagina}.Visitas"
+pagina_anterior = st.session_state.get("pagina_anterior")
+navegou_para_esta_pagina = (pagina_anterior != PAGINA_ID)
 
-# # Atualiza a coleção de estatísticas com o novo acesso, incluindo o timestamp
-# estatistica.update_one(
-#     {},
-#     {"$push": {campo_timestamp: timestamp}},
-#     upsert=True  # Cria o documento se ele ainda não existir
-# )
+if navegou_para_esta_pagina:
+
+    # ============================================================
+    # 0. GARANTIR QUE O CAMPO DA PÁGINA É UM ARRAY
+    # ============================================================
+    doc = estatistica.find_one({}, {nome_pagina: 1})
+
+    if isinstance(doc.get(nome_pagina), dict):  # está como {}
+        # Converter {} -> []
+        estatistica.update_one(
+            {},
+            {"$set": {nome_pagina: []}}
+        )
+
+    # ============================================================
+    # 1. REGRAS ESPECIAIS PARA INSTITUCIONAL
+    # ============================================================
+    if nome_pagina == "Institucional":
+
+        if "primeiro_acesso_institucional" not in st.session_state:
+            st.session_state["primeiro_acesso_institucional"] = True
+
+        else:
+            # (1) Incrementa se o dia já existe
+            estatistica.update_one(
+                {},
+                {"$inc": {f"{nome_pagina}.$[elem].numero_de_acessos": 1}},
+                array_filters=[{"elem.data": hoje}]
+            )
+
+            # (2) Se o dia ainda não existe → adicionar
+            estatistica.update_one(
+                {f"{nome_pagina}.data": {"$ne": hoje}},
+                {"$push": {
+                    nome_pagina: {"data": hoje, "numero_de_acessos": 1}
+                }}
+            )
+
+    # ============================================================
+    # 2. OUTRAS PÁGINAS
+    # ============================================================
+    else:
+
+        estatistica.update_one(
+            {},
+            {"$inc": {f"{nome_pagina}.$[elem].numero_de_acessos": 1}},
+            array_filters=[{"elem.data": hoje}]
+        )
+
+        estatistica.update_one(
+            {f"{nome_pagina}.data": {"$ne": hoje}},
+            {"$push": {
+                nome_pagina: {"data": hoje, "numero_de_acessos": 1}
+            }}
+        )
+
+# REGISTRAR PÁGINA ANTERIOR
+st.session_state["pagina_anterior"] = PAGINA_ID
 
 
 ###########################################################################################################

@@ -3,7 +3,7 @@ import pandas as pd
 from funcoes_auxiliares import conectar_mongo_portal_ispn
 from bson import ObjectId
 from pymongo import MongoClient
-from datetime import date
+from datetime import date, datetime
 import re
 import time
 from urllib.parse import quote
@@ -12,10 +12,10 @@ import gspread
 from google.oauth2.service_account import Credentials
 
 
-
 # ##################################################################
 # CONFIGURAÇÕES DA INTERFACE
 # ##################################################################
+
 
 # st.set_page_config(layout="wide")
 st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
@@ -47,7 +47,7 @@ div[data-testid="stDialog"] div[role="dialog"]:has(.big-dialog) {
 
 db = conectar_mongo_portal_ispn()
 pessoas = db["pessoas"]
-
+estatistica = db["estatistica"]
 
 # BANCO DE DADOS ISPN VIAGENS -----------------
 
@@ -59,6 +59,51 @@ def get_mongo_client():
 cliente = get_mongo_client()
 banco_de_dados = cliente["plataforma_sav"]
 
+
+###########################################################################################################
+# CONTADOR DE ACESSOS À PÁGINA
+###########################################################################################################
+
+
+PAGINA_ID = "pagina_viagens"
+nome_pagina = "Viagens"
+
+hoje = datetime.now().strftime("%d/%m/%Y")
+
+pagina_anterior = st.session_state.get("pagina_anterior")
+navegou_para_esta_pagina = (pagina_anterior != PAGINA_ID)
+
+if navegou_para_esta_pagina:
+
+    # ============================================================
+    # 0. GARANTIR QUE O CAMPO DA PÁGINA É UM ARRAY
+    # ============================================================
+    doc = estatistica.find_one({}, {nome_pagina: 1})
+
+    if isinstance(doc.get(nome_pagina), dict):  # está como {}
+        # Converter {} -> []
+        estatistica.update_one(
+            {},
+            {"$set": {nome_pagina: []}}
+        )
+
+    else:
+
+        estatistica.update_one(
+            {},
+            {"$inc": {f"{nome_pagina}.$[elem].numero_de_acessos": 1}},
+            array_filters=[{"elem.data": hoje}]
+        )
+
+        estatistica.update_one(
+            {f"{nome_pagina}.data": {"$ne": hoje}},
+            {"$push": {
+                nome_pagina: {"data": hoje, "numero_de_acessos": 1}
+            }}
+        )
+
+# REGISTRAR PÁGINA ANTERIOR
+st.session_state["pagina_anterior"] = PAGINA_ID
 
 
 # ##################################################################

@@ -35,21 +35,46 @@ df = pd.DataFrame(list(db["projetos_ispn"].find()))
 ###########################################################################################################
 
 
-# # Nome da página atual, usado como chave para contagem de acessos
-# nome_pagina = "Doadores"
+PAGINA_ID = "pagina_doadores"
+nome_pagina = "Doadores"
 
-# # Cria um timestamp formatado com dia/mês/ano hora:minuto:segundo
-# timestamp = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+hoje = datetime.now().strftime("%d/%m/%Y")
 
-# # Cria o nome do campo dinamicamente baseado na página
-# campo_timestamp = f"{nome_pagina}.Visitas"
+pagina_anterior = st.session_state.get("pagina_anterior")
+navegou_para_esta_pagina = (pagina_anterior != PAGINA_ID)
 
-# # Atualiza a coleção de estatísticas com o novo acesso, incluindo o timestamp
-# estatistica.update_one(
-#     {},
-#     {"$push": {campo_timestamp: timestamp}},
-#     upsert=True  # Cria o documento se ele ainda não existir
-# )
+if navegou_para_esta_pagina:
+
+    # ============================================================
+    # 0. GARANTIR QUE O CAMPO DA PÁGINA É UM ARRAY
+    # ============================================================
+    doc = estatistica.find_one({}, {nome_pagina: 1})
+
+    if isinstance(doc.get(nome_pagina), dict):  # está como {}
+        # Converter {} -> []
+        estatistica.update_one(
+            {},
+            {"$set": {nome_pagina: []}}
+        )
+
+    else:
+
+        estatistica.update_one(
+            {},
+            {"$inc": {f"{nome_pagina}.$[elem].numero_de_acessos": 1}},
+            array_filters=[{"elem.data": hoje}]
+        )
+
+        estatistica.update_one(
+            {f"{nome_pagina}.data": {"$ne": hoje}},
+            {"$push": {
+                nome_pagina: {"data": hoje, "numero_de_acessos": 1}
+            }}
+        )
+
+# REGISTRAR PÁGINA ANTERIOR
+st.session_state["pagina_anterior"] = PAGINA_ID
+
 
 ######################################################################################################
 # FUNÇÕES
