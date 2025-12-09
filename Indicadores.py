@@ -56,8 +56,8 @@ st.markdown(
     """
 <style>
 div[data-testid="stDialog"] div[role="dialog"]:has(.big-dialog) {
-    width: 70vw;
-    height: 80vh;
+    width: 90vw;
+    height: 65vh;
 }
 </style>
 """,
@@ -155,7 +155,7 @@ def ids_para_siglas(ids_por_tipo):
 
 @st.dialog("Lançamentos", width="large")
 def mostrar_detalhes(nome_indicador, tipo_selecionado=None, projetos_filtrados=None, anos_filtrados=None, autores_filtrados=None):
-    #st.html("<span class='big-dialog'></span>")
+    st.html("<span class='big-dialog'></span>")
 
     indicador_doc = indicadores.find_one({"nome_indicador": nome_indicador})
     if not indicador_doc:
@@ -185,6 +185,12 @@ def mostrar_detalhes(nome_indicador, tipo_selecionado=None, projetos_filtrados=N
 
     # Guardar o ObjectId original
     df["Projeto_id"] = df["projeto"]
+    
+    # Converter data_anotacao de datetime para string DD/MM/YYYY
+    if "data_anotacao" in df.columns:
+        df["data_anotacao"] = pd.to_datetime(df["data_anotacao"], errors="coerce")
+        df["data_anotacao"] = df["data_anotacao"].dt.strftime("%d/%m/%Y")
+        df["data_anotacao"] = df["data_anotacao"].fillna("")
 
     # Renomear colunas para exibição
     colunas_mapeadas = {
@@ -224,7 +230,7 @@ def mostrar_detalhes(nome_indicador, tipo_selecionado=None, projetos_filtrados=N
     colunas_exibir = ["Projeto", "Sigla", "Ano", "Valor", "Autor", "Data da Anotação", "Observações"]
     df = df[colunas_exibir].sort_values("Projeto")
 
-    # st.dataframe(df, hide_index=True, use_container_width=True, height=597)
+    #st.dataframe(df, hide_index=True, use_container_width=True, height=597)
     ajustar_altura_dataframe(df, 1, 597)
     
 

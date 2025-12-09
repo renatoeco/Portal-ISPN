@@ -35,21 +35,46 @@ estatistica = db["estatistica"]
 # CONTADOR DE ACESSOS À PÁGINA
 ###########################################################################################################
 
-# # Nome da página atual, usado como chave para contagem de acessos
-# nome_pagina = "Meu Perfil"
 
-# # Cria um timestamp formatado com dia/mês/ano hora:minuto:segundo
-# timestamp = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+PAGINA_ID = "pagina_meu_perfil"
+nome_pagina = "Meu Perfil"
 
-# # Cria o nome do campo dinamicamente baseado na página
-# campo_timestamp = f"{nome_pagina}.Visitas"
+hoje = datetime.datetime.now().strftime("%d/%m/%Y")
 
-# # Atualiza a coleção de estatísticas com o novo acesso, incluindo o timestamp
-# estatistica.update_one(
-#     {},
-#     {"$push": {campo_timestamp: timestamp}},
-#     upsert=True  # Cria o documento se ele ainda não existir
-# )
+pagina_anterior = st.session_state.get("pagina_anterior")
+navegou_para_esta_pagina = (pagina_anterior != PAGINA_ID)
+
+if navegou_para_esta_pagina:
+
+    # ============================================================
+    # 0. GARANTIR QUE O CAMPO DA PÁGINA É UM ARRAY
+    # ============================================================
+    doc = estatistica.find_one({}, {nome_pagina: 1})
+
+    if isinstance(doc.get(nome_pagina), dict):  # está como {}
+        # Converter {} -> []
+        estatistica.update_one(
+            {},
+            {"$set": {nome_pagina: []}}
+        )
+
+    else:
+
+        estatistica.update_one(
+            {},
+            {"$inc": {f"{nome_pagina}.$[elem].numero_de_acessos": 1}},
+            array_filters=[{"elem.data": hoje}]
+        )
+
+        estatistica.update_one(
+            {f"{nome_pagina}.data": {"$ne": hoje}},
+            {"$push": {
+                nome_pagina: {"data": hoje, "numero_de_acessos": 1}
+            }}
+        )
+
+# REGISTRAR PÁGINA ANTERIOR
+st.session_state["pagina_anterior"] = PAGINA_ID
 
 
 ######################################################################################################
@@ -525,7 +550,7 @@ if pessoa_logada:
 
                 # Cria um DataFrame com os dados de saldo e o exibe na primeira coluna
                 df_saldo = montar_dataframe_saldo_do_ano(ano, ano_dados)
-                coluna1.dataframe(df_saldo, hide_index=True, width='stretch')
+                coluna1.dataframe(df_saldo, hide_index=True)
                 
                 # Mostrar a_receber
                 if ano_dados.get("a_receber"):
@@ -553,7 +578,7 @@ if pessoa_logada:
                     # Calcula a altura necessária para exibir o DataFrame, baseada no número de linhas
                     altura_df_solicitacoes_individual = ((len(df_solicitacoes) + 1) * 35) + 2
                     # Exibe o DataFrame na segunda coluna com a altura ajustada
-                    coluna2.dataframe(df_solicitacoes, hide_index=True, width="stretch", height=altura_df_solicitacoes_individual)
+                    coluna2.dataframe(df_solicitacoes, hide_index=True, height=altura_df_solicitacoes_individual)
                 else:
                     # Mensagem exibida caso não existam solicitações de férias para o ano
                     coluna2.write(f"Não há solicitações de férias para {ano} até o momento.")
