@@ -88,6 +88,24 @@ if navegou_para_esta_pagina:
             }}
         )
 
+# ============================================================
+# CONTABILIZAR UMA SESSÃO (somente 1 vez por sessão)
+# ============================================================
+
+flag_sessao = f"sessao_registrada_{PAGINA_ID}"
+
+if not st.session_state.get(flag_sessao):  # primeira vez na sessão
+
+    # Incrementar somente se o dia existir
+    estatistica.update_one(
+        {},
+        {"$inc": {f"{nome_pagina}.$[elem].total_sessoes": 1}},
+        array_filters=[{"elem.data": hoje}]
+    )
+
+    # Registrar no session_state para não registrar novamente
+    st.session_state[flag_sessao] = True
+
 # REGISTRAR PÁGINA ANTERIOR
 st.session_state["pagina_anterior"] = PAGINA_ID
 

@@ -69,7 +69,7 @@ estatistica = db["estatistica"]
 
 
 PAGINA_ID = "pagina_ferias"
-nome_pagina = "Férias e recessos"
+nome_pagina = "Férias e Recessos"
 
 hoje = datetime.now().strftime("%d/%m/%Y")
 

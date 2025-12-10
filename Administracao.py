@@ -90,10 +90,12 @@ with aba_visitas:
         if isinstance(lista, list):
             for item in lista:
                 registros.append({
-                    "pagina": pagina,
-                    "data": item["data"],
-                    "acessos": item["numero_de_acessos"]
-                })
+                "pagina": pagina,
+                "data": item["data"],
+                "acessos": item.get("numero_de_acessos", 0),
+                "sessoes": item.get("total_sessoes", 0)
+            })
+
 
     df = pd.DataFrame(registros)
 
@@ -153,3 +155,33 @@ with aba_visitas:
     )
 
     st.plotly_chart(fig_paginas, use_container_width=True)
+
+    # ------------------------------------------
+    # GRÁFICO 3 — Barras verticais (sessões por dia)
+    # ------------------------------------------
+    sessoes_por_dia = df.groupby("data")["sessoes"].sum().reset_index()
+
+    fig_sessoes = px.bar(
+        sessoes_por_dia,
+        x="data",
+        y="sessoes",
+        title="Total de Sessões por Dia",
+        labels={"sessoes": "Número de Sessões"},
+    )
+
+    # Forçar que só apareça 1 tick por barra
+    fig_sessoes.update_xaxes(
+        tickmode="array",
+        tickvals=sessoes_por_dia["data"],
+        ticktext=[d.strftime("%d/%m/%Y") for d in sessoes_por_dia["data"]],
+        tickangle=-45
+    )
+
+    fig_sessoes.update_yaxes(dtick=1)
+
+    # Remover label do eixo X
+    fig_sessoes.update_layout(
+        xaxis_title=None,
+    )
+
+    st.plotly_chart(fig_sessoes, use_container_width=True)
