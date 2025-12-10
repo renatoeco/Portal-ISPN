@@ -155,7 +155,7 @@ def ids_para_siglas(ids_por_tipo):
 
 @st.dialog("Lançamentos", width="large")
 def mostrar_detalhes(nome_indicador, tipo_selecionado=None, projetos_filtrados=None, anos_filtrados=None, autores_filtrados=None):
-    st.html("<span class='big-dialog'></span>")
+    #st.html("<span class='big-dialog'></span>")
 
     indicador_doc = indicadores.find_one({"nome_indicador": nome_indicador})
     if not indicador_doc:
