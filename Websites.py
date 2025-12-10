@@ -131,6 +131,7 @@ def consultar_dados(property_id, inicio, fim):
 # FUNÇÃO PARA EXIBIR RELATÓRIO DE UM SITE
 # ---------------------------------------------------------------------------------
 
+@st.cache_data(ttl=3600, show_spinner=False)
 def mostrar_relatorio(df, nome_site):
     """Mostra as estatísticas visuais de um site"""
     if df.empty:
@@ -151,8 +152,18 @@ def mostrar_relatorio(df, nome_site):
         .sort_values(by="Visualizações", ascending=False)
     )
 
+    max_visualizacoes = int(visitas_pagina["Visualizações"].max())
+
     st.subheader(f"Páginas mais visitadas")
-    st.dataframe(visitas_pagina, height=400, hide_index=True)
+    st.dataframe(visitas_pagina, height=400, hide_index=True,
+                column_config={
+                    "Visualizações": st.column_config.ProgressColumn(
+                        format="%f",
+                        min_value=0,
+                        max_value=max_visualizacoes,
+                    ),
+                } 
+            )
 
     # Gráfico diário
     visitas_dia = df.groupby("Data")["Visualizações"].sum().reset_index()
