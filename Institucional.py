@@ -35,18 +35,6 @@ navegou_para_esta_pagina = (pagina_anterior != PAGINA_ID)
 if navegou_para_esta_pagina:
 
     # ============================================================
-    # 0. GARANTIR QUE O CAMPO DA PÁGINA É UM ARRAY
-    # ============================================================
-    doc = estatistica.find_one({}, {nome_pagina: 1})
-
-    if isinstance(doc.get(nome_pagina), dict):  # está como {}
-        # Converter {} -> []
-        estatistica.update_one(
-            {},
-            {"$set": {nome_pagina: []}}
-        )
-
-    # ============================================================
     # 1. REGRAS ESPECIAIS PARA INSTITUCIONAL
     # ============================================================
     if nome_pagina == "Institucional":
@@ -75,11 +63,21 @@ if navegou_para_esta_pagina:
     # ============================================================
     else:
 
+        # Obter o único documento
+        doc = estatistica.find_one({})
+
+        # Criar o campo caso não exista
+        if nome_pagina not in doc:
+            estatistica.update_one(
+                {},
+                {"$set": {nome_pagina: []}}
+            )
+
         estatistica.update_one(
-            {},
-            {"$inc": {f"{nome_pagina}.$[elem].numero_de_acessos": 1}},
-            array_filters=[{"elem.data": hoje}]
-        )
+                {},
+                {"$inc": {f"{nome_pagina}.$[elem].numero_de_acessos": 1}},
+                array_filters=[{"elem.data": hoje}]
+            )
 
         estatistica.update_one(
             {f"{nome_pagina}.data": {"$ne": hoje}},
@@ -89,21 +87,32 @@ if navegou_para_esta_pagina:
         )
 
 # ============================================================
-# CONTABILIZAR UMA SESSÃO (somente 1 vez por sessão)
+# 3. CONTABILIZAR UMA NOVA SESSÃO (CAMPO GLOBAL INDEPENDENTE)
 # ============================================================
 
 flag_sessao = f"sessao_registrada_{PAGINA_ID}"
 
-if not st.session_state.get(flag_sessao):  # primeira vez na sessão
+if not st.session_state.get(flag_sessao):
 
-    # Incrementar somente se o dia existir
+    # Criar campo total_sessoes se não existir
+    doc = estatistica.find_one({})
+    if "total_sessoes" not in doc:
+        estatistica.update_one({}, {"$set": {"total_sessoes": []}})
+
+    # Incrementar se o dia já existe
     estatistica.update_one(
         {},
-        {"$inc": {f"{nome_pagina}.$[elem].total_sessoes": 1}},
+        {"$inc": {"total_sessoes.$[elem].numero_de_sessoes": 1}},
         array_filters=[{"elem.data": hoje}]
     )
 
-    # Registrar no session_state para não registrar novamente
+    # Criar registro caso o dia não exista
+    estatistica.update_one(
+        {"total_sessoes.data": {"$ne": hoje}},
+        {"$push": {"total_sessoes": {"data": hoje, "numero_de_sessoes": 1}}}
+    )
+
+    # Marca que a sessão foi registrada
     st.session_state[flag_sessao] = True
 
 # REGISTRAR PÁGINA ANTERIOR

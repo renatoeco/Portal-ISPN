@@ -3,7 +3,7 @@ import pandas as pd
 import time
 from datetime import datetime, timedelta
 from dateutil.parser import parse
-from funcoes_auxiliares import conectar_mongo_pls, ajustar_altura_dataframe
+from funcoes_auxiliares import conectar_mongo_pls, ajustar_altura_dataframe, conectar_mongo_portal_ispn
 
 
 st.set_page_config(layout="wide")
@@ -44,11 +44,12 @@ def excluir_pls(numero_pl):
 
 
 db = conectar_mongo_pls()
+db2 = conectar_mongo_portal_ispn()
 
 colecao = db['pls_camara_senado']
 colecao_2 = db['emails']
 colecao_3 = db['pls_ma']
-estatistica = db["estatistica"]
+estatistica = db2["estatistica"]
 
 
 ###########################################################################################################
@@ -66,34 +67,30 @@ navegou_para_esta_pagina = (pagina_anterior != PAGINA_ID)
 
 if navegou_para_esta_pagina:
 
-    # ============================================================
-    # 0. GARANTIR QUE O CAMPO DA PÁGINA É UM ARRAY
-    # ============================================================
-    doc = estatistica.find_one({}, {nome_pagina: 1})
+    # Obter o único documento
+    doc = estatistica.find_one({})
 
-    if isinstance(doc.get(nome_pagina), dict):  # está como {}
-        # Converter {} -> []
+    # Criar o campo caso não exista
+    if nome_pagina not in doc:
         estatistica.update_one(
             {},
             {"$set": {nome_pagina: []}}
         )
 
-    else:
-
-        estatistica.update_one(
+    estatistica.update_one(
             {},
             {"$inc": {f"{nome_pagina}.$[elem].numero_de_acessos": 1}},
             array_filters=[{"elem.data": hoje}]
         )
 
-        estatistica.update_one(
-            {f"{nome_pagina}.data": {"$ne": hoje}},
-            {"$push": {
-                nome_pagina: {"data": hoje, "numero_de_acessos": 1}
-            }}
-        )
+    estatistica.update_one(
+        {f"{nome_pagina}.data": {"$ne": hoje}},
+        {"$push": {
+            nome_pagina: {"data": hoje, "numero_de_acessos": 1}
+        }}
+    )
 
-# REGISTRAR PÁGINA ANTERIOR
+# Registrar página anterior
 st.session_state["pagina_anterior"] = PAGINA_ID
 
 

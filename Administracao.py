@@ -82,31 +82,32 @@ with aba_banco:
 with aba_visitas:
 
     # -----------------------------
-    # Transformar estatísticas em dataframe
+    # Transformar estatísticas em dataframe (páginas)
     # -----------------------------
     registros = []
 
     for pagina, lista in doc.items():
+
+        # Ignorar campo global total_sessoes
+        if pagina == "total_sessoes":
+            continue
+
+        # Apenas listas que representam páginas
         if isinstance(lista, list):
             for item in lista:
                 registros.append({
-                "pagina": pagina,
-                "data": item["data"],
-                "acessos": item.get("numero_de_acessos", 0),
-                "sessoes": item.get("total_sessoes", 0)
-            })
-
+                    "pagina": pagina,
+                    "data": item["data"],
+                    "acessos": item.get("numero_de_acessos", 0)
+                })
 
     df = pd.DataFrame(registros)
 
-    # Converter para datetime
-    df["data"] = pd.to_datetime(df["data"], format="%d/%m/%Y")
-
-    # Remover hora e deixar apenas a data
-    df["data"] = df["data"].dt.date
+    # Converter datas
+    df["data"] = pd.to_datetime(df["data"], format="%d/%m/%Y").dt.date
 
     # ------------------------------------------
-    # GRÁFICO 1 — Barras verticais (visitas por dia)
+    # GRÁFICO 1 — Visitas por dia
     # ------------------------------------------
     visitas_por_dia = df.groupby("data")["acessos"].sum().reset_index()
 
@@ -114,29 +115,22 @@ with aba_visitas:
         visitas_por_dia,
         x="data",
         y="acessos",
-        title="Visitações por Dia",
-        labels={"acessos": "Número de Acessos"},
+        title="Visitações por Dia"
     )
 
-    # Forçar que só apareça 1 tick por barra
     fig_dias.update_xaxes(
         tickmode="array",
         tickvals=visitas_por_dia["data"],
         ticktext=[d.strftime("%d/%m/%Y") for d in visitas_por_dia["data"]],
-        tickangle=-45  # Inclinar as datas
+        tickangle=-45
     )
-    
-    # Remover labels dos eixos
-    fig_dias.update_layout(
-        xaxis_title=None,
-    )
+    fig_dias.update_layout(xaxis_title=None)
 
-    st.plotly_chart(fig_dias, use_container_width=True)
+    st.plotly_chart(fig_dias)
 
     # ------------------------------------------
-    # GRÁFICO 2 — Barras horizontais (visitas por página)
+    # GRÁFICO 2 — Visitas por página
     # ------------------------------------------
-
     visitas_por_pagina = df.groupby("pagina")["acessos"].sum().reset_index()
     visitas_por_pagina = visitas_por_pagina.sort_values("acessos", ascending=True)
 
@@ -145,31 +139,28 @@ with aba_visitas:
         x="acessos",
         y="pagina",
         orientation="h",
-        title="Total de Visitas por Página",
+        title="Total de Visitas por Página"
     )
 
-    # Remover labels dos eixos
-    fig_paginas.update_layout(
-        xaxis_title=None,
-        yaxis_title=None
-    )
+    fig_paginas.update_layout(xaxis_title=None, yaxis_title=None)
 
-    st.plotly_chart(fig_paginas, use_container_width=True)
+    st.plotly_chart(fig_paginas)
 
-    # ------------------------------------------
-    # GRÁFICO 3 — Barras verticais (sessões por dia)
-    # ------------------------------------------
-    sessoes_por_dia = df.groupby("data")["sessoes"].sum().reset_index()
+    # ============================================================
+    # GRÁFICO 3 — Total de Sessões por Dia (novo modelo)
+    # ============================================================
+    df_sessoes = pd.DataFrame(doc["total_sessoes"]).copy()
+    df_sessoes["data"] = pd.to_datetime(df_sessoes["data"], format="%d/%m/%Y")
+
+    sessoes_por_dia = df_sessoes.groupby("data")["numero_de_sessoes"].sum().reset_index()
 
     fig_sessoes = px.bar(
         sessoes_por_dia,
         x="data",
-        y="sessoes",
-        title="Total de Sessões por Dia",
-        labels={"sessoes": "Número de Sessões"},
+        y="numero_de_sessoes",
+        title="Total de Sessões por Dia"
     )
 
-    # Forçar que só apareça 1 tick por barra
     fig_sessoes.update_xaxes(
         tickmode="array",
         tickvals=sessoes_por_dia["data"],
@@ -178,10 +169,10 @@ with aba_visitas:
     )
 
     fig_sessoes.update_yaxes(dtick=1)
-
-    # Remover label do eixo X
     fig_sessoes.update_layout(
         xaxis_title=None,
+        yaxis_title="Número de sessões"
     )
 
-    st.plotly_chart(fig_sessoes, use_container_width=True)
+
+    st.plotly_chart(fig_sessoes)
