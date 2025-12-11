@@ -1,95 +1,178 @@
 import streamlit as st
+import pymongo
 import pydeck as pdk
-import geopandas as gpd
-from funcoes_auxiliares import conectar_mongo_portal_ispn
 import pandas as pd
 
+from funcoes_auxiliares import conectar_mongo_portal_ispn
 
+
+# =============================================================================
+# CONFIG STREAMLIT
+# =============================================================================
 st.set_page_config(layout="wide")
+st.title("Mapa de Regiões de Atuação — ISPN")
 
 
-###########################################################################################################
-# CONEXÃO COM O BANCO DE DADOS MONGODB
-###########################################################################################################
-
-
+# =============================================================================
+# 1. CONEXÃO COM O MONGODB
+# =============================================================================
 db = conectar_mongo_portal_ispn()
-estatistica = db["estatistica"]
-
-
-######################################################################
-# CARREGAR DADOS DAS REGIÕES DE ATUAÇÃO (de projetos)
-######################################################################
 
 colecoes = ["projetos_pf", "projetos_pj", "projetos_ispn"]
 
 regioes = []
 
 for nome_colecao in colecoes:
-    colecao = db[nome_colecao]
-    documentos = colecao.find({"regioes_atuacao": {"$exists": True, "$ne": []}})
+    col = db[nome_colecao]
+    docs = col.find({"regioes_atuacao": {"$exists": True, "$ne": []}})
 
-    for doc in documentos:
+    for doc in docs:
         for regiao in doc.get("regioes_atuacao", []):
             tipo = regiao.get("tipo")
-            codigo = regiao.get("codigo")
+            codigo = str(regiao.get("codigo"))
 
             if tipo and codigo:
                 regioes.append({
                     "tipo": tipo,
-                    "codigo": str(codigo),
-                    "colecao_origem": nome_colecao,
-                    "projeto_id": str(doc["_id"]),
-                    "nome_projeto": doc.get("nome_do_projeto", ""),
+                    "codigo": codigo,
+                    "colecao": nome_colecao,
+                    "projeto": doc.get("nome_do_projeto", ""),
                     "proponente": doc.get("proponente", "")
                 })
 
-# Converte para DataFrame
 df = pd.DataFrame(regioes)
 
+if df.empty:
+    st.warning("Nenhuma região encontrada nos projetos.")
+    st.stop()
 
-def corrigir_codigo(df, coluna_codigo):
-    df[coluna_codigo] = (
-        df[coluna_codigo]
-        .astype(str)
-        .str.replace(".0", "", regex=False)
-        .str.strip()
+
+# =============================================================================
+# 2. DICIONÁRIO DE TILESETS (VOCÊ PREENCHE COM OS SEUS)
+# =============================================================================
+TILESETS = {
+    "municipio":      "be-braga.4hwsg2i2",
+    "estado":         "be-braga.4zjsoan7"
+    # "ti":             "usuario.terras_indigenas",
+    # "uc":             "usuario.unidades_conservacao",
+    # "bioma":          "usuario.biomas",
+    # "quilombo":       "usuario.quilombos",
+    # "assentamento":   "usuario.assentamentos",
+    # "bacia_macro":    "usuario.bacia_macro",
+    # "bacia_meso":     "usuario.bacia_meso",
+    # "bacia_micro":    "usuario.bacia_micro",
+}
+
+
+# =============================================================================
+# 3. CAMPOS DE FILTRO POR TILESET
+# (VOCÊ AJUSTA CONFORME OS ATRIBUTOS DO SEU TILESET)
+# =============================================================================
+# Exemplos comuns do IBGE / INCRA / FUNAI / ANA
+MAPBOX_FILTER_FIELD = {
+    "municipio": "id",          # Ex.: 2927408
+    "estado": "id",           # Ex.: BA
+    # "ti": "Cod_TI",
+    # "uc": "cod_uc",
+    # "bioma": "CD_BIOMA",
+    # "quilombo": "cod_quil",
+    # "assentamento": "cod_assent",
+    # "bacia_macro": "CD_MACRO",
+    # "bacia_meso": "CD_MESO",
+    # "bacia_micro": "CD_MICRO",
+}
+
+
+# =============================================================================
+# 4. CORES POR TIPO DE REGIÃO
+# =============================================================================
+CORES = {
+    "municipio":      [0, 140, 255],
+    "estado":         [255, 150, 0],
+    # "ti":             [255, 60, 60],
+    # "uc":             [0, 200, 0],
+    # "bioma":          [150, 70, 200],
+    # "quilombo":       [120, 70, 20],
+    # "assentamento":   [200, 150, 80],
+    # "bacia_macro":    [0, 120, 200],
+    # "bacia_meso":     [0, 160, 240],
+    # "bacia_micro":    [100, 200, 240],
+}
+
+
+# =============================================================================
+# 5. FUNÇÃO PARA CRIAR UMA CAMADA DO MAPBOX
+# =============================================================================
+def criar_layer_mapbox(tipo, codigo, cor_rgb):
+    if tipo not in TILESETS:
+        return None
+
+    tileset_id = TILESETS[tipo]
+
+    try:
+        codigo_int = int(codigo)
+    except:
+        return None
+
+    filter_expr = [
+        "",
+        ["get", MAPBOX_FILTER_FIELD[tipo]],
+        codigo_int
+    ]
+
+    layer = pdk.Layer(
+        "MVTLayer",
+        data=f"mapbox://{tileset_id}",
+        pickable=True,
+        get_fill_color=cor_rgb,
+        opacity=0.5,
+        filter=filter_expr,
+        get_line_color=[0, 0, 0, 255]
     )
-    return df
+
+    return layer
 
 
-######################################################################
-# MAPA
-######################################################################
+
+# =============================================================================
+# 6. CRIAR LISTA DE LAYERS
+# =============================================================================
+layers = []
+
+for _, row in df.drop_duplicates(subset=["tipo", "codigo"]).iterrows():
+    tipo = row["tipo"]
+    codigo = row["codigo"]
+    cor = CORES.get(tipo, [200, 200, 200])
+
+    layer = criar_layer_mapbox(tipo, codigo, cor)
+    if layer:
+        layers.append(layer)
 
 
-# Verifica os tipos que existem na coleção
-tipos_existentes = df["tipo"].unique() if not df.empty else []
-
-# Checkboxes para filtrar camadas (todos desmarcados por padrão)
-show_munis = st.checkbox("Municípios", value=False)
-show_estados = st.checkbox("Estados", value=False)
-show_terras_indigenas = st.checkbox("Terras Indígenas", value=False)
-show_uc = st.checkbox("Unidades de Conservação", value=False)
-show_biomas = st.checkbox("Biomas", value=False)
-show_assentamentos = st.checkbox("Assentamentos", value=False)
-show_quilombos = st.checkbox("Quilombo", value=False)
-show_bacias_macro = st.checkbox("Bacias Hidrográficas - Macro", value=False)
-show_bacias_meso = st.checkbox("Bacias Hidrográficas - Meso", value=False)
-show_bacias_micro = st.checkbox("Bacias Hidrográficas - Micro", value=False)
-
-
-######################################################################
-# AGRUPAR REGIÕES E CONTAR PROJETOS
-######################################################################
-
-
-# Contagem de quantos projetos estão em cada região
-contagem = df.groupby(["tipo", "codigo"]).size().reset_index(name="qtd_projetos")
-
-# Mescla com a contagem dentro do df principal (sem duplicatas)
-df_unico = (
-    df.drop_duplicates(subset=["tipo", "codigo"])
-    .merge(contagem, on=["tipo", "codigo"], how="left")
-    .fillna({"qtd_projetos": 0})
+# =============================================================================
+# 7. CONFIGURAÇÃO DO MAPA
+# =============================================================================
+view_state = pdk.ViewState(
+    latitude=-15.0,
+    longitude=-54.0,
+    zoom=4,
+    pitch=0,
+    bearing=0
 )
+
+deck = pdk.Deck(
+    map_style="mapbox://styles/mapbox/light-v9",
+    initial_view_state=view_state,
+    layers=layers,
+    api_keys={"mapbox": st.secrets["MAPBOX"]["MAPBOX_TOKEN"]},
+    tooltip={
+        "html": "<b>Região</b>: {id}",
+        "style": {"color": "white"}
+    }
+)
+
+
+# =============================================================================
+# 8. MOSTRAR MAPA NO STREAMLIT
+# =============================================================================
+st.pydeck_chart(deck)
