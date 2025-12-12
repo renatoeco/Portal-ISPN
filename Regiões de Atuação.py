@@ -42,6 +42,8 @@ for nome_colecao in colecoes:
 
 df = pd.DataFrame(regioes)
 
+st.dataframe(df)
+
 if df.empty:
     st.warning("Nenhuma região encontrada nos projetos.")
     st.stop()
@@ -51,8 +53,8 @@ if df.empty:
 # 2. DICIONÁRIO DE TILESETS (VOCÊ PREENCHE COM OS SEUS)
 # =============================================================================
 TILESETS = {
-    "municipio":      "be-braga.4hwsg2i2",
-    "estado":         "be-braga.4zjsoan7"
+    #"municipio":      "be-braga.4hwsg2i2",
+    "estado":         "be-braga.4sp3fnvc"
     # "ti":             "usuario.terras_indigenas",
     # "uc":             "usuario.unidades_conservacao",
     # "bioma":          "usuario.biomas",
@@ -70,8 +72,8 @@ TILESETS = {
 # =============================================================================
 # Exemplos comuns do IBGE / INCRA / FUNAI / ANA
 MAPBOX_FILTER_FIELD = {
-    "municipio": "id",          # Ex.: 2927408
-    "estado": "id",           # Ex.: BA
+    #"municipio": "id",          # Ex.: 2927408
+    "estado": "CD_UF",           # Ex.: BA
     # "ti": "Cod_TI",
     # "uc": "cod_uc",
     # "bioma": "CD_BIOMA",
@@ -87,7 +89,7 @@ MAPBOX_FILTER_FIELD = {
 # 4. CORES POR TIPO DE REGIÃO
 # =============================================================================
 CORES = {
-    "municipio":      [0, 140, 255],
+    #"municipio":      [0, 140, 255],
     "estado":         [255, 150, 0],
     # "ti":             [255, 60, 60],
     # "uc":             [0, 200, 0],
@@ -107,22 +109,23 @@ def criar_layer_mapbox(tipo, codigo, cor_rgb):
     if tipo not in TILESETS:
         return None
 
-    tileset_id = TILESETS[tipo]
-
-    try:
-        codigo_int = int(codigo)
-    except:
+    field = MAPBOX_FILTER_FIELD.get(tipo)
+    if not field:
         return None
 
-    filter_expr = [
-        "",
-        ["get", MAPBOX_FILTER_FIELD[tipo]],
-        codigo_int
-    ]
+    codigo_val = int(codigo)
+    if not codigo_val:
+        return None
 
-    layer = pdk.Layer(
+    # Valor literal (string) — necessário para o Mapbox
+    codigo_literal = ["literal", codigo_val]
+
+    # Fica dando erro nessa parte, não consigo entender o porquê
+    filter_expr = ["==", ["get", field], codigo_literal]
+
+    return pdk.Layer(
         "MVTLayer",
-        data=f"mapbox://{tileset_id}",
+        data=f"mapbox://{TILESETS[tipo]}",
         pickable=True,
         get_fill_color=cor_rgb,
         opacity=0.5,
@@ -130,28 +133,34 @@ def criar_layer_mapbox(tipo, codigo, cor_rgb):
         get_line_color=[0, 0, 0, 255]
     )
 
-    return layer
 
-
-
-# =============================================================================
+# =====================
 # 6. CRIAR LISTA DE LAYERS
-# =============================================================================
+# =====================
 layers = []
 
 for _, row in df.drop_duplicates(subset=["tipo", "codigo"]).iterrows():
     tipo = row["tipo"]
     codigo = row["codigo"]
+
+    # Pula tipos sem tileset definido
+    if tipo not in TILESETS:
+        continue
+
     cor = CORES.get(tipo, [200, 200, 200])
 
     layer = criar_layer_mapbox(tipo, codigo, cor)
     if layer:
         layers.append(layer)
 
+# Se não tiver nenhuma layer válida
+if len(layers) == 0:
+    st.warning("Nenhuma camada válida para exibir no mapa!")
+    st.stop()
 
-# =============================================================================
+# =====================
 # 7. CONFIGURAÇÃO DO MAPA
-# =============================================================================
+# =====================
 view_state = pdk.ViewState(
     latitude=-15.0,
     longitude=-54.0,
@@ -166,13 +175,9 @@ deck = pdk.Deck(
     layers=layers,
     api_keys={"mapbox": st.secrets["MAPBOX"]["MAPBOX_TOKEN"]},
     tooltip={
-        "html": "<b>Região</b>: {id}",
+        "html": "<b>Região</b>: {SIGLA_UF}",
         "style": {"color": "white"}
     }
 )
 
-
-# =============================================================================
-# 8. MOSTRAR MAPA NO STREAMLIT
-# =============================================================================
 st.pydeck_chart(deck)
