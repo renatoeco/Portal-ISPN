@@ -2,10 +2,7 @@ import streamlit as st
 import pandas as pd
 import datetime
 from bson import ObjectId
-import fiona
 from funcoes_auxiliares import conectar_mongo_portal_ispn, ajustar_altura_dataframe, br_to_float, float_to_br
-import geopandas as gpd
-from geobr import read_indigenous_land, read_conservation_units, read_biomes, read_state, read_municipality
 import streamlit_shadcn_ui as ui
 import plotly.express as px
 import time
@@ -190,6 +187,12 @@ def parse_valor(valor):
         except ValueError:
             return 0.0
     return 0.0
+
+
+def normalizar_valor(campo_mongo, valor):
+    if campo_mongo in ["data_inicio_contrato", "data_fim_contrato"]:
+        return valor.strip() if valor else None
+    return valor
 
 
 # Função para limpar e formatar o valor com notação de moeda (duas casas decimais)
@@ -1698,8 +1701,88 @@ with tab1:
     # Reorganizar a ordem das colunas
     df_projetos_ispn_filtrado_show = df_projetos_ispn_filtrado_show[['Código', 'Nome do projeto', 'Programa', 'Doador', 'Valor', 'Início do contrato', 'Fim do contrato', 'Situação']]
 
+    df_original = df_projetos_ispn_filtrado_show.copy()
+    
     # Exibindo o DataFrame
-    ajustar_altura_dataframe(df_projetos_ispn_filtrado_show, 1)
+
+    # ----------------------------------------------------
+    # MODO EDIÇÃO
+    # ----------------------------------------------------
+
+    if "modo_edicao" not in st.session_state:
+        st.session_state.modo_edicao_1 = False
+
+    if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)"}:
+        col1, col2 = st.columns([4, 1])
+        col1.toggle("Modo de edição", value=False, key="modo_edicao")
+        
+
+        if st.session_state.modo_edicao:
+            df_editado = st.data_editor(
+                df_projetos_ispn_filtrado_show,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Código": st.column_config.TextColumn(),
+                    "Valor": st.column_config.TextColumn(),
+                    "Programa": st.column_config.TextColumn(disabled=True),
+                    "Doador": st.column_config.TextColumn(disabled=True),
+                    "Situação": st.column_config.SelectboxColumn(
+                        options=["Em andamento", "Finalizado", "Pausado"]
+                    ),
+                    "Início do contrato": st.column_config.TextColumn(),
+                    "Fim do contrato": st.column_config.TextColumn(),
+                },
+                key="editor_projetos_ispn"
+            )
+
+            container_botao = st.container(horizontal=True, horizontal_alignment='left')
+
+            st.write("")
+
+            if container_botao.button("Salvar alterações"):
+
+                MAPA_CAMPOS_EDITOR_PARA_MONGO = {
+                    "Nome do projeto": "nome_do_projeto",
+                    "Situação": "status",
+                    "Início do contrato": "data_inicio_contrato",
+                    "Fim do contrato": "data_fim_contrato",
+                    "Código": "codigo",
+                    "Valor": "valor"
+                }
+
+                for idx, row in df_editado.iterrows():
+
+                    codigo = row["Código"]
+                    if not codigo:
+                        continue
+
+                    update_fields = {}
+
+                    for col_tela, campo_mongo in MAPA_CAMPOS_EDITOR_PARA_MONGO.items():
+
+                        novo = row[col_tela]
+                        antigo = df_original.loc[idx, col_tela]
+
+                        if novo != antigo:
+                            update_fields[campo_mongo] = normalizar_valor(campo_mongo, novo)
+
+                    if update_fields:
+                        projetos_ispn.update_one(
+                            {"codigo": codigo},
+                            {"$set": update_fields}
+                        )
+
+                st.success("Alterações salvas com sucesso!")
+                time.sleep(2)
+                st.rerun()
+
+        else:
+            ajustar_altura_dataframe(df_projetos_ispn_filtrado_show, 1)
+
+    else:
+        ajustar_altura_dataframe(df_projetos_ispn_filtrado_show, 1)
+
 
 
 # ABA PROJETO -------------------------------------------------------------------------------------
