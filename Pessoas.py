@@ -261,13 +261,40 @@ def enviar_email(destinatario: str, nome: str, valor_contribuicao: float) -> boo
     except Exception as e:
         st.error(f"Erro ao enviar e-mail: {e}")
         return False
+    
 
+def verificar_contratos_vencidos(pessoa):
+    hoje = datetime.date.today()
+    contratos_atualizados = False
 
+    for idx, contrato in enumerate(pessoa.get("contratos", [])):
+        data_fim = parse_date(contrato.get("data_fim"))
+        status_atual = contrato.get("status_contrato", "")
+
+        if data_fim and hoje > data_fim and status_atual != "Encerrado":
+            pessoas.update_one(
+                {"_id": pessoa["_id"]},
+                {"$set": {f"contratos.{idx}.status_contrato": "Encerrado"}}
+            )
+            contrato["status_contrato"] = "Encerrado"
+            contratos_atualizados = True
+
+    return contratos_atualizados
 
 
 # Define um diálogo (modal) para gerenciar colaboradores
 @st.dialog("Gerenciar colaboradores", width='large')
 def gerenciar_pessoas():
+
+    # -------------------------------------------------------------------------
+    # Inicializações de session_state
+    # -------------------------------------------------------------------------
+    if "contratos_verificados_por_pessoa" not in st.session_state:
+        st.session_state.contratos_verificados_por_pessoa = {}
+
+    if "pessoa_selecionada_anterior" not in st.session_state:
+        st.session_state.pessoa_selecionada_anterior = None
+
 
     # Aumentar largura do diálogo
     st.html("<span class='big-dialog'></span>")
@@ -317,23 +344,48 @@ def gerenciar_pessoas():
         # if "coordenador" in p  # só inclui quem tem o campo 'coordenador'
     ])
 
-
-
-
-
     # INÍCIO
-    # SelectBox do nome do colaborador ----------------------------------------------------------
-    
+    # SelectBox do nome do colaborador
     with st.container(horizontal=True, horizontal_alignment="center"):
-        nome_selecionado = st.selectbox("Selecione o(a) colaborador(a):", nomes_existentes, index=0, width=400)
+        nome_selecionado = st.selectbox(
+            "Selecione o(a) colaborador(a):",
+            nomes_existentes,
+            index=0,
+            width=400
+        )
 
-    st.write('')
-
-    # Editar colaborador
+    # -------------------------------------------------------------------------
+    # Processamento do colaborador selecionado
+    # -------------------------------------------------------------------------
     if nome_selecionado not in ("", "--Adicionar colaborador--"):
-        
-        # Busca colaborador selecionado no banco
-        pessoa = next((p for p in dados_pessoas if p["nome_completo"] == nome_selecionado), None)
+
+        pessoa = next(
+            (p for p in dados_pessoas if p["nome_completo"] == nome_selecionado),
+            None
+        )
+
+        if pessoa:
+            pessoa_id = str(pessoa["_id"])
+
+            # Detecta troca de pessoa e força nova verificação
+            if nome_selecionado != st.session_state.pessoa_selecionada_anterior:
+                st.session_state.pessoa_selecionada_anterior = nome_selecionado
+                st.session_state.contratos_verificados_por_pessoa.pop(pessoa_id, None)
+
+            # Verificação única por pessoa
+            if not st.session_state.contratos_verificados_por_pessoa.get(pessoa_id, False):
+
+                contratos_atualizados = verificar_contratos_vencidos(pessoa)
+
+                if contratos_atualizados:
+                    st.toast(
+                        "Contratos vencidos foram atualizados para 'Encerrado'",
+                        icon=":material/event_busy:",
+                        duration=2
+                    )
+
+                st.session_state.contratos_verificados_por_pessoa[pessoa_id] = True
+
         
        
         # Cria abas
@@ -345,11 +397,9 @@ def gerenciar_pessoas():
 
             if pessoa:
 
-
                 # ===============================
                 # Formulário principal
                 # ===============================
-
 
                 # ===============================
                 # Tipo de contratação (fora do form)
@@ -367,9 +417,6 @@ def gerenciar_pessoas():
 
                 with st.form("form_editar_colaborador", border=False):
 
-
-
-
                     # -----------------------------------------------------------------
                     # Nome completo e status
                     # -----------------------------------------------------------------
@@ -386,11 +433,6 @@ def gerenciar_pessoas():
                         key="editar_status"
                     )
 
-
-
-                    
-                    
-
                     # -----------------------------------------------------------------
                     # CPF, RG, telefone e email
                     # -----------------------------------------------------------------
@@ -403,8 +445,6 @@ def gerenciar_pessoas():
 
                     telefone = cols[2].text_input("Telefone:", value=pessoa.get("telefone", ""))
                     email = cols[3].text_input("E-mail:", value=pessoa.get("e_mail", ""))
-
-
 
 
                     # -----------------------------------------------------------------
@@ -422,9 +462,6 @@ def gerenciar_pessoas():
                         key="editar_genero"
                     )
 
-
-
-
                     lista_raca = ["", "Amarelo", "Branco", "Índigena", "Pardo", "Preto"]
 
                     raca = cols[1].selectbox(
@@ -432,8 +469,6 @@ def gerenciar_pessoas():
                         lista_raca,
                         index=lista_raca.index(pessoa.get("raca")) if pessoa.get("raca") in lista_raca else 0
                     )
-
-
                     
                     data_nascimento_str = pessoa.get("data_nascimento", "")
                     if data_nascimento_str:
@@ -441,10 +476,6 @@ def gerenciar_pessoas():
                     else:
                         data_nascimento = None
                     data_nascimento = cols[2].date_input("Data de nascimento:", format="DD/MM/YYYY", value=data_nascimento)
-                    
-
-
-
 
                     # -----------------------------------------------------------------
                     # Escolaridade, escritório, programa
@@ -486,8 +517,6 @@ def gerenciar_pessoas():
                     # Após seleção, pega o ObjectId correspondente ao nome
                     programa_area = nome_para_id_programa.get(programa_area_nome)
 
-
-
                     # -----------------------------------------------------------------
                     # Cargo e nome do coordenador
                     # -----------------------------------------------------------------
@@ -506,9 +535,6 @@ def gerenciar_pessoas():
                         opcoes_cargos_com_vazio,
                         index=opcoes_cargos_com_vazio.index(valor_cargo)
                     )
-
-
-
 
                     # Coordenador
 
@@ -540,8 +566,6 @@ def gerenciar_pessoas():
                             c["id"] for c in coordenadores_possiveis if c["nome"] == coordenador_nome
                         )        
 
-
-
                     # ===============================
                     # CAMPOS ADICIONAIS SE FOR PJ
                     # ===============================
@@ -550,9 +574,6 @@ def gerenciar_pessoas():
                         col1, col2 = st.columns([3, 2])
                         nome_empresa = col1.text_input("Nome da empresa:", value=pessoa.get("nome_empresa", ""))
                         cnpj = col2.text_input("CNPJ:", value=pessoa.get("cnpj", ""), placeholder="00.000.000/0000-00")
-
-
-
                     
                     st.markdown("---")
 
@@ -746,16 +767,9 @@ def gerenciar_pessoas():
                         st.success("Informações atualizadas com sucesso!", icon=":material/check_circle:")
                         time.sleep(2)
                         st.rerun()
-                        
 
 
-
-
-
-
-
-
-
+        
 
         # ABA CONTRATOS ############################################################################### 
 
@@ -785,8 +799,6 @@ def gerenciar_pessoas():
             status_opcoes = [
                 "Em vigência", "Encerrado", "Cancelado", "Fonte de recurso temporária"
             ]
-
-
 
 
             # Expander de adicionar contrato -------------------------------------------------------
@@ -843,23 +855,10 @@ def gerenciar_pessoas():
 
                     st.success("Novo contrato adicionado com sucesso!")
 
-
-
-
-
-
             # CONTRATOS ------------------------------------------------------------
-
-
 
             st.write('')
             st.write('**Contratos:**')
-
-
-
-
-
-
 
             # CARD DE CADA CONTRATO ------------------------------------------------------------
             for i, contrato in enumerate(contratos):
@@ -992,11 +991,6 @@ def gerenciar_pessoas():
                                 st.error(f"Erro ao salvar no banco: {e}")
 
 
-
-
-
-
-
         with aba_previdencia:
 
             # Obtém a lista de contribuições do banco, ou cria lista vazia se não existir
@@ -1075,91 +1069,6 @@ def gerenciar_pessoas():
                                 st.session_state.contribuicao_adicionada = False  # opcional: desativa botão após envio
                             except Exception as e:
                                 st.error(f"Erro ao enviar e-mail: {e}")
-
-
-
-
-
-
-
-        # with aba_previdencia:
-
-        #     # Obtém a lista de contribuições do banco, ou cria lista vazia se não existir
-        #     if pessoa:
-        #         previdencia = pessoa.get("previdencia", [])
-        #     else:
-        #         previdencia = []
-
-        #     # Expander para adicionar nova contribuição -----------------------------------------------------------
-        #     with st.expander("Adicionar nova contribuição", expanded=True, icon=":material/add_circle:"):
-
-        #         # Usa colunas para organizar campos lado a lado
-        #         cols = st.columns(2)
-
-        #         # Campo para escolher data da contribuição, valor padrão é hoje
-        #         nova_data = cols[0].date_input("Data da contribuição", value=datetime.date.today(), format="DD/MM/YYYY", key="data_nova_contribuicao")
-
-        #         # Campo para valor da contribuição com duas casas decimais, mínimo 0.0
-        #         valor_contribuicao = cols[1].number_input(
-        #             "Valor subsidiado pelo ISPN",
-        #             min_value=0.0,
-        #             format="%.2f",
-        #             key="valor_nova_contribuicao"
-        #         )
-
-        #         # Botão para adicionar contribuição
-        #         if st.button("Adicionar contribuição", icon=":material/savings:", key="botao_add_contribuicao"):
-        #             # Verifica se o valor é maior que zero
-        #             if valor_contribuicao > 0:
-        #                 # Cria dicionário da nova contribuição formatando a data
-        #                 nova_contribuicao = {
-        #                     "data_contribuicao": nova_data.strftime("%d/%m/%Y"),
-        #                     "valor": valor_contribuicao,
-        #                     # "usuario": usuario_logado
-        #                 }
-        #                 # Adiciona a nova contribuição à lista
-        #                 previdencia.append(nova_contribuicao)
-        #                 # Atualiza o registro no banco MongoDB
-        #                 pessoas.update_one(
-        #                     {"_id": ObjectId(pessoa["_id"])},
-        #                     {"$set": {"previdencia": previdencia}}
-        #                 )
-        #                 st.success("Nova contribuição adicionada com sucesso!")
-
-        #                 pessoa_nome = " ".join(pessoa["nome_completo"].split(" ")[:1])
-        #                 st.write(f"Deseja enviar um email para **{pessoa_nome}** com a nova contribuição?")
-
-        #                 valor_contribuicao_str = format(valor_contribuicao, ",.2f").replace(",", "X").replace(".", ",").replace("X", ".")
-
-        #                 st.markdown(f"""
-        #                 > Olá {pessoa_nome}. Sua contribuição à previdência privada foi registrada.  
-        #                 > Sua próxima nota fiscal deve ser emitida com o acréscimo de R$ {valor_contribuicao_str}.  
-        #                 > Att.  
-        #                 > DP do ISPN  
-        #                 """)
-
-        #                 if st.button("Enviar e-mail", key="botao_enviar_email", icon=":material/email:"):
-        #                     destinatario = pessoa(["e_mail"])
-        #                     nome = pessoa(['nome_completo'])
-                            
-        #                     # st.write(f"Destinatário: {destinatario}")
-        #                     # st.write(f"Nome: {nome}")
-        #                     # st.write(f"Valor da contribuição: {valor_contribuicao}")
-                            
-        #                     if not destinatario:
-        #                         st.warning("O e-mail do destinatário não está disponível.")
-        #                     else:
-        #                         try:
-        #                             enviar_email(destinatario, nome, valor_contribuicao)
-        #                             st.success(f"E-mail enviado com sucesso para {destinatario}!")
-        #                         except Exception as e:
-        #                             st.error(f"Erro ao enviar e-mail: {e}")
-
-
-        #             else:
-        #                 st.warning("O valor da contribuição deve ser maior que zero.")
-
-
 
             # LISTA DE CONTRIBUIÇÕES  -------------------------------------------------------------------------------------
             st.write("")
@@ -1787,6 +1696,7 @@ def gerenciar_pessoas():
 # MAIN
 ######################################################################################################
 
+
 # Botão de gerenciar colaboradores só para alguns tipos de usuário
 # Container horizontal de botões
 container_botoes = st.container(horizontal=True, horizontal_alignment="right")
@@ -1796,7 +1706,6 @@ if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_pess
     # Botão para abrir o diálogo de gerenciamento de colaboradores
     container_botoes.button("Gerenciar colaboradores", on_click=gerenciar_pessoas, icon=":material/group:")
     st.write('')
-
 
 
 aba_pessoas, aba_contratos, aba_reajustes, aba_aniversariantes = st.tabs([":material/person: Colaboradores", ":material/contract: Contratos", ":material/payments: Reajustes do mês", ":material/cake: Aniversariantes do mês"])
@@ -1855,9 +1764,6 @@ with aba_pessoas:
         df_pessoas_filtrado.rename(columns={"Projeto Pagador": "Projeto"}), 
         hide_index=True)
 
-
-
-
     # Gráficos 
     col1, col2 = st.columns(2)
 
@@ -1895,10 +1801,6 @@ with aba_pessoas:
                         'staticPlot': True  # desativa pan, zoom e todas as interações
                     })
 
-
-
-
-
     # GRÁFICO DE PESSOAS POR ESCRITÓRIO ------------------------------------------------
 
 
@@ -1930,24 +1832,17 @@ with aba_pessoas:
         config={'staticPlot': True}
     )
 
-
-
-
-
     # GRÁFICO DE PESSOAS POR PROJETO ------------------------------------------------
 
     # st.write(df_pessoas_filtrado)
 
     # Projeto
 
-
     # separa os nomes que estão na mesma célula por vírgula e transforma em linhas separadas
 
     df_explodido = df_pessoas_filtrado.assign(
         **{'Projeto Pagador': df_pessoas_filtrado['Projeto Pagador'].str.split(r',\s*')}
     ).explode('Projeto Pagador')
-
-
 
     # df_explodido = df_pessoas_filtrado.assign(
     #     **{'Projeto Pagador': df_pessoas_filtrado['Projeto Pagador'].str.split(',\s*')}
@@ -1987,10 +1882,7 @@ with aba_pessoas:
         config={'staticPlot': True}
     )
 
-
-
     # GRÁFICO DE PESSOAS POR TIPO DE CONTRATAÇÃO -----------------------------------------------------------
-
 
     # substitui valores vazios ou NaN por "Não informado"
     df_pessoas_filtrado['Tipo Contratação_tratado'] = df_pessoas_filtrado['Tipo Contratação'].replace("", "Não informado")
@@ -2020,16 +1912,9 @@ with aba_pessoas:
         config={'staticPlot': True}
     )
 
-
-
-
-
     # Gráfico de pessoas por Cargo ------------------------------------------------
 
     # Cargo
-
-
-
     # substitui valores vazios ou NaN por "Não informado"
     df_pessoas_filtrado['Cargo_tratado'] = df_pessoas_filtrado['Cargo'].replace("", "Não informado")
     df_pessoas_filtrado['Cargo_tratado'] = df_pessoas_filtrado['Cargo_tratado'].fillna("Não informado")
@@ -2067,10 +1952,6 @@ with aba_pessoas:
         config={'staticPlot': True}
     )
 
-
-
-
-
     # Pessoas por Escolaridade -------------------------------------------------------
     df_pessoas_filtrado['Escolaridade_tratado'] = df_pessoas_filtrado['Escolaridade'].replace("", "Não informado")
     df_pessoas_filtrado['Escolaridade_tratado'] = df_pessoas_filtrado['Escolaridade_tratado'].fillna("Não informado")
@@ -2094,11 +1975,6 @@ with aba_pessoas:
         fig,
         # config={'staticPlot': True}
     )
-
-
-
-
-
 
     # Gráfico de pessoas por Gênero ------------------------------------------------
 
@@ -2134,12 +2010,6 @@ with aba_pessoas:
         config={'staticPlot': True}
     )
 
-
-
-
-
-
-
     # Pessoas por Raça ----------------------------------------------------
     df_pessoas_filtrado['Raça_tratado'] = df_pessoas_filtrado['Raça'].replace("", "Não informado")
     df_pessoas_filtrado['Raça_tratado'] = df_pessoas_filtrado['Raça_tratado'].fillna("Não informado")
@@ -2165,9 +2035,6 @@ with aba_pessoas:
     )
 
 
-
-
-
 #  ABA CONTRATOS ---------------------------------------------------------------------------------------
 
 # Roteamento de usuários
@@ -2180,7 +2047,7 @@ with aba_contratos:
             for fmt in ("%d/%m/%Y", "%Y-%m-%d"):
                 try:
                     return datetime.datetime.strptime(data_str, fmt).date()
-                except:
+                except ValueError:
                     continue
         return None
 
@@ -2190,18 +2057,20 @@ with aba_contratos:
             return (data_fim - datetime.date.today()).days
         return None
 
-    # Preparar lista de contratos com vencimento nos próximos 90 dias
+    # ----------------- CONTRATOS A VENCER (90 DIAS) -----------------
     contratos_90_dias = []
 
-    for pessoa in dados_pessoas:
-        for contrato in pessoa.get("contratos", []):
+    for p in dados_pessoas:
+        for contrato in p.get("contratos", []):
             data_fim = parse_date(contrato.get("data_fim"))
             if data_fim and dias_restantes(data_fim) <= 90:
                 contratos_90_dias.append({
-                    "pessoa": pessoa,
+                    "pessoa": p,
                     "contrato": contrato,
                     "dias_restantes": dias_restantes(data_fim)
                 })
+
+    
 
     # -------------------- Renderizar lista de contratos --------------------
     st.write('')
