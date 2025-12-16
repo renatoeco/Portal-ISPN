@@ -69,7 +69,7 @@ with aba_banco:
     fig_gauge.update_layout(
         height=400,
         margin=dict(l=30, r=30, t=60, b=30),
-        title="Capacidade do Banco de Dados (MB)"
+        title="Capacidade do Banco de Dados (Limite do plano gratuito 500 MB)"
     )
 
     col1.plotly_chart(fig_gauge)
@@ -106,27 +106,36 @@ with aba_visitas:
     # Converter datas
     df["data"] = pd.to_datetime(df["data"], format="%d/%m/%Y").dt.date
 
-    # ------------------------------------------
-    # GRÁFICO 1 — Visitas por dia
-    # ------------------------------------------
-    visitas_por_dia = df.groupby("data")["acessos"].sum().reset_index()
+    # ============================================================
+    # GRÁFICO 1 — Total de Sessões por Dia (novo modelo)
+    # ============================================================
+    df_sessoes = pd.DataFrame(doc["total_sessoes"]).copy()
+    df_sessoes["data"] = pd.to_datetime(df_sessoes["data"], format="%d/%m/%Y")
 
-    fig_dias = px.bar(
-        visitas_por_dia,
+    sessoes_por_dia = df_sessoes.groupby("data")["numero_de_sessoes"].sum().reset_index()
+
+    fig_sessoes = px.bar(
+        sessoes_por_dia,
         x="data",
-        y="acessos",
-        title="Visitações por Dia"
+        y="numero_de_sessoes",
+        title="Total de Acessos por Dia"
     )
 
-    fig_dias.update_xaxes(
+    fig_sessoes.update_xaxes(
         tickmode="array",
-        tickvals=visitas_por_dia["data"],
-        ticktext=[d.strftime("%d/%m/%Y") for d in visitas_por_dia["data"]],
+        tickvals=sessoes_por_dia["data"],
+        ticktext=[d.strftime("%d/%m/%Y") for d in sessoes_por_dia["data"]],
         tickangle=-45
     )
-    fig_dias.update_layout(xaxis_title=None)
 
-    st.plotly_chart(fig_dias)
+    fig_sessoes.update_yaxes(dtick=1)
+    fig_sessoes.update_layout(
+        xaxis_title=None,
+        yaxis_title="Número de sessões"
+    )
+
+
+    st.plotly_chart(fig_sessoes)
 
     # ------------------------------------------
     # GRÁFICO 2 — Visitas por página
@@ -146,33 +155,28 @@ with aba_visitas:
 
     st.plotly_chart(fig_paginas)
 
-    # ============================================================
-    # GRÁFICO 3 — Total de Sessões por Dia (novo modelo)
-    # ============================================================
-    df_sessoes = pd.DataFrame(doc["total_sessoes"]).copy()
-    df_sessoes["data"] = pd.to_datetime(df_sessoes["data"], format="%d/%m/%Y")
+    # ------------------------------------------
+    # GRÁFICO 3 — Visitas por dia
+    # ------------------------------------------
+    visitas_por_dia = df.groupby("data")["acessos"].sum().reset_index()
 
-    sessoes_por_dia = df_sessoes.groupby("data")["numero_de_sessoes"].sum().reset_index()
-
-    fig_sessoes = px.bar(
-        sessoes_por_dia,
+    fig_dias = px.bar(
+        visitas_por_dia,
         x="data",
-        y="numero_de_sessoes",
-        title="Total de Sessões por Dia"
+        y="acessos",
+        title="Visualizações de Páginas"
     )
 
-    fig_sessoes.update_xaxes(
+    fig_dias.update_xaxes(
         tickmode="array",
-        tickvals=sessoes_por_dia["data"],
-        ticktext=[d.strftime("%d/%m/%Y") for d in sessoes_por_dia["data"]],
+        tickvals=visitas_por_dia["data"],
+        ticktext=[d.strftime("%d/%m/%Y") for d in visitas_por_dia["data"]],
         tickangle=-45
     )
+    fig_dias.update_layout(xaxis_title=None)
 
-    fig_sessoes.update_yaxes(dtick=1)
-    fig_sessoes.update_layout(
-        xaxis_title=None,
-        yaxis_title="Número de sessões"
-    )
+    st.plotly_chart(fig_dias)
 
+    
 
-    st.plotly_chart(fig_sessoes)
+    

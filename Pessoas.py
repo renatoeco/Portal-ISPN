@@ -381,7 +381,7 @@ def gerenciar_pessoas():
                     st.toast(
                         "Contratos vencidos foram atualizados para 'Encerrado'",
                         icon=":material/event_busy:",
-                        duration=2
+                        duration=5
                     )
 
                 st.session_state.contratos_verificados_por_pessoa[pessoa_id] = True
