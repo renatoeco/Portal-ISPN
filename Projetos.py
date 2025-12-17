@@ -822,8 +822,6 @@ def dialog_editar_entregas():
                 placeholder=""
             )
             
-            anotacoes = st.text_area("Anotações")
-            
             st.write("")
             
             salvar_nova = st.form_submit_button("Salvar entrega", icon=":material/save:")
@@ -840,7 +838,6 @@ def dialog_editar_entregas():
                         "nome_da_entrega": nome_da_entrega,
                         "previsao_da_conclusao": previsao_da_conclusao.strftime("%d/%m/%Y"),
                         "responsaveis": [ObjectId(r) for r in responsaveis_selecionados],
-                        "anotacoes": anotacoes,
                         "situacao": situacao,
                         "anos_de_referencia": [a.strip() for a in anos_de_referencia.split(",") if a.strip()],
                         "acoes_resultados_medio_prazo": acoes_medio_prazo_relacionadas,
@@ -2380,13 +2377,13 @@ with tab2:
             # ====================
             # Botão para abrir o diálogo de Gerenciar indicadores
             # ====================
-
-            with st.container(horizontal_alignment="right"):
-                st.write('')    
-                if st.button("Gerenciar entregas", icon=":material/edit:", width=300):
-                    dialog_editar_entregas()
-            
-            st.write("_Não há entregas cadastradas para este projeto._")
+            if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)"}:
+                with st.container(horizontal_alignment="right"):
+                    st.write('')    
+                    if st.button("Gerenciar entregas", icon=":material/edit:", width=300):
+                        dialog_editar_entregas()
+                
+                st.write("_Não há entregas cadastradas para este projeto._")
 
         else:
             # Criar dicionário de ObjectId -> nome_completo dos responsáveis
