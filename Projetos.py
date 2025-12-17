@@ -693,6 +693,11 @@ def dialog_cadastrar_projeto():
                 st.rerun()
 
 
+def normalizar_texto(txt):
+    if not txt:
+        return None
+    return " ".join(txt.split())
+
 
 # Função do diálogo para gerenciar entregas
 @st.dialog("Editar Entregas", width="large")
@@ -731,6 +736,8 @@ def dialog_editar_entregas():
 
     acoes_por_resultado_mp = {}
     acoes_medio_prazo = []
+    
+    resultados_longo_set = set()
 
     for doc in dados_estrategia:
         if "resultados_medio_prazo" in doc:
@@ -749,15 +756,18 @@ def dialog_editar_entregas():
                     acoes_por_resultado_mp[titulo] = acoes
                     acoes_medio_prazo.extend(acoes)
 
-        if "resultados_longo_prazo" in doc:
-            resultados_longo.extend(
-                [r.get("titulo") for r in doc["resultados_longo_prazo"].get("resultados_lp", []) if r.get("titulo")]
-            )
+        rlp = doc.get("resultados_longo_prazo", {})
+        for r in rlp.get("resultados_lp", []):
+            titulo = normalizar_texto(r.get("titulo"))
+            if titulo:
+                resultados_longo_set.add(titulo)
+                
         if "estrategia" in doc:
             eixos_da_estrategia.extend(
                 [e.get("titulo") for e in doc["estrategia"].get("eixos_da_estrategia", []) if e.get("titulo")]
             )
-    
+            
+    resultados_longo = sorted(resultados_longo_set)
     acoes_medio_prazo = sorted(list(set(acoes_medio_prazo)))
         
     #  Criar lista de opções (nome + _id) ordenadas alfabeticamente
@@ -891,14 +901,15 @@ def dialog_editar_entregas():
 
                     st.write("")
 
-                    # 🔹 Resultados de longo prazo
-                    resultados_longo = entrega.get("resultados_longo_prazo_relacionados", [])
-                    if resultados_longo:
+                    # Resultados de longo prazo
+                    resultados_longo_entrega = entrega.get("resultados_longo_prazo_relacionados", [])
+                    if resultados_longo_entrega:
                         st.markdown("**Resultados de longo prazo:**")
-                        for r in resultados_longo:
+                        for r in resultados_longo_entrega:
                             st.markdown(f"- {r}")
                     else:
                         st.markdown("**Resultados de longo prazo:** -")
+
 
                     st.write("")
 
@@ -977,11 +988,17 @@ def dialog_editar_entregas():
                             default=entrega.get("acoes_resultados_medio_prazo", []),
                             placeholder=""
                         )
+                        
+                        valores_salvos = [
+                            normalizar_texto(v)
+                            for v in entrega.get("resultados_longo_prazo_relacionados", [])
+                            if normalizar_texto(v) in resultados_longo
+                        ]
 
                         entrega_editada["resultados_longo_prazo_relacionados"] = st.multiselect(
                             "Contribui com quais resultados de longo prazo?",
                             options=resultados_longo,
-                            default=entrega.get("resultados_longo_prazo_relacionados", []),
+                            default=valores_salvos,
                             placeholder=""
                         )
 
@@ -1029,8 +1046,6 @@ def dialog_editar_entregas():
                             st.success("Entrega atualizada!")
                             time.sleep(2)
                             st.rerun()
-
-
 
 
 # Função do diálogo para gerenciar projeto
