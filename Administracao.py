@@ -69,7 +69,7 @@ with aba_banco:
     fig_gauge.update_layout(
         height=400,
         margin=dict(l=30, r=30, t=60, b=30),
-        title="Capacidade do Banco de Dados (Limite do plano gratuito 500 MB)"
+        title="Capacidade do Banco de Dados (Limite do plano gratuito: 500 MB)"
     )
 
     col1.plotly_chart(fig_gauge)
