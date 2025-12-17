@@ -186,20 +186,8 @@ COLUNAS_LEGIVEIS = {
     "programa": "Programa"
 }
 
-aba_todas, aba_minhas = st.tabs(["Todas as Entregas", "Minhas Entregas"])
+aba_minhas, aba_todas = st.tabs(["Minhas entregas","Todas as entregas"])
 
-with aba_todas:
-   
-    ui.table(
-        data=df_entregas[list(COLUNAS_LEGIVEIS.keys())]
-            .rename(columns=COLUNAS_LEGIVEIS)
-    )
-
-    grafico_cronograma(
-        df_entregas,
-        "Cronograma de Entregas"
-    )
-    
 with aba_minhas:
 
     usuario_id = ObjectId(st.session_state["id_usuario"])
@@ -219,3 +207,16 @@ with aba_minhas:
         df_minhas,
         "Cronograma de Entregas"
     )
+
+with aba_todas:
+   
+    ui.table(
+        data=df_entregas[list(COLUNAS_LEGIVEIS.keys())]
+            .rename(columns=COLUNAS_LEGIVEIS)
+    )
+
+    grafico_cronograma(
+        df_entregas,
+        "Cronograma de Entregas"
+    )
+    
