@@ -2109,12 +2109,6 @@ with tab2:
             with tab_add:
                 st.subheader("Novo lançamento de indicador")
 
-                # indicadores_lista = list(indicadores.find({}, {"_id": 1, "nome_indicador": 1}))
-                # indicadores_opcoes = {
-                #     nomes_legiveis.get(i["nome_indicador"], i["nome_indicador"]): i
-                #     for i in indicadores_lista
-                # }
-
                 indicador_legivel = st.selectbox(
                     "Indicador",
                     [""] + [i for i in ordem_indicadores if i in indicadores_opcoes]

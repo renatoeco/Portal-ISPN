@@ -172,6 +172,20 @@ def dialog_editar_entregas():
     df_projetos_ispn = pd.DataFrame(list(projetos_ispn.find()))
     df_pessoas = pd.DataFrame(list(db["pessoas"].find()))
     df_indicadores = pd.DataFrame(list(indicadores.find()))
+    
+    indicadores_float = [
+        "Área com manejo ecológico do fogo (ha)",
+        "Área com manejo agroecológico (ha)",
+        "Área com manejo para restauração (ha)",
+        "Área com manejo para extrativismo (ha)",
+        "Faturamento bruto anual pré-projeto",
+        "Faturamento bruto anual pós-projeto",
+        "Volume financeiro de vendas institucionais com apoio do Fundo Ecos",
+        "Valor da contrapartida financeira projetinhos",
+        "Valor da contrapartida não financeira projetinhos",
+        "Valor mobilizado de novos recursos"
+    ]
+    indicador_texto = "Espécies"
 
     # valores reais (o que vai ser salvo)
     indicadores_valores = sorted(
@@ -322,318 +336,478 @@ def dialog_editar_entregas():
     }
     responsaveis_options = list(responsaveis_dict.keys())
     
-
-    with st.expander("Adicionar entrega", expanded=False):
-        with st.form("form_nova_entrega", border=False):
-            
-            nome_da_entrega = st.text_input("Nome da entrega")
-            
-            col1, col2 = st.columns(2)
-            
-            previsao_da_conclusao = col1.date_input("Previsão de conclusão", format="DD/MM/YYYY")
-            
-            responsaveis_selecionados = col2.multiselect(
-                "Responsáveis",
-                options=responsaveis_options,
-                format_func=lambda x: responsaveis_dict.get(x, "Desconhecido"),
-                placeholder=""
-            )
-            
-            col1, col2 = st.columns(2)
-            
-            situacao = col1.selectbox("Situação", ["Prevista", "Atrasada", "Concluída"])
-            anos_de_referencia = col2.text_input("Anos de referência (separar por vírgula)")
-            
-            acoes_medio_prazo_relacionadas = st.multiselect(
-                "Contribui com quais ações estratégicas dos resultados de médio prazo?",
-                options=acoes_medio_prazo,
-                placeholder=""
-            )
-            
-            metas_mp_relacionadas = st.multiselect(
-                "Contribui com quais metas dos resultados de médio prazo?",
-                options=metas_mp,
-                placeholder=""
-            )
-
-            resultados_longo_prazo_relacionados = st.multiselect(
-                "Contribui com quais resultados de longo prazo?",
-                options=resultados_longo,
-                placeholder=""
-            )
-            
-            eixos_relacionados = st.multiselect(
-                "Contribui com quais eixos da estratégia PPP-ECOS?",
-                options=eixos_da_estrategia,
-                placeholder=""
-            )
-            
-            acoes_relacionados = st.multiselect(
-                "Contribui com quais ações estratégicas do programa?",
-                options=list(acoes_estrategicas_dict.keys()),
-                placeholder=""
-            )
-            
-            indicadores_relacionados = st.multiselect(
-                "Contribui com quais indicadores?",
-                options=indicadores_valores,
-                format_func=formatar_nome_legivel,
-                placeholder=""
-            )
-
-            
-            st.write("")
-            
-            salvar_nova = st.form_submit_button("Salvar entrega", icon=":material/save:")
-            if salvar_nova:
-                
-                if not nome_da_entrega:
-                    st.warning("Por favor preencha o nome da entrega.")
-                
-                else:
-                    
-                    acoes_puras = [acoes_estrategicas_dict[a] for a in acoes_relacionados]
-                
-                    nova_entrega = {
-                        "nome_da_entrega": nome_da_entrega,
-                        "previsao_da_conclusao": previsao_da_conclusao.strftime("%d/%m/%Y"),
-                        "responsaveis": [ObjectId(r) for r in responsaveis_selecionados],
-                        "situacao": situacao,
-                        "anos_de_referencia": [a.strip() for a in anos_de_referencia.split(",") if a.strip()],
-                        "acoes_resultados_medio_prazo": acoes_medio_prazo_relacionadas,
-                        "resultados_longo_prazo_relacionados": resultados_longo_prazo_relacionados,
-                        "eixos_relacionados": eixos_relacionados,
-                        "acoes_relacionadas": acoes_puras,
-                        "metas_resultados_medio_prazo": metas_mp_relacionadas,
-                        "indicadores_relacionados": indicadores_relacionados
-                    }
-
-                    # adiciona ao array existente
-                    projetos_ispn.update_one(
-                        {"_id": projeto_info["_id"]},
-                        {"$push": {"entregas": nova_entrega}}
-                    )
-
-                    st.success("Entrega adicionada com sucesso!")
-                    time.sleep(2)
-                    st.rerun()
+    aba_entregas, aba_lancamentos_entregas = st.tabs([":material/package_2: Gerenciar entregas", ":material/rocket_launch: Lançamentos de entregas"])
     
-    st.write("")
+    with aba_entregas:
 
-    # ============================
-    # EXIBIR ENTREGAS EXISTENTES
-    # ============================
-    if entregas_existentes:
-        st.write("### Entregas cadastradas:")
+        with st.expander("Adicionar entrega", expanded=False):
+            with st.form("form_nova_entrega", border=False):
+                
+                nome_da_entrega = st.text_input("Nome da entrega")
+                
+                col1, col2 = st.columns(2)
+                
+                previsao_da_conclusao = col1.date_input("Previsão de conclusão", format="DD/MM/YYYY")
+                
+                responsaveis_selecionados = col2.multiselect(
+                    "Responsáveis",
+                    options=responsaveis_options,
+                    format_func=lambda x: responsaveis_dict.get(x, "Desconhecido"),
+                    placeholder=""
+                )
+                
+                col1, col2 = st.columns(2)
+                
+                situacao = col1.selectbox("Situação", ["Prevista", "Atrasada", "Concluída"])
+                anos_de_referencia = col2.text_input("Anos de referência (separar por vírgula)")
+                
+                acoes_medio_prazo_relacionadas = st.multiselect(
+                    "Contribui com quais ações estratégicas dos resultados de médio prazo?",
+                    options=acoes_medio_prazo,
+                    placeholder=""
+                )
+                
+                metas_mp_relacionadas = st.multiselect(
+                    "Contribui com quais metas dos resultados de médio prazo?",
+                    options=metas_mp,
+                    placeholder=""
+                )
 
-        for i, entrega in enumerate(entregas_existentes):
-            with st.expander(f"{entrega.get('nome_da_entrega', 'Sem nome')}"):
-                # Mostrar nomes reais dos responsáveis
-                responsaveis_ids = entrega.get("responsaveis", [])
-                responsaveis_nomes = [
-                    responsaveis_dict.get(str(r), "Desconhecido") for r in responsaveis_ids
-                ]
-                responsaveis_formatados = ", ".join(responsaveis_nomes) if responsaveis_nomes else "-"
+                resultados_longo_prazo_relacionados = st.multiselect(
+                    "Contribui com quais resultados de longo prazo?",
+                    options=resultados_longo,
+                    placeholder=""
+                )
+                
+                eixos_relacionados = st.multiselect(
+                    "Contribui com quais eixos da estratégia PPP-ECOS?",
+                    options=eixos_da_estrategia,
+                    placeholder=""
+                )
+                
+                acoes_relacionados = st.multiselect(
+                    "Contribui com quais ações estratégicas do programa?",
+                    options=list(acoes_estrategicas_dict.keys()),
+                    placeholder=""
+                )
+                
+                indicadores_relacionados = st.multiselect(
+                    "Contribui com quais indicadores?",
+                    options=indicadores_valores,
+                    format_func=formatar_nome_legivel,
+                    placeholder=""
+                )
 
-                # Alternar entre visualização e edição
-                modo_edicao = st.toggle("Modo de edição", key=f"toggle_edit_{i}")
-
-                if not modo_edicao:
-                    # --- Modo de visualização ---
-                    st.write(f"**Previsão:** {entrega.get('previsao_da_conclusao', '-')}")
-                    st.write(f"**Responsáveis:** {responsaveis_formatados}")
-                    st.write(f"**Situação:** {entrega.get('situacao', '-')}")
-                    st.write(f"**Anos de referência:** {', '.join(entrega.get('anos_de_referencia', []))}")
+                
+                st.write("")
+                
+                salvar_nova = st.form_submit_button("Salvar entrega", icon=":material/save:")
+                if salvar_nova:
                     
-                    st.write("")
-
-                    # Resultados de médio prazo
-                    acoes_medio = entrega.get("acoes_resultados_medio_prazo", [])
-                    if acoes_medio:
-                        st.markdown("**Ações estratégicas dos resultados de médio prazo:**")
-                        for a in acoes_medio:
-                            st.markdown(f"- {a}")
-                    else:
-                        st.markdown("**Ações estratégicas dos resultados de médio prazo:** -")
+                    if not nome_da_entrega:
+                        st.warning("Por favor preencha o nome da entrega.")
                     
-                    # Metas dos resultados de médio prazo
-                    metas_entrega = entrega.get("metas_resultados_medio_prazo", [])
-                    if metas_entrega:
-                        st.markdown("**Metas dos resultados de médio prazo:**")
-                        for m in metas_entrega:
-                            st.markdown(f"- {m}")
                     else:
-                        st.markdown("**Metas dos resultados de médio prazo:** -")
-
-                    st.write("")
-
-                    # Resultados de longo prazo
-                    resultados_longo_entrega = entrega.get("resultados_longo_prazo_relacionados", [])
-                    if resultados_longo_entrega:
-                        st.markdown("**Resultados de longo prazo:**")
-                        for r in resultados_longo_entrega:
-                            st.markdown(f"- {r}")
-                    else:
-                        st.markdown("**Resultados de longo prazo:** -")
-
-
-                    st.write("")
-
-                    # Eixos estratégicos
-                    eixos = entrega.get("eixos_relacionados", [])
-                    if eixos:
-                        st.markdown("**Eixos estratégicos:**")
-                        for e in eixos:
-                            st.markdown(f"- {e}")
-                    else:
-                        st.markdown("**Eixos estratégicos:** -")
                         
-                    st.write("")
-
-                    # Ações estratégicas
-                    acoes = entrega.get("acoes_relacionadas", [])
-                    if acoes:
-                        st.markdown("**Ações estratégicas do programa:**")
-                        for a in acoes:
-                            st.markdown(f"- {a}")
-                    else:
-                        st.markdown("**Ações estratégicas do programa:** -")
+                        acoes_puras = [acoes_estrategicas_dict[a] for a in acoes_relacionados]
                     
-                    st.write("")
-                    
-                    indicadores_entrega = entrega.get("indicadores_relacionados", [])
-                    if indicadores_entrega:
-                        st.markdown("**Indicadores:**")
-                        for i in indicadores_entrega:
-                            st.markdown(f"- {formatar_nome_legivel(i)}")
-                    else:
-                        st.markdown("**Indicadores:** -")
+                        nova_entrega = {
+                            "nome_da_entrega": nome_da_entrega,
+                            "previsao_da_conclusao": previsao_da_conclusao.strftime("%d/%m/%Y"),
+                            "responsaveis": [ObjectId(r) for r in responsaveis_selecionados],
+                            "situacao": situacao,
+                            "anos_de_referencia": [a.strip() for a in anos_de_referencia.split(",") if a.strip()],
+                            "acoes_resultados_medio_prazo": acoes_medio_prazo_relacionadas,
+                            "resultados_longo_prazo_relacionados": resultados_longo_prazo_relacionados,
+                            "eixos_relacionados": eixos_relacionados,
+                            "acoes_relacionadas": acoes_puras,
+                            "metas_resultados_medio_prazo": metas_mp_relacionadas,
+                            "indicadores_relacionados": indicadores_relacionados
+                        }
 
-                    st.write("")
-                    
-                    st.markdown(f"**Anotações:** {entrega.get('anotacoes', '-')}")
-
-                else:
-                    # --- Modo de edição ---
-                    with st.form(f"form_edit_entrega_{i}", border=False):
-                        entrega_editada = {**entrega}
-
-                        entrega_editada["nome_da_entrega"] = st.text_input(
-                            "Nome da entrega", entrega.get("nome_da_entrega", "")
-                        )
-                        
-                        col1, col2 = st.columns(2)
-
-                        entrega_editada["previsao_da_conclusao"] = col1.date_input(
-                            "Previsão de conclusão",
-                            pd.to_datetime(entrega.get("previsao_da_conclusao"), format="%d/%m/%Y").date()
-                            if entrega.get("previsao_da_conclusao") else datetime.today(),
-                            format="DD/MM/YYYY"
-                        )
-                        entrega_editada["previsao_da_conclusao"] = entrega_editada["previsao_da_conclusao"].strftime("%d/%m/%Y")
-
-                        responsaveis_existentes = [str(r) for r in entrega.get("responsaveis", [])]
-                        entrega_editada["responsaveis"] = col2.multiselect(
-                            "Responsáveis",
-                            options=list(responsaveis_dict.keys()),
-                            default=responsaveis_existentes,
-                            format_func=lambda x: responsaveis_dict.get(x, "Desconhecido"),
-                            placeholder="Selecione os responsáveis"
+                        # adiciona ao array existente
+                        projetos_ispn.update_one(
+                            {"_id": projeto_info["_id"]},
+                            {"$push": {"entregas": nova_entrega}}
                         )
 
-                        
-                        col1, col2 = st.columns(2)
+                        st.success("Entrega adicionada com sucesso!")
+                        time.sleep(2)
+                        st.rerun()
+        
+        st.write("")
 
-                        entrega_editada["situacao"] = col1.selectbox(
-                            "Situação",
-                            ["Prevista", "Atrasada", "Concluída"],
-                            index=["Prevista", "Atrasada", "Concluída"].index(
-                                entrega.get("situacao", "Prevista")
-                            )
-                        )
+        # ============================
+        # EXIBIR ENTREGAS EXISTENTES
+        # ============================
+        if entregas_existentes:
+            st.write("### Entregas cadastradas:")
 
-                        entrega_editada["anos_de_referencia"] = col2.text_input(
-                            "Anos de referência (separar por vírgula)",
-                            ", ".join(entrega.get("anos_de_referencia", []))
-                        )
+            for i, entrega in enumerate(entregas_existentes):
+                with st.expander(f"{entrega.get('nome_da_entrega', 'Sem nome')}"):
+                    # Mostrar nomes reais dos responsáveis
+                    responsaveis_ids = entrega.get("responsaveis", [])
+                    responsaveis_nomes = [
+                        responsaveis_dict.get(str(r), "Desconhecido") for r in responsaveis_ids
+                    ]
+                    responsaveis_formatados = ", ".join(responsaveis_nomes) if responsaveis_nomes else "-"
 
-                        entrega_editada["acoes_resultados_medio_prazo"] = st.multiselect(
-                            "Contribui com quais ações estratégicas dos resultados de médio prazo?",
-                            options=acoes_medio_prazo,
-                            default=entrega.get("acoes_resultados_medio_prazo", []),
-                            placeholder=""
-                        )
-                        
-                        entrega_editada["metas_resultados_medio_prazo"] = st.multiselect(
-                            "Contribui com quais metas dos resultados de médio prazo?",
-                            options=metas_mp,
-                            default=entrega.get("metas_resultados_medio_prazo", []),
-                            placeholder=""
-                        )
+                    # Alternar entre visualização e edição
+                    modo_edicao = st.toggle("Modo de edição", key=f"toggle_edit_{i}")
 
-                        
-                        valores_salvos = [
-                            normalizar_texto(v)
-                            for v in entrega.get("resultados_longo_prazo_relacionados", [])
-                            if normalizar_texto(v) in resultados_longo
-                        ]
-
-                        entrega_editada["resultados_longo_prazo_relacionados"] = st.multiselect(
-                            "Contribui com quais resultados de longo prazo?",
-                            options=resultados_longo,
-                            default=valores_salvos,
-                            placeholder=""
-                        )
-
-                        entrega_editada["eixos_relacionados"] = st.multiselect(
-                            "Contribui com quais eixos da estratégia PPP-ECOS?",
-                            options=eixos_da_estrategia,
-                            default=entrega.get("eixos_relacionados", []),
-                            placeholder=""
-                        )
-
-                        acoes_selecionadas_labels = [
-                            label for label, valor in acoes_estrategicas_dict.items()
-                            if valor in entrega.get("acoes_relacionadas", [])
-                        ]
-
-                        acoes_selecionadas_labels = st.multiselect(
-                            "Contribui com quais ações estratégicas dos programas?",
-                            options=list(acoes_estrategicas_dict.keys()),
-                            default=acoes_selecionadas_labels,
-                            placeholder=""
-                        )
-
-                        # Converter de volta para o valor puro (sem o nome do programa)
-                        entrega_editada["acoes_relacionadas"] = [
-                            acoes_estrategicas_dict[label] for label in acoes_selecionadas_labels
-                        ]
-                        
-                        entrega_editada["indicadores_relacionados"] = st.multiselect(
-                            "Contribui com quais indicadores?",
-                            options=indicadores_valores,
-                            default=entrega.get("indicadores_relacionados", []),
-                            format_func=formatar_nome_legivel,
-                            placeholder=""
-                        )
-                        
-                        entrega_editada["anotacoes"] = st.text_area("Anotações", entrega.get("anotacoes", ""))
+                    if not modo_edicao:
+                        # --- Modo de visualização ---
+                        st.write(f"**Previsão:** {entrega.get('previsao_da_conclusao', '-')}")
+                        st.write(f"**Responsáveis:** {responsaveis_formatados}")
+                        st.write(f"**Situação:** {entrega.get('situacao', '-')}")
+                        st.write(f"**Anos de referência:** {', '.join(entrega.get('anos_de_referencia', []))}")
                         
                         st.write("")
 
-                        salvar_edicao = st.form_submit_button("Salvar alterações", icon=":material/save:")
-                        if salvar_edicao:
-                            entrega_editada["anos_de_referencia"] = [
-                                a.strip() for a in entrega_editada["anos_de_referencia"].split(",") if a.strip()
+                        # Resultados de médio prazo
+                        acoes_medio = entrega.get("acoes_resultados_medio_prazo", [])
+                        if acoes_medio:
+                            st.markdown("**Ações estratégicas dos resultados de médio prazo:**")
+                            for a in acoes_medio:
+                                st.markdown(f"- {a}")
+                        else:
+                            st.markdown("**Ações estratégicas dos resultados de médio prazo:** -")
+                        
+                        # Metas dos resultados de médio prazo
+                        metas_entrega = entrega.get("metas_resultados_medio_prazo", [])
+                        if metas_entrega:
+                            st.markdown("**Metas dos resultados de médio prazo:**")
+                            for m in metas_entrega:
+                                st.markdown(f"- {m}")
+                        else:
+                            st.markdown("**Metas dos resultados de médio prazo:** -")
+
+                        st.write("")
+
+                        # Resultados de longo prazo
+                        resultados_longo_entrega = entrega.get("resultados_longo_prazo_relacionados", [])
+                        if resultados_longo_entrega:
+                            st.markdown("**Resultados de longo prazo:**")
+                            for r in resultados_longo_entrega:
+                                st.markdown(f"- {r}")
+                        else:
+                            st.markdown("**Resultados de longo prazo:** -")
+
+
+                        st.write("")
+
+                        # Eixos estratégicos
+                        eixos = entrega.get("eixos_relacionados", [])
+                        if eixos:
+                            st.markdown("**Eixos estratégicos:**")
+                            for e in eixos:
+                                st.markdown(f"- {e}")
+                        else:
+                            st.markdown("**Eixos estratégicos:** -")
+                            
+                        st.write("")
+
+                        # Ações estratégicas
+                        acoes = entrega.get("acoes_relacionadas", [])
+                        if acoes:
+                            st.markdown("**Ações estratégicas do programa:**")
+                            for a in acoes:
+                                st.markdown(f"- {a}")
+                        else:
+                            st.markdown("**Ações estratégicas do programa:** -")
+                        
+                        st.write("")
+                        
+                        indicadores_entrega = entrega.get("indicadores_relacionados", [])
+                        if indicadores_entrega:
+                            st.markdown("**Indicadores:**")
+                            for i in indicadores_entrega:
+                                st.markdown(f"- {formatar_nome_legivel(i)}")
+                        else:
+                            st.markdown("**Indicadores:** -")
+
+                        st.write("")
+                        
+                        st.markdown(f"**Anotações:** {entrega.get('anotacoes', '-')}")
+
+                    else:
+                        # --- Modo de edição ---
+                        with st.form(f"form_edit_entrega_{i}", border=False):
+                            entrega_editada = {**entrega}
+
+                            entrega_editada["nome_da_entrega"] = st.text_input(
+                                "Nome da entrega", entrega.get("nome_da_entrega", "")
+                            )
+                            
+                            col1, col2 = st.columns(2)
+
+                            entrega_editada["previsao_da_conclusao"] = col1.date_input(
+                                "Previsão de conclusão",
+                                pd.to_datetime(entrega.get("previsao_da_conclusao"), format="%d/%m/%Y").date()
+                                if entrega.get("previsao_da_conclusao") else datetime.today(),
+                                format="DD/MM/YYYY"
+                            )
+                            entrega_editada["previsao_da_conclusao"] = entrega_editada["previsao_da_conclusao"].strftime("%d/%m/%Y")
+
+                            responsaveis_existentes = [str(r) for r in entrega.get("responsaveis", [])]
+                            entrega_editada["responsaveis"] = col2.multiselect(
+                                "Responsáveis",
+                                options=list(responsaveis_dict.keys()),
+                                default=responsaveis_existentes,
+                                format_func=lambda x: responsaveis_dict.get(x, "Desconhecido"),
+                                placeholder="Selecione os responsáveis"
+                            )
+
+                            
+                            col1, col2 = st.columns(2)
+
+                            entrega_editada["situacao"] = col1.selectbox(
+                                "Situação",
+                                ["Prevista", "Atrasada", "Concluída"],
+                                index=["Prevista", "Atrasada", "Concluída"].index(
+                                    entrega.get("situacao", "Prevista")
+                                )
+                            )
+
+                            entrega_editada["anos_de_referencia"] = col2.text_input(
+                                "Anos de referência (separar por vírgula)",
+                                ", ".join(entrega.get("anos_de_referencia", []))
+                            )
+
+                            entrega_editada["acoes_resultados_medio_prazo"] = st.multiselect(
+                                "Contribui com quais ações estratégicas dos resultados de médio prazo?",
+                                options=acoes_medio_prazo,
+                                default=entrega.get("acoes_resultados_medio_prazo", []),
+                                placeholder=""
+                            )
+                            
+                            entrega_editada["metas_resultados_medio_prazo"] = st.multiselect(
+                                "Contribui com quais metas dos resultados de médio prazo?",
+                                options=metas_mp,
+                                default=entrega.get("metas_resultados_medio_prazo", []),
+                                placeholder=""
+                            )
+
+                            
+                            valores_salvos = [
+                                normalizar_texto(v)
+                                for v in entrega.get("resultados_longo_prazo_relacionados", [])
+                                if normalizar_texto(v) in resultados_longo
+                            ]
+
+                            entrega_editada["resultados_longo_prazo_relacionados"] = st.multiselect(
+                                "Contribui com quais resultados de longo prazo?",
+                                options=resultados_longo,
+                                default=valores_salvos,
+                                placeholder=""
+                            )
+
+                            entrega_editada["eixos_relacionados"] = st.multiselect(
+                                "Contribui com quais eixos da estratégia PPP-ECOS?",
+                                options=eixos_da_estrategia,
+                                default=entrega.get("eixos_relacionados", []),
+                                placeholder=""
+                            )
+
+                            acoes_selecionadas_labels = [
+                                label for label, valor in acoes_estrategicas_dict.items()
+                                if valor in entrega.get("acoes_relacionadas", [])
+                            ]
+
+                            acoes_selecionadas_labels = st.multiselect(
+                                "Contribui com quais ações estratégicas dos programas?",
+                                options=list(acoes_estrategicas_dict.keys()),
+                                default=acoes_selecionadas_labels,
+                                placeholder=""
+                            )
+
+                            # Converter de volta para o valor puro (sem o nome do programa)
+                            entrega_editada["acoes_relacionadas"] = [
+                                acoes_estrategicas_dict[label] for label in acoes_selecionadas_labels
                             ]
                             
-                            entrega_editada["responsaveis"] = [ObjectId(r) for r in entrega_editada["responsaveis"]]
-
-                            entregas_existentes[i] = entrega_editada
-                            projetos_ispn.update_one(
-                                {"_id": projeto_info["_id"]},
-                                {"$set": {"entregas": entregas_existentes}}
+                            entrega_editada["indicadores_relacionados"] = st.multiselect(
+                                "Contribui com quais indicadores?",
+                                options=indicadores_valores,
+                                default=entrega.get("indicadores_relacionados", []),
+                                format_func=formatar_nome_legivel,
+                                placeholder=""
                             )
-                            st.success("Entrega atualizada!")
-                            time.sleep(2)
-                            st.rerun()
+                            
+                            entrega_editada["anotacoes"] = st.text_area("Anotações", entrega.get("anotacoes", ""))
+                            
+                            st.write("")
+
+                            salvar_edicao = st.form_submit_button("Salvar alterações", icon=":material/save:")
+                            if salvar_edicao:
+                                entrega_editada["anos_de_referencia"] = [
+                                    a.strip() for a in entrega_editada["anos_de_referencia"].split(",") if a.strip()
+                                ]
+                                
+                                entrega_editada["responsaveis"] = [ObjectId(r) for r in entrega_editada["responsaveis"]]
+
+                                entregas_existentes[i] = entrega_editada
+                                projetos_ispn.update_one(
+                                    {"_id": projeto_info["_id"]},
+                                    {"$set": {"entregas": entregas_existentes}}
+                                )
+                                st.success("Entrega atualizada!")
+                                time.sleep(2)
+                                st.rerun()
+    
+    with aba_lancamentos_entregas:
+
+        #st.subheader("Lançamentos de entregas")
+
+        if not entregas_existentes:
+            st.info("Este projeto ainda não possui entregas cadastradas.")
+            st.stop()
+
+        # =========================
+        # Selecionar entrega
+        # =========================
+        nomes_entregas = [e["nome_da_entrega"] for e in entregas_existentes]
+
+        entrega_selecionada_nome = st.selectbox(
+            "Selecione a entrega",
+            options=nomes_entregas
+        )
+
+        entrega_idx = nomes_entregas.index(entrega_selecionada_nome)
+        entrega = entregas_existentes[entrega_idx]
+
+        # =========================
+        # Dados do lançamento
+        # =========================
+
+        ano_inicial = 2025
+        ano_atual = datetime.now().year
+
+        anos_disponiveis = list(range(ano_inicial, ano_atual + 6))
+
+        ano_lancamento = st.selectbox(
+            "Ano do lançamento",
+            options=anos_disponiveis
+        )
+
+        anotacoes_lancamento = st.text_area("Anotações da entrega")
+
+        st.divider()
+
+        # =========================
+        # Lançamentos de indicadores
+        # =========================
+        st.markdown("### Lançamento de indicadores")
+        
+        st.write("")
+
+        valores_indicadores = {}
+
+        indicadores_entrega = entrega.get("indicadores_relacionados", [])
+
+        for indicador in indicadores_entrega:
+
+            st.markdown(f"**{formatar_nome_legivel(indicador)}**")
+
+            col1, col2 = st.columns([2, 3])
+
+            # Campo dinâmico
+            if formatar_nome_legivel(indicador) in indicadores_float:
+                valor = col1.number_input(
+                    "Valor",
+                    step=0.01,
+                    key=f"valor_{indicador}"
+                )
+            elif formatar_nome_legivel(indicador) in indicador_texto:
+                valor = col1.text_input(
+                    "Valor",
+                    key=f"valor_{indicador}"
+                )
+            else:
+                valor = col1.number_input(
+                    "Valor",
+                    step=1,
+                    key=f"valor_{indicador}"
+                )
+
+            observacoes = col2.text_input(
+                "Observações",
+                key=f"obs_{indicador}"
+            )
+
+            valores_indicadores[indicador] = {
+                "valor": valor,
+                "observacoes": observacoes
+            }
+
+            st.divider()
+
+        # =========================
+        # SALVAR
+        # =========================
+        if st.button("Salvar lançamento", icon=":material/save:"):
+
+            if not ano_lancamento:
+                st.warning("Informe o ano do lançamento.")
+                st.stop()
+
+            # -------------------------
+            # 1. Salvar lançamento da entrega
+            # -------------------------
+            novo_lancamento_entrega = {
+                "_id": ObjectId(),
+                "ano": str(ano_lancamento),
+                "anotacoes": anotacoes_lancamento
+            }
+
+            entregas_existentes[entrega_idx].setdefault(
+                "lancamentos_entregas", []
+            ).append(novo_lancamento_entrega)
+
+            projetos_ispn.update_one(
+                {"_id": projeto_info["_id"]},
+                {"$set": {"entregas": entregas_existentes}}
+            )
+
+            # -------------------------
+            # 2. Salvar lançamentos de indicadores
+            # -------------------------
+            for indicador_nome, dados in valores_indicadores.items():
+
+                if dados["valor"] in ["", None]:
+                    continue
+
+                indicador_doc = indicadores.find_one(
+                    {"nome_indicador": indicador_nome}
+                )
+
+                if not indicador_doc:
+                    continue
+                
+                # Descobrir tipo do indicador
+                nome_legivel = formatar_nome_legivel(indicador_nome)
+
+                if nome_legivel in indicadores_float:
+                    valor_final = float(dados["valor"])
+                elif nome_legivel == indicador_texto:
+                    valor_final = str(dados["valor"])
+                else:
+                    # indicadores inteiros
+                    valor_final = str(dados["valor"])
+
+                lancamento_indicador = {
+                    "id_do_indicador": indicador_doc["_id"],
+                    "projeto": projeto_info["_id"],
+                    "data_anotacao": datetime.now(),
+                    "autor_anotacao": st.session_state.get("nome"),
+                    "valor": valor_final,
+                    "ano": str(ano_lancamento),
+                    "observacoes": dados["observacoes"],
+                    "tipo": "ispn"
+                }
+
+                colecao_lancamentos.insert_one(lancamento_indicador)
+
+            st.success("Lançamento salvo com sucesso!")
+            time.sleep(2)
+            st.rerun()

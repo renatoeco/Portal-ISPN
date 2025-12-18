@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from bson import ObjectId
-from funcoes_auxiliares import conectar_mongo_portal_ispn
+from funcoes_auxiliares import conectar_mongo_portal_ispn, dialog_editar_entregas
 import streamlit_shadcn_ui as ui
 import plotly.express as px
 import time
@@ -185,6 +185,13 @@ COLUNAS_LEGIVEIS = {
     "anos_de_referencia": "Anos de Referência",
     "programa": "Programa"
 }
+
+if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)"}:
+    with st.container(horizontal_alignment="right"):
+        st.write('')    
+        if st.button("Gerenciar entregas", icon=":material/edit:", width=300):
+            dialog_editar_entregas()
+
 
 aba_minhas, aba_todas = st.tabs(["Minhas entregas","Todas as entregas"])
 
