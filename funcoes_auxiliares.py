@@ -173,6 +173,18 @@ def dialog_editar_entregas():
     df_pessoas = pd.DataFrame(list(db["pessoas"].find()))
     df_indicadores = pd.DataFrame(list(indicadores.find()))
     
+    # Garantir string do ObjectId (Streamlit trabalha melhor)
+    df_indicadores["_id"] = df_indicadores["_id"].astype(str)
+
+    # Mapa: id -> nome legível
+    mapa_indicadores = dict(
+        zip(df_indicadores["_id"], df_indicadores["nome_indicador"])
+    )
+
+    # Lista de IDs (o que será salvo)
+    indicadores_options = sorted(mapa_indicadores.keys(), key=lambda x: mapa_indicadores[x])
+
+    
     indicadores_float = [
         "Área com manejo ecológico do fogo (ha)",
         "Área com manejo agroecológico (ha)",
@@ -393,10 +405,11 @@ def dialog_editar_entregas():
                 
                 indicadores_relacionados = st.multiselect(
                     "Contribui com quais indicadores?",
-                    options=indicadores_valores,
-                    format_func=formatar_nome_legivel,
+                    options=indicadores_options, 
+                    format_func=lambda x: formatar_nome_legivel(mapa_indicadores.get(x, "")),
                     placeholder=""
                 )
+
 
                 
                 st.write("")
@@ -422,7 +435,7 @@ def dialog_editar_entregas():
                             "eixos_relacionados": eixos_relacionados,
                             "acoes_relacionadas": acoes_puras,
                             "metas_resultados_medio_prazo": metas_mp_relacionadas,
-                            "indicadores_relacionados": indicadores_relacionados
+                            "indicadores_relacionados": [ObjectId(i) for i in indicadores_relacionados]
                         }
 
                         # adiciona ao array existente
@@ -519,17 +532,18 @@ def dialog_editar_entregas():
                         st.write("")
                         
                         indicadores_entrega = entrega.get("indicadores_relacionados", [])
+
                         if indicadores_entrega:
                             st.markdown("**Indicadores:**")
                             for i in indicadores_entrega:
-                                st.markdown(f"- {formatar_nome_legivel(i)}")
+                                nome = mapa_indicadores.get(str(i), "Indicador não encontrado")
+                                st.markdown(f"- {formatar_nome_legivel(nome)}")
+
                         else:
                             st.markdown("**Indicadores:** -")
 
                         st.write("")
                         
-                        st.markdown(f"**Anotações:** {entrega.get('anotacoes', '-')}")
-
                     else:
                         # --- Modo de edição ---
                         with st.form(f"form_edit_entrega_{i}", border=False):
@@ -626,15 +640,19 @@ def dialog_editar_entregas():
                                 acoes_estrategicas_dict[label] for label in acoes_selecionadas_labels
                             ]
                             
+                            default_ids = [str(i) for i in entrega.get("indicadores_relacionados", [])]
+
                             entrega_editada["indicadores_relacionados"] = st.multiselect(
                                 "Contribui com quais indicadores?",
-                                options=indicadores_valores,
-                                default=entrega.get("indicadores_relacionados", []),
-                                format_func=formatar_nome_legivel,
+                                options=indicadores_options,
+                                default=default_ids,
+                                format_func=lambda x: formatar_nome_legivel(mapa_indicadores.get(x, "")),
                                 placeholder=""
                             )
                             
-                            entrega_editada["anotacoes"] = st.text_area("Anotações", entrega.get("anotacoes", ""))
+                            entrega_editada["indicadores_relacionados"] = [
+                                ObjectId(i) for i in entrega_editada["indicadores_relacionados"]
+                            ]
                             
                             st.write("")
 
@@ -690,8 +708,6 @@ def dialog_editar_entregas():
             options=anos_disponiveis
         )
 
-        anotacoes_lancamento = st.text_area("Anotações da entrega")
-
         st.divider()
 
         # =========================
@@ -707,18 +723,19 @@ def dialog_editar_entregas():
 
         for indicador in indicadores_entrega:
 
-            st.markdown(f"**{formatar_nome_legivel(indicador)}**")
-
+            nome_indicador = mapa_indicadores.get(str(indicador), "Indicador não encontrado")
+            st.markdown(f"**{formatar_nome_legivel(nome_indicador)}**")
+            
             col1, col2 = st.columns([2, 3])
 
             # Campo dinâmico
-            if formatar_nome_legivel(indicador) in indicadores_float:
+            if formatar_nome_legivel(nome_indicador) in indicadores_float:
                 valor = col1.number_input(
                     "Valor",
                     step=0.01,
                     key=f"valor_{indicador}"
                 )
-            elif formatar_nome_legivel(indicador) in indicador_texto:
+            elif formatar_nome_legivel(nome_indicador) == indicador_texto:
                 valor = col1.text_input(
                     "Valor",
                     key=f"valor_{indicador}"
@@ -757,7 +774,6 @@ def dialog_editar_entregas():
             novo_lancamento_entrega = {
                 "_id": ObjectId(),
                 "ano": str(ano_lancamento),
-                "anotacoes": anotacoes_lancamento
             }
 
             entregas_existentes[entrega_idx].setdefault(

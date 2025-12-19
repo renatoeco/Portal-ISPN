@@ -243,63 +243,65 @@ def editar_titulo_de_cada_resultado_mp_dialog(resultado_idx):
         with aba2:
             metas = resultado.get("metas", [])
             
-            # 🔹 Expander para adicionar nova meta
-            with st.expander("Adicionar meta", expanded=False, icon=":material/add_notes:"):
-                novo_nome_meta = st.text_input("Título da meta", key=f"nova_meta_nome_{resultado_idx}")
-                novo_objetivo = st.text_input("Objetivo da meta", key=f"nova_meta_obj_{resultado_idx}")
-
-                if st.button("Adicionar Meta", key=f"btn_add_meta_{resultado_idx}", icon=":material/add:"):
-                    nova_meta = {
-                        "_id": str(ObjectId()),
-                        "nome_meta_mp": novo_nome_meta,
-                        "objetivo": novo_objetivo
-                    }
-                    resultados[resultado_idx].setdefault("metas", []).append(nova_meta)
-
-                    estrategia.update_one(
-                        {"_id": doc["_id"]},
-                        {"$set": {"resultados_medio_prazo.resultados_mp": resultados}}
-                    )
-                    st.success("Nova meta adicionada com sucesso!")
-                    time.sleep(2)
-                    st.rerun()
-                    
+            st.subheader("Adicionar uma meta")
             st.write("")
+            
+            # Adicionar nova meta
+            novo_nome_meta = st.text_input("Título da meta", key=f"nova_meta_nome_{resultado_idx}")
+            novo_objetivo = st.text_input("Objetivo da meta", key=f"nova_meta_obj_{resultado_idx}")
 
-            for m_idx, meta in enumerate(metas):
-                titulo_meta = meta.get("nome_meta_mp", f"Meta {m_idx + 1}")
-                with st.expander(f"{titulo_meta}", expanded=False):
-                    novo_nome_meta = st.text_input(
-                        "Título",
-                        value=meta.get("nome_meta_mp", ""),
-                        key=f"nome_meta_{resultado_idx}_{m_idx}"
-                    )
-                    novo_objetivo = st.text_input(
-                        "Objetivo",
-                        value=meta.get("objetivo", ""),
-                        key=f"obj_{resultado_idx}_{m_idx}"
-                    )
-                    novo_alcancado = st.text_input(
-                        "Alcançado",
-                        value=meta.get("alcancado", ""),
-                        key=f"alcan_{resultado_idx}_{m_idx}"
-                    )
+            if st.button("Adicionar Meta", key=f"btn_add_meta_{resultado_idx}", icon=":material/add:"):
+                nova_meta = {
+                    "_id": str(ObjectId()),
+                    "nome_meta_mp": novo_nome_meta,
+                    "objetivo": novo_objetivo
+                }
+                resultados[resultado_idx].setdefault("metas", []).append(nova_meta)
 
-                    if st.button("Salvar", key=f"salvar_meta_{resultado_idx}_{m_idx}", icon=":material/save:"):
-                        resultados[resultado_idx]["metas"][m_idx]["nome_meta_mp"] = novo_nome_meta
-                        resultados[resultado_idx]["metas"][m_idx]["objetivo"] = novo_objetivo
-                        resultados[resultado_idx]["metas"][m_idx]["alcancado"] = novo_alcancado
+                estrategia.update_one(
+                    {"_id": doc["_id"]},
+                    {"$set": {"resultados_medio_prazo.resultados_mp": resultados}}
+                )
+                st.success("Nova meta adicionada com sucesso!")
+                time.sleep(2)
+                st.rerun()
+                    
+            # st.write("")
 
-                        if "_id" not in resultados[resultado_idx]["metas"][m_idx]:
-                            resultados[resultado_idx]["metas"][m_idx]["_id"] = str(ObjectId())
+            # for m_idx, meta in enumerate(metas):
+            #     titulo_meta = meta.get("nome_meta_mp", f"Meta {m_idx + 1}")
+            #     with st.expander(f"{titulo_meta}", expanded=False):
+            #         novo_nome_meta = st.text_input(
+            #             "Título",
+            #             value=meta.get("nome_meta_mp", ""),
+            #             key=f"nome_meta_{resultado_idx}_{m_idx}"
+            #         )
+            #         novo_objetivo = st.text_input(
+            #             "Objetivo",
+            #             value=meta.get("objetivo", ""),
+            #             key=f"obj_{resultado_idx}_{m_idx}"
+            #         )
+            #         novo_alcancado = st.text_input(
+            #             "Alcançado",
+            #             value=meta.get("alcancado", ""),
+            #             key=f"alcan_{resultado_idx}_{m_idx}"
+            #         )
 
-                        estrategia.update_one(
-                            {"_id": doc["_id"]},
-                            {"$set": {"resultados_medio_prazo.resultados_mp": resultados}}
-                        )
-                        st.success("Meta atualizada com sucesso!")
-                        time.sleep(2)
-                        st.rerun()
+            #         if st.button("Salvar", key=f"salvar_meta_{resultado_idx}_{m_idx}", icon=":material/save:"):
+            #             resultados[resultado_idx]["metas"][m_idx]["nome_meta_mp"] = novo_nome_meta
+            #             resultados[resultado_idx]["metas"][m_idx]["objetivo"] = novo_objetivo
+            #             resultados[resultado_idx]["metas"][m_idx]["alcancado"] = novo_alcancado
+
+            #             if "_id" not in resultados[resultado_idx]["metas"][m_idx]:
+            #                 resultados[resultado_idx]["metas"][m_idx]["_id"] = str(ObjectId())
+
+            #             estrategia.update_one(
+            #                 {"_id": doc["_id"]},
+            #                 {"$set": {"resultados_medio_prazo.resultados_mp": resultados}}
+            #             )
+            #             st.success("Meta atualizada com sucesso!")
+            #             time.sleep(2)
+            #             st.rerun()
 
 
         # -------------------------- #
@@ -359,7 +361,7 @@ def editar_titulo_de_cada_resultado_mp_dialog(resultado_idx):
         
         metas = resultado.get("metas", [])
             
-        # 🔹 Expander para adicionar nova meta
+        # Expander para adicionar nova meta
         with st.expander("Adicionar meta", expanded=False, icon=":material/add_notes:"):
             novo_nome_meta = st.text_input("Título da meta", key=f"nova_meta_nome_{resultado_idx}")
             novo_objetivo = st.text_input("Objetivo da meta", key=f"nova_meta_obj_{resultado_idx}")
@@ -833,11 +835,6 @@ with aba_est:
 
 
 
-
-# ---------------------------
-# ABA RESULTADOS DE MÉDIO PRAZO
-# ---------------------------
-
 # ---------------------------
 # ABA RESULTADOS DE MÉDIO PRAZO
 # ---------------------------
@@ -930,11 +927,19 @@ with aba_res_mp:
                     use_container_width=True
                 )
 
-            # --------------------------------------------
-            # METAS
-            # --------------------------------------------
-            metas = resultado.get("metas", [])
-            if metas:
+            @st.fragment
+            def fragmento_metas_mp(
+                *,
+                metas,
+                idx,
+                resultado,
+                doc,
+                estrategia
+            ):
+                if not metas:
+                    st.warning("Nenhuma meta cadastrada.")
+                    return
+
                 st.markdown("##### :material/target: Metas:")
                 st.write("")
 
@@ -947,36 +952,84 @@ with aba_res_mp:
                     for m in metas
                 ])
 
-                if st.session_state.get("modo_edicao"):
-                    if f"df_original_mp_{idx}" not in st.session_state:
-                        st.session_state[f"df_original_mp_{idx}"] = df_metas.copy()
+                if st.session_state.modo_edicao_2:
+                    chave_original = f"df_metas_original_mp_{idx}"
+                    chave_editado = f"df_metas_editado_mp_{idx}"
 
-                    df_metas_editado = st.data_editor(
-                        st.session_state[f"df_original_mp_{idx}"],
+                    if chave_original not in st.session_state:
+                        st.session_state[chave_original] = df_metas.copy()
+
+                    df_editado = st.data_editor(
+                        st.session_state.get(
+                            chave_editado,
+                            st.session_state[chave_original],
+                        ),
                         hide_index=True,
-                        key=f"tabela_metas_mp_{idx}"
+                        key=f"editor_metas_mp_{idx}",
+                        column_config={
+                            "Meta": st.column_config.TextColumn(
+                                "Meta",
+                                disabled=True
+                            ),
+                            "Objetivo": st.column_config.TextColumn("Objetivo"),
+                            "Alcançado": st.column_config.TextColumn("Alcançado"),
+                        },
+                        num_rows="fixed"
                     )
 
-                    if df_tem_mudancas(
-                        df_metas_editado,
-                        st.session_state[f"df_original_mp_{idx}"]
-                    ):
-                        st.session_state[f"df_original_mp_{idx}"] = df_metas_editado.copy()
-                        nova_lista = df_metas_editado.to_dict(orient="records")
+                    st.session_state[chave_editado] = df_editado.copy()
 
-                        estrategia.update_one(
-                            {"_id": doc["_id"]},
-                            {
-                                "$set": {
-                                    "resultados_medio_prazo.resultados_mp": nova_lista
+                    houve_mudanca = df_tem_mudancas(
+                        df_editado,
+                        st.session_state[chave_original]
+                    )
+
+                    if houve_mudanca:
+                        container_botao = st.container(horizontal_alignment="left", width=300)
+                        if container_botao.button(
+                            "Atualizar metas",
+                            icon=":material/save:",
+                            key=f"salvar_metas_mp_{idx}",
+                            use_container_width=True
+                        ):
+                            nova_lista_metas = []
+                            for i, meta in enumerate(metas):
+                                nova_lista_metas.append({
+                                    **meta,
+                                    "objetivo": df_editado.loc[i, "Objetivo"],
+                                    "alcancado": df_editado.loc[i, "Alcançado"]
+                                })
+
+                            estrategia.update_one(
+                                {
+                                    "_id": doc["_id"],
+                                    f"resultados_medio_prazo.resultados_mp.{idx}._id": resultado["_id"]
+                                },
+                                {
+                                    "$set": {
+                                        f"resultados_medio_prazo.resultados_mp.{idx}.metas": nova_lista_metas
+                                    }
                                 }
-                            }
-                        )
-                        st.success("Alterações salvas automaticamente no MongoDB")
+                            )
+
+                            st.session_state[chave_original] = df_editado.copy()
+                            st.session_state.pop(chave_editado, None)
+
+                            msg = st.empty()
+                            msg.success("Metas atualizadas com sucesso")
+                            time.sleep(2)
+                            msg.empty()
+
                 else:
                     st.dataframe(df_metas, hide_index=True)
-            else:
-                st.warning("Nenhuma meta cadastrada.")
+            
+            fragmento_metas_mp(
+                metas=resultado.get("metas", []),
+                idx=idx,
+                resultado=resultado,
+                doc=doc,
+                estrategia=estrategia
+            )
             
             st.divider()
 
