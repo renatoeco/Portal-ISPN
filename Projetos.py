@@ -2295,10 +2295,6 @@ with tab2:
             if st.button("Gerenciar indicadores", icon=":material/edit:", width=300):
                 dialog_indicadores()
 
-
-
-
-
         # ====================
         # Toggle para ver consolidado ou todos os lançamentos
         # ====================
@@ -2306,10 +2302,6 @@ with tab2:
         ver_lancamentos = st.toggle("Ver lançamentos detalhados")
 
         st.write('')
-
-
-
-
 
         # Renderização da tabela dataframe
 

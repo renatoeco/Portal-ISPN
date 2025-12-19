@@ -56,9 +56,16 @@ def carregar_entregas():
 
         for entrega in projeto.get("entregas", []):
             
-            data_conclusao = datetime.strptime(
-                entrega.get("previsao_da_conclusao"), "%d/%m/%Y"
-            )
+            data_raw = entrega.get("previsao_da_conclusao")
+
+            if not data_raw:
+                continue  # pula entregas sem data
+
+            try:
+                data_conclusao = datetime.strptime(data_raw, "%d/%m/%Y")
+            except ValueError:
+                continue  # pula datas inválidas
+
             registros.append({
                 "nome_da_entrega": entrega.get("nome_da_entrega"),
                 
@@ -80,11 +87,34 @@ def carregar_entregas():
                 "responsaveis_ids": [ObjectId(r) for r in entrega.get("responsaveis", [])]
             })
 
+        COLUNAS_PADRAO = [
+            "nome_da_entrega",
+            "nome_do_projeto",
+            "previsao_da_conclusao",
+            "previsao_da_conclusao_str",
+            "responsaveis",
+            "situacao",
+            "anos_de_referencia",
+            "programa",
+            "responsaveis_ids"
+        ]
+
+    df = pd.DataFrame(registros)
+
+    # GARANTIA DE ESQUEMA
+    for col in COLUNAS_PADRAO:
+        if col not in df.columns:
+            df[col] = None
+
+    if df.empty:
+        return df[COLUNAS_PADRAO]
+
     return (
-        pd.DataFrame(registros)
-        .sort_values("previsao_da_conclusao", ascending=False)
+        df[COLUNAS_PADRAO]
+        .sort_values("previsao_da_conclusao", ascending=True)
         .reset_index(drop=True)
     )
+
 
 
 def grafico_cronograma(df, titulo):
@@ -112,7 +142,7 @@ def grafico_cronograma(df, titulo):
     df_plot["previsao_conclusao_hover"] = df_plot["Fim"].dt.strftime("%d/%m/%Y")
 
     # Ordena
-    df_plot = df_plot.sort_values("Fim", ascending=True)
+    df_plot = df_plot.sort_values("Fim", ascending=False)
 
     altura_total = max(300, len(df_plot) * 45)
 
