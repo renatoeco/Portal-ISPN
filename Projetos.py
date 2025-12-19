@@ -14,20 +14,20 @@ st.set_page_config(layout="wide")
 st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
 
 
-######################################################################################################
-# CSS PARA DIALOGO MAIOR
-######################################################################################################
-st.markdown(
-    """
-<style>
-div[data-testid="stDialog"] div[role="dialog"]:has(.big-dialog) {
-    width: 50vw;
+# ######################################################################################################
+# # CSS PARA DIALOGO MAIOR
+# ######################################################################################################
+# st.markdown(
+#     """
+# <style>
+# div[data-testid="stDialog"] div[role="dialog"]:has(.big-dialog) {
+#     width: 50vw;
     
-}
-</style>
-""",
-    unsafe_allow_html=True,
-)
+# }
+# </style>
+# """,
+#     unsafe_allow_html=True,
+# )
 
 
 ######################################################################################################
@@ -339,8 +339,8 @@ df_pessoas = df_pessoas.sort_values(by="nome_completo", ascending=True).reset_in
 @st.dialog("Cadastrar novo projeto", width="large")
 def dialog_cadastrar_projeto(): 
 
-    # Aumentar largura do diálogo com css
-    st.html("<span class='big-dialog'></span>")
+    # # Aumentar largura do diálogo com css
+    # st.html("<span class='big-dialog'></span>")
     
     ######################################################################
     # CARREGAR DADOS DA COLEÇÃO ufs_municipios
