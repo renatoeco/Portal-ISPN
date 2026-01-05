@@ -3,6 +3,7 @@ from funcoes_auxiliares import conectar_mongo_portal_ispn
 import plotly.graph_objects as go
 import plotly.express as px
 import pandas as pd
+import datetime
 
 
 # ---------------------------------------------------------------------------------
@@ -16,6 +17,49 @@ st.write("")
 
 db = conectar_mongo_portal_ispn()
 estatistica = db["estatistica"]
+
+
+# ---------------------------------------------------------------------------------
+# CONTADOR DE ACESSOS À PÁGINA
+# ---------------------------------------------------------------------------------
+
+
+PAGINA_ID = "pagina_administracao"
+nome_pagina = "Administração"
+
+hoje = datetime.datetime.now().strftime("%d/%m/%Y")
+
+pagina_anterior = st.session_state.get("pagina_anterior")
+navegou_para_esta_pagina = (pagina_anterior != PAGINA_ID)
+
+if navegou_para_esta_pagina:
+
+    # Obter o único documento
+    doc = estatistica.find_one({})
+
+    # Criar o campo caso não exista
+    if nome_pagina not in doc:
+        estatistica.update_one(
+            {},
+            {"$set": {nome_pagina: []}}
+        )
+
+    estatistica.update_one(
+            {},
+            {"$inc": {f"{nome_pagina}.$[elem].numero_de_acessos": 1}},
+            array_filters=[{"elem.data": hoje}]
+        )
+
+    estatistica.update_one(
+        {f"{nome_pagina}.data": {"$ne": hoje}},
+        {"$push": {
+            nome_pagina: {"data": hoje, "numero_de_acessos": 1}
+        }}
+    )
+
+# Registrar página anterior
+st.session_state["pagina_anterior"] = PAGINA_ID
+
 
 # Coleta o único documento da coleção
 doc = estatistica.find_one({}, {"_id": 0})
@@ -107,7 +151,7 @@ with aba_visitas:
     df["data"] = pd.to_datetime(df["data"], format="%d/%m/%Y").dt.date
 
     # ============================================================
-    # GRÁFICO 1 — Total de Sessões por Dia (novo modelo)
+    # GRÁFICO 1 — Total de Sessões por Dia
     # ============================================================
     df_sessoes = pd.DataFrame(doc["total_sessoes"]).copy()
     df_sessoes["data"] = pd.to_datetime(df_sessoes["data"], format="%d/%m/%Y")
@@ -118,7 +162,13 @@ with aba_visitas:
         sessoes_por_dia,
         x="data",
         y="numero_de_sessoes",
-        title="Total de Acessos por Dia"
+        title="Total de Acessos por Dia",
+        text="numero_de_sessoes"
+    )
+
+    fig_sessoes.update_traces(
+        textposition="inside",
+        texttemplate="%{y}"
     )
 
     fig_sessoes.update_xaxes(
@@ -128,7 +178,8 @@ with aba_visitas:
         tickangle=-45
     )
 
-    fig_sessoes.update_yaxes(dtick=1)
+    fig_sessoes.update_yaxes(dtick=5)
+
     fig_sessoes.update_layout(
         xaxis_title=None,
         yaxis_title="Número de sessões"
@@ -148,7 +199,13 @@ with aba_visitas:
         x="acessos",
         y="pagina",
         orientation="h",
-        title="Total de Visitas por Página"
+        title="Total de Visitas por Página",
+        text="acessos"
+    )
+
+    fig_paginas.update_traces(
+        textposition="outside",
+        texttemplate="%{x}"
     )
 
     fig_paginas.update_layout(xaxis_title=None, yaxis_title=None)
@@ -164,7 +221,13 @@ with aba_visitas:
         visitas_por_dia,
         x="data",
         y="acessos",
-        title="Visualizações de Páginas"
+        title="Visualizações de Páginas",
+        text="acessos"
+    )
+
+    fig_dias.update_traces(
+        textposition="inside",
+        texttemplate="%{y}"
     )
 
     fig_dias.update_xaxes(
@@ -173,10 +236,12 @@ with aba_visitas:
         ticktext=[d.strftime("%d/%m/%Y") for d in visitas_por_dia["data"]],
         tickangle=-45
     )
+
+    fig_dias.update_layout(
+        xaxis_title=None,
+        yaxis_title="Acessos"
+    )
+
     fig_dias.update_layout(xaxis_title=None)
 
     st.plotly_chart(fig_dias)
-
-    
-
-    

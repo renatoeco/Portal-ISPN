@@ -19,6 +19,48 @@ indicadores = db["indicadores"]
 estatistica = db["estatistica"] 
 
 
+###########################################################################################################
+# CONTADOR DE ACESSOS À PÁGINA
+###########################################################################################################
+
+
+PAGINA_ID = "pagina_entregas"
+nome_pagina = "Entregas"
+
+hoje = datetime.now().strftime("%d/%m/%Y")
+
+pagina_anterior = st.session_state.get("pagina_anterior")
+navegou_para_esta_pagina = (pagina_anterior != PAGINA_ID)
+
+if navegou_para_esta_pagina:
+
+    # Obter o único documento
+    doc = estatistica.find_one({})
+
+    # Criar o campo caso não exista
+    if nome_pagina not in doc:
+        estatistica.update_one(
+            {},
+            {"$set": {nome_pagina: []}}
+        )
+
+    estatistica.update_one(
+            {},
+            {"$inc": {f"{nome_pagina}.$[elem].numero_de_acessos": 1}},
+            array_filters=[{"elem.data": hoje}]
+        )
+
+    estatistica.update_one(
+        {f"{nome_pagina}.data": {"$ne": hoje}},
+        {"$push": {
+            nome_pagina: {"data": hoje, "numero_de_acessos": 1}
+        }}
+    )
+
+# Registrar página anterior
+st.session_state["pagina_anterior"] = PAGINA_ID
+
+
 # ##########################################################
 # Funções
 # ##########################################################
@@ -192,7 +234,7 @@ def grafico_cronograma(df, titulo):
         margin=dict(l=180, r=40, t=60, b=40)
     )
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
 
 # ##########################################################
