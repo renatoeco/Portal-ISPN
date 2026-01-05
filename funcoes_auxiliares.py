@@ -681,149 +681,222 @@ def dialog_editar_entregas():
             st.info("Este projeto ainda não possui entregas cadastradas.")
             st.stop()
 
-        # =========================
-        # Selecionar entrega
-        # =========================
-        nomes_entregas = [e["nome_da_entrega"] for e in entregas_existentes]
+        with st.expander("Adicionar lançamento", expanded=False):
 
-        entrega_selecionada_nome = st.selectbox(
-            "Selecione a entrega",
-            options=nomes_entregas
-        )
+            # =========================
+            # Selecionar entrega
+            # =========================
+            nomes_entregas = [e["nome_da_entrega"] for e in entregas_existentes]
 
-        entrega_idx = nomes_entregas.index(entrega_selecionada_nome)
-        entrega = entregas_existentes[entrega_idx]
-
-        # =========================
-        # Dados do lançamento
-        # =========================
-
-        ano_inicial = 2025
-        ano_atual = datetime.now().year
-
-        anos_disponiveis = list(range(ano_inicial, ano_atual + 6))
-
-        ano_lancamento = st.selectbox(
-            "Ano do lançamento",
-            options=anos_disponiveis
-        )
-
-        st.divider()
-
-        # =========================
-        # Lançamentos de indicadores
-        # =========================
-        st.markdown("### Lançamento de indicadores")
-        
-        st.write("")
-
-        valores_indicadores = {}
-
-        indicadores_entrega = entrega.get("indicadores_relacionados", [])
-
-        for indicador in indicadores_entrega:
-
-            nome_indicador = mapa_indicadores.get(str(indicador), "Indicador não encontrado")
-            st.markdown(f"**{formatar_nome_legivel(nome_indicador)}**")
-            
-            col1, col2 = st.columns([2, 3])
-
-            # Campo dinâmico
-            if formatar_nome_legivel(nome_indicador) in indicadores_float:
-                valor = col1.number_input(
-                    "Valor",
-                    step=0.01,
-                    key=f"valor_{indicador}"
-                )
-            elif formatar_nome_legivel(nome_indicador) == indicador_texto:
-                valor = col1.text_input(
-                    "Valor",
-                    key=f"valor_{indicador}"
-                )
-            else:
-                valor = col1.number_input(
-                    "Valor",
-                    step=1,
-                    key=f"valor_{indicador}"
-                )
-
-            observacoes = col2.text_input(
-                "Observações",
-                key=f"obs_{indicador}"
+            entrega_selecionada_nome = st.selectbox(
+                "Selecione a entrega",
+                options=nomes_entregas
             )
 
-            valores_indicadores[indicador] = {
-                "valor": valor,
-                "observacoes": observacoes
-            }
+            entrega_idx = nomes_entregas.index(entrega_selecionada_nome)
+            entrega = entregas_existentes[entrega_idx]
+
+            # =========================
+            # Dados do lançamento
+            # =========================
+
+            ano_inicial = 2025
+            ano_atual = datetime.now().year
+
+            anos_disponiveis = list(range(ano_inicial, ano_atual + 6))
+
+            ano_lancamento = st.selectbox(
+                "Ano do lançamento",
+                options=anos_disponiveis
+            )
+
+            anotacoes_lancamento = st.text_area(
+                "Anotações",
+                placeholder=""
+            )
 
             st.divider()
 
-        # =========================
-        # SALVAR
-        # =========================
-        if st.button("Salvar lançamento", icon=":material/save:"):
+            # =========================
+            # Lançamentos de indicadores
+            # =========================
+            st.markdown("### Lançamento de indicadores")
+            
+            st.write("")
 
-            if not ano_lancamento:
-                st.warning("Informe o ano do lançamento.")
-                st.stop()
+            valores_indicadores = {}
 
-            # -------------------------
-            # 1. Salvar lançamento da entrega
-            # -------------------------
-            novo_lancamento_entrega = {
-                "_id": ObjectId(),
-                "ano": str(ano_lancamento),
-            }
+            indicadores_entrega = entrega.get("indicadores_relacionados", [])
 
-            entregas_existentes[entrega_idx].setdefault(
-                "lancamentos_entregas", []
-            ).append(novo_lancamento_entrega)
+            for indicador in indicadores_entrega:
 
-            projetos_ispn.update_one(
-                {"_id": projeto_info["_id"]},
-                {"$set": {"entregas": entregas_existentes}}
-            )
+                nome_indicador = mapa_indicadores.get(str(indicador), "Indicador não encontrado")
+                st.markdown(f"**{formatar_nome_legivel(nome_indicador)}**")
+                
+                col1, col2 = st.columns([2, 3])
 
-            # -------------------------
-            # 2. Salvar lançamentos de indicadores
-            # -------------------------
-            for indicador_nome, dados in valores_indicadores.items():
+                # Campo dinâmico
+                if formatar_nome_legivel(nome_indicador) in indicadores_float:
+                    valor = col1.number_input(
+                        "Valor",
+                        step=0.01,
+                        key=f"valor_{indicador}"
+                    )
+                elif formatar_nome_legivel(nome_indicador) == indicador_texto:
+                    valor = col1.text_input(
+                        "Valor",
+                        key=f"valor_{indicador}"
+                    )
+                else:
+                    valor = col1.number_input(
+                        "Valor",
+                        step=1,
+                        key=f"valor_{indicador}"
+                    )
 
-                if dados["valor"] in ["", None]:
-                    continue
-
-                indicador_doc = indicadores.find_one(
-                    {"nome_indicador": indicador_nome}
+                observacoes = col2.text_input(
+                    "Observações",
+                    key=f"obs_{indicador}"
                 )
 
-                if not indicador_doc:
-                    continue
-                
-                # Descobrir tipo do indicador
-                nome_legivel = formatar_nome_legivel(indicador_nome)
-
-                if nome_legivel in indicadores_float:
-                    valor_final = float(dados["valor"])
-                elif nome_legivel == indicador_texto:
-                    valor_final = str(dados["valor"])
-                else:
-                    # indicadores inteiros
-                    valor_final = str(dados["valor"])
-
-                lancamento_indicador = {
-                    "id_do_indicador": indicador_doc["_id"],
-                    "projeto": projeto_info["_id"],
-                    "data_anotacao": datetime.now(),
-                    "autor_anotacao": st.session_state.get("nome"),
-                    "valor": valor_final,
-                    "ano": str(ano_lancamento),
-                    "observacoes": dados["observacoes"],
-                    "tipo": "ispn"
+                valores_indicadores[indicador] = {
+                    "valor": valor,
+                    "observacoes": observacoes
                 }
 
-                colecao_lancamentos.insert_one(lancamento_indicador)
+                st.divider()
 
-            st.success("Lançamento salvo com sucesso!")
-            time.sleep(2)
-            st.rerun()
+            # =========================
+            # SALVAR
+            # =========================
+            if st.button("Salvar lançamento", icon=":material/save:"):
+
+                if not ano_lancamento:
+                    st.warning("Informe o ano do lançamento.")
+                    st.stop()
+
+                # -------------------------
+                # 1. Salvar lançamento da entrega
+                # -------------------------
+                novo_lancamento_entrega = {
+                    "_id": ObjectId(),
+                    "ano": str(ano_lancamento),
+                    "anotacoes": anotacoes_lancamento
+                }
+
+                entregas_existentes[entrega_idx].setdefault(
+                    "lancamentos_entregas", []
+                ).append(novo_lancamento_entrega)
+
+                projetos_ispn.update_one(
+                    {"_id": projeto_info["_id"]},
+                    {"$set": {"entregas": entregas_existentes}}
+                )
+
+                # -------------------------
+                # 2. Salvar lançamentos de indicadores
+                # -------------------------
+                for indicador_nome, dados in valores_indicadores.items():
+
+                    if dados["valor"] in ["", None]:
+                        continue
+
+                    indicador_doc = indicadores.find_one(
+                        {"nome_indicador": indicador_nome}
+                    )
+
+                    if not indicador_doc:
+                        continue
+                    
+                    # Descobrir tipo do indicador
+                    nome_legivel = formatar_nome_legivel(indicador_nome)
+
+                    if nome_legivel in indicadores_float:
+                        valor_final = float(dados["valor"])
+                    elif nome_legivel == indicador_texto:
+                        valor_final = str(dados["valor"])
+                    else:
+                        # indicadores inteiros
+                        valor_final = str(dados["valor"])
+
+                    lancamento_indicador = {
+                        "id_do_indicador": indicador_doc["_id"],
+                        "projeto": projeto_info["_id"],
+                        "data_anotacao": datetime.now(),
+                        "autor_anotacao": st.session_state.get("nome"),
+                        "valor": valor_final,
+                        "ano": str(ano_lancamento),
+                        "observacoes": dados["observacoes"],
+                        "tipo": "ispn"
+                    }
+
+                    colecao_lancamentos.insert_one(lancamento_indicador)
+
+                st.success("Lançamento salvo com sucesso!")
+                time.sleep(2)
+                st.rerun()
+
+        lancamentos = entrega.get("lancamentos_entregas", [])
+
+        if lancamentos:
+            st.markdown("### Lançamentos cadastrados:")
+
+            st.write("")
+
+            for idx, lanc in enumerate(lancamentos):
+
+                nome_entrega = entrega.get("nome_da_entrega", "Entrega")
+
+                with st.expander(
+                    f"Lançamento - {nome_entrega} - {lanc.get('ano', '-')}",
+                    expanded=False
+                ):
+
+
+                    modo_edicao = st.toggle(
+                        "Modo de edição",
+                        key=f"toggle_lanc_{idx}"
+                    )
+
+                    if not modo_edicao:
+                        st.write(f"**Ano:** {lanc.get('ano', '-')}")
+                        st.write(
+                            f"**Anotações:** {lanc.get('anotacoes', '-') or '-'}"
+                        )
+
+                    else:
+
+                        novo_ano = st.selectbox(
+                            "Ano do lançamento",
+                            options=anos_disponiveis,
+                            index=anos_disponiveis.index(int(lanc.get("ano"))),
+                            key=f"edit_ano_lanc_{idx}"
+                        )
+
+                        novas_anotacoes = st.text_area(
+                            "Anotações do lançamento",
+                            value=lanc.get("anotacoes", ""),
+                            key=f"edit_anot_lanc_{idx}"
+                        )
+
+                        salvar_edicao = st.button(
+                            "Salvar alterações",
+                            icon=":material/save:",
+                            key=f"salvar_lanc_{idx}"
+                        )
+
+
+                        if salvar_edicao:
+                            lanc["ano"] = str(novo_ano)
+                            lanc["anotacoes"] = novas_anotacoes
+
+                            entregas_existentes[entrega_idx]["lancamentos_entregas"][idx] = lanc
+
+                            projetos_ispn.update_one(
+                                {"_id": projeto_info["_id"]},
+                                {"$set": {"entregas": entregas_existentes}}
+                            )
+
+                            st.success("Lançamento atualizado!")
+                            time.sleep(2)
+                            st.rerun()
