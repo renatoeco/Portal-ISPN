@@ -76,6 +76,9 @@ aba_banco, aba_visitas = st.tabs(["Banco de Dados", "Visitações"])
 # ---------------------------------------------------------------------------------
 with aba_banco:
 
+    st.write('')
+    st.markdown("##### Capacidade do Banco de Dados")
+
     col1, col2, col3 = st.columns(3)
 
     # Obtém estatísticas do banco
@@ -110,10 +113,11 @@ with aba_banco:
         }
     ))
 
+
     fig_gauge.update_layout(
         height=400,
         margin=dict(l=30, r=30, t=60, b=30),
-        title="Capacidade do Banco de Dados (Limite do plano gratuito 500 MB)"
+        title="Limite do plano gratuito 500 MB"
     )
 
     col1.plotly_chart(fig_gauge)
