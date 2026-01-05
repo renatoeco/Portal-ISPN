@@ -23,6 +23,36 @@ def conectar_mongo_pls():
 
 
 
+# VERSÃO NOVA
+def altura_dataframe(df, linhas_adicionais=1):
+    """
+    Calcula a altura ideal para st.dataframe,
+    garantindo que todas as linhas fiquem visíveis
+    sem barra de rolagem.
+
+    Parâmetros:
+    - df: DataFrame exibido no dataframe
+    - linhas_adicionais: linhas extras de folga (default=1)
+
+    Retorna:
+    - altura em pixels (int)
+    """
+
+    ALTURA_LINHA = 35      # altura média de cada linha
+    ALTURA_HEADER = 38    # cabeçalho do dataframe
+
+    try:
+        total_linhas = len(df) + linhas_adicionais
+    except Exception:
+        total_linhas = linhas_adicionais
+
+    altura = (total_linhas * ALTURA_LINHA) + ALTURA_HEADER
+
+    return altura
+
+
+
+# VERSÃO ANTIGA
 def ajustar_altura_dataframe(
     df_nao_atualizado,
     linhas_adicionais=0,
