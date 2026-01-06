@@ -148,19 +148,32 @@ def gerenciar_programa_dialog(programa):
     resultados_longo = []
     eixos_da_estrategia = []
 
+    # ===============================
+    # MAPAS ID -> NOME
+    # ===============================
+
+    mapa_eixos = {}
+    mapa_mp = {}
+    mapa_lp = {}
+
     for doc in dados_estrategia:
-        if "resultados_medio_prazo" in doc:
-            resultados_medio.extend(
-                [r.get("titulo") for r in doc["resultados_medio_prazo"].get("resultados_mp", []) if r.get("titulo")]
-            )
-        if "resultados_longo_prazo" in doc:
-            resultados_longo.extend(
-                [r.get("titulo") for r in doc["resultados_longo_prazo"].get("resultados_lp", []) if r.get("titulo")]
-            )
-        if "estrategia" in doc:
-            eixos_da_estrategia.extend(
-                [e.get("titulo") for e in doc["estrategia"].get("eixos_da_estrategia", []) if e.get("titulo")]
-            )
+
+        # Eixos
+        for e in doc.get("estrategia", {}).get("eixos_da_estrategia", []):
+            mapa_eixos[str(e["_id"])] = e["titulo"]
+
+        # Resultados MP
+        for r in doc.get("resultados_medio_prazo", {}).get("resultados_mp", []):
+            mapa_mp[str(r["_id"])] = r["titulo"]
+
+        # Resultados LP
+        for r in doc.get("resultados_longo_prazo", {}).get("resultados_lp", []):
+            mapa_lp[str(r["_id"])] = r["titulo"]
+            
+    opcoes_eixos = list(mapa_eixos.keys())
+    opcoes_mp = list(mapa_mp.keys())
+    opcoes_lp = list(mapa_lp.keys())
+
 
 
     # ------------------- Aba principal -------------------
@@ -248,39 +261,43 @@ def gerenciar_programa_dialog(programa):
 
                 eixo_sel = st.multiselect(
                     "Contribui com quais eixos da estratégia?",
-                    options=eixos_da_estrategia,
-                    key=f"eixo_estrategia_add_{programa['id']}",
+                    options=opcoes_eixos,
+                    format_func=lambda x: mapa_eixos.get(x, ""),
                     placeholder=""
                 )
 
                 resultados_mp_sel = st.multiselect(
                     "Contribui com quais resultados de médio prazo?",
-                    options=resultados_medio,
-                    key=f"mp_add_{programa['id']}",
+                    options=opcoes_mp,
+                    format_func=lambda x: mapa_mp.get(x, ""),
                     placeholder=""
                 )
 
                 resultados_lp_sel = st.multiselect(
                     "Contribui com quais resultados de longo prazo?",
-                    options=resultados_longo,
-                    key=f"lp_add_{programa['id']}",
+                    options=opcoes_lp,
+                    format_func=lambda x: mapa_lp.get(x, ""),
                     placeholder=""
                 )
+
 
                 st.write("")
 
                 adicionar = st.form_submit_button("Adicionar ação", use_container_width=False)
                 if adicionar and nova_acao.strip():
                     nova_entrada = {
+                        "_id": ObjectId(),
                         "acao_estrategica": nova_acao.strip(),
-                        "eixo_relacionado": eixo_sel,
-                        "resultados_medio_prazo_relacionados": resultados_mp_sel,
-                        "resultados_longo_prazo_relacionados": resultados_lp_sel
+                        "eixo_relacionado": [ObjectId(i) for i in eixo_sel],
+                        "resultados_medio_prazo_relacionados": [ObjectId(i) for i in resultados_mp_sel],
+                        "resultados_longo_prazo_relacionados": [ObjectId(i) for i in resultados_lp_sel],
                     }
+
                     programas_areas.update_one(
                         {"_id": ObjectId(programa["id"])},
                         {"$push": {"acoes_estrategicas": nova_entrada}}
                     )
+
                     st.success("Nova ação adicionada com sucesso!")
                     time.sleep(2)
                     st.rerun()
@@ -291,105 +308,113 @@ def gerenciar_programa_dialog(programa):
             st.write("")
             st.write("**Ações estratégicas registradas:**")
 
-            for idx, acao in enumerate(acoes_estrategicas):
+            for acao in acoes_estrategicas:
+
+                acao_id = str(acao["_id"])
                 titulo_atual = acao.get("acao_estrategica", "")
-                eixo_atual = acao.get("eixo_relacionado") or []
-                relacionados_mp = acao.get("resultados_medio_prazo_relacionados") or []
-                relacionados_lp = acao.get("resultados_longo_prazo_relacionados") or []
 
+                eixo_atual = [str(i) for i in acao.get("eixo_relacionado", [])]
+                mp_atual = [str(i) for i in acao.get("resultados_medio_prazo_relacionados", [])]
+                lp_atual = [str(i) for i in acao.get("resultados_longo_prazo_relacionados", [])]
 
-                with st.expander(f"{titulo_atual or 'Sem título'}", expanded=False):
+                with st.expander(titulo_atual or "Sem título", expanded=False):
+
                     toggle_edicao = st.toggle(
                         "Editar ação",
-                        key=f"toggle_edicao_acao_{programa['id']}_{idx}",
+                        key=f"toggle_edicao_acao_{acao_id}",
                         value=False
                     )
+                    
+                    st.write("")
 
                     if toggle_edicao:
                         # ---------------- MODO EDIÇÃO ----------------
-                        
+
+                        novo_titulo = titulo_atual
                         if "admin" in st.session_state.tipo_usuario:
-                        
                             novo_titulo = st.text_area(
                                 "Título da ação estratégica",
                                 value=titulo_atual,
-                                key=f"titulo_{idx}"
+                                key=f"titulo_{acao_id}"
                             )
 
                         eixo_sel = st.multiselect(
-                            "Contribui com quais eixos da estratégia?",
-                            options=eixos_da_estrategia,
+                            "Eixos da estratégia",
+                            options=opcoes_eixos,
                             default=eixo_atual,
-                            placeholder="",
-                            key=f"eixo_estrategia_edit_{idx}",
+                            format_func=lambda x: mapa_eixos.get(x, ""),
+                            key=f"eixo_edit_{acao_id}",
+                            placeholder=""
                         )
 
                         resultados_mp_sel = st.multiselect(
-                            "Contribui com quais resultados de médio prazo?",
-                            options=resultados_medio,
-                            default=relacionados_mp,
-                            placeholder="",
-                            key=f"mp_edit_{idx}",
+                            "Resultados de médio prazo",
+                            options=opcoes_mp,
+                            default=mp_atual,
+                            format_func=lambda x: mapa_mp.get(x, ""),
+                            key=f"mp_edit_{acao_id}",
+                            placeholder=""
                         )
 
                         resultados_lp_sel = st.multiselect(
-                            "Contribui com quais resultados de longo prazo?",
-                            options=resultados_longo,
-                            default=relacionados_lp,
-                            placeholder="",
-                            key=f"lp_edit_{idx}"
+                            "Resultados de longo prazo",
+                            options=opcoes_lp,
+                            default=lp_atual,
+                            format_func=lambda x: mapa_lp.get(x, ""),
+                            key=f"lp_edit_{acao_id}",
+                            placeholder=""
                         )
 
-                        st.write("")
-                        botoes = st.container(horizontal=True)
+                        if st.button("Salvar alterações", key=f"salvar_acao_{acao_id}"):
 
-                        if botoes.button("Salvar alterações", key=f"salvar_acao_{idx}"):
                             programas_areas.update_one(
                                 {
                                     "_id": ObjectId(programa["id"]),
-                                    "acoes_estrategicas.acao_estrategica": titulo_atual
+                                    "acoes_estrategicas._id": ObjectId(acao_id)
                                 },
                                 {
                                     "$set": {
                                         "acoes_estrategicas.$.acao_estrategica": novo_titulo,
-                                        "acoes_estrategicas.$.eixo_relacionado": eixo_sel,
-                                        "acoes_estrategicas.$.resultados_medio_prazo_relacionados": resultados_mp_sel,
-                                        "acoes_estrategicas.$.resultados_longo_prazo_relacionados": resultados_lp_sel
+                                        "acoes_estrategicas.$.eixo_relacionado": [ObjectId(i) for i in eixo_sel],
+                                        "acoes_estrategicas.$.resultados_medio_prazo_relacionados": [ObjectId(i) for i in resultados_mp_sel],
+                                        "acoes_estrategicas.$.resultados_longo_prazo_relacionados": [ObjectId(i) for i in resultados_lp_sel],
                                     }
                                 }
                             )
+
                             st.success("Ação estratégica atualizada com sucesso!")
-                            time.sleep(2)
-                            #st.rerun()
+                            time.sleep(1)
+                            st.rerun()
 
                     else:
                         # ---------------- MODO VISUALIZAÇÃO ----------------
-                        #st.markdown(f"**Ação estratégica:** {titulo_atual}")
-
-                        # if eixo_atual:
-                        #     st.markdown(f"**Eixo da estratégia:** {eixo_atual}")
-
-                        st.write("")
 
                         if eixo_atual:
                             st.markdown("**Contribui com os eixos estratégicos:**")
                             for e in eixo_atual:
-                                st.markdown(f"- {e}")
-
-                        if relacionados_mp:
+                                st.markdown(f"- {mapa_eixos.get(e, '')}")
+                                
+                        st.write("")
+                                
+                        if mp_atual:
                             st.markdown("**Contribui com os resultados de médio prazo:**")
-                            for r in relacionados_mp:
-                                st.markdown(f"- {r}")
-
-                        if relacionados_lp:
+                            for r in mp_atual:
+                                st.markdown(f"- {mapa_mp.get(r, '')}")
+                                
+                        st.write("")
+                        
+                        if lp_atual:
                             st.markdown("**Contribui com os resultados de longo prazo:**")
-                            for r in relacionados_lp:
-                                st.markdown(f"- {r}")
+                            for r in lp_atual:
+                                st.markdown(f"- {mapa_lp.get(r, '')}")
+
 
 
 ######################################################################################################
 # TRATAMENTO DOS DADOS
 ######################################################################################################
+
+
 
 
 

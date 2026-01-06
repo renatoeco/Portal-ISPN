@@ -324,21 +324,46 @@ def gerenciar_indicadores():
     # =======================================================
     # FUNÇÃO AUXILIAR: CARREGAR OPÇÕES DINÂMICAS
     # =======================================================
+    
     def carregar_opcoes_estrategia():
         estrategia_doc = estrategia.find_one({"estrategia": {"$exists": True}})
         resultados_mp_doc = estrategia.find_one({"resultados_medio_prazo": {"$exists": True}})
         resultados_lp_doc = estrategia.find_one({"resultados_longo_prazo": {"$exists": True}})
 
-        eixos = estrategia_doc.get("estrategia", {}).get("eixos_da_estrategia", []) if estrategia_doc else []
-        opcoes_estrategia = [e["titulo"] for e in eixos]
+        mapa_eixos = {}
+        mapa_mp = {}
+        mapa_lp = {}
 
-        resultados_mp = resultados_mp_doc.get("resultados_medio_prazo", {}).get("resultados_mp", []) if resultados_mp_doc else []
-        opcoes_mp = [r["titulo"] for r in resultados_mp]
+        # -------------------------
+        # EIXOS DA ESTRATÉGIA
+        # -------------------------
+        if estrategia_doc:
+            for e in estrategia_doc.get("estrategia", {}).get("eixos_da_estrategia", []):
+                mapa_eixos[str(e["_id"])] = e.get("titulo", "")
 
-        resultados_lp = resultados_lp_doc.get("resultados_longo_prazo", {}).get("resultados_lp", []) if resultados_lp_doc else []
-        opcoes_lp = [r["titulo"] for r in resultados_lp]
+        # -------------------------
+        # RESULTADOS MÉDIO PRAZO
+        # -------------------------
+        if resultados_mp_doc:
+            for r in resultados_mp_doc.get("resultados_medio_prazo", {}).get("resultados_mp", []):
+                mapa_mp[str(r["_id"])] = r.get("titulo", "")
 
-        return opcoes_estrategia, opcoes_mp, opcoes_lp
+        # -------------------------
+        # RESULTADOS LONGO PRAZO
+        # -------------------------
+        if resultados_lp_doc:
+            for r in resultados_lp_doc.get("resultados_longo_prazo", {}).get("resultados_lp", []):
+                mapa_lp[str(r["_id"])] = r.get("titulo", "")
+
+        return mapa_eixos, mapa_mp, mapa_lp
+
+    
+    mapa_eixos, mapa_mp, mapa_lp = carregar_opcoes_estrategia()
+
+    opcoes_eixos = list(mapa_eixos.keys())
+    opcoes_mp = list(mapa_mp.keys())
+    opcoes_lp = list(mapa_lp.keys())
+
 
     if set(st.session_state.tipo_usuario) & {"admin"}:
 
@@ -364,23 +389,24 @@ def gerenciar_indicadores():
                 placeholder=""
             )
 
-            opcoes_estrategia, opcoes_mp, opcoes_lp = carregar_opcoes_estrategia()
-            
             colabora_estrategia = st.multiselect(
                 "Colabora com quais eixos da estratégia?",
-                options=opcoes_estrategia,
+                options=opcoes_eixos,
+                format_func=lambda x: mapa_eixos.get(x, ""),
                 placeholder=""
             )
 
             colabora_resultado_mp = st.multiselect(
                 "Colabora com quais resultados de médio prazo?",
                 options=opcoes_mp,
+                format_func=lambda x: mapa_mp.get(x, ""),
                 placeholder=""
             )
 
             colabora_resultado_lp = st.multiselect(
                 "Colabora com quais resultados de longo prazo?",
                 options=opcoes_lp,
+                format_func=lambda x: mapa_lp.get(x, ""),
                 placeholder=""
             )
 
@@ -393,10 +419,11 @@ def gerenciar_indicadores():
                     novo_indicador = {
                         "nome_indicador": nome_indicador.strip(),
                         "categoria_indicador": categoria_indicador.strip() if categoria_indicador else "",
-                        "colabora_estrategia": colabora_estrategia,
-                        "colabora_resultado_mp": colabora_resultado_mp,
-                        "colabora_resultado_lp": colabora_resultado_lp
+                        "colabora_estrategia": [ObjectId(i) for i in colabora_estrategia],
+                        "colabora_resultado_mp": [ObjectId(i) for i in colabora_resultado_mp],
+                        "colabora_resultado_lp": [ObjectId(i) for i in colabora_resultado_lp],
                     }
+
                     indicadores.insert_one(novo_indicador)
                     st.success(f"Indicador **{nome_indicador}** adicionado com sucesso!")
                     time.sleep(2)
@@ -425,7 +452,11 @@ def gerenciar_indicadores():
 
                 if nome_indicador_selecionado:
                     indicador_doc = next(i for i in indicadores_lista if i["nome_indicador"] == nome_indicador_selecionado)
-
+                    
+                    eixo_atual = [str(i) for i in indicador_doc.get("colabora_estrategia", [])]
+                    mp_atual = [str(i) for i in indicador_doc.get("colabora_resultado_mp", [])]
+                    lp_atual = [str(i) for i in indicador_doc.get("colabora_resultado_lp", [])]
+                    
                     categoria = col2.selectbox(
                         "Categoria do indicador",
                         options=categorias_existentes,
@@ -433,8 +464,6 @@ def gerenciar_indicadores():
                         if indicador_doc.get("categoria_indicador") in categorias_existentes else None,
                         placeholder=""
                     )
-
-                    opcoes_estrategia, opcoes_mp, opcoes_lp = carregar_opcoes_estrategia()
 
                     def filtrar_valores_validos(valores, opcoes):
                         if not isinstance(valores, list):
@@ -444,26 +473,29 @@ def gerenciar_indicadores():
             
                     colabora_estrategia = st.multiselect(
                         "Colabora com quais eixos da estratégia?",
-                        options=opcoes_estrategia,
-                        default=filtrar_valores_validos(indicador_doc.get("colabora_estrategia", []), opcoes_estrategia),
+                        options=opcoes_eixos,
+                        default=eixo_atual,
+                        format_func=lambda x: mapa_eixos.get(x, ""),
                         placeholder="",
-                        key=f"edit_estrategia_{nome_indicador_selecionado}"
+                        key=f"edit_estrategia_{indicador_doc['_id']}"
                     )
 
                     colabora_resultado_mp = st.multiselect(
                         "Colabora com quais resultados de médio prazo?",
                         options=opcoes_mp,
-                        default=filtrar_valores_validos(indicador_doc.get("colabora_resultado_mp", []), opcoes_mp),
+                        default=mp_atual,
+                        format_func=lambda x: mapa_mp.get(x, ""),
                         placeholder="",
-                        key=f"edit_mp_{nome_indicador_selecionado}"
+                        key=f"edit_mp_{indicador_doc['_id']}"
                     )
             
                     colabora_resultado_lp = st.multiselect(
                         "Colabora com quais resultados de longo prazo?",
                         options=opcoes_lp,
-                        default=filtrar_valores_validos(indicador_doc.get("colabora_resultado_lp", []), opcoes_lp),
+                        default=lp_atual,
+                        format_func=lambda x: mapa_lp.get(x, ""),
                         placeholder="",
-                        key=f"edit_lp_{nome_indicador_selecionado}"
+                        key=f"edit_lp_{indicador_doc['_id']}"
                     )
 
                     st.write("")
@@ -476,9 +508,9 @@ def gerenciar_indicadores():
                             {"_id": indicador_doc["_id"]},
                             {"$set": {
                                 "categoria_indicador": categoria,
-                                "colabora_estrategia": colabora_estrategia,
-                                "colabora_resultado_mp": colabora_resultado_mp,
-                                "colabora_resultado_lp": colabora_resultado_lp
+                                "colabora_estrategia": [ObjectId(i) for i in colabora_estrategia],
+                                "colabora_resultado_mp": [ObjectId(i) for i in colabora_resultado_mp],
+                                "colabora_resultado_lp": [ObjectId(i) for i in colabora_resultado_lp]
                             }}
                         )
                         st.success("Indicador atualizado com sucesso!")
@@ -514,8 +546,6 @@ def gerenciar_indicadores():
                     placeholder=""
                 )
 
-                opcoes_estrategia, opcoes_mp, opcoes_lp = carregar_opcoes_estrategia()
-
                 def filtrar_valores_validos(valores, opcoes):
                     if not isinstance(valores, list):
                         return []
@@ -524,8 +554,8 @@ def gerenciar_indicadores():
         
                 colabora_estrategia = st.multiselect(
                     "Colabora com quais eixos da estratégia?",
-                    options=opcoes_estrategia,
-                    default=filtrar_valores_validos(indicador_doc.get("colabora_estrategia", []), opcoes_estrategia),
+                    options=opcoes_eixos,
+                    default=filtrar_valores_validos(indicador_doc.get("colabora_estrategia", []), opcoes_eixos),
                     placeholder="",
                     key=f"edit_estrategia_{nome_indicador_selecionado}"
                 )
@@ -556,11 +586,12 @@ def gerenciar_indicadores():
                         {"_id": indicador_doc["_id"]},
                         {"$set": {
                             "categoria_indicador": categoria,
-                            "colabora_estrategia": colabora_estrategia,
-                            "colabora_resultado_mp": colabora_resultado_mp,
-                            "colabora_resultado_lp": colabora_resultado_lp
+                            "colabora_estrategia": [ObjectId(i) for i in colabora_estrategia],
+                            "colabora_resultado_mp": [ObjectId(i) for i in colabora_resultado_mp],
+                            "colabora_resultado_lp": [ObjectId(i) for i in colabora_resultado_lp],
                         }}
                     )
+
                     st.success("Indicador atualizado com sucesso!")
                     time.sleep(2)
                     st.rerun()
