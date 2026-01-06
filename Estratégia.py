@@ -8,8 +8,6 @@ from bson import ObjectId
 import re
 
 
-
-
 ###########################################################################################################
 # CONEXÃO COM O BANCO DE DADOS MONGODB
 ###########################################################################################################
@@ -636,10 +634,6 @@ st.write('')
 # aba_tm, aba_est, aba_res_mp, aba_res_lp, aba_ebj_est_ins = st.tabs(['Teoria da mudança', 'Estratégia', 'Resultados de Médio Prazo', 'Resultados de Longo Prazo', 'Objetivos Estratégicos Institucionais'])
 aba_est, aba_res_mp, aba_res_lp, aba_ebj_est_ins = st.tabs(['Estratégia', 'Resultados de Médio Prazo', 'Resultados de Longo Prazo', 'Objetivos Estratégicos Organizacionais'])
 
-
-
-
-
 # ---------------------------
 # ABA ESTRATÉGIA
 # ---------------------------
@@ -767,13 +761,17 @@ with aba_est:
     mapa_indicadores_por_eixo = {}
 
     for ind in todos_indicadores:
-        for eixo_nome in ind.get("colabora_estrategia", []):
-            mapa_indicadores_por_eixo.setdefault(eixo_nome, []).append(ind)
+        for eixo_id in ind.get("colabora_estrategia", []):
+            eixo_id_str = str(eixo_id)
+            mapa_indicadores_por_eixo.setdefault(eixo_id_str, []).append(ind)
 
     # ----------------------------------------------------
     # LOOP DOS EIXOS
     # ----------------------------------------------------
     for eixo in lista_estrategias_ordenada:
+
+        eixo_id = str(eixo["_id"])
+        titulo_eixo = eixo.get("titulo", "Título não definido")
 
         titulo_eixo = eixo.get("titulo", "Título não definido")
 
@@ -815,10 +813,10 @@ with aba_est:
             # INDICADORES DO EIXO (COM SOMA FILTRADA POR ANO)
             # --------------------------------------------
             st.divider()
-            st.markdown("**:material/monitoring: Indicadores**")
+            st.markdown("##### :material/monitoring: Indicadores:")
 
-            indicadores_eixo = mapa_indicadores_por_eixo.get(titulo_eixo, [])
-
+            indicadores_eixo = mapa_indicadores_por_eixo.get(eixo_id, [])
+            
             if not indicadores_eixo:
                 st.write("Nenhum indicador relacionado a este eixo.")
             else:
@@ -831,8 +829,7 @@ with aba_est:
 
                     valor_formatado = float_to_br(valor_total)
 
-                    st.markdown(f"{nome_legivel}: {valor_formatado}")
-
+                    st.markdown(f"**{nome_legivel}:** {valor_formatado}")
 
 
 # ---------------------------
@@ -885,11 +882,12 @@ with aba_res_mp:
     todos_indicadores = list(indicadores.find())
 
     mapa_indicadores_por_resultado_mp = {}
+
     for ind in todos_indicadores:
-        for resultado_mp in ind.get("colabora_resultado_mp", []):
-            mapa_indicadores_por_resultado_mp.setdefault(
-                resultado_mp, []
-            ).append(ind)
+        for rmp_id in ind.get("colabora_resultado_mp", []):
+            rmp_id_str = str(rmp_id)
+            mapa_indicadores_por_resultado_mp.setdefault(rmp_id_str, []).append(ind)
+
 
     # ----------------------------------------------------
     # PRÉ-CARREGAR LANÇAMENTOS DE INDICADORES
@@ -1073,11 +1071,15 @@ with aba_res_mp:
             # --------------------------------------------
             st.markdown("##### :material/monitoring: Indicadores:")
             st.write("")
+            
+            resultado_id = str(resultado["_id"])
+            titulo_result = resultado.get("titulo", f"Resultado {idx + 1}")
 
             indicadores_resultado = mapa_indicadores_por_resultado_mp.get(
-                titulo_result,
+                resultado_id,
                 []
             )
+
 
             if not indicadores_resultado:
                 st.warning("Nenhum indicador relacionado a este resultado.")
@@ -1095,10 +1097,8 @@ with aba_res_mp:
                     valor_formatado = float_to_br(valor_total)
 
                     st.markdown(
-                        f"**{nome_legivel}: {valor_formatado}**"
+                        f"**{nome_legivel}:** {valor_formatado}"
                     )
-
-
 
 
 # ---------------------------
@@ -1154,9 +1154,11 @@ with aba_res_lp:
     mapa_indicadores_por_resultado_lp = {}
     for ind in todos_indicadores_lp:
         for resultado_lp in ind.get("colabora_resultado_lp", []):
+            resultado_lp_id = str(resultado_lp)
             mapa_indicadores_por_resultado_lp.setdefault(
-                resultado_lp, []
+                resultado_lp_id, []
             ).append(ind)
+
 
     # ----------------------------------------------------
     # PRÉ-CARREGAR LANÇAMENTOS DE INDICADORES
@@ -1178,7 +1180,8 @@ with aba_res_lp:
     # ----------------------------------------------------
     if lista_resultados_lp:
         for idx, resultado in enumerate(lista_resultados_lp):
-
+            
+            resultado_lp_id = str(resultado["_id"])
             titulo_result_lp = resultado.get("titulo", f"Resultado {idx + 1}")
 
             with st.expander(titulo_result_lp):
@@ -1220,10 +1223,10 @@ with aba_res_lp:
                 # ====================================================
                 # INDICADORES (VINDOS DA COLEÇÃO 'indicadores')
                 # ====================================================
-                st.markdown("**Indicadores:**")
+                st.markdown("##### :material/monitoring: Indicadores:")
 
                 indicadores_resultado = mapa_indicadores_por_resultado_lp.get(
-                    titulo_result_lp,
+                    resultado_lp_id,
                     []
                 )
 
@@ -1249,7 +1252,7 @@ with aba_res_lp:
                         valor_formatado = float_to_br(valor_total)
 
                         st.markdown(
-                            f"• **{nome_legivel}: {valor_formatado}**"
+                            f"**{nome_legivel}:** {valor_formatado}"
                         )
     else:
         st.warning("Nenhum resultado de longo prazo encontrado no banco de dados.")
