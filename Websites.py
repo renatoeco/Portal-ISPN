@@ -154,7 +154,7 @@ def mostrar_relatorio(df, nome_site):
 
     max_visualizacoes = int(visitas_pagina["Visualizações"].max())
 
-    st.subheader(f"Páginas mais visitadas")
+    st.markdown(f"##### Páginas mais visitadas")
     st.dataframe(visitas_pagina, height=400, hide_index=True,
                 column_config={
                     "Visualizações": st.column_config.ProgressColumn(
@@ -174,7 +174,51 @@ def mostrar_relatorio(df, nome_site):
             yaxis_title="Visualizações",)
     
     st.plotly_chart(fig)
+    
+    
+# ---------------------------------------------------------------------------------
+# Função auxiliar: porcentagem por dia da semana
+# ---------------------------------------------------------------------------------
 
+
+def visitas_por_dia_semana(df):
+    if df.empty:
+        return pd.DataFrame()
+
+    df_aux = df.copy()
+
+    # Dia da semana (0=segunda, 6=domingo)
+    df_aux["DiaSemana"] = df_aux["Data"].dt.dayofweek
+
+    mapa_dias = {
+        0: "Segunda",
+        1: "Terça",
+        2: "Quarta",
+        3: "Quinta",
+        4: "Sexta",
+        5: "Sábado",
+        6: "Domingo",
+    }
+
+    visitas = (
+        df_aux
+        .groupby("DiaSemana")["Visualizações"]
+        .sum()
+        .reset_index()
+    )
+
+    total = visitas["Visualizações"].sum()
+
+    visitas["Dia da semana"] = visitas["DiaSemana"].map(mapa_dias)
+    visitas["% das visitas"] = (visitas["Visualizações"] / total * 100).round(1)
+
+    visitas = visitas[["Dia da semana", "% das visitas"]]
+
+    # Ordena de segunda a domingo
+    visitas["ordem"] = visitas["Dia da semana"].map({v: k for k, v in mapa_dias.items()})
+    visitas = visitas.sort_values("ordem").drop(columns="ordem")
+
+    return visitas
 
 
 # ---------------------------------------------------------------------------------
@@ -304,7 +348,6 @@ with abas[0]:
             )
         
         st.plotly_chart(fig2)
-        
 
 
 # ---------------------------------------------------------------------------------
@@ -320,3 +363,30 @@ for i, (nome_site, property_id) in enumerate(SITES.items(), start=1):
         
         df = consultar_dados(property_id, inicio, fim)
         mostrar_relatorio(df, nome_site)
+        
+        # -----------------------------------------
+        # % de visitas por dia da semana
+        # -----------------------------------------
+        st.write("")
+        st.markdown("##### Distribuição de visitas por dia da semana")
+
+        df_semana = visitas_por_dia_semana(df)
+
+        if df_semana.empty:
+            st.info("Sem dados suficientes para calcular os percentuais.")
+        else:
+            altura_df = 35 + 7 * 35
+            st.dataframe(
+                df_semana,
+                hide_index=True,
+                height=altura_df,
+                column_config={
+                    "% das visitas": st.column_config.ProgressColumn(
+                        "% das visitas",
+                        min_value=0,
+                        max_value=100,
+                        format="%.1f%%",
+                    )
+                }
+            )
+
