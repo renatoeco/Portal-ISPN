@@ -475,7 +475,7 @@ def gerenciar_pessoas():
                         data_nascimento = datetime.datetime.strptime(data_nascimento_str, "%d/%m/%Y")
                     else:
                         data_nascimento = None
-                    data_nascimento = cols[2].date_input("Data de nascimento:", format="DD/MM/YYYY", value=data_nascimento)
+                    data_nascimento = cols[2].date_input("Data de nascimento:", format="DD/MM/YYYY", value=data_nascimento, min_value=datetime.date(1920, 1, 1))
 
                     # -----------------------------------------------------------------
                     # Escolaridade, escritório, programa
