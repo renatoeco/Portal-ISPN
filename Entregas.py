@@ -84,23 +84,84 @@ st.session_state["pagina_anterior"] = PAGINA_ID
 # ##########################################################
 
 
+# Função para renderizar o formulário de novo registro dentro do diálogo de acompanhamento de entrega
+@st.fragment
+def renderizar_novo_registro(idx):
+    st.write('lkj')
 
 
-def normalizar_objetos_mongo(valor):
-    """
-    Converte ObjectId em string, inclusive dentro de listas e dicionários.
-    Mantém tipos simples intactos.
-    """
-    if isinstance(valor, ObjectId):
-        return str(valor)
 
-    if isinstance(valor, list):
-        return [normalizar_objetos_mongo(v) for v in valor]
+# Função para renderizar os lançamentos dentro do diálogo de acompanhamento de entrega
+@st.fragment
+def renderizar_registros(idx):
+    # Define espaçamentos das colunas UMA VEZ
+    colunas = [1, 1, 2, 2]
 
-    if isinstance(valor, dict):
-        return {k: normalizar_objetos_mongo(v) for k, v in valor.items()}
+    lancamentos = df_entregas.loc[idx, "lancamentos_entregas"]
 
-    return valor
+    if not lancamentos:
+        st.caption("Nenhum registro nesta entrega.")
+    else:
+
+        # --------------------------------
+        # Cabeçalho das colunas
+        # --------------------------------
+        col1, col2, col3, col4 = st.columns(colunas)
+
+        with col1:
+            st.markdown("**Ano**")
+        with col2:
+            st.markdown("**Autor(a)**")
+        with col3:
+            st.markdown("**Anotações**")
+
+        with col4:
+            st.markdown("**Indicadores**")
+
+
+        st.divider()
+
+        # --------------------------------
+        # Registros
+        # --------------------------------
+        for lancamento in lancamentos:
+            col1, col2, col3, col4 = st.columns(colunas)
+
+            with col1:
+                st.write(lancamento.get("ano", ""))
+
+            with col2:
+                st.write(lancamento.get("autor", ""))
+
+            with col3:
+                st.write(lancamento.get("anotacoes", ""))
+
+            with col4:
+                with st.popover("Indicadores", type="tertiary"):
+                    st.write("Teste de popover")
+
+
+            st.divider()
+
+
+
+
+
+# def normalizar_objetos_mongo(valor):
+#     """
+#     Converte ObjectId em string, inclusive dentro de listas e dicionários.
+#     Mantém tipos simples intactos.
+#     """
+#     if isinstance(valor, ObjectId):
+#         return str(valor)
+
+#     if isinstance(valor, list):
+#         return [normalizar_objetos_mongo(v) for v in valor]
+
+#     if isinstance(valor, dict):
+#         return {k: normalizar_objetos_mongo(v) for k, v in valor.items()}
+
+#     return valor
 
 
 
@@ -250,68 +311,42 @@ def dialog_registros_entregas():
 
 
 
-    # ===============================
-    # Divider
-    # ===============================
     st.divider()
 
-    # ===============================
+    # ================================================================================================
     # Registros de entrega
-    # ===============================
-    st.markdown("### Registros de entrega")
+    # ================================================================================================
+
+    
+
+    # st.markdown("### Registros de entrega")
+    # st.write('')
+
+    opcoes_acao = [
+        "Ver registros",
+        "Novo registro"
+    ]
+
+    # Segmented control para selecionar a ação
+    acao_registros = st.segmented_control(
+        "",
+        options=opcoes_acao,
+        label_visibility="hidden",
+        default="Ver registros"
+    )
+
+
     st.write('')
 
-    # Define espaçamentos das colunas UMA VEZ
-    colunas = [1, 1, 2, 2]
 
-    lancamentos = df_entregas.loc[idx, "lancamentos_entregas"]
-
-    if not lancamentos:
-        st.caption("Nenhum registro nesta entrega.")
-    else:
-
-        # --------------------------------
-        # Cabeçalho das colunas
-        # --------------------------------
-        col1, col2, col3, col4 = st.columns(colunas)
-
-        with col1:
-            st.markdown("**Ano**")
-        with col2:
-            st.markdown("**Autor(a)**")
-        with col3:
-            st.markdown("**Anotações**")
-
-        with col4:
-            st.markdown("**Indicadores**")
+    # VER REGISTROS
+    if acao_registros == "Ver registros":
+        renderizar_registros(idx)
 
 
-        st.divider()
-
-        # --------------------------------
-        # Registros
-        # --------------------------------
-        for lancamento in lancamentos:
-            col1, col2, col3, col4 = st.columns(colunas)
-
-            with col1:
-                st.write(lancamento.get("ano", ""))
-
-            with col2:
-                st.write(lancamento.get("autor", ""))
-
-            with col3:
-                st.write(lancamento.get("anotacoes", ""))
-
-            with col4:
-                with st.popover("Indicadores", type="tertiary"):
-                    st.write("Teste de popover")
-
-
-            st.divider()
-
-
-
+    # NOVO REGISTRO
+    elif acao_registros == "Novo registro":
+        renderizar_novo_registro(idx)
 
 
 
@@ -524,19 +559,7 @@ df_entregas = carregar_entregas()
 df_entregas["responsaveis_ids"] = df_entregas["responsaveis_ids"].apply(lambda x: [str(i) for i in x])
 
 
-
-
-
-
-
-
-
-
-
-
 df_entregas_lista = df_entregas.copy()
-
-
 
 
 # Botão de gerenciar entregas somente para admin e coordenadores
@@ -545,8 +568,6 @@ if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)"}:
         st.write('')    
         if st.button("Gerenciar entregas", icon=":material/edit:", width=300):
             dialog_editar_entregas()
-
-
 
 
 lista_entregas, cronograma_entregas = st.tabs(["Entregas","Cronograma"])
@@ -564,7 +585,6 @@ with lista_entregas:
         "programa": "Programa",
         "progresso": "Progresso"
     }
-
 
     df_entregas_lista = df_entregas_lista.rename(columns=RENOMEAR)
 
