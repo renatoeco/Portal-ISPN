@@ -201,8 +201,12 @@ def dialog_registros_entregas():
 
     usuarios_coordenadores = set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)"}
 
+
+
+
+
     # ==========================================================
-    # Usuários internos (edição habilitada)
+    # Usuários coordenadores (edição habilitada)
     # ==========================================================
     if usuarios_coordenadores:
 
@@ -292,8 +296,11 @@ def dialog_registros_entregas():
                 time.sleep(3)
                 st.rerun()
 
+
+
+
     # ==========================================================
-    # Usuários externos (somente leitura)
+    # Usuários comuns (somente leitura)
     # ==========================================================
     else:
         with col1:
@@ -304,6 +311,8 @@ def dialog_registros_entregas():
             st.write(f"**Previsão de Conclusão:** {previsao_str}")
         with col4:
             st.write(f"**Responsáveis:** {responsaveis}")
+
+
 
 
 
@@ -347,6 +356,15 @@ def dialog_registros_entregas():
     # NOVO REGISTRO
     elif acao_registros == "Novo registro":
         renderizar_novo_registro(idx)
+
+
+
+
+
+
+
+
+
 
 
 
