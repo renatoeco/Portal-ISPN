@@ -259,7 +259,7 @@ def dialog_registros_entregas():
                 key=f"entrega_responsaveis_{idx}"
             )
 
-        st.write("")
+        # st.write("")
         with st.container(horizontal_alignment="right"):
             if st.button("Salvar alterações", icon=":material/save:", width=250):
 
@@ -316,47 +316,73 @@ def dialog_registros_entregas():
 
 
 
-
-
-
-
-    st.divider()
-
     # ================================================================================================
     # Registros de entrega
     # ================================================================================================
 
-    
 
-    # st.markdown("### Registros de entrega")
-    # st.write('')
+    st.markdown("### Registros de entrega")
 
-    opcoes_acao = [
-        "Ver registros",
-        "Novo registro"
-    ]
+    tab_ver_registros, tab_novo_registro = st.tabs(["Ver registros", "Novo registro"])
 
-    # Segmented control para selecionar a ação
-    acao_registros = st.segmented_control(
-        "",
-        options=opcoes_acao,
-        label_visibility="hidden",
-        default="Ver registros"
-    )
+    # Aba de listagem dos registros de entrega
+    with tab_ver_registros:
+
+        # Define espaçamentos das colunas UMA VEZ
+        colunas = [1, 1, 2, 2]
+
+        lancamentos = df_entregas.loc[idx, "lancamentos_entregas"]
+
+        if not lancamentos:
+            st.caption("Nenhum registro nesta entrega.")
+        else:
+
+            # --------------------------------
+            # Cabeçalho das colunas
+            # --------------------------------
+            col1, col2, col3, col4 = st.columns(colunas)
+
+            with col1:
+                st.markdown("**Ano**")
+            with col2:
+                st.markdown("**Autor(a)**")
+            with col3:
+                st.markdown("**Anotações**")
+
+            with col4:
+                st.markdown("**Indicadores**")
 
 
-    st.write('')
+            st.divider()
+
+            # --------------------------------
+            # Registros
+            # --------------------------------
+            for lancamento in lancamentos:
+                col1, col2, col3, col4 = st.columns(colunas)
+
+                with col1:
+                    st.write(lancamento.get("ano", ""))
+
+                with col2:
+                    st.write(lancamento.get("autor", ""))
+
+                with col3:
+                    st.write(lancamento.get("anotacoes", ""))
+
+                with col4:
+                    with st.popover("Indicadores", type="tertiary"):
+                        st.write("Teste de popover")
 
 
-    # VER REGISTROS
-    if acao_registros == "Ver registros":
-        renderizar_registros(idx)
+                st.divider()
 
 
-    # NOVO REGISTRO
-    elif acao_registros == "Novo registro":
-        renderizar_novo_registro(idx)
+    # renderizar_registros(idx)
 
+    with tab_novo_registro:
+
+        st.write('LANÇAMENTOS DE ENTREGA AQUI')
 
 
 
