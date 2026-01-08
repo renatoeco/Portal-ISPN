@@ -427,9 +427,17 @@ def gerar_grafico_tabela(colaborador_selecionado):
         if df_gantt.empty:
             container_mês.write(f"Não há férias programadas para o mês de {mes_selecionado.lower()}.")  # Mensagem após o filtro
         else:
+
             # Define a altura do gráfico com base na seleção
             if colaborador_selecionado == "Todos(as)":
-                altura_grafico = 500  # Altura padrão para todos
+                if len(df_gantt) < 10:
+                    altura_grafico = 300
+                elif len(df_gantt) < 20:
+                    altura_grafico = 600  # Altura padrão para todos
+                elif len(df_gantt) < 30:
+                    altura_grafico = 700
+                else:
+                    altura_grafico = 900
             else:
                 altura_grafico = 130  # Altura menor para um colaborador específico
 
