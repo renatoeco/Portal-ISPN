@@ -410,7 +410,7 @@ def gerenciar_pessoas():
                     lista_tipo_contracao,
                     index=lista_tipo_contracao.index(pessoa.get("tipo_contratacao", "")) 
                     if pessoa.get("tipo_contratacao", "") in lista_tipo_contracao else 0,
-                    key="tipo_contratacao_edit",
+                    key=f"editar_contratacao_{pessoa_id}",
                     width=300
                 )
 
@@ -423,14 +423,14 @@ def gerenciar_pessoas():
                     
 
                     cols = st.columns([3,2])
-                    nome = cols[0].text_input("Nome completo:", value=pessoa.get("nome_completo", ""))
+                    nome = cols[0].text_input("Nome completo:", value=pessoa.get("nome_completo", ""), key=f"editar_nome_{pessoa_id}")
 
                     status_opcoes = ["ativo", "inativo"]
                     status = cols[1].selectbox(
                         "Status do(a) colaborador(a):", 
                         status_opcoes, 
                         index=status_opcoes.index(pessoa.get("status", "ativo")), 
-                        key="editar_status"
+                        key=f"editar_status_{pessoa_id}"
                     )
 
                     # -----------------------------------------------------------------
@@ -440,11 +440,11 @@ def gerenciar_pessoas():
 
                     cols = st.columns(4)
 
-                    cpf = cols[0].text_input("CPF:", value=pessoa.get("CPF", ""))
-                    rg = cols[1].text_input("RG e órgão emissor:", value=pessoa.get("RG", ""))
+                    cpf = cols[0].text_input("CPF:", value=pessoa.get("CPF", ""), key=f"editar_cpf_{pessoa_id}")
+                    rg = cols[1].text_input("RG e órgão emissor:", value=pessoa.get("RG", ""), key=f"editar_rg_{pessoa_id}")
 
-                    telefone = cols[2].text_input("Telefone:", value=pessoa.get("telefone", ""))
-                    email = cols[3].text_input("E-mail:", value=pessoa.get("e_mail", ""))
+                    telefone = cols[2].text_input("Telefone:", value=pessoa.get("telefone", ""), key=f"editar_telefone_{pessoa_id}")
+                    email = cols[3].text_input("E-mail:", value=pessoa.get("e_mail", ""), key=f"editar_email_{pessoa_id}")
 
 
                     # -----------------------------------------------------------------
@@ -459,7 +459,7 @@ def gerenciar_pessoas():
                         "Gênero:",
                         lista_generos,
                         index=lista_generos.index(pessoa.get("gênero")) if pessoa.get("gênero") in lista_generos else 0,
-                        key="editar_genero"
+                        key=f"editar_genero_{pessoa_id}"
                     )
 
                     lista_raca = ["", "Amarelo", "Branco", "Índigena", "Pardo", "Preto"]
@@ -467,7 +467,8 @@ def gerenciar_pessoas():
                     raca = cols[1].selectbox(
                         "Raça:",
                         lista_raca,
-                        index=lista_raca.index(pessoa.get("raca")) if pessoa.get("raca") in lista_raca else 0
+                        index=lista_raca.index(pessoa.get("raca")) if pessoa.get("raca") in lista_raca else 0,
+                        key=f"editar_raca_{pessoa_id}"
                     )
                     
                     data_nascimento_str = pessoa.get("data_nascimento", "")
@@ -475,7 +476,8 @@ def gerenciar_pessoas():
                         data_nascimento = datetime.datetime.strptime(data_nascimento_str, "%d/%m/%Y")
                     else:
                         data_nascimento = None
-                    data_nascimento = cols[2].date_input("Data de nascimento:", format="DD/MM/YYYY", value=data_nascimento, min_value=datetime.date(1920, 1, 1))
+                    data_nascimento = cols[2].date_input("Data de nascimento:", format="DD/MM/YYYY", value=data_nascimento, min_value=datetime.date(1920, 1, 1),
+                                                         key=f"editar_data_nascimento_{pessoa_id}")
 
                     # -----------------------------------------------------------------
                     # Escolaridade, escritório, programa
@@ -488,7 +490,8 @@ def gerenciar_pessoas():
                     escolaridade = cols[0].selectbox(
                         "Escolaridade:",
                         lista_escolaridade,
-                        index=lista_escolaridade.index(pessoa.get("escolaridade")) if pessoa.get("escolaridade") in lista_escolaridade else 0
+                        index=lista_escolaridade.index(pessoa.get("escolaridade")) if pessoa.get("escolaridade") in lista_escolaridade else 0,
+                        key=f"editar_escolaridade_{pessoa_id}"
                     )
 
                     lista_escritorio = ["", "Brasília", "Santa Inês"]
@@ -496,7 +499,8 @@ def gerenciar_pessoas():
                     escritorio = cols[1].selectbox(
                         "Escritório:",
                         lista_escritorio,
-                        index=lista_escritorio.index(pessoa.get("escritorio")) if pessoa.get("escritorio") in lista_escritorio else 0
+                        index=lista_escritorio.index(pessoa.get("escritorio")) if pessoa.get("escritorio") in lista_escritorio else 0,
+                        key=f"editar_escritorio_{pessoa_id}"
                     )
 
 
@@ -510,9 +514,11 @@ def gerenciar_pessoas():
                     programa_area_nome = cols[2].selectbox(
                         "Programa / Área:",
                         lista_programas_areas,
-                        index=lista_programas_areas.index(programa_area_nome_atual) if programa_area_nome_atual in lista_programas_areas else 0,
-                        key="editar_programa", 
+                        index=lista_programas_areas.index(programa_area_nome_atual)
+                        if programa_area_nome_atual in lista_programas_areas else 0,
+                        key=f"editar_programa_{pessoa_id}"
                     )
+
 
                     # Após seleção, pega o ObjectId correspondente ao nome
                     programa_area = nome_para_id_programa.get(programa_area_nome)
@@ -533,7 +539,8 @@ def gerenciar_pessoas():
                     cargo = cols[0].selectbox(
                         "Cargo:",
                         opcoes_cargos_com_vazio,
-                        index=opcoes_cargos_com_vazio.index(valor_cargo)
+                        index=opcoes_cargos_com_vazio.index(valor_cargo),
+                        key=f"editar_cargo_{pessoa_id}"
                     )
 
                     # Coordenador
@@ -555,9 +562,11 @@ def gerenciar_pessoas():
                     coordenador_nome = cols[1].selectbox(
                         "Nome do(a) coordenador(a):",
                         nomes_coordenadores,
-                        index=nomes_coordenadores.index(nome_coordenador_default) if nome_coordenador_default in nomes_coordenadores else 0,
-                        key="editr_nome_coordenador"
+                        index=nomes_coordenadores.index(nome_coordenador_default)
+                        if nome_coordenador_default in nomes_coordenadores else 0,
+                        key=f"editar_nome_coordenador_{pessoa_id}"
                     )
+
 
                     # 5. Pega o ID do coordenador selecionado (se não for vazio)
                     coordenador_id = None
@@ -572,8 +581,8 @@ def gerenciar_pessoas():
                     cnpj, nome_empresa = None, None
                     if tipo_contratacao in ["PJ1", "PJ2"]:
                         col1, col2 = st.columns([3, 2])
-                        nome_empresa = col1.text_input("Nome da empresa:", value=pessoa.get("nome_empresa", ""))
-                        cnpj = col2.text_input("CNPJ:", value=pessoa.get("cnpj", ""), placeholder="00.000.000/0000-00")
+                        nome_empresa = col1.text_input("Nome da empresa:", value=pessoa.get("nome_empresa", ""), key=f"editar_nome_empresa_{pessoa_id}")
+                        cnpj = col2.text_input("CNPJ:", value=pessoa.get("cnpj", ""), placeholder="00.000.000/0000-00", key=f"editar_cnpj_{pessoa_id}")
                     
                     st.markdown("---")
 
@@ -583,11 +592,11 @@ def gerenciar_pessoas():
 
 
                     col1, col2 = st.columns([1, 1])
-                    nome_banco = col1.text_input("Nome do banco:", value=pessoa.get("banco", {}).get("nome_banco", ""))
-                    agencia = col2.text_input("Agência:", value=pessoa.get("banco", {}).get("agencia", ""))
+                    nome_banco = col1.text_input("Nome do banco:", value=pessoa.get("banco", {}).get("nome_banco", ""), key=f"editar_banco_{pessoa_id}")
+                    agencia = col2.text_input("Agência:", value=pessoa.get("banco", {}).get("agencia", ""), key=f"editar_agencia_{pessoa_id}")
 
                     col1, col2 = st.columns([1, 1])
-                    conta = col1.text_input("Conta:", value=pessoa.get("banco", {}).get("conta", ""))
+                    conta = col1.text_input("Conta:", value=pessoa.get("banco", {}).get("conta", ""), key=f"editar_conta_bancaria_{pessoa_id}")
 
 
                     opcoes_conta = ["", "Conta Corrente", "Conta Poupança", "Conta Salário"]
@@ -604,7 +613,7 @@ def gerenciar_pessoas():
                         "Tipo de conta:",
                         options=opcoes_conta,
                         index=index_conta,
-                        key="editar_tipo_conta"
+                        key=f"editar_editar_tipo_conta_{pessoa_id}"
                     )
                     
                     st.divider()
@@ -656,7 +665,7 @@ def gerenciar_pessoas():
                         "Tipo de usuário:",
                         options=opcoes_tipo_usuario,
                         default=tipo_usuario_default,
-                        key="editar_tipo_usuario"
+                        key=f"editar_tipo_usuario_{pessoa_id}"
                     )
 
 
