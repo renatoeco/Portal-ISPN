@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from bson import ObjectId
-from funcoes_auxiliares import conectar_mongo_portal_ispn, dialog_editar_entregas, altura_dataframe
+from funcoes_auxiliares import conectar_mongo_portal_ispn, dialog_editar_entregas, altura_dataframe, formatar_nome_legivel
 # import streamlit_shadcn_ui as ui
 import plotly.express as px
 import time
@@ -20,9 +20,9 @@ db = conectar_mongo_portal_ispn()
 # estrategia = db["estrategia"]  
 programas = db["programas_areas"]
 projetos_ispn = db["projetos_ispn"]  
-# indicadores = db["indicadores"]
+indicadores = db["indicadores"]
 estatistica = db["estatistica"] 
-
+colecao_lancamentos = db["lancamentos_indicadores"]
 
 
 # --------------------------------------------------
@@ -87,7 +87,183 @@ st.session_state["pagina_anterior"] = PAGINA_ID
 # Função para renderizar o formulário de novo registro dentro do diálogo de acompanhamento de entrega
 @st.fragment
 def renderizar_novo_registro(idx):
-    st.write('lkj')
+
+    st.write("")
+
+    entrega_ctx = st.session_state.get("entrega_selecionada")
+
+    projeto_info = projetos_ispn.find_one(
+        {"_id": ObjectId(entrega_ctx["projeto_id"])}
+    )
+
+    entregas_existentes = projeto_info.get("entregas", [])
+    entrega = entregas_existentes[idx]
+
+    ano_atual = datetime.now().year
+    ano_inicial = ano_atual - 1
+    ano_final = ano_atual + 6
+
+    anos_disponiveis = list(range(ano_inicial, ano_final + 1))
+
+    # =========================
+    # Dados do lançamento
+    # =========================
+
+    ano_lancamento = st.selectbox(
+        "Ano do registro",
+        options=anos_disponiveis,
+        index=anos_disponiveis.index(ano_atual) 
+    )
+
+    anotacoes_lancamento = st.text_area(
+        "Anotações",
+        placeholder=""
+    )
+
+    st.divider()
+
+    # =========================
+    # Lançamentos de indicadores
+    # =========================
+    st.markdown("### Lançamento de indicadores")
+    
+    st.write("")
+
+    valores_indicadores = {}
+
+    indicadores_entrega = entrega.get("indicadores_relacionados", [])
+
+    for indicador in indicadores_entrega:
+
+        df_indicadores = pd.DataFrame(list(indicadores.find()))
+    
+        # Garantir string do ObjectId (Streamlit trabalha melhor)
+        df_indicadores["_id"] = df_indicadores["_id"].astype(str)
+
+        mapa_indicadores = dict(
+            zip(df_indicadores["_id"], df_indicadores["nome_indicador"])
+        )
+
+        indicadores_float = [
+            "Área com manejo ecológico do fogo (ha)",
+            "Área com manejo agroecológico (ha)",
+            "Área com manejo para restauração (ha)",
+            "Área com manejo para extrativismo (ha)",
+            "Faturamento bruto anual pré-projeto",
+            "Faturamento bruto anual pós-projeto",
+            "Volume financeiro de vendas institucionais com apoio do Fundo Ecos",
+            "Valor da contrapartida financeira projetinhos",
+            "Valor da contrapartida não financeira projetinhos",
+            "Valor mobilizado de novos recursos"
+        ]
+        indicador_texto = "Espécies"
+
+        nome_indicador = mapa_indicadores.get(str(indicador), "Indicador não encontrado")
+        st.markdown(f"**{formatar_nome_legivel(nome_indicador)}**")
+        
+        col1, col2 = st.columns([2, 3])
+
+        # Campo dinâmico
+        if formatar_nome_legivel(nome_indicador) in indicadores_float:
+            valor = col1.number_input(
+                "Valor",
+                step=0.01,
+                key=f"valor_{indicador}"
+            )
+        elif formatar_nome_legivel(nome_indicador) == indicador_texto:
+            valor = col1.text_input(
+                "Valor",
+                key=f"valor_{indicador}"
+            )
+        else:
+            valor = col1.number_input(
+                "Valor",
+                step=1,
+                key=f"valor_{indicador}"
+            )
+
+        observacoes = col2.text_input(
+            "Observações",
+            key=f"obs_{indicador}"
+        )
+
+        valores_indicadores[indicador] = {
+            "valor": valor,
+            "observacoes": observacoes
+        }
+
+        st.divider()
+
+    # =========================
+    # SALVAR
+    # =========================
+    if st.button("Salvar lançamento", icon=":material/save:"):
+
+        if not ano_lancamento:
+            st.warning("Informe o ano do lançamento.")
+            st.stop()
+
+        # -------------------------
+        # 1. Salvar lançamento da entrega
+        # -------------------------
+        novo_lancamento_entrega = {
+            "_id": ObjectId(),
+            "ano": str(ano_lancamento),
+            "anotacoes": anotacoes_lancamento,
+            "autor": st.session_state.get("nome")
+        }
+
+        entregas_existentes[idx].setdefault(
+            "lancamentos_entregas", []
+        ).append(novo_lancamento_entrega)
+
+        projetos_ispn.update_one(
+            {"_id": projeto_info["_id"]},
+            {"$set": {"entregas": entregas_existentes}}
+        )
+
+        # -------------------------
+        # 2. Salvar lançamentos de indicadores
+        # -------------------------
+        for indicador_nome, dados in valores_indicadores.items():
+
+            if dados["valor"] in ["", None]:
+                continue
+
+            indicador_doc = indicadores.find_one(
+                {"nome_indicador": indicador_nome}
+            )
+
+            if not indicador_doc:
+                continue
+            
+            # Descobrir tipo do indicador
+            nome_legivel = formatar_nome_legivel(indicador_nome)
+
+            if nome_legivel in indicadores_float:
+                valor_final = float(dados["valor"])
+            elif nome_legivel == indicador_texto:
+                valor_final = str(dados["valor"])
+            else:
+                # indicadores inteiros
+                valor_final = str(dados["valor"])
+
+            lancamento_indicador = {
+                "id_do_indicador": indicador_doc["_id"],
+                "projeto": projeto_info["_id"],
+                "data_anotacao": datetime.now(),
+                "autor_anotacao": st.session_state.get("nome"),
+                "valor": valor_final,
+                "ano": str(ano_lancamento),
+                "observacoes": dados["observacoes"],
+                "tipo": "ispn"
+            }
+
+            colecao_lancamentos.insert_one(lancamento_indicador)
+
+        st.success("Lançamento salvo com sucesso!")
+        time.sleep(2)
+        st.rerun()
 
 
 
@@ -144,32 +320,26 @@ def renderizar_registros(idx):
             st.divider()
 
 
-
-
-
-# def normalizar_objetos_mongo(valor):
-#     """
-#     Converte ObjectId em string, inclusive dentro de listas e dicionários.
-#     Mantém tipos simples intactos.
-#     """
-#     if isinstance(valor, ObjectId):
-#         return str(valor)
-
-#     if isinstance(valor, list):
-#         return [normalizar_objetos_mongo(v) for v in valor]
-
-#     if isinstance(valor, dict):
-#         return {k: normalizar_objetos_mongo(v) for k, v in valor.items()}
-
-#     return valor
-
-
-
 @st.dialog("Acompanhamento de Entrega", width="large")
 def dialog_registros_entregas():
 
-    entrega = st.session_state.get("entrega_selecionada")
-    idx = entrega.get("indice") if isinstance(entrega, dict) else None
+    entrega_ctx = st.session_state.get("entrega_selecionada")
+
+    if not entrega_ctx:
+        st.warning("Entrega inválida.")
+        return
+
+    idx = entrega_ctx.get("indice")
+    projeto_id = entrega_ctx.get("projeto_id")
+
+    projeto_info = projetos_ispn.find_one(
+        {"_id": ObjectId(projeto_id)}
+    )
+
+    if not projeto_info:
+        st.error("Projeto não encontrado.")
+        return
+
 
     if idx is None:
         st.warning("Entrega inválida.")
@@ -178,7 +348,7 @@ def dialog_registros_entregas():
     # ===============================
     # Dados da entrega
     # ===============================
-    nome_entrega = entrega.get("entrega", "Entrega")
+    nome_entrega = entrega_ctx.get("entrega", "Entrega")
     situacao = df_entregas.loc[idx, "situacao"]
 
     progresso = df_entregas.loc[idx, "progresso"]
@@ -382,17 +552,7 @@ def dialog_registros_entregas():
 
     with tab_novo_registro:
 
-        st.write('LANÇAMENTOS DE ENTREGA AQUI')
-
-
-
-
-
-
-
-
-
-
+        renderizar_novo_registro(idx)
 
 
 def resolver_responsaveis(lista_ids, pessoas_dict):
@@ -426,7 +586,7 @@ def carregar_entregas():
         nome_projeto = projeto.get("nome_do_projeto") or projeto.get("sigla", "")
 
         for entrega in projeto.get("entregas", []):
-            
+
             data_raw = entrega.get("previsao_da_conclusao")
 
             if not data_raw:
@@ -438,6 +598,7 @@ def carregar_entregas():
                 continue  # pula datas inválidas
 
             registros.append({
+                "projeto_id": projeto["_id"],
                 "nome_da_entrega": entrega.get("nome_da_entrega"),
                 
                 "nome_do_projeto": nome_projeto,
@@ -471,6 +632,7 @@ def carregar_entregas():
             })
 
         COLUNAS_PADRAO = [
+            "projeto_id",
             "nome_da_entrega",
             "nome_do_projeto",
             "previsao_da_conclusao",
@@ -652,7 +814,7 @@ with lista_entregas:
     # --------------------------------------------------------------------------
     # CALLBACK PARA ABERTURA DO DIÁLOGO DE REGISTROS DE ENTREGAS
     # --------------------------------------------------------------------------
-    def criar_callback_selecao_entrega(df_entregas, key_df):
+    def criar_callback_selecao_entrega(df_visivel, df_completo, key_df):
 
         def handle_selecao_entrega():
             estado = st.session_state.get(key_df, {})
@@ -662,28 +824,30 @@ with lista_entregas:
                 return
 
             idx = linhas[0]
-            linha = df_entregas.iloc[idx]
+
+            linha_visivel = df_visivel.iloc[idx]
+            linha_completa = df_completo.iloc[idx]  # 🔴 AQUI
 
             st.session_state["entrega_selecionada"] = {
-                "entrega": linha["Entrega"],
-                "indice": idx
+                "entrega": linha_visivel["Entrega"],
+                "indice": idx,
+                "projeto_id": linha_completa["projeto_id"]  # ✅ EXISTE
             }
-
-            # st.session_state["entrega_selecionada"] = {
-            #     "entrega": linha["Entrega"]
-            # }
 
             st.session_state["abrir_dialogo_entrega"] = True
 
         return handle_selecao_entrega
 
 
+
     key_df = f"df_entregas_lista"
 
     callback_selecao = criar_callback_selecao_entrega(
         df_entregas_lista,
+        df_entregas,
         key_df
     )
+
 
     altura_dataframe = altura_dataframe(df_entregas_lista, -0)
 
