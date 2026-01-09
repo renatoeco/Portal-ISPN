@@ -36,8 +36,14 @@ if "entrega_selecionada_tabela_key" not in st.session_state:
 
 if "entrega" not in st.session_state:
     st.session_state["entrega"] = False
+    
+# Mapa id_indicador -> nome
+df_indicadores = pd.DataFrame(list(indicadores.find({}, {"nome_indicador": 1})))
+df_indicadores["_id"] = df_indicadores["_id"].astype(str)
 
-
+mapa_indicadores = dict(
+    zip(df_indicadores["_id"], df_indicadores["nome_indicador"])
+)
 
 
 ###########################################################################################################
@@ -97,7 +103,13 @@ def renderizar_novo_registro(idx):
     )
 
     entregas_existentes = projeto_info.get("entregas", [])
-    entrega = entregas_existentes[idx]
+    
+    entrega_id = entrega_ctx["entrega_id"]
+
+    entrega = next(
+        e for e in entregas_existentes
+        if e["_id"] == ObjectId(entrega_id)
+    )
 
     ano_atual = datetime.now().year
     ano_inicial = ano_atual - 1
@@ -132,17 +144,15 @@ def renderizar_novo_registro(idx):
     valores_indicadores = {}
 
     indicadores_entrega = entrega.get("indicadores_relacionados", [])
-
-    for indicador in indicadores_entrega:
-
-        df_indicadores = pd.DataFrame(list(indicadores.find()))
     
-        # Garantir string do ObjectId (Streamlit trabalha melhor)
-        df_indicadores["_id"] = df_indicadores["_id"].astype(str)
+    # Garantir que todos os IDs sejam string
+    indicadores_entrega = [
+        str(i) if not isinstance(i, str) else i
+        for i in indicadores_entrega
+    ]
 
-        mapa_indicadores = dict(
-            zip(df_indicadores["_id"], df_indicadores["nome_indicador"])
-        )
+
+    for indicador_id in indicadores_entrega:
 
         indicadores_float = [
             "Área com manejo ecológico do fogo (ha)",
@@ -158,36 +168,45 @@ def renderizar_novo_registro(idx):
         ]
         indicador_texto = "Espécies"
 
-        nome_indicador = mapa_indicadores.get(str(indicador), "Indicador não encontrado")
-        st.markdown(f"**{formatar_nome_legivel(nome_indicador)}**")
-        
+        nome_indicador = mapa_indicadores.get(
+            indicador_id,
+            "Indicador não encontrado"
+        )
+
+        nome_legivel = formatar_nome_legivel(nome_indicador)
+
+        st.markdown(f"**{nome_legivel}**")
+
         col1, col2 = st.columns([2, 3])
 
-        # Campo dinâmico
-        if formatar_nome_legivel(nome_indicador) in indicadores_float:
+        key_base = f"{idx}_{indicador_id}"
+
+        if nome_legivel in indicadores_float:
             valor = col1.number_input(
                 "Valor",
                 step=0.01,
-                key=f"valor_{indicador}"
+                key=f"valor_{key_base}"
             )
-        elif formatar_nome_legivel(nome_indicador) == indicador_texto:
+
+        elif nome_legivel == indicador_texto:
             valor = col1.text_input(
                 "Valor",
-                key=f"valor_{indicador}"
+                key=f"valor_{key_base}"
             )
+
         else:
             valor = col1.number_input(
                 "Valor",
                 step=1,
-                key=f"valor_{indicador}"
+                key=f"valor_{key_base}"
             )
 
         observacoes = col2.text_input(
             "Observações",
-            key=f"obs_{indicador}"
+            key=f"obs_{key_base}"
         )
 
-        valores_indicadores[indicador] = {
+        valores_indicadores[indicador_id] = {
             "valor": valor,
             "observacoes": observacoes
         }
@@ -212,10 +231,13 @@ def renderizar_novo_registro(idx):
             "anotacoes": anotacoes_lancamento,
             "autor": st.session_state.get("nome")
         }
+        
+        id_lanc_entrega = novo_lancamento_entrega["_id"]
 
-        entregas_existentes[idx].setdefault(
-            "lancamentos_entregas", []
-        ).append(novo_lancamento_entrega)
+        for e in entregas_existentes:
+            if e["_id"] == ObjectId(entrega_id):
+                e.setdefault("lancamentos_entregas", []).append(novo_lancamento_entrega)
+                break
 
         projetos_ispn.update_one(
             {"_id": projeto_info["_id"]},
@@ -225,38 +247,31 @@ def renderizar_novo_registro(idx):
         # -------------------------
         # 2. Salvar lançamentos de indicadores
         # -------------------------
-        for indicador_nome, dados in valores_indicadores.items():
+        for indicador_id, dados in valores_indicadores.items():
 
-            if dados["valor"] in ["", None]:
+            if dados["valor"] in ["", None] or dados["valor"] == 0:
                 continue
 
-            indicador_doc = indicadores.find_one(
-                {"nome_indicador": indicador_nome}
-            )
-
-            if not indicador_doc:
-                continue
-            
-            # Descobrir tipo do indicador
-            nome_legivel = formatar_nome_legivel(indicador_nome)
+            nome_indicador = mapa_indicadores.get(str(indicador_id), "")
+            nome_legivel = formatar_nome_legivel(nome_indicador)
 
             if nome_legivel in indicadores_float:
                 valor_final = float(dados["valor"])
             elif nome_legivel == indicador_texto:
                 valor_final = str(dados["valor"])
             else:
-                # indicadores inteiros
-                valor_final = str(dados["valor"])
+                valor_final = int(dados["valor"])
 
             lancamento_indicador = {
-                "id_do_indicador": indicador_doc["_id"],
+                "id_do_indicador": ObjectId(indicador_id),
                 "projeto": projeto_info["_id"],
                 "data_anotacao": datetime.now(),
                 "autor_anotacao": st.session_state.get("nome"),
                 "valor": valor_final,
                 "ano": str(ano_lancamento),
                 "observacoes": dados["observacoes"],
-                "tipo": "ispn"
+                "tipo": "ispn",
+                "id_lanc_entrega": id_lanc_entrega
             }
 
             colecao_lancamentos.insert_one(lancamento_indicador)
@@ -542,7 +557,33 @@ def dialog_registros_entregas():
 
                 with col4:
                     with st.popover("Indicadores", type="tertiary"):
-                        st.write("Teste de popover")
+
+                        id_lanc_entrega = lancamento.get("_id")
+
+                        if not id_lanc_entrega:
+                            st.caption("Sem indicadores associados.")
+                        else:
+                            registros_indicadores = list(
+                                colecao_lancamentos.find(
+                                    {"id_lanc_entrega": ObjectId(id_lanc_entrega)}
+                                )
+                            )
+
+                            if not registros_indicadores:
+                                st.caption("Nenhum indicador lançado.")
+                            else:
+                                for reg in registros_indicadores:
+
+                                    nome_indicador = mapa_indicadores.get(
+                                        str(reg["id_do_indicador"]),
+                                        "Indicador não encontrado"
+                                    )
+
+                                    st.markdown(f"**{formatar_nome_legivel(nome_indicador)}**")
+                                    st.write(f"**Valor:** {reg.get('valor')}")
+
+                                    st.write("")
+
 
 
                 st.divider()
@@ -599,7 +640,9 @@ def carregar_entregas():
 
             registros.append({
                 "projeto_id": projeto["_id"],
+                
                 "nome_da_entrega": entrega.get("nome_da_entrega"),
+                "entrega_id": entrega["_id"],
                 
                 "nome_do_projeto": nome_projeto,
 
@@ -634,6 +677,7 @@ def carregar_entregas():
         COLUNAS_PADRAO = [
             "projeto_id",
             "nome_da_entrega",
+            "entrega_id",
             "nome_do_projeto",
             "previsao_da_conclusao",
             "previsao_da_conclusao_str",
@@ -830,6 +874,7 @@ with lista_entregas:
 
             st.session_state["entrega_selecionada"] = {
                 "entrega": linha_visivel["Entrega"],
+                "entrega_id": linha_completa["entrega_id"],
                 "indice": idx,
                 "projeto_id": linha_completa["projeto_id"]  # ✅ EXISTE
             }
