@@ -7,6 +7,8 @@ import time
 from funcoes_auxiliares import conectar_mongo_portal_ispn
 import smtplib
 from email.mime.text import MIMEText
+import datetime as dt
+
 
 # Configura a página do Streamlit para layout mais amplo
 st.set_page_config(layout="wide")
@@ -18,23 +20,6 @@ st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
 st.header("Pessoas")
 st.write('')  # Espaço vazio
 
-
-######################################################################################################
-# CSS PARA DIALOGO MAIOR
-######################################################################################################
-
-
-st.markdown(
-    """
-<style>
-div[data-testid="stDialog"] div[role="dialog"]:has(.big-dialog) {
-    width: 60vw;
-    
-}
-</style>
-""",
-    unsafe_allow_html=True,
-)
 
 
 ######################################################################################################
@@ -282,6 +267,9 @@ def verificar_contratos_vencidos(pessoa):
     return contratos_atualizados
 
 
+
+
+
 # Define um diálogo (modal) para gerenciar colaboradores
 @st.dialog("Gerenciar colaboradores", width='large')
 def gerenciar_pessoas():
@@ -295,9 +283,6 @@ def gerenciar_pessoas():
     if "pessoa_selecionada_anterior" not in st.session_state:
         st.session_state.pessoa_selecionada_anterior = None
 
-
-    # Aumentar largura do diálogo
-    st.html("<span class='big-dialog'></span>")
 
     # Mapeia nomes de programa <-> ObjectId
     nome_para_id_programa = {
@@ -372,6 +357,10 @@ def gerenciar_pessoas():
                 st.session_state.pessoa_selecionada_anterior = nome_selecionado
                 st.session_state.contratos_verificados_por_pessoa.pop(pessoa_id, None)
 
+                # LIMPA ESTADO DA ABA FÉRIAS
+                for chave in ("dia_niver", "mes_niver", "dias_residuais"):
+                    st.session_state.pop(chave, None)
+
             # Verificação única por pessoa
             if not st.session_state.contratos_verificados_por_pessoa.get(pessoa_id, False):
 
@@ -389,7 +378,7 @@ def gerenciar_pessoas():
         
        
         # Cria abas
-        aba_info, aba_contratos, aba_previdencia, aba_anotacoes  = st.tabs([":material/info: Informações gerais", ":material/contract: Contratos", ":material/finance_mode: Previdência", ":material/notes: Anotações"])
+        aba_info, aba_contratos, aba_previdencia, aba_ferias, aba_anotacoes  = st.tabs([":material/info: Informações gerais", ":material/contract: Contratos", ":material/finance_mode: Previdência", ":material/beach_access: Férias", ":material/notes: Anotações"])
     
 
         # ABA INFORMAÇÕES GERAIS ################################################################
@@ -768,8 +757,7 @@ def gerenciar_pessoas():
                         time.sleep(2)
                         st.rerun()
 
-
-        
+       
 
         # ABA CONTRATOS ############################################################################### 
 
@@ -990,6 +978,7 @@ def gerenciar_pessoas():
                             except Exception as e:
                                 st.error(f"Erro ao salvar no banco: {e}")
 
+        # ABA PREVIDÊNCIA ############################################################################### 
 
         with aba_previdencia:
 
@@ -1194,7 +1183,341 @@ def gerenciar_pessoas():
 
 
 
-        # ABA ANOTAÇÕES -------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+        # ABA FÉRIAS ###############################################################################
+
+        with aba_ferias:
+
+            # ------------------------------------------------------------------
+            # PRÉ-CARREGA DADOS DO BANCO (UMA ÚNICA VEZ)
+            # ------------------------------------------------------------------
+            ferias_db = pessoa.get("férias", {}) if pessoa else {}
+
+            niver_ferias_db = ferias_db.get("niver_ferias", {})
+            abono_inicial_db = ferias_db.get("abono_inicial", 0)
+
+            # Inicializa session_state somente se ainda não existir
+            if "dia_niver" not in st.session_state:
+                st.session_state.dia_niver = niver_ferias_db.get("dia", 1)
+
+            if "mes_niver" not in st.session_state:
+                # mes precisa ser a tupla (numero, nome)
+                mes_num = niver_ferias_db.get("mes", 1)
+                nomes_meses = {
+                    1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
+                    5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
+                    9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
+                }
+                st.session_state.mes_niver = (mes_num, nomes_meses.get(mes_num, "Janeiro"))
+
+            if "dias_residuais" not in st.session_state:
+                st.session_state.dias_residuais = abono_inicial_db
+
+            # ------------------------------------------------------------------
+            # FORMULÁRIO
+            # ------------------------------------------------------------------
+            with st.form("form_ferias_colaborador", border=False):
+
+                st.write(
+                    '**Dia e mês** do "aniversário das férias" '
+                    '(quando o colaborador será abonado com novos dias):'
+                )
+
+                with st.container(horizontal=True):
+
+                    # Dia
+                    dia = st.selectbox(
+                        "Dia",
+                        list(range(1, 32)),
+                        key="dia_niver",
+                        width=120
+                    )
+
+                    # Mês
+                    mes = st.selectbox(
+                        "Mês",
+                        [
+                            (1, "Janeiro"), (2, "Fevereiro"), (3, "Março"),
+                            (4, "Abril"), (5, "Maio"), (6, "Junho"),
+                            (7, "Julho"), (8, "Agosto"), (9, "Setembro"),
+                            (10, "Outubro"), (11, "Novembro"), (12, "Dezembro")
+                        ],
+                        format_func=lambda x: x[1],
+                        key="mes_niver",
+                        width=250
+                    )
+
+                st.write("")
+                st.write("")
+
+                st.write(
+                    '**Número de dias** que serão abonados no primeiro ciclo '
+                    '(até o primeiro aniversário de férias):'
+                )
+
+                dias_residuais = st.number_input(
+                    "Abono inicial:",
+                    min_value=-30,
+                    max_value=30,
+                    key="dias_residuais",
+                    width=120
+                )
+
+                st.write("")
+
+                # ------------------------------------------------------------------
+                # BOTÃO SALVAR
+                # ------------------------------------------------------------------
+                if st.form_submit_button(
+                    "Salvar",
+                    type="secondary",
+                    icon=":material/save:",
+                    width=200
+                ):
+
+                    try:
+                        pessoas.update_one(
+                            {"_id": pessoa["_id"]},
+                            {
+                                "$set": {
+                                    "férias.niver_ferias": {
+                                        "dia": dia,
+                                        "mes": mes[0]
+                                    },
+                                    "férias.abono_inicial": dias_residuais,
+                                    "férias.ciclo_1_abonado": False
+                                }
+                            }
+                        )
+
+                        st.success(
+                            "Informações de férias atualizadas com sucesso!",
+                            icon=":material/check_circle:"
+                        )
+                        time.sleep(3)
+                        st.rerun()
+
+                    except Exception as e:
+                        st.error(f"Erro ao salvar férias: {e}")
+
+
+
+
+
+
+
+
+
+
+
+
+
+        # with aba_ferias:
+
+        #     # Formulário para configurar regras de férias do colaborador
+        #     with st.form("form_ferias_colaborador", border=False):
+
+        #         st.write(
+        #             '**Dia e mês** do "aniversário das férias" '
+        #             '(quando o colaborador será abonado com novos dias):'
+        #         )
+
+        #         # -----------------------------
+        #         # DIA E MÊS
+        #         # -----------------------------
+        #         with st.container(horizontal=True):
+
+        #             # Dia
+        #             dia = st.selectbox(
+        #                 "Dia",
+        #                 list(range(1, 32)),
+        #                 key="dia_niver",
+        #                 width=120
+        #             )
+
+        #             # Mês
+        #             mes = st.selectbox(
+        #                 "Mês",
+        #                 [
+        #                     (1, "Janeiro"), (2, "Fevereiro"), (3, "Março"),
+        #                     (4, "Abril"), (5, "Maio"), (6, "Junho"),
+        #                     (7, "Julho"), (8, "Agosto"), (9, "Setembro"),
+        #                     (10, "Outubro"), (11, "Novembro"), (12, "Dezembro")
+        #                 ],
+        #                 format_func=lambda x: x[1],
+        #                 key="mes_niver",
+        #                 width=250
+        #             )
+
+        #         st.write("")
+
+        #         # -----------------------------
+        #         # ABONO INICIAL
+        #         # -----------------------------
+        #         st.write(
+        #             '**Número de dias** que serão abonados no primeiro ciclo '
+        #             '(até o primeiro aniversário de férias):'
+        #         )
+
+        #         st.write('**Obs: Se o ciclo inicial corresponde a um ano inteiro, coloque o valor 22 para PJ e 30 para CLT.*')
+
+        #         dias_residuais = st.number_input(
+        #             "Abono inicial:",
+        #             min_value=-30,
+        #             max_value=30,
+        #             value=0,
+        #             key="dias_residuais",
+        #             width=120
+        #         )
+
+        #         st.write("")
+
+        #         # -----------------------------
+        #         # BOTÃO SALVAR
+        #         # -----------------------------
+        #         if st.form_submit_button(
+        #             "Salvar",
+        #             type="secondary",
+        #             icon=":material/save:"
+        #         ):
+
+        #             try:
+        #                 pessoas.update_one(
+        #                     {"_id": pessoa["_id"]},
+        #                     {
+        #                         "$set": {
+        #                             # Cria/atualiza apenas os campos necessários
+        #                             "férias.niver_ferias": {
+        #                                 "dia": dia,
+        #                                 "mes": mes[0]
+        #                             },
+        #                             "férias.abono_inicial": dias_residuais,
+        #                             "férias.ciclo_1_abonado": False
+        #                         }
+        #                     }
+        #                 )
+
+        #                 st.success(
+        #                     "Informações de férias salvas com sucesso!",
+        #                     icon=":material/check_circle:"
+        #                 )
+        #                 time.sleep(3)
+        #                 st.rerun()
+
+        #             except Exception as e:
+        #                 st.error(f"Erro ao salvar férias: {e}")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        # with aba_ferias:
+            
+            
+        #     st.write('**Dia e mês** do "aniversário das férias" (quando o colaborador será abonado com novos dias):')
+
+        #     with st.container(horizontal=True):
+
+        #         # Dia
+        #         dia = st.selectbox(
+        #             "Dia",
+        #             list(range(1, 32)),
+        #             key="dia_niver",
+        #             width=120
+        #         )
+
+        #         # Mês
+        #         mes = st.selectbox(
+        #             "Mês",
+        #             [
+        #                 (1, "Janeiro"), (2, "Fevereiro"), (3, "Março"),
+        #                 (4, "Abril"), (5, "Maio"), (6, "Junho"),
+        #                 (7, "Julho"), (8, "Agosto"), (9, "Setembro"),
+        #                 (10, "Outubro"), (11, "Novembro"), (12, "Dezembro")
+        #             ],
+        #             format_func=lambda x: x[1],
+        #             key="mes_niver",
+        #             width=250
+        #         )
+
+        #     st.write('')
+
+        #     st.write('**Número de dias** que serão abonados no primeiro ciclo (até o primeiro aniversário de férias):')
+
+        #     # Dias residuais iniciais do primeiro ciclo de férias
+        #     dias_residuais = st.number_input(
+        #         "Abono inicial:",
+        #         min_value=-30,
+        #         max_value=30,
+        #         value=0,
+        #         key="dias_residuais",
+        #         width=120
+        #     )
+
+        #     # Valor lógico para salvar
+        #     niver_ferias = {
+        #         "dia": dia,
+        #         "mes": mes[0]
+        #     }
+
+        #     st.write("Selecionado:", f"{dia:02d}/{mes[0]:02d}")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        # ABA ANOTAÇÕES ############################################################################### 
         with aba_anotacoes:
 
             usuario_logado = st.session_state.get("nome", "Desconhecido")
