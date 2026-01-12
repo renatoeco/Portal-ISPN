@@ -465,7 +465,7 @@ if pessoa_logada:
                     st.write(f"**{ano}**")
                     
                     # Filtra pelo ano e ordena pela data
-                    df_ano = df_contrib[df_contrib['ano'] == ano].sort_values('data_datetime')
+                    df_ano = df_contrib[df_contrib['ano'] == ano].sort_values('data_datetime', ascending=False)
                     
                     # Exibe a tabela sem índice
                     st.dataframe(df_ano.drop(columns=['ano', 'data_datetime']), hide_index=True)
