@@ -785,7 +785,7 @@ def dialog_editar_entregas():
                 st.info("Este projeto ainda não possui entregas cadastradas.")
                 st.stop()
 
-            with st.expander("Adicionar lançamento", expanded=False):
+            with st.expander("Adicionar registro", expanded=False):
 
                 # =========================
                 # Selecionar entrega
@@ -931,7 +931,7 @@ def dialog_editar_entregas():
                     time.sleep(2)
                     st.rerun()
                     
-            st.markdown("### Lançamentos cadastrados:")
+            st.markdown("### Registros cadastrados:")
             for entrega_idx, entrega in enumerate(entregas_existentes):
 
                 lancamentos = entrega.get("lancamentos_entregas", [])
