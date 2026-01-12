@@ -386,7 +386,7 @@ def dialog_editar_entregas():
         aba_entregas, aba_lancamentos_entregas = st.tabs(
             [
                 ":material/package_2: Gerenciar entregas",
-                ":material/rocket_launch: Lançamentos de entregas"
+                ":material/rocket_launch: Registros de entregas"
             ]
         )
     else:
@@ -943,7 +943,7 @@ def dialog_editar_entregas():
                         colecao_lancamentos.insert_one(lancamento_indicador)
 
 
-                    st.success("Lançamento salvo com sucesso!")
+                    st.success("Registro salvo com sucesso!")
                     time.sleep(2)
                     st.rerun()
                     
@@ -1011,6 +1011,6 @@ def dialog_editar_entregas():
                                     {"$set": {"entregas": entregas_existentes}}
                                 )
 
-                                st.success("Lançamento atualizado!")
+                                st.success("Registro atualizado!")
                                 time.sleep(2)
                                 st.rerun()
