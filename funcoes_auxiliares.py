@@ -381,7 +381,7 @@ def dialog_editar_entregas():
         aba_entregas, aba_lancamentos_entregas = st.tabs(
             [
                 ":material/package_2: Gerenciar entregas",
-                ":material/rocket_launch: Lançamentos de entregas"
+                ":material/rocket_launch: Registros de entregas"
             ]
         )
     else:

@@ -579,9 +579,8 @@ def dialog_registros_entregas():
                                         "Indicador não encontrado"
                                     )
 
-                                    st.markdown(f"**{formatar_nome_legivel(nome_indicador)}**")
-                                    st.write(f"**Valor:** {reg.get('valor')}")
-
+                                    st.markdown(f"**{formatar_nome_legivel(nome_indicador)}:** {reg.get('valor')}")
+                                    
                                     st.write("")
 
 
