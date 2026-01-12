@@ -897,6 +897,8 @@ def dialog_editar_entregas():
                         "anotacoes": anotacoes_lancamento,
                         "autor": st.session_state.get("nome")
                     }
+                    
+                    id_lanc_entrega = novo_lancamento_entrega["_id"]
 
                     entregas_existentes[entrega_idx].setdefault(
                         "lancamentos_entregas", []
@@ -934,7 +936,8 @@ def dialog_editar_entregas():
                             "valor": valor_final,
                             "ano": str(ano_lancamento),
                             "observacoes": dados["observacoes"],
-                            "tipo": "ispn"
+                            "tipo": "ispn",
+                            "id_lanc_entrega": id_lanc_entrega
                         }
 
                         colecao_lancamentos.insert_one(lancamento_indicador)
