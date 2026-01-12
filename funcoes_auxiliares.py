@@ -193,9 +193,6 @@ def convert_objectid(obj):
 
 if "projeto_selecionado" not in st.session_state:
     st.session_state["projeto_selecionado"] = None
-    
-if "projeto_dialogo_fixado" not in st.session_state:
-    st.session_state["projeto_dialogo_fixado"] = None
 
 # Função do diálogo para gerenciar entregas
 @st.dialog("Editar Entregas", width="large")
@@ -240,6 +237,14 @@ def dialog_editar_entregas():
         "Valor mobilizado de novos recursos"
     ]
     indicador_texto = "Espécies"
+
+    # valores reais (o que vai ser salvo)
+    indicadores_valores = sorted(
+        df_indicadores["nome_indicador"]
+        .dropna()
+        .unique()
+        .tolist()
+    )
     
     # --- 2. Criar dicionários de mapeamento ---
     mapa_doador = {d["_id"]: d["nome_doador"] for d in db["doadores"].find()}
@@ -286,30 +291,25 @@ def dialog_editar_entregas():
 
     pagina_atual = st.session_state.get("pagina_anterior")
 
-    # =========================
-    # FIXAR PROJETO DO DIÁLOGO
-    # =========================
+    # Só mostra o selectbox se estiver na página "Entregas"
+    if pagina_atual == "pagina_entregas":
 
-    # Se ainda não foi fixado, resolve agora
-    if st.session_state["projeto_dialogo_fixado"] is None:
-
-        projeto_escolhido = st.selectbox(
+        projeto_sigla = st.selectbox(
             "Selecione o projeto",
             options=projetos_options,
             key="projeto_selecionado",
             placeholder="Selecione um projeto"
         )
 
-        if projeto_escolhido is None:
-            st.info("Selecione o projeto para gerenciar as entregas.")
-            st.stop()
-
-        # fixa definitivamente para este diálogo
-        st.session_state["projeto_dialogo_fixado"] = projeto_escolhido
+    else:
+        # Veio de outra página (ex: Projetos)
+        projeto_sigla = st.session_state.get("projeto_selecionado")
 
 
-    # A PARTIR DAQUI, SEMPRE USAR ESSE
-    projeto_sigla = st.session_state["projeto_dialogo_fixado"]
+    if not projeto_sigla:
+        st.info("Selecione um projeto para gerenciar as entregas.")
+        #return
+
 
     # Projeto já definido (veio da página)
     projeto_info = df_projetos_ispn.loc[
@@ -959,7 +959,7 @@ def dialog_editar_entregas():
                     nome_entrega = entrega.get("nome_da_entrega", "Entrega")
 
                     with st.expander(
-                        f"Lançamento - {nome_entrega} - {lanc.get('ano', '-')}",
+                        f"{nome_entrega} - {lanc.get('autor', '-')} - {lanc.get('ano', '-')}",
                         expanded=False
                     ):
 
