@@ -4,7 +4,7 @@ import plotly.express as px
 from google.oauth2 import service_account
 from google.analytics.data_v1beta import BetaAnalyticsDataClient
 from google.analytics.data_v1beta.types import RunReportRequest, DateRange, Dimension, Metric
-from funcoes_auxiliares import conectar_mongo_portal_ispn
+from funcoes_auxiliares import conectar_mongo_portal_ispn, altura_dataframe
 import datetime
 
 
@@ -154,6 +154,8 @@ def mostrar_relatorio(df, nome_site):
 
     max_visualizacoes = int(visitas_pagina["Visualizações"].max())
 
+    st.write('')
+
     st.markdown(f"##### Páginas mais visitadas")
     st.dataframe(visitas_pagina, height=400, hide_index=True,
                 column_config={
@@ -165,9 +167,16 @@ def mostrar_relatorio(df, nome_site):
                 } 
             )
 
+
+    st.write('')
+    st.write('')
+
+    st.markdown(f"##### Evolução diária")
+    
     # Gráfico diário
     visitas_dia = df.groupby("Data")["Visualizações"].sum().reset_index()
-    fig = px.line(visitas_dia, x="Data", y="Visualizações", title=f"Evolução diária - {nome_site}")
+    fig = px.line(visitas_dia, x="Data", y="Visualizações")
+    # fig = px.line(visitas_dia, x="Data", y="Visualizações", title=f"Evolução diária - {nome_site}")
     
     fig.update_layout(
             xaxis_title=None,
@@ -375,11 +384,12 @@ for i, (nome_site, property_id) in enumerate(SITES.items(), start=1):
         if df_semana.empty:
             st.info("Sem dados suficientes para calcular os percentuais.")
         else:
-            altura_df = 35 + 7 * 35
+            altura_df = altura_dataframe(df_semana, linhas_adicionais=0)
             st.dataframe(
                 df_semana,
                 hide_index=True,
                 height=altura_df,
+                width=450,
                 column_config={
                     "% das visitas": st.column_config.ProgressColumn(
                         "% das visitas",
