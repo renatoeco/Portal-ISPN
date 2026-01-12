@@ -1193,29 +1193,80 @@ def gerenciar_pessoas():
         with aba_ferias:
 
             # ------------------------------------------------------------------
-            # PRÉ-CARREGA DADOS DO BANCO (UMA ÚNICA VEZ)
+            # PRÉ-CARREGA DADOS DO BANCO (SOMENTE SE EXISTIREM)
             # ------------------------------------------------------------------
             ferias_db = pessoa.get("férias", {}) if pessoa else {}
 
-            niver_ferias_db = ferias_db.get("niver_ferias", {})
-            abono_inicial_db = ferias_db.get("abono_inicial", 0)
+            niver_ferias_db = ferias_db.get("niver_ferias")
+            abono_inicial_db = ferias_db.get("abono_inicial")
 
-            # Inicializa session_state somente se ainda não existir
-            if "dia_niver" not in st.session_state:
-                st.session_state.dia_niver = niver_ferias_db.get("dia", 1)
+            # Só inicializa se EXISTIR no banco
+            if niver_ferias_db:
+                if "dia_niver" not in st.session_state:
+                    st.session_state.dia_niver = niver_ferias_db.get("dia", "")
 
-            if "mes_niver" not in st.session_state:
-                # mes precisa ser a tupla (numero, nome)
-                mes_num = niver_ferias_db.get("mes", 1)
-                nomes_meses = {
-                    1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
-                    5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
-                    9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
-                }
-                st.session_state.mes_niver = (mes_num, nomes_meses.get(mes_num, "Janeiro"))
+                if "mes_niver" not in st.session_state:
+                    mes_num = niver_ferias_db.get("mes")
+                    if mes_num:
+                        nomes_meses = {
+                            1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
+                            5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
+                            9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
+                        }
+                        st.session_state.mes_niver = (mes_num, nomes_meses[mes_num])
 
             if "dias_residuais" not in st.session_state:
                 st.session_state.dias_residuais = abono_inicial_db
+
+
+
+            # if niver_ferias_db:
+            #     if "dia_niver" not in st.session_state:
+            #         st.session_state.dia_niver = niver_ferias_db.get("dia")
+
+            #     if "mes_niver" not in st.session_state:
+            #         mes_num = niver_ferias_db.get("mes")
+            #         if mes_num:
+            #             nomes_meses = {
+            #                 1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
+            #                 5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
+            #                 9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
+            #             }
+            #             st.session_state.mes_niver = (mes_num, nomes_meses.get(mes_num))
+
+            # # Abono inicial
+            # if abono_inicial_db is not None:
+            #     if "dias_residuais" not in st.session_state:
+            #         st.session_state.dias_residuais = abono_inicial_db
+
+
+
+
+
+            # # ------------------------------------------------------------------
+            # # PRÉ-CARREGA DADOS DO BANCO (UMA ÚNICA VEZ)
+            # # ------------------------------------------------------------------
+            # ferias_db = pessoa.get("férias", {}) if pessoa else {}
+
+            # niver_ferias_db = ferias_db.get("niver_ferias", {})
+            # abono_inicial_db = ferias_db.get("abono_inicial", 0)
+
+            # # Inicializa session_state somente se ainda não existir
+            # if "dia_niver" not in st.session_state:
+            #     st.session_state.dia_niver = niver_ferias_db.get("dia", 1)
+
+            # if "mes_niver" not in st.session_state:
+            #     # mes precisa ser a tupla (numero, nome)
+            #     mes_num = niver_ferias_db.get("mes", 1)
+            #     nomes_meses = {
+            #         1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
+            #         5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
+            #         9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
+            #     }
+            #     st.session_state.mes_niver = (mes_num, nomes_meses.get(mes_num, "Janeiro"))
+
+            # if "dias_residuais" not in st.session_state:
+            #     st.session_state.dias_residuais = abono_inicial_db
 
             # ------------------------------------------------------------------
             # FORMULÁRIO
@@ -1227,37 +1278,70 @@ def gerenciar_pessoas():
                     '(quando o colaborador será abonado com novos dias):'
                 )
 
+                # Dia (vazio + 1..31)
+                lista_dias = [""] + list(range(1, 32))
+
+                # Mês (vazio + tuplas)
+                lista_meses = [""] + [
+                    (1, "Janeiro"), (2, "Fevereiro"), (3, "Março"),
+                    (4, "Abril"), (5, "Maio"), (6, "Junho"),
+                    (7, "Julho"), (8, "Agosto"), (9, "Setembro"),
+                    (10, "Outubro"), (11, "Novembro"), (12, "Dezembro")
+                ]
+
                 with st.container(horizontal=True):
 
-                    # Dia
+                    # DIA
                     dia = st.selectbox(
                         "Dia",
-                        list(range(1, 32)),
+                        lista_dias,
                         key="dia_niver",
                         width=120
                     )
 
-                    # Mês
+                    # MÊS
                     mes = st.selectbox(
                         "Mês",
-                        [
-                            (1, "Janeiro"), (2, "Fevereiro"), (3, "Março"),
-                            (4, "Abril"), (5, "Maio"), (6, "Junho"),
-                            (7, "Julho"), (8, "Agosto"), (9, "Setembro"),
-                            (10, "Outubro"), (11, "Novembro"), (12, "Dezembro")
-                        ],
-                        format_func=lambda x: x[1],
+                        lista_meses,
+                        format_func=lambda x: "" if x == "" else x[1],
                         key="mes_niver",
                         width=250
                     )
+
+
+
+
+                # with st.container(horizontal=True):
+                #     # Dia
+                #     dia = st.selectbox(
+                #         "Dia",
+                #         list(range(1, 32)),
+                #         key="dia_niver",
+                #         width=120
+                #     )
+
+                #     # Mês
+                #     mes = st.selectbox(
+                #         "Mês",
+                #         [
+                #             (1, "Janeiro"), (2, "Fevereiro"), (3, "Março"),
+                #             (4, "Abril"), (5, "Maio"), (6, "Junho"),
+                #             (7, "Julho"), (8, "Agosto"), (9, "Setembro"),
+                #             (10, "Outubro"), (11, "Novembro"), (12, "Dezembro")
+                #         ],
+                #         format_func=lambda x: x[1],
+                #         key="mes_niver",
+                #         width=250
+                #     )
 
                 st.write("")
                 st.write("")
 
                 st.write(
-                    '**Número de dias** que serão abonados no primeiro ciclo '
-                    '(até o primeiro aniversário de férias):'
-                )
+                    '**Número de dias** que serão abonados no primeiro ciclo:')
+                st.caption('O primeiro cico é o período entre o início da contratação e o primeiro aniversário de férias):')
+                st.caption('Se o primeiro ciclo corresponde a um ano completo, coloque 22 (PJ) ou 30 (PF).')
+
 
                 dias_residuais = st.number_input(
                     "Abono inicial:",
@@ -1272,37 +1356,60 @@ def gerenciar_pessoas():
                 # ------------------------------------------------------------------
                 # BOTÃO SALVAR
                 # ------------------------------------------------------------------
-                if st.form_submit_button(
-                    "Salvar",
-                    type="secondary",
-                    icon=":material/save:",
-                    width=200
-                ):
+                if st.form_submit_button("Salvar", type="secondary", icon=":material/save:"):
 
-                    try:
-                        pessoas.update_one(
-                            {"_id": pessoa["_id"]},
-                            {
-                                "$set": {
-                                    "férias.niver_ferias": {
-                                        "dia": dia,
-                                        "mes": mes[0]
-                                    },
-                                    "férias.abono_inicial": dias_residuais,
-                                    "férias.ciclo_1_abonado": False
-                                }
+                    pessoas.update_one(
+                        {"_id": pessoa["_id"]},
+                        {
+                            "$set": {
+                                "férias.niver_ferias": {
+                                    "dia": dia if dia != "" else None,
+                                    "mes": mes[0] if mes != "" else None
+                                },
+                                "férias.abono_inicial": dias_residuais,
+                                "férias.ciclo_1_abonado": False
                             }
-                        )
+                        }
+                    )
 
-                        st.success(
-                            "Informações de férias atualizadas com sucesso!",
-                            icon=":material/check_circle:"
-                        )
-                        time.sleep(3)
-                        st.rerun()
+                    st.success("Informações de férias atualizadas com sucesso!")
+                    st.rerun()
 
-                    except Exception as e:
-                        st.error(f"Erro ao salvar férias: {e}")
+
+
+
+
+                # if st.form_submit_button(
+                #     "Salvar",
+                #     type="secondary",
+                #     icon=":material/save:",
+                #     width=200
+                # ):
+
+                #     try:
+                #         pessoas.update_one(
+                #             {"_id": pessoa["_id"]},
+                #             {
+                #                 "$set": {
+                #                     "férias.niver_ferias": {
+                #                         "dia": dia,
+                #                         "mes": mes[0]
+                #                     },
+                #                     "férias.abono_inicial": dias_residuais,
+                #                     "férias.ciclo_1_abonado": False
+                #                 }
+                #             }
+                #         )
+
+                #         st.success(
+                #             "Informações de férias atualizadas com sucesso!",
+                #             icon=":material/check_circle:"
+                #         )
+                #         time.sleep(3)
+                #         st.rerun()
+
+                    # except Exception as e:
+                    #     st.error(f"Erro ao salvar férias: {e}")
 
 
 
