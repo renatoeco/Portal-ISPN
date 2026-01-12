@@ -193,6 +193,9 @@ def convert_objectid(obj):
 
 if "projeto_selecionado" not in st.session_state:
     st.session_state["projeto_selecionado"] = None
+    
+if "projeto_dialogo_fixado" not in st.session_state:
+    st.session_state["projeto_dialogo_fixado"] = None
 
 # Função do diálogo para gerenciar entregas
 @st.dialog("Editar Entregas", width="large")
@@ -237,14 +240,6 @@ def dialog_editar_entregas():
         "Valor mobilizado de novos recursos"
     ]
     indicador_texto = "Espécies"
-
-    # valores reais (o que vai ser salvo)
-    indicadores_valores = sorted(
-        df_indicadores["nome_indicador"]
-        .dropna()
-        .unique()
-        .tolist()
-    )
     
     # --- 2. Criar dicionários de mapeamento ---
     mapa_doador = {d["_id"]: d["nome_doador"] for d in db["doadores"].find()}
@@ -291,25 +286,30 @@ def dialog_editar_entregas():
 
     pagina_atual = st.session_state.get("pagina_anterior")
 
-    # Só mostra o selectbox se estiver na página "Entregas"
-    if pagina_atual == "pagina_entregas":
+    # =========================
+    # FIXAR PROJETO DO DIÁLOGO
+    # =========================
 
-        projeto_sigla = st.selectbox(
+    # Se ainda não foi fixado, resolve agora
+    if st.session_state["projeto_dialogo_fixado"] is None:
+
+        projeto_escolhido = st.selectbox(
             "Selecione o projeto",
             options=projetos_options,
             key="projeto_selecionado",
             placeholder="Selecione um projeto"
         )
 
-    else:
-        # Veio de outra página (ex: Projetos)
-        projeto_sigla = st.session_state.get("projeto_selecionado")
+        if projeto_escolhido is None:
+            st.info("Selecione o projeto para gerenciar as entregas.")
+            st.stop()
+
+        # fixa definitivamente para este diálogo
+        st.session_state["projeto_dialogo_fixado"] = projeto_escolhido
 
 
-    if not projeto_sigla:
-        st.info("Selecione um projeto para gerenciar as entregas.")
-        return
-
+    # A PARTIR DAQUI, SEMPRE USAR ESSE
+    projeto_sigla = st.session_state["projeto_dialogo_fixado"]
 
     # Projeto já definido (veio da página)
     projeto_info = df_projetos_ispn.loc[
