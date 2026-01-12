@@ -384,7 +384,7 @@ else:
         pg = st.navigation([
             st.Page("Institucional.py", title="Institucional", icon=":material/account_balance:"),
             #st.Page("Estratégia.py", title="Estratégia", icon=":material/tactic:"),
-            st.Page("Entregas.py", title="Entregas", icon=":material/package_2:"),
+            # st.Page("Entregas.py", title="Entregas", icon=":material/package_2:"),
             st.Page("Indicadores.py", title="Indicadores", icon=":material/monitoring:"),
             # st.Page("Programas e Áreas.py", title="Programas e Áreas", icon=":material/team_dashboard:"),
             # st.Page("Pessoas.py", title="Pessoas", icon=":material/groups:"),
