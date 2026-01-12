@@ -1219,55 +1219,6 @@ def gerenciar_pessoas():
                 st.session_state.dias_residuais = abono_inicial_db
 
 
-
-            # if niver_ferias_db:
-            #     if "dia_niver" not in st.session_state:
-            #         st.session_state.dia_niver = niver_ferias_db.get("dia")
-
-            #     if "mes_niver" not in st.session_state:
-            #         mes_num = niver_ferias_db.get("mes")
-            #         if mes_num:
-            #             nomes_meses = {
-            #                 1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
-            #                 5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
-            #                 9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
-            #             }
-            #             st.session_state.mes_niver = (mes_num, nomes_meses.get(mes_num))
-
-            # # Abono inicial
-            # if abono_inicial_db is not None:
-            #     if "dias_residuais" not in st.session_state:
-            #         st.session_state.dias_residuais = abono_inicial_db
-
-
-
-
-
-            # # ------------------------------------------------------------------
-            # # PRÉ-CARREGA DADOS DO BANCO (UMA ÚNICA VEZ)
-            # # ------------------------------------------------------------------
-            # ferias_db = pessoa.get("férias", {}) if pessoa else {}
-
-            # niver_ferias_db = ferias_db.get("niver_ferias", {})
-            # abono_inicial_db = ferias_db.get("abono_inicial", 0)
-
-            # # Inicializa session_state somente se ainda não existir
-            # if "dia_niver" not in st.session_state:
-            #     st.session_state.dia_niver = niver_ferias_db.get("dia", 1)
-
-            # if "mes_niver" not in st.session_state:
-            #     # mes precisa ser a tupla (numero, nome)
-            #     mes_num = niver_ferias_db.get("mes", 1)
-            #     nomes_meses = {
-            #         1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
-            #         5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
-            #         9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
-            #     }
-            #     st.session_state.mes_niver = (mes_num, nomes_meses.get(mes_num, "Janeiro"))
-
-            # if "dias_residuais" not in st.session_state:
-            #     st.session_state.dias_residuais = abono_inicial_db
-
             # ------------------------------------------------------------------
             # FORMULÁRIO
             # ------------------------------------------------------------------
@@ -1375,41 +1326,6 @@ def gerenciar_pessoas():
                     st.success("Informações de férias atualizadas com sucesso!")
                     st.rerun()
 
-
-
-
-
-                # if st.form_submit_button(
-                #     "Salvar",
-                #     type="secondary",
-                #     icon=":material/save:",
-                #     width=200
-                # ):
-
-                #     try:
-                #         pessoas.update_one(
-                #             {"_id": pessoa["_id"]},
-                #             {
-                #                 "$set": {
-                #                     "férias.niver_ferias": {
-                #                         "dia": dia,
-                #                         "mes": mes[0]
-                #                     },
-                #                     "férias.abono_inicial": dias_residuais,
-                #                     "férias.ciclo_1_abonado": False
-                #                 }
-                #             }
-                #         )
-
-                #         st.success(
-                #             "Informações de férias atualizadas com sucesso!",
-                #             icon=":material/check_circle:"
-                #         )
-                #         time.sleep(3)
-                #         st.rerun()
-
-                    # except Exception as e:
-                    #     st.error(f"Erro ao salvar férias: {e}")
 
 
 
@@ -1717,19 +1633,20 @@ def gerenciar_pessoas():
             tipo_conta = col2.selectbox("Tipo de conta:", ["Conta Corrente", "Conta Poupança", "Conta Salário"], index=None, placeholder="")
 
 
-            # -------------------------------------------------
-            # Férias
-            # -------------------------------------------------
+            # # -------------------------------------------------
+            # # Férias
+            # # -------------------------------------------------
 
-            st.markdown("---")
-            st.markdown("#### Férias")
+            # st.markdown("---")
+            # st.markdown("#### Férias")
             
-            col1, col2 = st.columns([1, 2])
+            # col1, col2 = st.columns([1, 2])
             
-            # Férias
-            a_receber = col1.number_input("Dias de férias a receber:", step=1, min_value=22)
+            # # Férias
+            # a_receber = col1.number_input("Dias de férias a receber:", step=1, min_value=22)
 
             # Variáveis de férias com valores iniciais
+            a_receber = 0
             residual_ano_anterior = 0
             valor_inicial_ano_atual = 0
             total_gozado = 0
@@ -1746,7 +1663,7 @@ def gerenciar_pessoas():
             
             hoje = datetime.datetime.today().strftime("%d/%m/%Y")
 
-            st.write(f"Data: {hoje}")
+            # st.write(f"Data: {hoje}")
             
             anotacao_texto = st.text_area("Anotação", placeholder="")
             
