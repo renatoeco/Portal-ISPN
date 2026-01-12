@@ -1331,7 +1331,7 @@ def gerenciar_pessoas():
                 st.write(
                     '**Número de dias** que serão abonados no primeiro ciclo:')
                 st.caption('O primeiro cico é o período entre o início da contratação e o primeiro aniversário de férias):')
-                st.caption('Se o primeiro ciclo corresponde a um ano completo, coloque 22 (PJ) ou 30 (PF).')
+                st.caption('Se o primeiro ciclo corresponde a um ano completo, coloque 22 (PJ) ou 30 (CLT).')
 
 
                 dias_residuais = st.number_input(
