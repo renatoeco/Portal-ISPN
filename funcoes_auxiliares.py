@@ -191,6 +191,8 @@ def convert_objectid(obj):
 
 
 
+if "projeto_selecionado" not in st.session_state:
+    st.session_state["projeto_selecionado"] = None
 
 # Função do diálogo para gerenciar entregas
 @st.dialog("Editar Entregas", width="large")
@@ -287,20 +289,26 @@ def dialog_editar_entregas():
 
     projetos_options = sorted(df_projetos_ispn["sigla"].dropna().unique().tolist())
 
-    projeto_sigla = st.selectbox(
-        "Selecione o projeto",
-        options=[""] + projetos_options,
-        index=(
-            projetos_options.index(st.session_state["projeto_selecionado"]) + 1
-            if st.session_state.get("projeto_selecionado") in projetos_options
-            else 0
-        ),
-        key="projeto_selecionado"
-    )
+    pagina_atual = st.session_state.get("pagina_anterior")
+
+    # Só mostra o selectbox se estiver na página "Entregas"
+    if pagina_atual == "pagina_entregas":
+
+        projeto_sigla = st.selectbox(
+            "Selecione o projeto",
+            options=projetos_options,
+            key="projeto_selecionado",
+            placeholder="Selecione um projeto"
+        )
+
+    else:
+        # Veio de outra página (ex: Projetos)
+        projeto_sigla = st.session_state.get("projeto_selecionado")
+
 
     if not projeto_sigla:
         st.info("Selecione um projeto para gerenciar as entregas.")
-        st.stop()
+        return
 
 
     # Projeto já definido (veio da página)
@@ -548,7 +556,8 @@ def dialog_editar_entregas():
                         if acoes_medio:
                             st.markdown("**Ações estratégicas dos resultados de médio prazo:**")
                             for a in acoes_medio:
-                                st.markdown(f"- {a}")
+                                nome = mapa_acoes_mp.get(str(a), "Não encontrado")
+                                st.markdown(f"- {nome}")
                         else:
                             st.markdown("**Ações estratégicas dos resultados de médio prazo:** -")
                         
@@ -557,7 +566,8 @@ def dialog_editar_entregas():
                         if metas_entrega:
                             st.markdown("**Metas dos resultados de médio prazo:**")
                             for m in metas_entrega:
-                                st.markdown(f"- {m}")
+                                nome = mapa_metas_mp.get(str(m), "Não encontrado")
+                                st.markdown(f"- {nome}")
                         else:
                             st.markdown("**Metas dos resultados de médio prazo:** -")
 
@@ -568,7 +578,8 @@ def dialog_editar_entregas():
                         if resultados_longo_entrega:
                             st.markdown("**Resultados de longo prazo:**")
                             for r in resultados_longo_entrega:
-                                st.markdown(f"- {r}")
+                                nome = mapa_resultados_lp.get(str(r), "Não encontrado")
+                                st.markdown(f"- {nome}")
                         else:
                             st.markdown("**Resultados de longo prazo:** -")
 
@@ -580,7 +591,8 @@ def dialog_editar_entregas():
                         if eixos:
                             st.markdown("**Eixos estratégicos:**")
                             for e in eixos:
-                                st.markdown(f"- {e}")
+                                nome = mapa_eixos.get(str(e), "Não encontrado")
+                                st.markdown(f"- {nome}")
                         else:
                             st.markdown("**Eixos estratégicos:** -")
                             
@@ -591,7 +603,8 @@ def dialog_editar_entregas():
                         if acoes:
                             st.markdown("**Ações estratégicas do programa:**")
                             for a in acoes:
-                                st.markdown(f"- {a}")
+                                nome = mapa_acoes_programa.get(str(a), "Não encontrado")
+                                st.markdown(f"- {nome}")
                         else:
                             st.markdown("**Ações estratégicas do programa:** -")
                         
@@ -783,7 +796,7 @@ def dialog_editar_entregas():
 
             if not entregas_existentes:
                 st.info("Este projeto ainda não possui entregas cadastradas.")
-                st.stop()
+                return
 
             with st.expander("Adicionar lançamento", expanded=False):
 
@@ -873,7 +886,7 @@ def dialog_editar_entregas():
 
                     if not ano_lancamento:
                         st.warning("Informe o ano do lançamento.")
-                        st.stop()
+                        return
 
                     # -------------------------
                     # 1. Salvar lançamento da entrega
