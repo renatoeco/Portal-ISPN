@@ -826,7 +826,7 @@ def gerenciar_pessoas():
                 fim_contrato = cols[1].date_input("Data de fim do contrato:", format="DD/MM/YYYY", value=None)
                 data_reajuste = cols[2].selectbox("Mês de reajuste:", meses_pt)
 
-                anotacoes_contrato = st.text_area("Anotações sobre contrato:")
+                anotacoes_contrato = st.text_area("Anotações sobre o contrato:")
 
                 # lista_status_contrato = ["Em vigência", "Encerrado", "Cancelado", "Fonte de recurso temporária", ""]
 
@@ -2406,7 +2406,7 @@ with aba_contratos:
 
         st.plotly_chart(fig)
     else:
-        st.info("Nenhum contrato válido encontrado.")
+        st.caption("Nenhum contrato válido encontrado.")
 
 
 
@@ -2446,7 +2446,7 @@ with aba_reajustes:
                 encontrados = True
 
     if not encontrados:
-        st.info("Nenhum contrato com reajuste no mês atual.")
+        st.caption("Nenhum contrato com reajuste no mês atual.")
 
 
 
@@ -2486,7 +2486,7 @@ with aba_aniversariantes:
 
 
     if not encontrados:
-        st.info("Nenhum aniversariante encontrado neste mês.")
+        st.caption("Nenhum aniversariante encontrado neste mês.")
     
 
 
