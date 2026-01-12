@@ -1897,9 +1897,19 @@ with aba_pessoas:
     # Remove as colunas indesejadas
     # df_pessoas_filtrado = df_pessoas_filtrado.drop(columns=["Status", "Gênero"], errors="ignore")
 
+
     st.dataframe(
-        df_pessoas_filtrado.rename(columns={"Projeto Pagador": "Projeto"}), 
-        hide_index=True)
+        df_pessoas_filtrado
+            .rename(columns={"Projeto Pagador": "Projeto"})
+            .fillna(""),
+        hide_index=True
+    )
+
+
+
+    # st.dataframe(
+    #     df_pessoas_filtrado.rename(columns={"Projeto Pagador": "Projeto"}), 
+    #     hide_index=True)
 
     # Gráficos 
     col1, col2 = st.columns(2)

@@ -24,18 +24,7 @@ st.header("Solicitações de Viagens e Relatórios")
 st.write('')
 
 
-# CSS PARA DIALOGO MAIOR
-st.markdown(
-    """
-<style>
-div[data-testid="stDialog"] div[role="dialog"]:has(.big-dialog) {
-    width: 55vw;
-    
-}
-</style>
-""",
-    unsafe_allow_html=True,
-)
+
 
 
 # ##################################################################
