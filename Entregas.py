@@ -281,60 +281,6 @@ def renderizar_novo_registro(idx):
         st.rerun()
 
 
-
-# Função para renderizar os lançamentos dentro do diálogo de acompanhamento de entrega
-@st.fragment
-def renderizar_registros(idx):
-    # Define espaçamentos das colunas UMA VEZ
-    colunas = [1, 1, 2, 2]
-
-    lancamentos = df_entregas.loc[idx, "lancamentos_entregas"]
-
-    if not lancamentos:
-        st.caption("Nenhum registro nesta entrega.")
-    else:
-
-        # --------------------------------
-        # Cabeçalho das colunas
-        # --------------------------------
-        col1, col2, col3, col4 = st.columns(colunas)
-
-        with col1:
-            st.markdown("**Ano**")
-        with col2:
-            st.markdown("**Autor(a)**")
-        with col3:
-            st.markdown("**Anotações**")
-
-        with col4:
-            st.markdown("**Indicadores**")
-
-
-        st.divider()
-
-        # --------------------------------
-        # Registros
-        # --------------------------------
-        for lancamento in lancamentos:
-            col1, col2, col3, col4 = st.columns(colunas)
-
-            with col1:
-                st.write(lancamento.get("ano", ""))
-
-            with col2:
-                st.write(lancamento.get("autor", ""))
-
-            with col3:
-                st.write(lancamento.get("anotacoes", ""))
-
-            with col4:
-                with st.popover("Indicadores", type="tertiary"):
-                    st.write("Teste de popover")
-
-
-            st.divider()
-
-
 @st.dialog("Acompanhamento de Entrega", width="large")
 def dialog_registros_entregas():
 
@@ -487,6 +433,7 @@ def dialog_registros_entregas():
     # ==========================================================
     # Usuários comuns (somente leitura)
     # ==========================================================
+
     else:
         with col1:
             st.write(f"**Situação:** {situacao}")
@@ -497,14 +444,9 @@ def dialog_registros_entregas():
         with col4:
             st.write(f"**Responsáveis:** {responsaveis}")
 
-
-
-
-
     # ================================================================================================
     # Registros de entrega
     # ================================================================================================
-
 
     st.markdown("### Registros de entrega")
 
@@ -514,7 +456,7 @@ def dialog_registros_entregas():
     with tab_ver_registros:
 
         # Define espaçamentos das colunas UMA VEZ
-        colunas = [1, 1, 2, 2]
+        colunas = [1, 1, 2, 2, 1]
 
         lancamentos = df_entregas.loc[idx, "lancamentos_entregas"]
 
@@ -525,7 +467,7 @@ def dialog_registros_entregas():
             # --------------------------------
             # Cabeçalho das colunas
             # --------------------------------
-            col1, col2, col3, col4 = st.columns(colunas)
+            col1, col2, col3, col4, col5 = st.columns(colunas)
 
             with col1:
                 st.markdown("**Ano**")
@@ -533,18 +475,23 @@ def dialog_registros_entregas():
                 st.markdown("**Autor(a)**")
             with col3:
                 st.markdown("**Anotações**")
-
             with col4:
                 st.markdown("**Indicadores**")
-
+            with col5:
+                st.markdown("")
+       
 
             st.divider()
+
+            if "lancamento_em_edicao" not in st.session_state:
+                st.session_state["lancamento_em_edicao"] = None
+
 
             # --------------------------------
             # Registros
             # --------------------------------
             for lancamento in lancamentos:
-                col1, col2, col3, col4 = st.columns(colunas)
+                col1, col2, col3, col4, col5 = st.columns(colunas)
 
                 with col1:
                     st.write(lancamento.get("ano", ""))
@@ -583,12 +530,82 @@ def dialog_registros_entregas():
                                     
                                     st.write("")
 
+                with col5:
+                    if st.button("Editar",key=f"editar_lanc_{lancamento.get('_id')}", icon=":material/edit:"):
 
+                        st.session_state["lancamento_em_edicao"] = {
+                            "entrega_idx": idx,
+                            "lancamento_id": str(lancamento["_id"]),
+                            "ano": lancamento.get("ano"),
+                            "anotacoes": lancamento.get("anotacoes", "")
+                        }
+
+                if (st.session_state["lancamento_em_edicao"] and st.session_state["lancamento_em_edicao"]["lancamento_id"] == str(lancamento["_id"])):
+
+                    with st.container(border=True):
+
+                        st.markdown("**Editar registro**")
+
+                        with st.form(f"form_editar_lanc_{lancamento['_id']}", border=False):
+
+                            ano_atual = datetime.now().year
+                            ano_inicial = ano_atual - 1
+                            ano_final = ano_atual + 6
+
+                            anos_disponiveis = list(range(ano_inicial, ano_final + 1))
+
+                            ano_lancamento = lancamento.get("ano")
+
+                            try:
+                                index_ano = anos_disponiveis.index(int(ano_lancamento))
+                            except (ValueError, TypeError):
+                                index_ano = 0
+
+                            ano = st.selectbox(
+                                "Ano do registro",
+                                options=anos_disponiveis,
+                                index=index_ano
+                            )
+
+                            anotacoes = st.text_area(
+                                "Anotações",
+                                value=lancamento.get("anotacoes", ""),
+                                height=120
+                            )
+
+                            #col_a, col_b = st.columns(2)
+                            with st.container(border=False, horizontal=True):
+                                
+                                salvar = st.form_submit_button("Salvar", type="primary", icon=":material/save:")
+
+                                
+                                cancelar = st.form_submit_button("Cancelar", icon=":material/close:")
+
+                        if cancelar:
+                            st.session_state["lancamento_em_edicao"] = None
+                            st.rerun()
+
+                        if salvar:
+                            projetos_ispn.update_one(
+                                {"entregas.lancamentos_entregas._id": ObjectId(lancamento["_id"])},
+                                {
+                                    "$set": {
+                                        "entregas.$[].lancamentos_entregas.$[l].ano":  str(ano),
+                                        "entregas.$[].lancamentos_entregas.$[l].anotacoes": anotacoes
+                                    }
+                                },
+                                array_filters=[{"l._id": ObjectId(lancamento["_id"])}]
+                            )
+
+                            # Atualiza o dataframe local
+                            lancamento["ano"] = ano
+                            lancamento["anotacoes"] = anotacoes
+
+                            st.success("Registro atualizado com sucesso.")
+                            st.session_state["lancamento_em_edicao"] = None
+                            st.rerun()
 
                 st.divider()
-
-
-    # renderizar_registros(idx)
 
     with tab_novo_registro:
 
