@@ -523,27 +523,44 @@ for colab_doc in colaboradores_raw:
 
     # Contratos
     contratos = colab_doc.get("contratos", [])
+
+    def parse_data(data):
+        if isinstance(data, datetime.datetime):
+            return data
+        if isinstance(data, str) and data:
+            return datetime.datetime.strptime(data, "%d/%m/%Y")
+        return None
+
     if contratos:
-        # Pegamos o primeiro contrato para exibição (ou você pode iterar se quiser múltiplos)
-        contrato = contratos[0]
+        # Ordena contratos pela data_inicio (mais recente primeiro)
+        contratos_ordenados = sorted(
+            contratos,
+            key=lambda c: parse_data(c.get("data_inicio")),
+            reverse=True
+        )
+
+        # Contrato mais recente
+        contrato = contratos_ordenados[0]
 
         data_inicio_contrato = contrato.get("data_inicio", "")
         data_fim_contrato = contrato.get("data_fim", "")
 
-        # Converte datas string para datetime, se necessário
+        # Formata datas para exibição
         if isinstance(data_inicio_contrato, datetime.datetime):
             data_inicio_contrato = data_inicio_contrato.strftime("%d/%m/%Y")
         if isinstance(data_fim_contrato, datetime.datetime):
             data_fim_contrato = data_fim_contrato.strftime("%d/%m/%Y")
 
-        # Projeto pagador
+        # Projeto pagador SOMENTE do contrato mais recente
         projeto_pagador_list = contrato.get("projeto_pagador", [])
         if projeto_pagador_list:
-            # Pega o primeiro ObjectId do contrato
-            projeto_pagador_id = str(projeto_pagador_list[0])  # <-- aqui só convertemos para string
-            projeto_pagador_sigla = mapa_id_para_sigla_projeto.get(projeto_pagador_id, "Não informado")
+            projeto_pagador_id = str(projeto_pagador_list[0])
+            projeto_pagador_sigla = mapa_id_para_sigla_projeto.get(
+                projeto_pagador_id, "Não informado"
+            )
         else:
             projeto_pagador_sigla = "Não informado"
+
     else:
         data_inicio_contrato = ""
         data_fim_contrato = ""
@@ -557,6 +574,7 @@ for colab_doc in colaboradores_raw:
         "data_inicio_contrato": data_inicio_contrato,
         "data_fim_contrato": data_fim_contrato
     })
+
 
 # Dataframe de equipe
 df_equipe = pd.DataFrame(lista_equipe)
