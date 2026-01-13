@@ -191,9 +191,6 @@ def convert_objectid(obj):
 
 
 
-if "projeto_selecionado" not in st.session_state:
-    st.session_state["projeto_selecionado"] = None
-
 # Função do diálogo para gerenciar entregas
 @st.dialog("Editar Entregas", width="large")
 def dialog_editar_entregas():
@@ -289,26 +286,15 @@ def dialog_editar_entregas():
 
     projetos_options = sorted(df_projetos_ispn["sigla"].dropna().unique().tolist())
 
-    pagina_atual = st.session_state.get("pagina_anterior")
-
-    # Só mostra o selectbox se estiver na página "Entregas"
-    if pagina_atual == "pagina_entregas":
-
-        projeto_sigla = st.selectbox(
-            "Selecione o projeto",
-            options=projetos_options,
-            key="projeto_selecionado",
-            placeholder="Selecione um projeto"
-        )
-
-    else:
-        # Veio de outra página (ex: Projetos)
-        projeto_sigla = st.session_state.get("projeto_selecionado")
-
+    projeto_sigla = st.selectbox(
+        "Selecione o projeto",
+        options=[""] + projetos_options,
+        key="projeto_selecionado"
+    )
 
     if not projeto_sigla:
         st.info("Selecione um projeto para gerenciar as entregas.")
-        #return
+        return
 
 
     # Projeto já definido (veio da página)
@@ -386,7 +372,7 @@ def dialog_editar_entregas():
         aba_entregas, aba_lancamentos_entregas = st.tabs(
             [
                 ":material/package_2: Gerenciar entregas",
-                ":material/rocket_launch: Registros de entregas"
+                ":material/rocket_launch: Lançamentos de entregas"
             ]
         )
     else:
@@ -397,29 +383,13 @@ def dialog_editar_entregas():
 
         with st.expander("Adicionar entrega", expanded=False):
             with st.form("form_nova_entrega", border=False):
-
-                nome_da_entrega = st.text_input(
-                    "Nome da entrega",
-                    "",
-                    key="nova_nome_entrega"
-                )
+                
+                nome_da_entrega = st.text_input("Nome da entrega")
                 
                 col1, col2 = st.columns(2)
                 
-                previsao_da_conclusao = col1.date_input("Previsão de conclusão", format="DD/MM/YYYY",  key="nova_previsao_entrega")
+                previsao_da_conclusao = col1.date_input("Previsão de conclusão", format="DD/MM/YYYY")
                 
-                responsaveis_selecionados = col2.multiselect(
-                    "Responsáveis",
-                    options=responsaveis_options,
-                    format_func=lambda x: responsaveis_dict.get(x, "Desconhecido"),
-                    placeholder="",
-                    key="nova_resp_entrega"
-                )
-                
-                col1, col2 = st.columns(2)
-                
-                situacao = col1.selectbox("Situação", ["Prevista", "Atrasada", "Concluída"], key="nova_situacao")
-
                 ano_atual = datetime.now().year
                 ano_inicial = ano_atual - 1
                 ano_final = ano_atual + 6
@@ -429,7 +399,27 @@ def dialog_editar_entregas():
                 anos_de_referencia = col2.multiselect(
                     "Anos de referência",
                     options=anos_disponiveis,
-                    key="nova_anoref",
+                    #default=[ano_atual],
+                    placeholder=""
+                )
+                
+                col1, col2 = st.columns(2)
+                
+                situacao = col1.selectbox("Situação", ["Prevista", "Atrasada", "Concluída"])
+                
+                opcoes_progresso = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+                
+                progresso_nova_entrega = col2.selectbox(
+                    "Progresso",
+                    options=opcoes_progresso,
+                    format_func=lambda x: f"{x}%",
+                    key="progresso_nova_entrega"
+                )
+                
+                responsaveis_selecionados = st.multiselect(
+                    "Responsáveis",
+                    options=responsaveis_options,
+                    format_func=lambda x: responsaveis_dict.get(x, "Desconhecido"),
                     placeholder=""
                 )
                 
@@ -497,6 +487,7 @@ def dialog_editar_entregas():
                             "previsao_da_conclusao": previsao_da_conclusao.strftime("%d/%m/%Y"),
                             "responsaveis": [ObjectId(r) for r in responsaveis_selecionados],
                             "situacao": situacao,
+                            "progresso": int(progresso_nova_entrega),
                             "anos_de_referencia": [str(a) for a in anos_de_referencia],
                             "acoes_resultados_medio_prazo": [ObjectId(a) for a in acoes_medio_prazo_relacionadas],
                             "resultados_longo_prazo_relacionados": [ObjectId(r) for r in resultados_longo_prazo_relacionados],
@@ -546,8 +537,15 @@ def dialog_editar_entregas():
                         # --- Modo de visualização ---
                         st.write(f"**Previsão:** {entrega.get('previsao_da_conclusao', '-')}")
                         st.write(f"**Responsáveis:** {responsaveis_formatados}")
-                        st.write(f"**Situação:** {entrega.get('situacao', '-')}")
                         st.write(f"**Anos de referência:** {', '.join(entrega.get('anos_de_referencia', []))}")
+                        st.write(f"**Situação:** {entrega.get('situacao', '-')}")
+                        
+                        progresso = entrega.get("progresso", 0)
+                        try:
+                            progresso = int(progresso)
+                        except (TypeError, ValueError):
+                            progresso = 0
+                        st.write(f"**Progresso:** {progresso}%")
                         
                         st.write("")
 
@@ -625,8 +623,7 @@ def dialog_editar_entregas():
                         
                     else:
                         # --- Modo de edição ---
-                        with st.form(f"form_edit_entrega_{entrega_id}",border=False):
-
+                        with st.form(f"form_edit_entrega_{i}", border=False):
                             entrega_editada = {**entrega}
 
                             entrega_editada["nome_da_entrega"] = st.text_input(
@@ -643,26 +640,6 @@ def dialog_editar_entregas():
                             )
                             entrega_editada["previsao_da_conclusao"] = entrega_editada["previsao_da_conclusao"].strftime("%d/%m/%Y")
 
-                            responsaveis_existentes = [str(r) for r in entrega.get("responsaveis", [])]
-                            entrega_editada["responsaveis"] = col2.multiselect(
-                                "Responsáveis",
-                                options=list(responsaveis_dict.keys()),
-                                default=responsaveis_existentes,
-                                format_func=lambda x: responsaveis_dict.get(x, "Desconhecido"),
-                                placeholder="Selecione os responsáveis"
-                            )
-
-                            
-                            col1, col2 = st.columns(2)
-
-                            entrega_editada["situacao"] = col1.selectbox(
-                                "Situação",
-                                ["Prevista", "Atrasada", "Concluída"],
-                                index=["Prevista", "Atrasada", "Concluída"].index(
-                                    entrega.get("situacao", "Prevista")
-                                )
-                            )
-
                             anos_salvos = [
                                 int(a) for a in entrega.get("anos_de_referencia", [])
                                 if str(a).isdigit()
@@ -673,6 +650,39 @@ def dialog_editar_entregas():
                                 options=anos_disponiveis,
                                 default=anos_salvos,
                                 placeholder=""
+                            )
+
+                            col1, col2 = st.columns(2)
+
+                            entrega_editada["situacao"] = col1.selectbox(
+                                "Situação",
+                                ["Prevista", "Atrasada", "Concluída"],
+                                index=["Prevista", "Atrasada", "Concluída"].index(
+                                    entrega.get("situacao", "Prevista")
+                                )
+                            )
+                            
+                            progresso_atual = entrega.get("progresso", 0)
+                            try:
+                                progresso_atual = int(progresso_atual)
+                            except (TypeError, ValueError):
+                                progresso_atual = 0
+                                
+                            entrega_editada["progresso"] = col2.selectbox(
+                                "Progresso",
+                                options=opcoes_progresso,
+                                index=opcoes_progresso.index(progresso_atual) if progresso_atual in opcoes_progresso else 0,
+                                format_func=lambda x: f"{x}%",
+                                key=f"entrega_progresso_{i}"
+                            )
+
+                            responsaveis_existentes = [str(r) for r in entrega.get("responsaveis", [])]
+                            entrega_editada["responsaveis"] = st.multiselect(
+                                "Responsáveis",
+                                options=list(responsaveis_dict.keys()),
+                                default=responsaveis_existentes,
+                                format_func=lambda x: responsaveis_dict.get(x, "Desconhecido"),
+                                placeholder="Selecione os responsáveis"
                             )
 
                             acoes_mp_default = [str(a) for a in entrega.get("acoes_resultados_medio_prazo", [])]
@@ -798,7 +808,7 @@ def dialog_editar_entregas():
                 st.info("Este projeto ainda não possui entregas cadastradas.")
                 return
 
-            with st.expander("Adicionar registro", expanded=False):
+            with st.expander("Adicionar lançamento", expanded=False):
 
                 # =========================
                 # Selecionar entrega
@@ -897,7 +907,7 @@ def dialog_editar_entregas():
                         "anotacoes": anotacoes_lancamento,
                         "autor": st.session_state.get("nome")
                     }
-                    
+
                     id_lanc_entrega = novo_lancamento_entrega["_id"]
 
                     entregas_existentes[entrega_idx].setdefault(
@@ -943,11 +953,11 @@ def dialog_editar_entregas():
                         colecao_lancamentos.insert_one(lancamento_indicador)
 
 
-                    st.success("Registro salvo com sucesso!")
+                    st.success("Lançamento salvo com sucesso!")
                     time.sleep(2)
                     st.rerun()
                     
-            st.markdown("### Registros cadastrados:")
+            st.markdown("### Lançamentos cadastrados:")
             for entrega_idx, entrega in enumerate(entregas_existentes):
 
                 lancamentos = entrega.get("lancamentos_entregas", [])
@@ -962,7 +972,7 @@ def dialog_editar_entregas():
                     nome_entrega = entrega.get("nome_da_entrega", "Entrega")
 
                     with st.expander(
-                        f"{nome_entrega} - {lanc.get('autor', '-')} - {lanc.get('ano', '-')}",
+                        f"Lançamento - {nome_entrega} - {lanc.get('ano', '-')}",
                         expanded=False
                     ):
 
@@ -1011,6 +1021,6 @@ def dialog_editar_entregas():
                                     {"$set": {"entregas": entregas_existentes}}
                                 )
 
-                                st.success("Registro atualizado!")
+                                st.success("Lançamento atualizado!")
                                 time.sleep(2)
                                 st.rerun()

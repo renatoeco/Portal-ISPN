@@ -2043,7 +2043,7 @@ with tab2:
                     "Responsáveis": ", ".join(responsaveis_nomes) if responsaveis_nomes else "-",
                     "Situação": entrega.get("situacao", "-"),
                     "Anos de Referência": ", ".join(entrega.get("anos_de_referencia", [])),
-                    "Anotações": entrega.get("anotacoes", "-")
+                    #"Anotações": entrega.get("anotacoes", "-")
                 })
 
             # Converter para DataFrame e exibir como tabela
