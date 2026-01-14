@@ -89,7 +89,6 @@ dados_programas = list(programas_areas.find())
 dados_projetos_ispn = list(projetos_ispn.find())
 
 
-
 # PESSOAS
 
 pessoas_lista = []
@@ -120,7 +119,6 @@ for pessoa in dados_pessoas:
                 nomes_projetos_pagadores.append(nome_proj)
 
 
-
     # ----------------------
     # Montar registro da pessoa
     # ----------------------
@@ -141,10 +139,8 @@ for pessoa in dados_pessoas:
     })
 
 
-
 # Criar DataFrame de Pessoas
 df_pessoas = pd.DataFrame(pessoas_lista)
-
 
 
 # PROJETOS
@@ -173,7 +169,6 @@ opcoes_cargos = [
     "Coordenador Geral administrativo/financeiro", "Coordenador Executivo", "Coordenador de Área", "Coordenador de Programa", "Estagiário",
     "Motorista", "Secretária(o)/Recepcionista", "Técnico de campo", "Técnico em informática"
 ]
-
 
 
 # Função para enviar e-mail de registro da previdência
@@ -267,9 +262,6 @@ def verificar_contratos_vencidos(pessoa):
     return contratos_atualizados
 
 
-
-
-
 # Define um diálogo (modal) para gerenciar colaboradores
 @st.dialog("Gerenciar colaboradores", width='large')
 def gerenciar_pessoas():
@@ -301,14 +293,7 @@ def gerenciar_pessoas():
         for p in dados_projetos_ispn
         if p.get("nome_do_projeto") and "_id" in p
     }
-
-    # id (ObjectId) -> nome
-    id_para_nome_projeto = {
-        p["_id"]: p.get("nome_do_projeto", "")
-        for p in dados_projetos_ispn
-        if "_id" in p
-    }
-    
+  
     lista_programas_areas = sorted(nome_para_id_programa.keys())
     
     # Lista de coordenadores existentes (id, nome, programa)
@@ -1827,7 +1812,75 @@ def gerenciar_pessoas():
                     st.success(f"Colaborador(a) **{nome}** cadastrado(a) com sucesso!", icon=":material/thumb_up:")
                     time.sleep(2)
                     st.rerun()  # Recarrega a página para atualizar dados
-   
+
+
+# Função para converter datas (str -> datetime.date)
+def parse_date(data_str):
+    if isinstance(data_str, str):
+        for fmt in ("%d/%m/%Y", "%Y-%m-%d"):
+            try:
+                return datetime.datetime.strptime(data_str, fmt).date()
+            except ValueError:
+                continue
+    return None
+
+
+def contrato_mais_recente(contratos):
+    return max(
+        contratos,
+        key=lambda c: parse_date(c.get("data_inicio")) or datetime.date.min,
+        default=None
+    )
+
+
+STATUS_VALIDOS = ["Em vigência", "Fonte de recurso temporária"]
+
+def contratos_por_status(contratos):
+    return [c for c in contratos if c.get("status_contrato") in STATUS_VALIDOS]
+
+
+def contratos_para_aba_contratos(contratos):
+    """
+    Regra:
+    - Se existir contrato 'Em vigência' ou 'Fonte de recurso temporária':
+        → retorna TODOS eles
+    - Caso contrário:
+        → retorna apenas o contrato mais recente
+    """
+    ativos = contratos_por_status(contratos)
+
+    if ativos:
+        return ativos
+
+    contrato_recente = contrato_mais_recente(contratos)
+    return [contrato_recente] if contrato_recente else []
+
+
+def contratos_ativos(contratos):
+    """
+    Retorna TODOS os contratos:
+    - status 'Em vigência' ou 'Fonte de recurso temporária'
+    - cuja data atual esteja dentro do período (se datas existirem)
+    """
+    hoje = datetime.date.today()
+    ativos = []
+
+    for c in contratos:
+        if c.get("status_contrato") not in ["Em vigência", "Fonte de recurso temporária"]:
+            continue
+
+        inicio = parse_date(c.get("data_inicio"))
+        fim = parse_date(c.get("data_fim"))
+
+        # Se não tiver datas, assume válido
+        if inicio and fim:
+            if inicio <= hoje <= fim:
+                ativos.append(c)
+        else:
+            ativos.append(c)
+
+    return ativos
+
 
 ######################################################################################################
 # MAIN
@@ -1858,9 +1911,32 @@ with aba_pessoas:
     # Projetos
     projetos = sorted([p["sigla"] for p in dados_projetos_ispn])
 
+    mapa_projeto_pessoa = {}
+
+    for pessoa in dados_pessoas:
+        contratos = pessoa.get("contratos", [])
+        contratos_validos = contratos_ativos(contratos)
+
+        projetos_set = set()
+
+        for contrato in contratos_validos:
+            for pid in contrato.get("projeto_pagador", []):
+                projeto = next(
+                    (p for p in dados_projetos_ispn if p["_id"] == pid),
+                    None
+                )
+                if projeto:
+                    projetos_set.add(projeto.get("sigla"))
+
+        projeto_str = ", ".join(sorted(projetos_set)) if projetos_set else ""
+
+        mapa_projeto_pessoa[pessoa.get("nome_completo")] = projeto_str
+
     # Organizar o dataframe por ordem alfabética de nome
     df_pessoas = df_pessoas.sort_values(by="Nome")
-    
+
+    df_pessoas["Projeto Pagador"] = df_pessoas["Nome"].map(mapa_projeto_pessoa).fillna("")
+
     #Tipo de contratação
     tipos_contratacao = sorted(df_pessoas["Tipo Contratação"].dropna().unique())
 
@@ -2088,7 +2164,7 @@ with aba_pessoas:
     fig.update_yaxes(showticklabels=False)
 
     # aumenta o limite superior do eixo Y para não cortar os textos
-    fig.update_yaxes(range=[0, cargo_counts['Quantidade'].max() * 1.15])
+    fig.update_yaxes(range=[0, cargo_counts['Quantidade'].max() * 3.15])
 
     # remove legenda
     fig.update_layout(showlegend=False)
@@ -2096,7 +2172,7 @@ with aba_pessoas:
     # exibir gráfico estático
     col1.plotly_chart(
         fig,
-        config={'staticPlot': True}
+        config={'staticPlot': False}
     )
 
     # Pessoas por Escolaridade -------------------------------------------------------
@@ -2154,7 +2230,7 @@ with aba_pessoas:
     # desativa interação
     col1.plotly_chart(
         fig,
-        config={'staticPlot': True}
+        config={'staticPlot': False}
     )
 
     # Pessoas por Raça ----------------------------------------------------
@@ -2188,15 +2264,7 @@ with aba_pessoas:
 # if set(st.session_state.tipo_usuario) & {"admin", "gestao_pessoas"}:
 with aba_contratos:
 
-    # Função para converter datas (str -> datetime.date)
-    def parse_date(data_str):
-        if isinstance(data_str, str):
-            for fmt in ("%d/%m/%Y", "%Y-%m-%d"):
-                try:
-                    return datetime.datetime.strptime(data_str, fmt).date()
-                except ValueError:
-                    continue
-        return None
+    
 
     # Função para calcular dias restantes
     def dias_restantes(data_fim):
@@ -2208,7 +2276,9 @@ with aba_contratos:
     contratos_90_dias = []
 
     for p in dados_pessoas:
-        for contrato in p.get("contratos", []):
+        contratos_exibir = contratos_para_aba_contratos(p.get("contratos", []))
+
+        for contrato in contratos_exibir:
             data_fim = parse_date(contrato.get("data_fim"))
             if data_fim and dias_restantes(data_fim) <= 90:
                 contratos_90_dias.append({
@@ -2216,6 +2286,7 @@ with aba_contratos:
                     "contrato": contrato,
                     "dias_restantes": dias_restantes(data_fim)
                 })
+
 
     
 
@@ -2280,7 +2351,7 @@ with aba_contratos:
         nome = pessoa.get("nome_completo", "Sem nome")
         contratos = pessoa.get("contratos", [])
 
-        for contrato in contratos:
+        for contrato in contratos_para_aba_contratos(contratos):
             data_inicio = parse_date(contrato.get("data_inicio"))
             data_fim = parse_date(contrato.get("data_fim"))
             if data_inicio and data_fim:
@@ -2374,9 +2445,6 @@ with aba_reajustes:
 
     if not encontrados:
         st.caption("Nenhum contrato com reajuste no mês atual.")
-
-
-
 
 
 with aba_aniversariantes:

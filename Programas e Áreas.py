@@ -506,93 +506,83 @@ titulos_abas = [p['titulo'] for p in lista_programas if p.get('titulo')]
 
 lista_equipe = []
 
+STATUS_CONTRATOS_VALIDOS = [
+    "Em vigência",
+    "Fonte de recurso temporária"
+]
+
 for colab_doc in colaboradores_raw:
+
     if colab_doc.get("status", "").lower() != "ativo":
-        continue  # Pula quem não for ativo
+        continue
 
     nome = colab_doc.get("nome_completo", "Desconhecido")
+    genero = colab_doc.get("gênero", "Não informado")
 
-    # # Ignora coordenadores
-    # if nome in nomes_coordenadores:
-    #     continue
-
-    genero = colab_doc.get("gênero", "")
-    
     programa_area_id = colab_doc.get("programa_area")
     programa_area = mapa_id_para_nome_programa.get(str(programa_area_id), "Não informado")
 
-    # Contratos
     contratos = colab_doc.get("contratos", [])
 
-    def parse_data(data):
-        if isinstance(data, datetime.datetime):
-            return data
-        if isinstance(data, str) and data:
-            return datetime.datetime.strptime(data, "%d/%m/%Y")
-        return None
+    projetos_lista = []
+    datas_inicio_lista = []
+    datas_fim_lista = []
 
-    if contratos:
-        # Ordena contratos pela data_inicio (mais recente primeiro)
-        contratos_ordenados = sorted(
-            contratos,
-            key=lambda c: parse_data(c.get("data_inicio")),
-            reverse=True
-        )
+    for contrato in contratos:
 
-        # Contrato mais recente
-        contrato = contratos_ordenados[0]
+        if contrato.get("status_contrato") not in STATUS_CONTRATOS_VALIDOS:
+            continue
 
-        data_inicio_contrato = contrato.get("data_inicio", "")
-        data_fim_contrato = contrato.get("data_fim", "")
+        # Datas do contrato
+        try:
+            di = datetime.datetime.strptime(contrato.get("data_inicio", ""), "%d/%m/%Y")
+            df = datetime.datetime.strptime(contrato.get("data_fim", ""), "%d/%m/%Y")
+        except:
+            continue
 
-        # Formata datas para exibição
-        if isinstance(data_inicio_contrato, datetime.datetime):
-            data_inicio_contrato = data_inicio_contrato.strftime("%d/%m/%Y")
-        if isinstance(data_fim_contrato, datetime.datetime):
-            data_fim_contrato = data_fim_contrato.strftime("%d/%m/%Y")
+        # Projetos do contrato (na ordem)
+        siglas_contrato = []
+        for pid in contrato.get("projeto_pagador", []):
+            sigla = mapa_id_para_sigla_projeto.get(str(pid))
+            if sigla:
+                siglas_contrato.append(sigla)
 
-        # Projeto pagador SOMENTE do contrato mais recente
-        projeto_pagador_list = contrato.get("projeto_pagador", [])
-        if projeto_pagador_list:
-            projeto_pagador_id = str(projeto_pagador_list[0])
-            projeto_pagador_sigla = mapa_id_para_sigla_projeto.get(
-                projeto_pagador_id, "Não informado"
-            )
-        else:
-            projeto_pagador_sigla = "Não informado"
+        if not siglas_contrato:
+            continue
 
-    else:
-        data_inicio_contrato = ""
-        data_fim_contrato = ""
-        projeto_pagador_sigla = "Não informado"
+        # Para cada projeto, repetir as datas correspondentes
+        for sigla in siglas_contrato:
+            projetos_lista.append(sigla)
+            datas_inicio_lista.append(di.strftime("%d/%m/%Y"))
+            datas_fim_lista.append(df.strftime("%d/%m/%Y"))
+
+    # Strings finais (mesma ordem)
+    projeto_str = ", ".join(projetos_lista)
+    data_inicio_final = ", ".join(datas_inicio_lista) if datas_inicio_lista else None
+    data_fim_final = ", ".join(datas_fim_lista) if datas_fim_lista else None
+
+
 
     lista_equipe.append({
         "Nome": nome,
         "Gênero": genero,
         "Programa": programa_area,
-        "Projeto": projeto_pagador_sigla,
-        "data_inicio_contrato": data_inicio_contrato,
-        "data_fim_contrato": data_fim_contrato
+        "Projeto": projeto_str,
+        "Início do contrato": data_inicio_final,
+        "Fim do contrato": data_fim_final
     })
 
 
 # Dataframe de equipe
 df_equipe = pd.DataFrame(lista_equipe)
 
-# Ordena em ordem alfabética por nome
-df_equipe = df_equipe.sort_values(by="Nome")
+df_equipe = pd.DataFrame(lista_equipe).sort_values("Nome")
 
-# Cria o DataFrame para exibição com coluna "Projetos"
-df_equipe_exibir = df_equipe[["Nome", "Gênero", "Projeto", "data_inicio_contrato", "data_fim_contrato"]].copy()
+df_equipe_exibir = df_equipe.copy()
 
-df_equipe_exibir = df_equipe_exibir.rename(columns={
-    "data_inicio_contrato": "Início do contrato",
-    "data_fim_contrato": "Fim do contrato"
-})
-
-
-
-
+df_equipe_exibir = df_equipe[
+    ["Nome", "Gênero", "Projeto", "Início do contrato", "Fim do contrato"]
+].copy()
 
 
 # #############################################
@@ -684,15 +674,66 @@ for i, aba in enumerate(abas):
                 height=250
             )
 
-            st.plotly_chart(fig)
+            st.plotly_chart(fig, key=f"pizza_genero_{i}")
 
 
+        # Tabela de colaboradores
+        df_tabela = df_equipe_exibir_filtrado.copy()
 
-        # Tebela de colaboradores
-        st.dataframe(df_equipe_exibir_filtrado, hide_index=True)
+        # Substitui None / NaN por string vazia
+        df_tabela[["Início do contrato", "Fim do contrato"]] = (
+            df_tabela[["Início do contrato", "Fim do contrato"]]
+            .fillna("")
+        )
 
+        st.dataframe(df_tabela, hide_index=True)
 
         # Gráfico timeline de contratos de pessoas
+
+        linhas_timeline = []
+
+        for colab_doc in colaboradores_raw:
+
+            if colab_doc.get("status", "").lower() != "ativo":
+                continue
+
+            nome = colab_doc.get("nome_completo", "Desconhecido")
+            programa_area_id = colab_doc.get("programa_area")
+            programa_area = mapa_id_para_nome_programa.get(str(programa_area_id), "Não informado")
+
+            if programa_area != titulo_programa:
+                continue
+
+            for contrato in colab_doc.get("contratos", []):
+
+                if contrato.get("status_contrato") not in STATUS_CONTRATOS_VALIDOS:
+                    continue
+
+                try:
+                    data_inicio = datetime.datetime.strptime(
+                        contrato.get("data_inicio", ""), "%d/%m/%Y"
+                    )
+                    data_fim = datetime.datetime.strptime(
+                        contrato.get("data_fim", ""), "%d/%m/%Y"
+                    )
+                except:
+                    continue
+
+                projetos = []
+                for pid in contrato.get("projeto_pagador", []):
+                    sigla = mapa_id_para_sigla_projeto.get(str(pid))
+                    if sigla:
+                        projetos.append(sigla)
+
+                projeto_str = ", ".join(projetos) if projetos else "Sem projeto"
+
+                linhas_timeline.append({
+                    "Nome": nome,
+                    "Projeto": projeto_str,
+                    "Início do contrato": data_inicio,
+                    "Fim do contrato": data_fim
+                })
+        
 
         # Ordenar por ordem decrescente de data_fim_contrato
         df_equipe_exibir_filtrado = df_equipe_exibir_filtrado.sort_values(by='Fim do contrato', ascending=False)
@@ -708,8 +749,14 @@ for i, aba in enumerate(abas):
         # Ordena em ordem decrescente pelo fim do contrato
         df_equipe_exibir_filtrado = df_equipe_exibir_filtrado.sort_values(by='Fim do contrato', ascending=False)
         
+        # criar dataframe só com quem tem datas
+        df_timeline = df_equipe_exibir_filtrado.dropna(
+            subset=["Início do contrato", "Fim do contrato"]
+        ).copy()
+
+        # montar o gráfico usando df_timeline
         fig = px.timeline(
-            df_equipe_exibir_filtrado,
+            df_timeline,
             x_start="Início do contrato",
             x_end="Fim do contrato",
             y="Nome",
@@ -717,11 +764,12 @@ for i, aba in enumerate(abas):
             hover_data=["Projeto"],
             height=altura
         )
+
         fig.update_layout(
             yaxis_title=None,
         )
         fig.add_vline(x=datetime.date.today(), line_width=1, line_dash="dash", line_color="gray")
-        st.plotly_chart(fig)
+        st.plotly_chart(fig, key=f"timeline_pessoas_{i}")
 
         st.divider()
 
@@ -845,7 +893,7 @@ for i, aba in enumerate(abas):
                 yaxis_title=None,
             )
             fig.add_vline(x=datetime.date.today(), line_width=1, line_dash="dash", line_color="gray")
-            st.plotly_chart(fig, key=f"timeline_{i}")
+            st.plotly_chart(fig, key=f"timeline_projetos_{i}")
 
         st.divider()
 
