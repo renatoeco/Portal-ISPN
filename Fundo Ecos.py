@@ -2296,7 +2296,10 @@ with geral:
     st.write("")
     st.write("")
  
-    # Gráfico  
+
+
+
+    # Gráfico  -------------------------------------------------------------------------------------------------------
 
     # Garantir que os campos são string
     df_filtrado["Ano"] = df_filtrado["Ano"].astype(str)
@@ -2330,11 +2333,43 @@ with geral:
     todos_anos_doador = pd.MultiIndex.from_product([anos_todos, doadores], names=["Ano", "Doador"])
     dados_completos = dados.set_index(["Ano", "Doador"]).reindex(todos_anos_doador, fill_value=0).reset_index()
 
-    
-    paleta_cores = diverging.Spectral_r[::2] + diverging.curl[::2]
-    paleta_cores = paleta_cores[:15]  # garante 15 cores únicas
-    
-    # Criar gráfico
+    paleta_cores = [
+    # =====================
+    # MÉDIAS (prioridade 1)
+    # =====================
+    "#9F7AEA",  # violeta
+    "#3B82F6",  # azul
+    "#06B6D4",  # ciano
+    "#22C55E",  # verde
+    "#EAB308",  # amarelo
+    "#FB923C",  # laranja
+    "#EF4444",  # vermelho
+
+    # =====================
+    # ESCURAS (prioridade 2)
+    # =====================
+    "#4C1D95",  # violeta
+    "#1E3A8A",  # azul
+    "#155E75",  # ciano
+    "#166534",  # verde
+    "#A16207",  # amarelo
+    "#C2410C",  # laranja
+    "#991B1B",  # vermelho
+
+    # =====================
+    # CLARAS (ajustadas)
+    # =====================
+    "#C4B5FD",  # violeta (antes muito clara)
+    "#93C5FD",  # azul
+    "#67E8F9",  # ciano
+    "#86EFAC",  # verde
+    "#FDE047",  # amarelo
+    "#FDBA74",  # laranja
+    "#FCA5A5",  # vermelho
+]
+
+
+
     fig = px.bar(
         dados_completos,
         x="Ano",
@@ -2345,8 +2380,20 @@ with geral:
         title="Número de apoios por doador e ano",
         labels={"apoios": "Número de apoios", "Ano": ""},
         height=600,
-        category_orders={"Ano": anos_todos}  # ordem cronológica
+        category_orders={"Ano": anos_todos}
     )
+
+
+    fig.update_traces(
+        marker=dict(
+            line=dict(
+                width=1,
+                color="white"
+            )
+        )
+    )
+
+
 
     # Estética
     fig.update_layout(
@@ -2360,6 +2407,20 @@ with geral:
 
     # Mostrar
     st.plotly_chart(fig)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 with lista:
