@@ -1894,7 +1894,6 @@ with aba_pessoas:
     st.subheader(f'{len(df_pessoas_filtrado)} colaboradores(as)')
     st.write('')
 
-
     # mantém o df original intacto
     df_exibicao = df_pessoas_filtrado.drop(
         columns=[
