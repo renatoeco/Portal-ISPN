@@ -2022,7 +2022,15 @@ with aba_pessoas:
     st.write('')
 
     # Remove as colunas indesejadas
-    # df_pessoas_filtrado = df_pessoas_filtrado.drop(columns=["Status", "Gênero"], errors="ignore")
+    df_pessoas_filtrado = df_pessoas_filtrado.drop(
+        columns=["Status", 
+                 "Gênero",
+                 "Escolaridade",
+                 "Raça",
+                 "Tipo Contratação",
+                 "Data de nascimento",
+                ], 
+                errors="ignore")
 
 
     st.dataframe(
