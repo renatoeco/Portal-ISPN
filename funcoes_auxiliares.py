@@ -274,7 +274,18 @@ def dialog_editar_entregas():
     mapa_coordenador = {str(p["_id"]): p["nome_completo"] for p in db["pessoas"].find()}
 
     # Aplicar mapeamento no df_pessoas
-    df_pessoas["programa_area_nome"] = df_pessoas["programa_area"].map(mapa_programa)
+    def resolver_programa_area(valor):
+        if isinstance(valor, list):
+            return ", ".join(
+                mapa_programa.get(str(v), "não informado")
+                for v in valor
+            )
+        if valor:
+            return mapa_programa.get(str(valor), "não informado")
+        return "não informado"
+
+    df_pessoas["programa_area_nome"] = df_pessoas["programa_area"].apply(resolver_programa_area)
+
     df_pessoas["coordenador_nome"] = df_pessoas["coordenador"].map(mapa_coordenador)
     df_pessoas = df_pessoas.sort_values(by="nome_completo", ascending=True).reset_index(drop=True)
     
