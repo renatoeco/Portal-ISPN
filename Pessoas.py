@@ -89,7 +89,6 @@ dados_programas = list(programas_areas.find())
 dados_projetos_ispn = list(projetos_ispn.find())
 
 
-
 # PESSOAS
 
 pessoas_lista = []
@@ -98,11 +97,19 @@ for pessoa in dados_pessoas:
     # ----------------------
     # Programa/Área
     # ----------------------
-    id_programa_area = pessoa.get("programa_area")
-    nome_programa_area = next(
-        (p.get("nome_programa_area", "") for p in dados_programas if p["_id"] == id_programa_area),
-        "Não informado"
-    )
+    ids_programa_area = pessoa.get("programa_area", [])
+
+    # Compatibilidade caso ainda exista dado antigo (ObjectId único)
+    if not isinstance(ids_programa_area, list):
+        ids_programa_area = [ids_programa_area] if ids_programa_area else []
+
+    nomes_programas = [
+        p.get("nome_programa_area", "")
+        for p in dados_programas
+        if p["_id"] in ids_programa_area
+    ]
+
+    nome_programa_area = ", ".join(sorted(nomes_programas)) if nomes_programas else "Não informado"
 
     # ----------------------
     # Projetos pagadores (contratos em vigência)
@@ -118,7 +125,6 @@ for pessoa in dados_pessoas:
                     "Não informado"
                 )
                 nomes_projetos_pagadores.append(nome_proj)
-
 
 
     # ----------------------
@@ -141,10 +147,8 @@ for pessoa in dados_pessoas:
     })
 
 
-
 # Criar DataFrame de Pessoas
 df_pessoas = pd.DataFrame(pessoas_lista)
-
 
 
 # PROJETOS
@@ -173,7 +177,6 @@ opcoes_cargos = [
     "Coordenador Geral administrativo/financeiro", "Coordenador Executivo", "Coordenador de Área", "Coordenador de Programa", "Estagiário",
     "Motorista", "Secretária(o)/Recepcionista", "Técnico de campo", "Técnico em informática"
 ]
-
 
 
 # Função para enviar e-mail de registro da previdência
@@ -267,9 +270,6 @@ def verificar_contratos_vencidos(pessoa):
     return contratos_atualizados
 
 
-
-
-
 # Define um diálogo (modal) para gerenciar colaboradores
 @st.dialog("Gerenciar colaboradores", width='large')
 def gerenciar_pessoas():
@@ -296,19 +296,12 @@ def gerenciar_pessoas():
 
     # Mapeia codigo de projeto <-> ObjectId
     # nome -> ObjectId
-    nome_para_id_projeto = {
-        p.get("nome_do_projeto"): p["_id"]   # <<< sem str()
+    sigla_para_id_projeto = {
+        p.get("sigla"): p["_id"]   # <<< sem str()
         for p in dados_projetos_ispn
-        if p.get("nome_do_projeto") and "_id" in p
+        if p.get("sigla") and "_id" in p
     }
-
-    # id (ObjectId) -> nome
-    id_para_nome_projeto = {
-        p["_id"]: p.get("nome_do_projeto", "")
-        for p in dados_projetos_ispn
-        if "_id" in p
-    }
-    
+  
     lista_programas_areas = sorted(nome_para_id_programa.keys())
     
     # Lista de coordenadores existentes (id, nome, programa)
@@ -375,12 +368,10 @@ def gerenciar_pessoas():
 
                 st.session_state.contratos_verificados_por_pessoa[pessoa_id] = True
 
-        
-       
+    
         # Cria abas
         aba_info, aba_contratos, aba_previdencia, aba_ferias, aba_anotacoes  = st.tabs([":material/info: Informações gerais", ":material/contract: Contratos", ":material/finance_mode: Previdência", ":material/beach_access: Férias", ":material/notes: Anotações"])
     
-
         # ABA INFORMAÇÕES GERAIS ################################################################
         with aba_info:
 
@@ -494,23 +485,33 @@ def gerenciar_pessoas():
 
 
                     # Programa / Área
-                    # Pega o ObjectId atual salvo no banco
-                    programa_area_atual = pessoa.get("programa_area")
-                    # Converte o ObjectId para nome legível
-                    programa_area_nome_atual = id_para_nome_programa.get(programa_area_atual, "")
+                    # Pode ser ObjectId único, lista ou vazio (compatibilidade retroativa)
+                    programas_atuais_raw = pessoa.get("programa_area", [])
 
-                    # Selectbox mostra nomes dos programas
-                    programa_area_nome = cols[2].selectbox(
+                    if not isinstance(programas_atuais_raw, list):
+                        programas_atuais_raw = [programas_atuais_raw] if programas_atuais_raw else []
+
+                    # Converte ObjectId → nomes
+                    programas_atuais_nomes = [
+                        id_para_nome_programa.get(pid)
+                        for pid in programas_atuais_raw
+                        if pid in id_para_nome_programa
+                    ]
+
+                    # Multiselect
+                    programas_selecionados = cols[2].multiselect(
                         "Programa / Área:",
-                        lista_programas_areas,
-                        index=lista_programas_areas.index(programa_area_nome_atual)
-                        if programa_area_nome_atual in lista_programas_areas else 0,
+                        options=lista_programas_areas,
+                        default=programas_atuais_nomes,
                         key=f"editar_programa_{pessoa_id}"
                     )
 
-
-                    # Após seleção, pega o ObjectId correspondente ao nome
-                    programa_area = nome_para_id_programa.get(programa_area_nome)
+                    # Converte nomes → ObjectId
+                    programa_area = [
+                        nome_para_id_programa[nome]
+                        for nome in programas_selecionados
+                        if nome in nome_para_id_programa
+                    ]
 
                     # -----------------------------------------------------------------
                     # Cargo e nome do coordenador
@@ -766,11 +767,8 @@ def gerenciar_pessoas():
                         time.sleep(2)
                         st.rerun()
 
-       
 
         # ABA CONTRATOS ############################################################################### 
-
-
         with aba_contratos:
 
             # PREPARAÇÃO DE VARIÁVEIS ------------------------------------------------------
@@ -811,10 +809,11 @@ def gerenciar_pessoas():
                     lista_projetos
                 )
                 projetos_pagadores_edit = [
-                    nome_para_id_projeto.get(nome)
-                    for nome in projetos_pagadores_nomes_edit
-                    if nome and nome_para_id_projeto.get(nome)
+                    sigla_para_id_projeto.get(sigla)
+                    for sigla in projetos_pagadores_nomes_edit
+                    if sigla and sigla_para_id_projeto.get(sigla)
                 ]
+
 
                 # Status do contrato
                 status_contrato = cols[1].selectbox("Status do contrato:", status_opcoes)
@@ -988,7 +987,6 @@ def gerenciar_pessoas():
                                 st.error(f"Erro ao salvar no banco: {e}")
 
         # ABA PREVIDÊNCIA ############################################################################### 
-
         with aba_previdencia:
 
             # Obtém a lista de contribuições do banco, ou cria lista vazia se não existir
@@ -1187,9 +1185,7 @@ def gerenciar_pessoas():
                             st.write(f"**Valor:** R$ {format(contribuicao.get('valor', 0), ',.2f').replace(',', 'X').replace('.', ',').replace('X', '.')}")
 
 
-
         # ABA FÉRIAS ###############################################################################
-
         with aba_ferias:
 
             # ------------------------------------------------------------------
@@ -1325,9 +1321,6 @@ def gerenciar_pessoas():
 
                     st.success("Informações de férias atualizadas com sucesso!")
                     st.rerun()
-
-
-
 
 
         # ABA ANOTAÇÕES ############################################################################### 
@@ -1480,10 +1473,6 @@ def gerenciar_pessoas():
                         st.write(anotacao.get("anotacao", ""))
 
 
-
-
-
-
     #    Adicionar colaborador --------------------------------------------------------------------------------
     elif nome_selecionado == "--Adicionar colaborador--":
 
@@ -1498,8 +1487,6 @@ def gerenciar_pessoas():
 
         # Formulário para cadastro
         with st.form("form_cadastro_colaborador", border=False):
-
-
 
             # -------------------------------------------------
             # Nome e status
@@ -1543,10 +1530,6 @@ def gerenciar_pessoas():
 
             data_nascimento = cols[2].date_input("Data de nascimento:", format="DD/MM/YYYY", value=None, min_value=datetime.date(1920, 1, 1))
 
-
-
-
-
             # -------------------------------------------------
             # Escolaridade, escritório e programa/área
             # -------------------------------------------------
@@ -1560,11 +1543,20 @@ def gerenciar_pessoas():
 
             # Programa / Área
             # Lista ordenada dos programas/áreas para seleção
-            lista_programas_areas = sorted(nome_para_id_programa.keys())
-            programa_area_nome = cols[2].selectbox("Programa / Área:", lista_programas_areas, index=None, placeholder="")
-            programa_area = nome_para_id_programa.get(programa_area_nome)
+            programas_selecionados = cols[2].multiselect(
+                "Programa / Área:",
+                options=lista_programas_areas,
+                default=[],  # novo colaborador começa vazio
+                key="novo_programa_area",
+                placeholder=""
+            )
 
-
+            # Converte nomes → ObjectId
+            programa_area = [
+                nome_para_id_programa[nome]
+                for nome in programas_selecionados
+                if nome in nome_para_id_programa
+            ]
 
             # -------------------------------------------------
             # Cargo e nome do coordenador
@@ -1614,7 +1606,6 @@ def gerenciar_pessoas():
                 nome_empresa = cols[0].text_input("Nome da empresa:")
                 cnpj = cols[1].text_input("CNPJ:", placeholder="00.000.000/0000-00")
 
-            
 
             st.markdown("---")
 
@@ -1827,7 +1818,75 @@ def gerenciar_pessoas():
                     st.success(f"Colaborador(a) **{nome}** cadastrado(a) com sucesso!", icon=":material/thumb_up:")
                     time.sleep(2)
                     st.rerun()  # Recarrega a página para atualizar dados
-   
+
+
+# Função para converter datas (str -> datetime.date)
+def parse_date(data_str):
+    if isinstance(data_str, str):
+        for fmt in ("%d/%m/%Y", "%Y-%m-%d"):
+            try:
+                return datetime.datetime.strptime(data_str, fmt).date()
+            except ValueError:
+                continue
+    return None
+
+
+def contrato_mais_recente(contratos):
+    return max(
+        contratos,
+        key=lambda c: parse_date(c.get("data_inicio")) or datetime.date.min,
+        default=None
+    )
+
+
+STATUS_VALIDOS = ["Em vigência", "Fonte de recurso temporária"]
+
+def contratos_por_status(contratos):
+    return [c for c in contratos if c.get("status_contrato") in STATUS_VALIDOS]
+
+
+def contratos_para_aba_contratos(contratos):
+    """
+    Regra:
+    - Se existir contrato 'Em vigência' ou 'Fonte de recurso temporária':
+        → retorna TODOS eles
+    - Caso contrário:
+        → retorna apenas o contrato mais recente
+    """
+    ativos = contratos_por_status(contratos)
+
+    if ativos:
+        return ativos
+
+    contrato_recente = contrato_mais_recente(contratos)
+    return [contrato_recente] if contrato_recente else []
+
+
+def contratos_ativos(contratos):
+    """
+    Retorna TODOS os contratos:
+    - status 'Em vigência' ou 'Fonte de recurso temporária'
+    - cuja data atual esteja dentro do período (se datas existirem)
+    """
+    hoje = datetime.date.today()
+    ativos = []
+
+    for c in contratos:
+        if c.get("status_contrato") not in ["Em vigência", "Fonte de recurso temporária"]:
+            continue
+
+        inicio = parse_date(c.get("data_inicio"))
+        fim = parse_date(c.get("data_fim"))
+
+        # Se não tiver datas, assume válido
+        if inicio and fim:
+            if inicio <= hoje <= fim:
+                ativos.append(c)
+        else:
+            ativos.append(c)
+
+    return ativos
+
 
 ######################################################################################################
 # MAIN
@@ -1858,9 +1917,34 @@ with aba_pessoas:
     # Projetos
     projetos = sorted([p["sigla"] for p in dados_projetos_ispn])
 
+    mapa_projeto_pessoa = {}
+
+    for pessoa in dados_pessoas:
+        contratos = pessoa.get("contratos", [])
+        contratos_validos = contratos_ativos(contratos)
+
+        projetos_set = set()
+
+        for contrato in contratos_validos:
+            for pid in contrato.get("projeto_pagador", []):
+                projeto = next(
+                    (p for p in dados_projetos_ispn if p["_id"] == pid),
+                    None
+                )
+                if projeto:
+                    projetos_set.add(projeto.get("sigla"))
+
+        projeto_str = ", ".join(sorted(projetos_set)) if projetos_set else ""
+
+        mapa_projeto_pessoa[pessoa.get("nome_completo")] = projeto_str
+
+    df_pessoas["Programa/Área"] = df_pessoas["Programa/Área"].fillna("")
+
     # Organizar o dataframe por ordem alfabética de nome
     df_pessoas = df_pessoas.sort_values(by="Nome")
-    
+
+    df_pessoas["Projeto Pagador"] = df_pessoas["Nome"].map(mapa_projeto_pessoa).fillna("")
+
     #Tipo de contratação
     tipos_contratacao = sorted(df_pessoas["Tipo Contratação"].dropna().unique())
 
@@ -1878,7 +1962,10 @@ with aba_pessoas:
 
     # Aplica os filtros
     if programa != "Todos":
-        df_pessoas_filtrado = df_pessoas_filtrado[df_pessoas_filtrado["Programa/Área"] == programa]
+        df_pessoas_filtrado = df_pessoas_filtrado[
+            df_pessoas_filtrado["Programa/Área"].str.contains(programa, na=False)
+        ]
+
 
     if projeto != "Todos":
         df_pessoas_filtrado = df_pessoas_filtrado[df_pessoas_filtrado["Projeto Pagador"].str.contains(projeto)]
@@ -1894,26 +1981,22 @@ with aba_pessoas:
     st.subheader(f'{len(df_pessoas_filtrado)} colaboradores(as)')
     st.write('')
 
-    # mantém o df original intacto
-    df_exibicao = df_pessoas_filtrado.drop(
-        columns=[
-            "Escolaridade",
-            "Gênero",
-            "Raça",
-            "Status",
-            "Tipo Contratação",
-            "Data de nascimento"
-        ],
-        errors="ignore"
-    )
+    # Remove as colunas indesejadas
+    # df_pessoas_filtrado = df_pessoas_filtrado.drop(columns=["Status", "Gênero"], errors="ignore")
+
 
     st.dataframe(
-        df_exibicao
+        df_pessoas_filtrado
             .rename(columns={"Projeto Pagador": "Projeto"})
             .fillna(""),
         hide_index=True
     )
 
+
+
+    # st.dataframe(
+    #     df_pessoas_filtrado.rename(columns={"Projeto Pagador": "Projeto"}), 
+    #     hide_index=True)
 
     # Gráficos 
     col1, col2 = st.columns(2)
@@ -1921,7 +2004,18 @@ with aba_pessoas:
     # GRÁFICO DE PESSOAS POR PROGRAMA/ÁREA -----------------------------------------------------------
 
     # Agrupar e ordenar
-    programa_counts = df_pessoas_filtrado['Programa/Área'].value_counts().reset_index()
+    df_programas_explodido = df_pessoas_filtrado.assign(
+        **{'Programa/Área': df_pessoas_filtrado['Programa/Área'].str.split(r',\s*')}
+    ).explode('Programa/Área')
+
+    df_programas_explodido['Programa/Área'] = df_programas_explodido['Programa/Área'].str.strip()
+
+    programa_counts = (
+        df_programas_explodido['Programa/Área']
+        .value_counts()
+        .reset_index()
+    )
+
     programa_counts.columns = ['Programa/Área', 'Quantidade']
 
     # Criar gráfico ordenado do maior para o menor
@@ -1949,7 +2043,7 @@ with aba_pessoas:
 
     col1.plotly_chart(fig,
                     config={
-                        'staticPlot': True  # desativa pan, zoom e todas as interações
+                        'staticPlot': False  # desativa pan, zoom e todas as interações
                     })
 
     # GRÁFICO DE PESSOAS POR ESCRITÓRIO ------------------------------------------------
@@ -1980,7 +2074,7 @@ with aba_pessoas:
     # exibir gráfico estático
     col2.plotly_chart(
         fig,
-        config={'staticPlot': True}
+        config={'staticPlot': False}
     )
 
     # GRÁFICO DE PESSOAS POR PROJETO ------------------------------------------------
@@ -2030,7 +2124,7 @@ with aba_pessoas:
     # desativa interação
     col1.plotly_chart(
         fig,
-        config={'staticPlot': True}
+        config={'staticPlot': False}
     )
 
     # GRÁFICO DE PESSOAS POR TIPO DE CONTRATAÇÃO -----------------------------------------------------------
@@ -2060,7 +2154,7 @@ with aba_pessoas:
     # plota gráfico estático
     col2.plotly_chart(
         fig,
-        config={'staticPlot': True}
+        config={'staticPlot': False}
     )
 
     # Gráfico de pessoas por Cargo ------------------------------------------------
@@ -2092,7 +2186,7 @@ with aba_pessoas:
     fig.update_yaxes(showticklabels=False)
 
     # aumenta o limite superior do eixo Y para não cortar os textos
-    fig.update_yaxes(range=[0, cargo_counts['Quantidade'].max() * 1.15])
+    fig.update_yaxes(range=[0, cargo_counts['Quantidade'].max() * 3.15])
 
     # remove legenda
     fig.update_layout(showlegend=False)
@@ -2100,7 +2194,7 @@ with aba_pessoas:
     # exibir gráfico estático
     col1.plotly_chart(
         fig,
-        config={'staticPlot': True}
+        config={'staticPlot': False}
     )
 
     # Pessoas por Escolaridade -------------------------------------------------------
@@ -2158,7 +2252,7 @@ with aba_pessoas:
     # desativa interação
     col1.plotly_chart(
         fig,
-        config={'staticPlot': True}
+        config={'staticPlot': False}
     )
 
     # Pessoas por Raça ----------------------------------------------------
@@ -2192,15 +2286,7 @@ with aba_pessoas:
 # if set(st.session_state.tipo_usuario) & {"admin", "gestao_pessoas"}:
 with aba_contratos:
 
-    # Função para converter datas (str -> datetime.date)
-    def parse_date(data_str):
-        if isinstance(data_str, str):
-            for fmt in ("%d/%m/%Y", "%Y-%m-%d"):
-                try:
-                    return datetime.datetime.strptime(data_str, fmt).date()
-                except ValueError:
-                    continue
-        return None
+    
 
     # Função para calcular dias restantes
     def dias_restantes(data_fim):
@@ -2212,7 +2298,9 @@ with aba_contratos:
     contratos_90_dias = []
 
     for p in dados_pessoas:
-        for contrato in p.get("contratos", []):
+        contratos_exibir = contratos_para_aba_contratos(p.get("contratos", []))
+
+        for contrato in contratos_exibir:
             data_fim = parse_date(contrato.get("data_fim"))
             if data_fim and dias_restantes(data_fim) <= 90:
                 contratos_90_dias.append({
@@ -2220,6 +2308,7 @@ with aba_contratos:
                     "contrato": contrato,
                     "dias_restantes": dias_restantes(data_fim)
                 })
+
 
     
 
@@ -2284,7 +2373,7 @@ with aba_contratos:
         nome = pessoa.get("nome_completo", "Sem nome")
         contratos = pessoa.get("contratos", [])
 
-        for contrato in contratos:
+        for contrato in contratos_para_aba_contratos(contratos):
             data_inicio = parse_date(contrato.get("data_inicio"))
             data_fim = parse_date(contrato.get("data_fim"))
             if data_inicio and data_fim:
@@ -2380,9 +2469,6 @@ with aba_reajustes:
         st.caption("Nenhum contrato com reajuste no mês atual.")
 
 
-
-
-
 with aba_aniversariantes:
 
     # Obter mês atual
@@ -2418,8 +2504,3 @@ with aba_aniversariantes:
 
     if not encontrados:
         st.caption("Nenhum aniversariante encontrado neste mês.")
-    
-
-
-
-
