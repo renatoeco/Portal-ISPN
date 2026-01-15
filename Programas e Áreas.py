@@ -550,11 +550,13 @@ for colab_doc in colaboradores_raw:
         if not siglas_contrato:
             continue
 
-        # Para cada projeto, repetir as datas correspondentes
-        for sigla in siglas_contrato:
-            projetos_lista.append(sigla)
-            datas_inicio_lista.append(di.strftime("%d/%m/%Y"))
-            datas_fim_lista.append(df.strftime("%d/%m/%Y"))
+        # Junta os projetos do contrato
+        projetos_lista.extend(siglas_contrato)
+
+        # Datas entram UMA ÚNICA VEZ por contrato
+        datas_inicio_lista.append(di.strftime("%d/%m/%Y"))
+        datas_fim_lista.append(df.strftime("%d/%m/%Y"))
+
 
     # Strings finais (mesma ordem)
     projeto_str = ", ".join(projetos_lista)
@@ -778,23 +780,6 @@ for i, aba in enumerate(abas):
             )
 
             st.plotly_chart(fig, key=f"timeline_pessoas_{i}")
-
-        # # montar o gráfico usando df_timeline
-        # fig = px.timeline(
-        #     df_timeline,
-        #     x_start="Início do contrato",
-        #     x_end="Fim do contrato",
-        #     y="Nome",
-        #     color="Projeto",
-        #     hover_data=["Projeto"],
-        #     height=altura
-        # )
-
-        # fig.update_layout(
-        #     yaxis_title=None,
-        # )
-        # fig.add_vline(x=datetime.date.today(), line_width=1, line_dash="dash", line_color="gray")
-        # st.plotly_chart(fig, key=f"timeline_pessoas_{i}")
 
         st.divider()
 

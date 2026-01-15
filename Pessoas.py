@@ -288,10 +288,10 @@ def gerenciar_pessoas():
 
     # Mapeia codigo de projeto <-> ObjectId
     # nome -> ObjectId
-    nome_para_id_projeto = {
-        p.get("nome_do_projeto"): p["_id"]   # <<< sem str()
+    sigla_para_id_projeto = {
+        p.get("sigla"): p["_id"]   # <<< sem str()
         for p in dados_projetos_ispn
-        if p.get("nome_do_projeto") and "_id" in p
+        if p.get("sigla") and "_id" in p
     }
   
     lista_programas_areas = sorted(nome_para_id_programa.keys())
@@ -796,10 +796,11 @@ def gerenciar_pessoas():
                     lista_projetos
                 )
                 projetos_pagadores_edit = [
-                    nome_para_id_projeto.get(nome)
-                    for nome in projetos_pagadores_nomes_edit
-                    if nome and nome_para_id_projeto.get(nome)
+                    sigla_para_id_projeto.get(sigla)
+                    for sigla in projetos_pagadores_nomes_edit
+                    if sigla and sigla_para_id_projeto.get(sigla)
                 ]
+
 
                 # Status do contrato
                 status_contrato = cols[1].selectbox("Status do contrato:", status_opcoes)
