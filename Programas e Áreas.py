@@ -813,6 +813,11 @@ for i, aba in enumerate(abas):
                 height=altura
             )
 
+            fig.update_traces(
+                opacity=0.6,
+            )
+
+
             fig.update_layout(yaxis_title=None)
             fig.add_vline(
                 x=datetime.date.today(),
@@ -941,6 +946,7 @@ for i, aba in enumerate(abas):
                 hover_data=["Código"],
                 height=altura
             )
+
             fig.update_layout(
                 yaxis_title=None,
             )
