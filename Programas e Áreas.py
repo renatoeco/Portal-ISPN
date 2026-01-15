@@ -185,7 +185,7 @@ def gerenciar_programa_dialog(programa):
     with aba_principal:
 
         # Lista de coordenadores (sem mostrar ID no selectbox)
-        nomes_coordenadores_lista = [
+        nomes_coordenadores_lista = [""] + [
             c.get("nome_completo", "")
             for c in colaboradores_raw
             if c.get("status", "").lower() == "ativo"
@@ -211,6 +211,8 @@ def gerenciar_programa_dialog(programa):
                 #st.markdown("### Informações do Programa")
 
                 novo_nome = st.text_input("Nome do programa", value=nome_atual)
+                
+                nome_coordenador_atual = colaborador_id_para_nome.get(coordenador_id_atual) or ""
 
                 # Selecionar coordenador pelo nome
                 coordenador_selecionado = st.selectbox(
@@ -485,7 +487,7 @@ for doc in dados_programas:
             continue
 
         coordenador_id = programa.get("coordenador_id")
-        nome_coordenador = colaborador_id_para_nome.get(str(coordenador_id), "Não encontrado")
+        nome_coordenador = colaborador_id_para_nome.get(str(coordenador_id)) or ""
         nomes_coordenadores.add(nome_coordenador)
 
         genero_coordenador = "Não informado"
@@ -638,8 +640,15 @@ for i, aba in enumerate(abas):
         df_equipe_exibir_filtrado.index = range(1, len(df_equipe_exibir_filtrado) + 1)
 
         # Prepara genero e prefixo só pra pronomes de tratamento na tela
-        genero = programa['genero_coordenador']
-        prefixo = "Coordenador" if genero == "Masculino" else "Coordenadora" if genero == "Feminino" else "Coordenador(a)"
+        if not programa["coordenador"]:
+            prefixo = ""
+        else:
+            genero = programa['genero_coordenador']
+            prefixo = (
+                "Coordenador" if genero == "Masculino"
+                else "Coordenadora" if genero == "Feminino"
+                else "Coordenador(a)"
+            )
 
         st.write("")
 
@@ -666,7 +675,11 @@ for i, aba in enumerate(abas):
             st.subheader(f"{titulo_programa}")
             
             # Coordenador(a)
-            st.write(f"**{prefixo}:** {programa['coordenador']}")
+            if programa["coordenador"]:
+                st.write(f"**{prefixo}:** {programa['coordenador']}")
+            else:
+                st.write(f"**{prefixo}**")
+
 
 
 
