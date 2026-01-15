@@ -1983,8 +1983,6 @@ with aba_pessoas:
     # Organizar o dataframe por ordem alfabética de nome
     df_pessoas = df_pessoas.sort_values(by="Nome")
 
-    df_pessoas["Projeto Pagador"] = df_pessoas["Nome"].map(mapa_projeto_pessoa).fillna("")
-
     #Tipo de contratação
     tipos_contratacao = sorted(df_pessoas["Tipo Contratação"].dropna().unique())
 
@@ -2021,30 +2019,32 @@ with aba_pessoas:
     st.subheader(f'{len(df_pessoas_filtrado)} colaboradores(as)')
     st.write('')
 
-    # Remove as colunas indesejadas
-    df_pessoas_filtrado = df_pessoas_filtrado.drop(
-        columns=["Status", 
-                 "Gênero",
-                 "Escolaridade",
-                 "Raça",
-                 "Tipo Contratação",
-                 "Data de nascimento",
-                ], 
-                errors="ignore")
 
+    # cria um dataframe APENAS para exibição (cópia)
+    df_pessoas_exibir = df_pessoas_filtrado.copy()
 
+    # remove colunas indesejadas SOMENTE no dataframe de exibição
+    df_pessoas_exibir = df_pessoas_exibir.drop(
+        columns=[
+            "Status",
+            "Gênero",
+            "Escolaridade",
+            "Raça",
+            "Tipo Contratação",
+            "Data de nascimento",
+        ],
+        errors="ignore"
+    )
+
+    # exibe sem alterar o dataframe original
     st.dataframe(
-        df_pessoas_filtrado
+        df_pessoas_exibir
             .rename(columns={"Projeto Pagador": "Projeto"})
             .fillna(""),
         hide_index=True
     )
 
 
-
-    # st.dataframe(
-    #     df_pessoas_filtrado.rename(columns={"Projeto Pagador": "Projeto"}), 
-    #     hide_index=True)
 
     # Gráficos 
     col1, col2 = st.columns(2)
