@@ -742,34 +742,59 @@ for i, aba in enumerate(abas):
         altura_base = 300  # altura mínima
         altura_extra = sum([10 / (1 + i * 0.01) for i in range(len(df_equipe_exibir_filtrado))])
         altura = int(altura_base + altura_extra)
+     
         
-        df_equipe_exibir_filtrado['Início do contrato'] = pd.to_datetime(df_equipe_exibir_filtrado['Início do contrato'], dayfirst=True)
-        df_equipe_exibir_filtrado['Fim do contrato'] = pd.to_datetime(df_equipe_exibir_filtrado['Fim do contrato'], dayfirst=True)
-        
-        # Ordena em ordem decrescente pelo fim do contrato
-        df_equipe_exibir_filtrado = df_equipe_exibir_filtrado.sort_values(by='Fim do contrato', ascending=False)
-        
-        # criar dataframe só com quem tem datas
-        df_timeline = df_equipe_exibir_filtrado.dropna(
-            subset=["Início do contrato", "Fim do contrato"]
-        ).copy()
+        df_timeline = pd.DataFrame(linhas_timeline)
 
-        # montar o gráfico usando df_timeline
-        fig = px.timeline(
-            df_timeline,
-            x_start="Início do contrato",
-            x_end="Fim do contrato",
-            y="Nome",
-            color="Projeto",
-            hover_data=["Projeto"],
-            height=altura
-        )
+        if df_timeline.empty:
+            st.caption("Nenhum contrato ativo para exibir no timeline.")
+        else:
+            # Ordena pelo fim do contrato
+            df_timeline = df_timeline.sort_values(
+                by="Fim do contrato",
+                ascending=False
+            )
 
-        fig.update_layout(
-            yaxis_title=None,
-        )
-        fig.add_vline(x=datetime.date.today(), line_width=1, line_dash="dash", line_color="gray")
-        st.plotly_chart(fig, key=f"timeline_pessoas_{i}")
+            # Altura dinâmica
+            altura_base = 300
+            altura = altura_base + len(df_timeline) * 20
+
+            fig = px.timeline(
+                df_timeline,
+                x_start="Início do contrato",
+                x_end="Fim do contrato",
+                y="Nome",
+                color="Projeto",
+                hover_data=["Projeto"],
+                height=altura
+            )
+
+            fig.update_layout(yaxis_title=None)
+            fig.add_vline(
+                x=datetime.date.today(),
+                line_width=1,
+                line_dash="dash",
+                line_color="gray"
+            )
+
+            st.plotly_chart(fig, key=f"timeline_pessoas_{i}")
+
+        # # montar o gráfico usando df_timeline
+        # fig = px.timeline(
+        #     df_timeline,
+        #     x_start="Início do contrato",
+        #     x_end="Fim do contrato",
+        #     y="Nome",
+        #     color="Projeto",
+        #     hover_data=["Projeto"],
+        #     height=altura
+        # )
+
+        # fig.update_layout(
+        #     yaxis_title=None,
+        # )
+        # fig.add_vline(x=datetime.date.today(), line_width=1, line_dash="dash", line_color="gray")
+        # st.plotly_chart(fig, key=f"timeline_pessoas_{i}")
 
         st.divider()
 
