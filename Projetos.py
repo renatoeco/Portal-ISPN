@@ -220,6 +220,19 @@ def convert_objectid(obj):
     else:
         return obj
 
+# Aplicar mapeamento no df_pessoas
+def map_programa_area(lista_ids):
+    if not isinstance(lista_ids, list):
+        lista_ids = [lista_ids] if lista_ids else []
+
+    nomes = [
+        mapa_programa.get(str(pid), "")
+        for pid in lista_ids
+        if str(pid) in mapa_programa
+    ]
+
+    return ", ".join(sorted(nomes)) if nomes else "Não informado"
+
 
 ######################################################################################################
 # CONEXÃO COM O BANCO DE DADOS MONGODB
@@ -324,8 +337,7 @@ mapa_programa = {str(p["_id"]): p["nome_programa_area"] for p in db["programas_a
 # Criar mapa de _id -> nome_completo (coordenador)
 mapa_coordenador = {str(p["_id"]): p["nome_completo"] for p in db["pessoas"].find()}
 
-# Aplicar mapeamento no df_pessoas
-df_pessoas["programa_area_nome"] = df_pessoas["programa_area"].map(mapa_programa)
+df_pessoas["programa_area_nome"] = df_pessoas["programa_area"].apply(map_programa_area)
 df_pessoas["coordenador_nome"] = df_pessoas["coordenador"].map(mapa_coordenador)
 df_pessoas = df_pessoas.sort_values(by="nome_completo", ascending=True).reset_index(drop=True)
 

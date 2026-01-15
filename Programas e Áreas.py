@@ -434,10 +434,21 @@ if programas_sem_coordenador:
         if not coordenador_id:
             # Busca coordenador correspondente ao programa
             for pessoa in colaboradores_raw:
+                programas_ids = pessoa.get("programa_area", [])
+
+                if not isinstance(programas_ids, list):
+                    programas_ids = [programas_ids] if programas_ids else []
+
+                nomes_programas_pessoa = [
+                    mapa_id_para_nome_programa.get(str(pid), "")
+                    for pid in programas_ids
+                ]
+
                 if (
                     pessoa.get("tipo de usuário", "").strip().lower() == "coordenador"
-                    and str(pessoa.get("programa_area", "")).strip() == nome_programa.strip()
+                    and nome_programa in nomes_programas_pessoa
                 ):
+
                     novo_id = pessoa["_id"]
                     atualizacoes.append(UpdateOne(
                         {"_id": programa["_id"]},
@@ -499,9 +510,6 @@ lista_programas.sort(key=lambda x: 0 if x["titulo"] == "Coordenação" else 1)
 titulos_abas = [p['titulo'] for p in lista_programas if p.get('titulo')]
 
 
-
-
-
 # PREPARAÇÃO DOS DADOS PARA MONTAR A EQUIPE
 
 lista_equipe = []
@@ -519,8 +527,19 @@ for colab_doc in colaboradores_raw:
     nome = colab_doc.get("nome_completo", "Desconhecido")
     genero = colab_doc.get("gênero", "Não informado")
 
-    programa_area_id = colab_doc.get("programa_area")
-    programa_area = mapa_id_para_nome_programa.get(str(programa_area_id), "Não informado")
+    programa_area_ids = colab_doc.get("programa_area", [])
+
+    # compatibilidade com dados antigos
+    if not isinstance(programa_area_ids, list):
+        programa_area_ids = [programa_area_ids] if programa_area_ids else []
+
+    programa_area = ", ".join(
+        sorted([
+            mapa_id_para_nome_programa.get(str(pid), "")
+            for pid in programa_area_ids
+            if str(pid) in mapa_id_para_nome_programa
+        ])
+    ) or "Não informado"
 
     contratos = colab_doc.get("contratos", [])
 
@@ -610,7 +629,9 @@ for i, aba in enumerate(abas):
         # Filtra o df_equipe para o programa atual
 
         # Filtra no df original (que tem a coluna 'Programa')
-        df_equipe_filtrado = df_equipe[df_equipe['Programa'] == titulo_programa].copy()
+        df_equipe_filtrado = df_equipe[
+            df_equipe['Programa'].str.contains(titulo_programa, na=False)
+        ].copy()
 
         # Para exibir, pega só as linhas do df_equipe_exibir correspondentes
         df_equipe_exibir_filtrado = df_equipe_exibir.loc[df_equipe_filtrado.index].copy()
@@ -700,10 +721,18 @@ for i, aba in enumerate(abas):
                 continue
 
             nome = colab_doc.get("nome_completo", "Desconhecido")
-            programa_area_id = colab_doc.get("programa_area")
-            programa_area = mapa_id_para_nome_programa.get(str(programa_area_id), "Não informado")
+            
+            programa_area_ids = colab_doc.get("programa_area", [])
 
-            if programa_area != titulo_programa:
+            if not isinstance(programa_area_ids, list):
+                programa_area_ids = [programa_area_ids] if programa_area_ids else []
+
+            nomes_programas = [
+                mapa_id_para_nome_programa.get(str(pid), "")
+                for pid in programa_area_ids
+            ]
+
+            if titulo_programa not in nomes_programas:
                 continue
 
             for contrato in colab_doc.get("contratos", []):
@@ -968,10 +997,8 @@ for i, aba in enumerate(abas):
                         ui.table(
                             data=df_entregas,
                             maxHeight=400,
-                            key=f"tabela_entregas_{i}"   # ✅ key só aqui
+                            key=f"tabela_entregas_{i}"   # key só aqui
                         )
 
                     else:
                         st.caption("Nenhuma entrega vinculada a esta ação estratégica do programa.")
-
-
