@@ -1863,11 +1863,6 @@ def contratos_para_aba_contratos(contratos):
 
 
 def contratos_ativos(contratos):
-    """
-    Retorna TODOS os contratos:
-    - status 'Em vigência' ou 'Fonte de recurso temporária'
-    - cuja data atual esteja dentro do período (se datas existirem)
-    """
     hoje = datetime.date.today()
     ativos = []
 
@@ -1878,12 +1873,11 @@ def contratos_ativos(contratos):
         inicio = parse_date(c.get("data_inicio"))
         fim = parse_date(c.get("data_fim"))
 
-        # Se não tiver datas, assume válido
-        if inicio and fim:
-            if inicio <= hoje <= fim:
-                ativos.append(c)
-        else:
-            ativos.append(c)
+        # excluir apenas contratos já encerrados
+        if fim and fim < hoje:
+            continue
+
+        ativos.append(c)
 
     return ativos
 
