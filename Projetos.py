@@ -189,6 +189,17 @@ def parse_valor(valor):
     return 0.0
 
 
+def parse_date_or_none(valor):
+    if not valor or pd.isna(valor):
+        return None
+
+    dt = pd.to_datetime(valor, format="%d/%m/%Y", errors="coerce")
+    if pd.isna(dt):
+        return None
+
+    return dt.date()
+
+
 def normalizar_valor(campo_mongo, valor):
     if campo_mongo in ["data_inicio_contrato", "data_fim_contrato"]:
         return valor.strip() if valor else None
@@ -440,9 +451,6 @@ def dialog_cadastrar_projeto():
         data_inicio = col2.date_input("Data de início", value=datetime.date.today(), format="DD/MM/YYYY")
         data_fim = col3.date_input("Data de fim", value=datetime.date.today(), format="DD/MM/YYYY")
 
-
-
-
         # --- Moeda ---
         moeda_options = ["", "Dólares", "Reais", "Euros"]
         moeda = col1.selectbox("Moeda", options=moeda_options, index=0)
@@ -628,8 +636,6 @@ def dialog_cadastrar_projeto():
         )
 
         st.write('')
-
-
 
         # --- Botão de salvar ---
         submit = st.form_submit_button("Cadastrar", icon=":material/save:", width=200, type="primary")
@@ -823,18 +829,15 @@ def dialog_editar_projeto():
         # Datas
         data_inicio = col2.date_input(
             "Data de início",
-            value=pd.to_datetime(projeto_info.get("data_inicio_contrato"), format="%d/%m/%Y", errors="coerce").date()
-            if projeto_info.get("data_inicio_contrato") else "datetime.date.today()",
+            value=parse_date_or_none(projeto_info.get("data_inicio_contrato")),
             format="DD/MM/YYYY"
         )
 
         data_fim = col3.date_input(
             "Data de fim",
-            value=pd.to_datetime(projeto_info.get("data_fim_contrato"), format="%d/%m/%Y", errors="coerce").date()
-            if projeto_info.get("data_fim_contrato") else "datetime.date.today()",
+            value=parse_date_or_none(projeto_info.get("data_fim_contrato")),
             format="DD/MM/YYYY"
         )
-
 
         # Moeda
         moeda_options = ["", "Dólares", "Reais", "Euros"]

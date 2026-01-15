@@ -84,7 +84,6 @@ if navegou_para_esta_pagina:
 st.session_state["pagina_anterior"] = PAGINA_ID
 
 
-
 # ##########################################################
 # Funções
 # ##########################################################
@@ -452,6 +451,9 @@ def dialog_registros_entregas():
 
     tab_ver_registros, tab_novo_registro = st.tabs(["Ver registros", "Novo registro"])
 
+    if "editar_lancamento_id" not in st.session_state:
+        st.session_state["editar_lancamento_id"] = None
+
     # Aba de listagem dos registros de entrega
     with tab_ver_registros:
 
@@ -480,12 +482,7 @@ def dialog_registros_entregas():
             with col5:
                 st.markdown("")
        
-
             st.divider()
-
-            if "lancamento_em_edicao" not in st.session_state:
-                st.session_state["lancamento_em_edicao"] = None
-
 
             # --------------------------------
             # Registros
@@ -531,16 +528,18 @@ def dialog_registros_entregas():
                                     st.write("")
 
                 with col5:
-                    if st.button("Editar",key=f"editar_lanc_{lancamento.get('_id')}", icon=":material/edit:"):
+                    editar = st.toggle(
+                        ":material/edit: Editar",
+                        value=st.session_state["editar_lancamento_id"] == str(lancamento["_id"]),
+                        key=f"toggle_editar_lanc_{lancamento['_id']}"
+                    )
 
-                        st.session_state["lancamento_em_edicao"] = {
-                            "entrega_idx": idx,
-                            "lancamento_id": str(lancamento["_id"]),
-                            "ano": lancamento.get("ano"),
-                            "anotacoes": lancamento.get("anotacoes", "")
-                        }
+                    if editar:
+                        st.session_state["editar_lancamento_id"] = str(lancamento["_id"])
+                    elif st.session_state["editar_lancamento_id"] == str(lancamento["_id"]):
+                        st.session_state["editar_lancamento_id"] = None
 
-                if (st.session_state["lancamento_em_edicao"] and st.session_state["lancamento_em_edicao"]["lancamento_id"] == str(lancamento["_id"])):
+                if st.session_state["editar_lancamento_id"] == str(lancamento["_id"]):
 
                     with st.container(border=True):
 
@@ -576,14 +575,11 @@ def dialog_registros_entregas():
                             #col_a, col_b = st.columns(2)
                             with st.container(border=False, horizontal=True):
                                 
-                                salvar = st.form_submit_button("Salvar", type="primary", icon=":material/save:")
-
-                                
-                                cancelar = st.form_submit_button("Cancelar", icon=":material/close:")
-
-                        if cancelar:
-                            st.session_state["lancamento_em_edicao"] = None
-                            st.rerun()
+                                salvar = st.form_submit_button(
+                                    "Salvar",
+                                    type="primary",
+                                    icon=":material/save:"
+                                )
 
                         if salvar:
                             projetos_ispn.update_one(
@@ -602,7 +598,8 @@ def dialog_registros_entregas():
                             lancamento["anotacoes"] = anotacoes
 
                             st.success("Registro atualizado com sucesso.")
-                            st.session_state["lancamento_em_edicao"] = None
+                            st.session_state["editar_lancamento_id"] = None
+                            time.sleep(2)
                             st.rerun()
 
                 st.divider()
