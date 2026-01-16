@@ -821,7 +821,7 @@ def gerenciar_pessoas():
                 if st.button(
                     "Salvar",
                     icon=":material/save:",
-                    key=f"salvar_recurso_{pessoa_id}"
+                    key=f"salvar_recurso_{pessoa_id}",
                 ):
                     pessoas.update_one(
                         {"_id": pessoa["_id"]},
@@ -835,7 +835,7 @@ def gerenciar_pessoas():
                             }
                         }
                     )
-                    st.success("Data de recurso garantido atualizada!")
+                    st.success("Data atualizada!", width=250, icon=":material/check:")
                     time.sleep(2)
                     st.rerun()
                     
