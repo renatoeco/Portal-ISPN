@@ -794,7 +794,53 @@ def gerenciar_pessoas():
             status_opcoes = [
                 "Em vigência", "Encerrado", "Cancelado", "Fonte de recurso temporária"
             ]
+            
+            # ---------------- RECURSO GARANTIDO ATÉ ----------------
 
+            data_recurso_db = pessoa.get("recurso_garantido_ate") if pessoa else None
+
+            data_recurso_dt = None
+            if isinstance(data_recurso_db, str) and data_recurso_db:
+                try:
+                    data_recurso_dt = datetime.datetime.strptime(
+                        data_recurso_db, "%d/%m/%Y"
+                    ).date()
+                except:
+                    data_recurso_dt = None
+                    
+            with st.container(border=False, horizontal=False):
+
+                nova_data_recurso = st.date_input(
+                    "Recurso garantido até:",
+                    value=data_recurso_dt,   # None → campo vazio
+                    format="DD/MM/YYYY",
+                    key=f"recurso_garantido_{pessoa_id}",
+                    width=250
+                )
+
+                if st.button(
+                    "Salvar",
+                    icon=":material/save:",
+                    key=f"salvar_recurso_{pessoa_id}"
+                ):
+                    pessoas.update_one(
+                        {"_id": pessoa["_id"]},
+                        {
+                            "$set": {
+                                "recurso_garantido_ate": (
+                                    nova_data_recurso.strftime("%d/%m/%Y")
+                                    if nova_data_recurso
+                                    else None
+                                )
+                            }
+                        }
+                    )
+                    st.success("Data de recurso garantido atualizada!")
+                    time.sleep(2)
+                    st.rerun()
+                    
+            st.write("")
+            st.write("")
 
             # Expander de adicionar contrato -------------------------------------------------------
 
@@ -2363,28 +2409,71 @@ with aba_contratos:
 
 
     lista_tratada = []
+
     for pessoa in dados_pessoas:
         nome = pessoa.get("nome_completo", "Sem nome")
         contratos = pessoa.get("contratos", [])
 
+        fins_contratos = []
+
+        # contratos normais
         for contrato in contratos_para_aba_contratos(contratos):
             data_inicio = parse_date(contrato.get("data_inicio"))
             data_fim = parse_date(contrato.get("data_fim"))
+
             if data_inicio and data_fim:
+                fins_contratos.append(data_fim)
+
                 lista_tratada.append({
                     "Nome": nome,
                     "Início do contrato": data_inicio,
                     "Fim do contrato": data_fim,
-                    "Dias restantes": dias_restantes(data_fim)
+                    "Dias restantes": dias_restantes(data_fim),
+                    "Tipo": "contrato"
                 })
 
-    if lista_tratada:
-        df_equipe = pd.DataFrame(lista_tratada)
+        # -------- extensão por recurso garantido --------
+        recurso_garantido = parse_date(pessoa.get("recurso_garantido_ate"))
 
-        # Definir cor: vermelho se < 90 dias, azul caso contrário
-        df_equipe["Cor"] = df_equipe["Dias restantes"].apply(
-            lambda x: "rgba(255, 0, 0, 0.5)" if x < 90 else "rgba(76, 120, 168, 0.5)"
+        if fins_contratos and recurso_garantido:
+            maior_fim = max(fins_contratos)
+
+            if recurso_garantido > maior_fim:
+                lista_tratada.append({
+                    "Nome": nome,
+                    "Início do contrato": maior_fim,
+                    "Fim do contrato": recurso_garantido,
+                    "Dias restantes": None,
+                    "Tipo": "recurso_garantido"
+                })
+
+
+    if lista_tratada:
+        
+        df_equipe = pd.DataFrame(lista_tratada)
+        
+        df_equipe["Hover"] = df_equipe.apply(
+            lambda row: (
+                f"<b>{row['Nome']}</b><br>"
+                f"Recurso garantido até: {row['Fim do contrato'].strftime('%d/%m/%Y')}"
+                if row["Tipo"] == "recurso_garantido"
+                else
+                f"<b>{row['Nome']}</b><br>"
+                f"Início do contrato: {row['Início do contrato'].strftime('%d/%m/%Y')}<br>"
+                f"Fim do contrato: {row['Fim do contrato'].strftime('%d/%m/%Y')}"
+            ),
+            axis=1
         )
+
+
+        def definir_cor(row):
+            if row["Tipo"] == "recurso_garantido":
+                return "rgba(180, 180, 180, 0.6)"  # cinza
+            if row["Dias restantes"] is not None and row["Dias restantes"] < 90:
+                return "rgba(255, 0, 0, 0.5)"  # vermelho
+            return "rgba(76, 120, 168, 0.5)"  # azul
+
+        df_equipe["Cor"] = df_equipe.apply(definir_cor, axis=1)
 
         # Ordenar por data de fim (decrescente)
         df_equipe = df_equipe.sort_values(by="Fim do contrato", ascending=False)
@@ -2403,7 +2492,12 @@ with aba_contratos:
             y="Nome",
             color="Cor",
             color_discrete_map="identity",
+            custom_data=["Hover"],
             height=altura
+        )
+        
+        fig.update_traces(
+            hovertemplate="%{customdata[0]}<extra></extra>"
         )
 
         fig.update_yaxes(categoryorder="array", categoryarray=categorias_y)
@@ -2476,8 +2570,6 @@ with aba_aniversariantes:
     encontrados = False  # Flag para saber se achou algum aniversariante
 
     df_aniversariantes = df_pessoas.copy()
-
-
 
     # Converter Data de nascimento para datetime
     df_aniversariantes["data_nascimento_datetime"] = pd.to_datetime(df_aniversariantes["Data de nascimento"], format="%d/%m/%Y")
