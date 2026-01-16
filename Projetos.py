@@ -821,19 +821,48 @@ def dialog_editar_projeto():
         )
 
         # Datas
+        data_inicio_raw = projeto_info.get("data_inicio_contrato")
+
         data_inicio = col2.date_input(
             "Data de início",
-            value=pd.to_datetime(projeto_info.get("data_inicio_contrato"), format="%d/%m/%Y", errors="coerce").date()
-            if projeto_info.get("data_inicio_contrato") else "datetime.date.today()",
+            value=(
+                pd.to_datetime(data_inicio_raw, errors="coerce").date()
+                if data_inicio_raw and not pd.isna(pd.to_datetime(data_inicio_raw, errors="coerce"))
+                else None
+            ),
             format="DD/MM/YYYY"
         )
 
+        data_fim_raw = projeto_info.get("data_fim_contrato")
+
         data_fim = col3.date_input(
             "Data de fim",
-            value=pd.to_datetime(projeto_info.get("data_fim_contrato"), format="%d/%m/%Y", errors="coerce").date()
-            if projeto_info.get("data_fim_contrato") else "datetime.date.today()",
+            value=(
+                pd.to_datetime(data_fim_raw, errors="coerce").date()
+                if data_fim_raw and not pd.isna(pd.to_datetime(data_fim_raw, errors="coerce"))
+                else None
+            ),
             format="DD/MM/YYYY"
         )
+
+
+
+
+
+
+        # data_inicio = col2.date_input(
+        #     "Data de início",
+        #     value=pd.to_datetime(projeto_info.get("data_inicio_contrato"), format="%d/%m/%Y", errors="coerce").date()
+        #     if projeto_info.get("data_inicio_contrato") else "datetime.date.today()",
+        #     format="DD/MM/YYYY"
+        # )
+
+        # data_fim = col3.date_input(
+        #     "Data de fim",
+        #     value=pd.to_datetime(projeto_info.get("data_fim_contrato"), format="%d/%m/%Y", errors="coerce").date()
+        #     if projeto_info.get("data_fim_contrato") else "datetime.date.today()",
+        #     format="DD/MM/YYYY"
+        # )
 
 
         # Moeda
