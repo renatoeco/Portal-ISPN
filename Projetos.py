@@ -189,21 +189,6 @@ def parse_valor(valor):
     return 0.0
 
 
-def parse_date_or_none(valor):
-    if not valor or pd.isna(valor):
-        return None
-
-    dt = pd.to_datetime(valor, format="%d/%m/%Y", errors="coerce")
-    if pd.isna(dt):
-        return None
-
-    return dt.date()
-
-
-def normalizar_valor(campo_mongo, valor):
-    if campo_mongo in ["data_inicio_contrato", "data_fim_contrato"]:
-        return valor.strip() if valor else None
-    return valor
 
 
 # Função para limpar e formatar o valor com notação de moeda (duas casas decimais)
