@@ -432,9 +432,6 @@ def gerenciar_programa_dialog(programa):
 ######################################################################################################
 
 
-
-
-
 # Verifica se há programas sem coordenador e completa ---------------------------------
 
 programas_sem_coordenador = [
@@ -693,7 +690,8 @@ for i, aba in enumerate(abas):
             if programa["coordenador"]:
                 st.write(f"**{prefixo}:** {programa['coordenador']}")
             else:
-                st.write(f"**{prefixo}**")
+                st.write("")
+                st.write("")
 
             # Equipe --------------------------------------------------------------------------
             st.write('')
@@ -736,111 +734,111 @@ for i, aba in enumerate(abas):
         st.dataframe(df_tabela, hide_index=True)
 
         # Gráfico timeline de contratos de pessoas
+        
+        if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_pessoas"}:
 
-        linhas_timeline = []
+            linhas_timeline = []
 
-        for colab_doc in colaboradores_raw:
+            for colab_doc in colaboradores_raw:
 
-            if colab_doc.get("status", "").lower() != "ativo":
-                continue
+                if colab_doc.get("status", "").lower() != "ativo":
+                    continue
 
-            nome = colab_doc.get("nome_completo", "Desconhecido")
+                nome = colab_doc.get("nome_completo", "Desconhecido")
+                
+                programa_area_ids = colab_doc.get("programa_area", [])
+
+                if not isinstance(programa_area_ids, list):
+                    programa_area_ids = [programa_area_ids] if programa_area_ids else []
+
+                nomes_programas = [
+                    mapa_id_para_nome_programa.get(str(pid), "")
+                    for pid in programa_area_ids
+                ]
+
+                if titulo_programa not in nomes_programas:
+                    continue
+
+                for contrato in colab_doc.get("contratos", []):
+
+                    if contrato.get("status_contrato") not in STATUS_CONTRATOS_VALIDOS:
+                        continue
+
+                    try:
+                        data_inicio = datetime.datetime.strptime(
+                            contrato.get("data_inicio", ""), "%d/%m/%Y"
+                        )
+                        data_fim = datetime.datetime.strptime(
+                            contrato.get("data_fim", ""), "%d/%m/%Y"
+                        )
+                    except:
+                        continue
+
+                    projetos = []
+                    for pid in contrato.get("projeto_pagador", []):
+                        sigla = mapa_id_para_sigla_projeto.get(str(pid))
+                        if sigla:
+                            projetos.append(sigla)
+
+                    projeto_str = ", ".join(projetos) if projetos else "Sem projeto"
+
+                    linhas_timeline.append({
+                        "Nome": nome,
+                        "Projeto": projeto_str,
+                        "Início do contrato": data_inicio,
+                        "Fim do contrato": data_fim
+                    })
             
-            programa_area_ids = colab_doc.get("programa_area", [])
 
-            if not isinstance(programa_area_ids, list):
-                programa_area_ids = [programa_area_ids] if programa_area_ids else []
+            # Ordenar por ordem decrescente de data_fim_contrato
+            df_equipe_exibir_filtrado = df_equipe_exibir_filtrado.sort_values(by='Fim do contrato', ascending=False)
 
-            nomes_programas = [
-                mapa_id_para_nome_programa.get(str(pid), "")
-                for pid in programa_area_ids
-            ]
-
-            if titulo_programa not in nomes_programas:
-                continue
-
-            for contrato in colab_doc.get("contratos", []):
-
-                if contrato.get("status_contrato") not in STATUS_CONTRATOS_VALIDOS:
-                    continue
-
-                try:
-                    data_inicio = datetime.datetime.strptime(
-                        contrato.get("data_inicio", ""), "%d/%m/%Y"
-                    )
-                    data_fim = datetime.datetime.strptime(
-                        contrato.get("data_fim", ""), "%d/%m/%Y"
-                    )
-                except:
-                    continue
-
-                projetos = []
-                for pid in contrato.get("projeto_pagador", []):
-                    sigla = mapa_id_para_sigla_projeto.get(str(pid))
-                    if sigla:
-                        projetos.append(sigla)
-
-                projeto_str = ", ".join(projetos) if projetos else "Sem projeto"
-
-                linhas_timeline.append({
-                    "Nome": nome,
-                    "Projeto": projeto_str,
-                    "Início do contrato": data_inicio,
-                    "Fim do contrato": data_fim
-                })
+            # Tentando calcular a altura do gráfico dinamicamente
+            altura_base = 300  # altura mínima
+            altura_extra = sum([10 / (1 + i * 0.01) for i in range(len(df_equipe_exibir_filtrado))])
+            altura = int(altura_base + altura_extra)
         
+            
+            df_timeline = pd.DataFrame(linhas_timeline)
 
-        # Ordenar por ordem decrescente de data_fim_contrato
-        df_equipe_exibir_filtrado = df_equipe_exibir_filtrado.sort_values(by='Fim do contrato', ascending=False)
+            if df_timeline.empty:
+                st.caption("Nenhum contrato ativo para exibir no timeline.")
+            else:
+                # Ordena pelo fim do contrato
+                df_timeline = df_timeline.sort_values(
+                    by="Fim do contrato",
+                    ascending=False
+                )
 
-        # Tentando calcular a altura do gráfico dinamicamente
-        altura_base = 300  # altura mínima
-        altura_extra = sum([10 / (1 + i * 0.01) for i in range(len(df_equipe_exibir_filtrado))])
-        altura = int(altura_base + altura_extra)
-     
-        
-        df_timeline = pd.DataFrame(linhas_timeline)
+                # Altura dinâmica
+                altura_base = 300
+                altura = altura_base + len(df_timeline) * 20
 
-        if df_timeline.empty:
-            st.caption("Nenhum contrato ativo para exibir no timeline.")
-        else:
-            # Ordena pelo fim do contrato
-            df_timeline = df_timeline.sort_values(
-                by="Fim do contrato",
-                ascending=False
-            )
+                fig = px.timeline(
+                    df_timeline,
+                    x_start="Início do contrato",
+                    x_end="Fim do contrato",
+                    y="Nome",
+                    color="Projeto",
+                    hover_data=["Projeto"],
+                    height=altura
+                )
 
-            # Altura dinâmica
-            altura_base = 300
-            altura = altura_base + len(df_timeline) * 20
+                fig.update_traces(
+                    opacity=0.6,
+                )
 
-            fig = px.timeline(
-                df_timeline,
-                x_start="Início do contrato",
-                x_end="Fim do contrato",
-                y="Nome",
-                color="Projeto",
-                hover_data=["Projeto"],
-                height=altura
-            )
+                fig.update_layout(yaxis_title=None)
+                fig.add_vline(
+                    x=datetime.date.today(),
+                    line_width=1,
+                    line_dash="dash",
+                    line_color="gray"
+                )
 
-            fig.update_traces(
-                opacity=0.6,
-            )
-
-
-            fig.update_layout(yaxis_title=None)
-            fig.add_vline(
-                x=datetime.date.today(),
-                line_width=1,
-                line_dash="dash",
-                line_color="gray"
-            )
-
-            st.plotly_chart(fig, key=f"timeline_pessoas_{i}")
+                st.plotly_chart(fig, key=f"timeline_pessoas_{i}")
 
         st.divider()
-
 
         # PROJETOS #################################################################################################
 

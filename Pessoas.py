@@ -768,7 +768,8 @@ def gerenciar_pessoas():
                         st.rerun()
 
 
-        # ABA CONTRATOS ############################################################################### 
+        # ABA CONTRATOS ###############################################################################
+        
         with aba_contratos:
 
             # PREPARAÇÃO DE VARIÁVEIS ------------------------------------------------------
@@ -1943,9 +1944,12 @@ if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_pess
     container_botoes.button("Gerenciar colaboradores", on_click=gerenciar_pessoas, icon=":material/group:")
     st.write('')
 
+# Roteamento de usuários
+if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_pessoas"}:
+    aba_pessoas, aba_contratos, aba_reajustes, aba_aniversariantes = st.tabs([":material/person: Colaboradores", ":material/contract: Contratos", ":material/payments: Reajustes do mês", ":material/cake: Aniversariantes do mês"])
 
-aba_pessoas, aba_contratos, aba_reajustes, aba_aniversariantes = st.tabs([":material/person: Colaboradores", ":material/contract: Contratos", ":material/payments: Reajustes do mês", ":material/cake: Aniversariantes do mês"])
-
+else:
+    aba_pessoas, aba_aniversariantes = st.tabs([":material/person: Colaboradores", ":material/cake: Aniversariantes do mês"])
 
 with aba_pessoas:
 
@@ -2327,263 +2331,260 @@ with aba_pessoas:
         # config={'staticPlot': True}
     )
 
-
-#  ABA CONTRATOS ---------------------------------------------------------------------------------------
-
-# Roteamento de usuários
-# if set(st.session_state.tipo_usuario) & {"admin", "gestao_pessoas"}:
-with aba_contratos:
-
+if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_pessoas"}:
     
+    #  ABA CONTRATOS ---------------------------------------------------------------------------------------
+    with aba_contratos:
 
-    # Função para calcular dias restantes
-    def dias_restantes(data_fim):
-        if data_fim:
-            return (data_fim - datetime.date.today()).days
-        return None
-
-    # ----------------- CONTRATOS A VENCER (90 DIAS) -----------------
-    contratos_90_dias = []
-
-    for p in dados_pessoas:
-        contratos_exibir = contratos_para_aba_contratos(p.get("contratos", []))
-
-        for contrato in contratos_exibir:
-            data_fim = parse_date(contrato.get("data_fim"))
-            if data_fim and dias_restantes(data_fim) <= 90:
-                contratos_90_dias.append({
-                    "pessoa": p,
-                    "contrato": contrato,
-                    "dias_restantes": dias_restantes(data_fim)
-                })
-
-
-    
-
-    # -------------------- Renderizar lista de contratos --------------------
-    st.write('')
-    st.markdown('<h3 style="font-size: 1.5em;">Contratos com vencimento nos próximos 90 dias:</h3>', unsafe_allow_html=True)
-    st.write('')
-    st.write('')
-    st.write('')
-
-    
-
-    for item in contratos_90_dias:
-
-        col1, col2, col3 = st.columns([1, 1, 3])
-
-        pessoa = item["pessoa"]
-        contrato = item["contrato"]
-
-        # with st.container(border=True):
         
-        col1.write(f"**{pessoa.get('nome_completo', 'Sem nome')}**")
 
-        col2.write(f"**Data de fim:** {contrato.get('data_fim', '')}")
-        col2.write(f"**Data de início:** {contrato.get('data_inicio', '')}")
+        # Função para calcular dias restantes
+        def dias_restantes(data_fim):
+            if data_fim:
+                return (data_fim - datetime.date.today()).days
+            return None
 
-        # col2.write(f"**Mês de reajuste:** {contrato.get('data_reajuste', '')}")
+        # ----------------- CONTRATOS A VENCER (90 DIAS) -----------------
+        contratos_90_dias = []
 
+        for p in dados_pessoas:
+            contratos_exibir = contratos_para_aba_contratos(p.get("contratos", []))
 
-        projetos_ids = contrato.get("projeto_pagador", [])
-        col3.write('**Projeto:**')
-        if not projetos_ids:
-            col3.write("O projeto pagador não foi informado")
-        else:
-            for projeto_id in projetos_ids:
-                projeto = next(
-                    (p for p in dados_projetos_ispn if p["_id"] == projeto_id),
-                    None
-                )
-                if projeto:
-                    col3.write(f"{projeto.get('sigla', '')} - {projeto.get('nome_do_projeto', '')}")
-                else:
-                    col3.write(f"Projeto não encontrado para o ID: {projeto_id}")
-
-        if contrato.get("anotacoes_contrato"):
-            col3.write("**Anotações:**")
-            col3.write(contrato["anotacoes_contrato"])
-
-        st.divider()
-
-    # -------------------- Preparar e renderizar gráfico de timeline --------------------
-
-    st.write('')
-    st.markdown('<h3 style="font-size: 1.5em;">Cronograma dos contratos</h3>', unsafe_allow_html=True)
+            for contrato in contratos_exibir:
+                data_fim = parse_date(contrato.get("data_fim"))
+                if data_fim and dias_restantes(data_fim) <= 90:
+                    contratos_90_dias.append({
+                        "pessoa": p,
+                        "contrato": contrato,
+                        "dias_restantes": dias_restantes(data_fim)
+                    })
 
 
-    lista_tratada = []
-
-    for pessoa in dados_pessoas:
-        nome = pessoa.get("nome_completo", "Sem nome")
-        contratos = pessoa.get("contratos", [])
-
-        fins_contratos = []
-
-        # contratos normais
-        for contrato in contratos_para_aba_contratos(contratos):
-            data_inicio = parse_date(contrato.get("data_inicio"))
-            data_fim = parse_date(contrato.get("data_fim"))
-
-            if data_inicio and data_fim:
-                fins_contratos.append(data_fim)
-
-                projetos_ids = contrato.get("projeto_pagador", [])
-                siglas = []
-
-                for pid in projetos_ids:
-                    projeto = next(
-                        (p for p in dados_projetos_ispn if p["_id"] == pid),
-                        None
-                    )
-                    if projeto and projeto.get("sigla"):
-                        siglas.append(projeto["sigla"])
-
-                sigla_projeto = " | ".join(siglas[:3])
-                if len(siglas) > 3:
-                    sigla_projeto += " +"
-
-                lista_tratada.append({
-                    "Nome": nome,
-                    "Início do contrato": data_inicio,
-                    "Fim do contrato": data_fim,
-                    "Dias restantes": dias_restantes(data_fim),
-                    "Tipo": "contrato",
-                    "Texto": sigla_projeto
-                })
-
-
-        # -------- extensão por recurso garantido --------
-        recurso_garantido = parse_date(pessoa.get("recurso_garantido_ate"))
-
-        if fins_contratos and recurso_garantido:
-            maior_fim = max(fins_contratos)
-
-            if recurso_garantido > maior_fim:
-                lista_tratada.append({
-                    "Nome": nome,
-                    "Início do contrato": maior_fim,
-                    "Fim do contrato": recurso_garantido,
-                    "Dias restantes": None,
-                    "Tipo": "recurso_garantido",
-                    "Texto": f"Recursos garantidos até {recurso_garantido.strftime('%d/%m/%Y')}"
-                })
-
-    if lista_tratada:
         
-        df_equipe = pd.DataFrame(lista_tratada)
+
+        # -------------------- Renderizar lista de contratos --------------------
+        st.write('')
+        st.markdown('<h3 style="font-size: 1.5em;">Contratos com vencimento nos próximos 90 dias:</h3>', unsafe_allow_html=True)
+        st.write('')
+        st.write('')
+        st.write('')
+
         
-        df_equipe["Hover"] = df_equipe.apply(
-            lambda row: (
-                f"<b>{row['Nome']}</b><br>"
-                f"Recurso garantido até: {row['Fim do contrato'].strftime('%d/%m/%Y')}"
-                if row["Tipo"] == "recurso_garantido"
-                else
-                f"<b>{row['Nome']}</b><br>"
-                f"Início do contrato: {row['Início do contrato'].strftime('%d/%m/%Y')}<br>"
-                f"Fim do contrato: {row['Fim do contrato'].strftime('%d/%m/%Y')}"
-            ),
-            axis=1
-        )
+
+        for item in contratos_90_dias:
+
+            col1, col2, col3 = st.columns([1, 1, 3])
+
+            pessoa = item["pessoa"]
+            contrato = item["contrato"]
+
+            # with st.container(border=True):
+            
+            col1.write(f"**{pessoa.get('nome_completo', 'Sem nome')}**")
+
+            col2.write(f"**Data de fim:** {contrato.get('data_fim', '')}")
+            col2.write(f"**Data de início:** {contrato.get('data_inicio', '')}")
+
+            # col2.write(f"**Mês de reajuste:** {contrato.get('data_reajuste', '')}")
 
 
-        def definir_cor(row):
-            if row["Tipo"] == "recurso_garantido":
-                return "rgba(180, 180, 180, 0.6)"  # cinza
-            if row["Dias restantes"] is not None and row["Dias restantes"] < 90:
-                return "rgba(255, 0, 0, 0.5)"  # vermelho
-            return "rgba(76, 120, 168, 0.5)"  # azul
-
-        df_equipe["Cor"] = df_equipe.apply(definir_cor, axis=1)
-
-        # Ordenar por data de fim (decrescente)
-        df_equipe = df_equipe.sort_values(by="Fim do contrato", ascending=False)
-        categorias_y = df_equipe["Nome"].tolist()
-
-        # Calcular altura do gráfico dinamicamente
-        altura_base = 200
-        altura_extra = 40 * len(df_equipe)
-        altura = altura_base + altura_extra
-
-        # Criar gráfico de timeline
-        fig = px.timeline(
-            df_equipe,
-            x_start="Início do contrato",
-            x_end="Fim do contrato",
-            y="Nome",
-            color="Cor",
-            text="Texto",
-            color_discrete_map="identity",
-            custom_data=["Hover"],
-            height=altura
-        )
-        
-        fig.update_traces(
-            textposition="inside",
-            insidetextanchor="end",
-            textfont=dict(
-                color="black",
-                size=12
-            ),
-            hovertemplate="%{customdata[0]}<extra></extra>"
-        )
-
-        fig.update_yaxes(categoryorder="array", categoryarray=categorias_y)
-
-        # Linha vertical de hoje
-        hoje = pd.Timestamp(datetime.date.today())
-        fig.add_vline(x=hoje, line_width=1, line_dash="dash", line_color="gray")
-
-        fig.update_layout(
-            yaxis_title=None,
-            xaxis_title="Duração do contrato",
-            showlegend=False
-        )
-
-        st.plotly_chart(fig)
-    else:
-        st.caption("Nenhum contrato válido encontrado.")
-
-
-
-with aba_reajustes:
-
-    mes_atual_str = meses_pt[datetime.date.today().month - 1]
-
-    st.markdown(f'<h3 style="font-size: 1.5em;">Contratos com reajuste em {mes_atual_str}:</h3>', unsafe_allow_html=True)
-    st.write(f"")
-    st.write(f"")
-
-    encontrados = False  # Flag para saber se achou algum contrato
-
-    for pessoa in dados_pessoas:
-        nome = pessoa.get("nome_completo", "Sem nome")
-        contratos = pessoa.get("contratos", [])
-
-        # Filtrar contratos "Em vigência" com reajuste no mês atual
-        contratos_reajuste = [
-            c for c in contratos
-            if c.get("status_contrato") == "Em vigência" and c.get("data_reajuste") == mes_atual_str
-        ]
-
-        for contrato in contratos_reajuste:
             projetos_ids = contrato.get("projeto_pagador", [])
-            if projetos_ids:
+            col3.write('**Projeto:**')
+            if not projetos_ids:
+                col3.write("O projeto pagador não foi informado")
+            else:
                 for projeto_id in projetos_ids:
                     projeto = next(
                         (p for p in dados_projetos_ispn if p["_id"] == projeto_id),
                         None
                     )
                     if projeto:
-                        st.write(f"**{nome}** - {projeto.get('sigla', projeto.get('nome_do_projeto',''))}")
-                        encontrados = True
-            else:
-                st.write(f"**{nome}** - Projeto pagador não informado")
-                encontrados = True
+                        col3.write(f"{projeto.get('sigla', '')} - {projeto.get('nome_do_projeto', '')}")
+                    else:
+                        col3.write(f"Projeto não encontrado para o ID: {projeto_id}")
 
-    if not encontrados:
-        st.caption("Nenhum contrato com reajuste no mês atual.")
+            if contrato.get("anotacoes_contrato"):
+                col3.write("**Anotações:**")
+                col3.write(contrato["anotacoes_contrato"])
+
+            st.divider()
+
+        # -------------------- Preparar e renderizar gráfico de timeline --------------------
+
+        st.write('')
+        st.markdown('<h3 style="font-size: 1.5em;">Cronograma dos contratos</h3>', unsafe_allow_html=True)
+
+
+        lista_tratada = []
+
+        for pessoa in dados_pessoas:
+            nome = pessoa.get("nome_completo", "Sem nome")
+            contratos = pessoa.get("contratos", [])
+
+            fins_contratos = []
+
+            # contratos normais
+            for contrato in contratos_para_aba_contratos(contratos):
+                data_inicio = parse_date(contrato.get("data_inicio"))
+                data_fim = parse_date(contrato.get("data_fim"))
+
+                if data_inicio and data_fim:
+                    fins_contratos.append(data_fim)
+
+                    projetos_ids = contrato.get("projeto_pagador", [])
+                    siglas = []
+
+                    for pid in projetos_ids:
+                        projeto = next(
+                            (p for p in dados_projetos_ispn if p["_id"] == pid),
+                            None
+                        )
+                        if projeto and projeto.get("sigla"):
+                            siglas.append(projeto["sigla"])
+
+                    sigla_projeto = " | ".join(siglas[:3])
+                    if len(siglas) > 3:
+                        sigla_projeto += " +"
+
+                    lista_tratada.append({
+                        "Nome": nome,
+                        "Início do contrato": data_inicio,
+                        "Fim do contrato": data_fim,
+                        "Dias restantes": dias_restantes(data_fim),
+                        "Tipo": "contrato",
+                        "Texto": sigla_projeto
+                    })
+
+
+            # -------- extensão por recurso garantido --------
+            recurso_garantido = parse_date(pessoa.get("recurso_garantido_ate"))
+
+            if fins_contratos and recurso_garantido:
+                maior_fim = max(fins_contratos)
+
+                if recurso_garantido > maior_fim:
+                    lista_tratada.append({
+                        "Nome": nome,
+                        "Início do contrato": maior_fim,
+                        "Fim do contrato": recurso_garantido,
+                        "Dias restantes": None,
+                        "Tipo": "recurso_garantido",
+                        "Texto": f"Recursos garantidos até {recurso_garantido.strftime('%d/%m/%Y')}"
+                    })
+
+        if lista_tratada:
+            
+            df_equipe = pd.DataFrame(lista_tratada)
+            
+            df_equipe["Hover"] = df_equipe.apply(
+                lambda row: (
+                    f"<b>{row['Nome']}</b><br>"
+                    f"Recurso garantido até: {row['Fim do contrato'].strftime('%d/%m/%Y')}"
+                    if row["Tipo"] == "recurso_garantido"
+                    else
+                    f"<b>{row['Nome']}</b><br>"
+                    f"Início do contrato: {row['Início do contrato'].strftime('%d/%m/%Y')}<br>"
+                    f"Fim do contrato: {row['Fim do contrato'].strftime('%d/%m/%Y')}"
+                ),
+                axis=1
+            )
+
+
+            def definir_cor(row):
+                if row["Tipo"] == "recurso_garantido":
+                    return "rgba(180, 180, 180, 0.6)"  # cinza
+                if row["Dias restantes"] is not None and row["Dias restantes"] < 90:
+                    return "rgba(255, 0, 0, 0.5)"  # vermelho
+                return "rgba(76, 120, 168, 0.5)"  # azul
+
+            df_equipe["Cor"] = df_equipe.apply(definir_cor, axis=1)
+
+            # Ordenar por data de fim (decrescente)
+            df_equipe = df_equipe.sort_values(by="Fim do contrato", ascending=False)
+            categorias_y = df_equipe["Nome"].tolist()
+
+            # Calcular altura do gráfico dinamicamente
+            altura_base = 200
+            altura_extra = 40 * len(df_equipe)
+            altura = altura_base + altura_extra
+
+            # Criar gráfico de timeline
+            fig = px.timeline(
+                df_equipe,
+                x_start="Início do contrato",
+                x_end="Fim do contrato",
+                y="Nome",
+                color="Cor",
+                text="Texto",
+                color_discrete_map="identity",
+                custom_data=["Hover"],
+                height=altura
+            )
+            
+            fig.update_traces(
+                textposition="inside",
+                insidetextanchor="end",
+                textfont=dict(
+                    color="black",
+                    size=12
+                ),
+                hovertemplate="%{customdata[0]}<extra></extra>"
+            )
+
+            fig.update_yaxes(categoryorder="array", categoryarray=categorias_y)
+
+            # Linha vertical de hoje
+            hoje = pd.Timestamp(datetime.date.today())
+            fig.add_vline(x=hoje, line_width=1, line_dash="dash", line_color="gray")
+
+            fig.update_layout(
+                yaxis_title=None,
+                xaxis_title="Duração do contrato",
+                showlegend=False
+            )
+
+            st.plotly_chart(fig)
+        else:
+            st.caption("Nenhum contrato válido encontrado.")
+
+
+    with aba_reajustes:
+
+            mes_atual_str = meses_pt[datetime.date.today().month - 1]
+
+            st.markdown(f'<h3 style="font-size: 1.5em;">Contratos com reajuste em {mes_atual_str}:</h3>', unsafe_allow_html=True)
+            st.write(f"")
+            st.write(f"")
+
+            encontrados = False  # Flag para saber se achou algum contrato
+
+            for pessoa in dados_pessoas:
+                nome = pessoa.get("nome_completo", "Sem nome")
+                contratos = pessoa.get("contratos", [])
+
+                # Filtrar contratos "Em vigência" com reajuste no mês atual
+                contratos_reajuste = [
+                    c for c in contratos
+                    if c.get("status_contrato") == "Em vigência" and c.get("data_reajuste") == mes_atual_str
+                ]
+
+                for contrato in contratos_reajuste:
+                    projetos_ids = contrato.get("projeto_pagador", [])
+                    if projetos_ids:
+                        for projeto_id in projetos_ids:
+                            projeto = next(
+                                (p for p in dados_projetos_ispn if p["_id"] == projeto_id),
+                                None
+                            )
+                            if projeto:
+                                st.write(f"**{nome}** - {projeto.get('sigla', projeto.get('nome_do_projeto',''))}")
+                                encontrados = True
+                    else:
+                        st.write(f"**{nome}** - Projeto pagador não informado")
+                        encontrados = True
+
+            if not encontrados:
+                st.caption("Nenhum contrato com reajuste no mês atual.")
 
 
 with aba_aniversariantes:
