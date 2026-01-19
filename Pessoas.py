@@ -2407,9 +2407,6 @@ with aba_contratos:
 
         st.divider()
 
-
-
-
     # -------------------- Preparar e renderizar gráfico de timeline --------------------
 
     st.write('')
@@ -2432,13 +2429,30 @@ with aba_contratos:
             if data_inicio and data_fim:
                 fins_contratos.append(data_fim)
 
+                projetos_ids = contrato.get("projeto_pagador", [])
+                siglas = []
+
+                for pid in projetos_ids:
+                    projeto = next(
+                        (p for p in dados_projetos_ispn if p["_id"] == pid),
+                        None
+                    )
+                    if projeto and projeto.get("sigla"):
+                        siglas.append(projeto["sigla"])
+
+                sigla_projeto = " | ".join(siglas[:3])
+                if len(siglas) > 3:
+                    sigla_projeto += " +"
+
                 lista_tratada.append({
                     "Nome": nome,
                     "Início do contrato": data_inicio,
                     "Fim do contrato": data_fim,
                     "Dias restantes": dias_restantes(data_fim),
-                    "Tipo": "contrato"
+                    "Tipo": "contrato",
+                    "Texto": sigla_projeto
                 })
+
 
         # -------- extensão por recurso garantido --------
         recurso_garantido = parse_date(pessoa.get("recurso_garantido_ate"))
@@ -2452,9 +2466,9 @@ with aba_contratos:
                     "Início do contrato": maior_fim,
                     "Fim do contrato": recurso_garantido,
                     "Dias restantes": None,
-                    "Tipo": "recurso_garantido"
+                    "Tipo": "recurso_garantido",
+                    "Texto": f"Recursos garantidos até {recurso_garantido.strftime('%d/%m/%Y')}"
                 })
-
 
     if lista_tratada:
         
@@ -2499,12 +2513,19 @@ with aba_contratos:
             x_end="Fim do contrato",
             y="Nome",
             color="Cor",
+            text="Texto",
             color_discrete_map="identity",
             custom_data=["Hover"],
             height=altura
         )
         
         fig.update_traces(
+            textposition="inside",
+            insidetextanchor="end",
+            textfont=dict(
+                color="black",
+                size=12
+            ),
             hovertemplate="%{customdata[0]}<extra></extra>"
         )
 

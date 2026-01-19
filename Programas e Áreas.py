@@ -97,6 +97,21 @@ def formatar_valor(valor_bruto, moeda_bruta):
         return f"{moeda} {valor_formatado}"
     except Exception:
         return f"{moeda} 0"
+    
+def normalizar_lista_ids(lista):
+    """
+    Converte lista com ObjectId, dict {'$oid': ...} ou str
+    para lista de strings
+    """
+    ids = []
+    for item in lista or []:
+        if isinstance(item, ObjectId):
+            ids.append(str(item))
+        elif isinstance(item, dict) and "$oid" in item:
+            ids.append(str(item["$oid"]))
+        else:
+            ids.append(str(item))
+    return ids
 
 # id para nome de programa
 mapa_id_para_nome_programa = {
@@ -680,10 +695,6 @@ for i, aba in enumerate(abas):
             else:
                 st.write(f"**{prefixo}**")
 
-
-
-
-
             # Equipe --------------------------------------------------------------------------
             st.write('')
             st.markdown('#### **Equipe**')
@@ -997,7 +1008,13 @@ for i, aba in enumerate(abas):
 
                         for entrega in proj.get("entregas", []):
 
-                            if nome_acao in entrega.get("acoes_relacionadas", []):
+                            acao_id = str(acao["_id"])
+
+                            acoes_entrega_ids = normalizar_lista_ids(
+                                entrega.get("acoes_relacionadas", [])
+                            )
+
+                            if acao_id in acoes_entrega_ids:
 
                                 entregas_relacionadas.append({
                                     "Projeto": codigo_proj,
