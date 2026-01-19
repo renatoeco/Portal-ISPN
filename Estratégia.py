@@ -522,42 +522,62 @@ def _format_responsaveis_list(responsaveis_list, responsaveis_dict):
         nomes.append(responsaveis_dict.get(key, "Desconhecido"))
     return ", ".join(nomes) if nomes else "-"
 
-def buscar_entregas_relacionadas(titulo_referencia):
+def normalizar_lista_ids(lista):
     """
-    Busca entregas em todos os projetos que tenham o titulo_referencia em
-    eixos_relacionados OR resultados_medio_prazo_relacionados OR resultados_longo_prazo_relacionados.
-    Retorna lista de dicionários prontos para DataFrame.
+    Converte uma lista que pode conter ObjectId, dict {'$oid': ...} ou str
+    para uma lista de strings.
     """
+    ids = []
+    for item in lista or []:
+        if isinstance(item, ObjectId):
+            ids.append(str(item))
+        elif isinstance(item, dict) and "$oid" in item:
+            ids.append(str(item["$oid"]))
+        else:
+            ids.append(str(item))
+    return ids
+
+def buscar_entregas_relacionadas_por_id(
+    *,
+    eixo_id=None,
+    acoes_rm_relacionados=None,
+    resultado_lp_id=None
+):
     entregas_filtradas = []
 
-    # Obter projetos e dicionário de pessoas (para nomes dos responsáveis)
-    projetos = list(projetos_ispn.find({}, {"entregas": 1, "sigla": 1, "programa": 1}))
+    projetos = list(
+        projetos_ispn.find({}, {"entregas": 1, "sigla": 1})
+    )
+
     df_pessoas = pd.DataFrame(list(db["pessoas"].find()))
-    if df_pessoas.empty:
-        responsaveis_dict = {}
-    else:
-        df_pessoas_ordenado = df_pessoas.sort_values("nome_completo", ascending=True)
-        responsaveis_dict = {
-            str(row["_id"]): row["nome_completo"]
-            for _, row in df_pessoas_ordenado.iterrows()
-        }
+    responsaveis_dict = {
+        str(row["_id"]): row["nome_completo"]
+        for _, row in df_pessoas.iterrows()
+    } if not df_pessoas.empty else {}
 
     for projeto in projetos:
         sigla = projeto.get("sigla", "-")
+
         for entrega in projeto.get("entregas", []) or []:
-            # Verifica as três possíveis ligações (eixo / resultado mp / resultado lp)
+
+            eixos_ids = normalizar_lista_ids(entrega.get("eixos_relacionados", []))
+            acoes_ids = normalizar_lista_ids(entrega.get("acoes_resultados_medio_prazo", []))
+            resultados_lp_ids = normalizar_lista_ids(entrega.get("resultados_longo_prazo_relacionados", []))
+
             if (
-                titulo_referencia in entrega.get("eixos_relacionados", [])
-                or titulo_referencia in entrega.get("resultados_medio_prazo_relacionados", [])
-                or titulo_referencia in entrega.get("resultados_longo_prazo_relacionados", [])
+                (eixo_id and eixo_id in eixos_ids)
+                or (acoes_rm_relacionados and acoes_rm_relacionados in acoes_ids)
+                or (resultado_lp_id and resultado_lp_id in resultados_lp_ids)
             ):
-                responsaveis_formatados = _format_responsaveis_list(entrega.get("responsaveis", []), responsaveis_dict)
 
                 entregas_filtradas.append({
                     "Projeto": sigla,
                     "Entrega": entrega.get("nome_da_entrega", "-"),
                     "Previsão de Conclusão": entrega.get("previsao_da_conclusao", "-"),
-                    "Responsáveis": responsaveis_formatados,
+                    "Responsáveis": _format_responsaveis_list(
+                        entrega.get("responsaveis", []),
+                        responsaveis_dict
+                    ),
                     "Situação": entrega.get("situacao", "-"),
                     "Ano(s) de Referência": ", ".join(entrega.get("anos_de_referencia", []) or []),
                     "Anotações": entrega.get("anotacoes", "-"),
@@ -798,7 +818,9 @@ with aba_est:
             # --------------------------------------------
             # ENTREGAS DO EIXO
             # --------------------------------------------
-            entregas_filtradas = buscar_entregas_relacionadas(titulo_eixo)
+            entregas_filtradas = buscar_entregas_relacionadas_por_id(
+                eixo_id=str(eixo["_id"])
+            )
 
             if entregas_filtradas:
                 exibir_entregas_como_tabela(
@@ -1051,7 +1073,9 @@ with aba_res_mp:
 
                     st.write(f"**{nome_acao}**")
 
-                    entregas_vinculadas = buscar_entregas_por_acao(nome_acao)
+                    entregas_vinculadas = buscar_entregas_relacionadas_por_id(
+                        acoes_rm_relacionados=str(acao["_id"])
+                    )
 
                     # st.write("**:material/package_2: Entregas:**")
 
@@ -1205,7 +1229,9 @@ with aba_res_lp:
                 st.write("")
                 st.markdown("**Entregas Planejadas / Realizadas:**")
 
-                entregas_lp = buscar_entregas_relacionadas(titulo_result_lp)
+                entregas_lp = buscar_entregas_relacionadas_por_id(
+                    resultado_lp_id=str(resultado["_id"])
+                )
 
                 if entregas_lp:
                     exibir_entregas_como_tabela(
@@ -1223,7 +1249,7 @@ with aba_res_lp:
                 # ====================================================
                 # INDICADORES (VINDOS DA COLEÇÃO 'indicadores')
                 # ====================================================
-                st.markdown("##### :material/monitoring: Indicadores:")
+                st.markdown("##### :material/monitoring: Indicadores:") 
 
                 indicadores_resultado = mapa_indicadores_por_resultado_lp.get(
                     resultado_lp_id,
