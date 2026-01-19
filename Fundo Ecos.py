@@ -2278,7 +2278,7 @@ with geral:
     col1, col2, col3 = st.columns(3)
 
     col1.metric(
-        "Valor total em US$ corrigido até 2024",
+        "Valor total em US$ corrigido até 2025",
         f"{valor_total_dolar_corrigido:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
     )
 
@@ -2393,8 +2393,6 @@ with geral:
         )
     )
 
-
-
     # Estética
     fig.update_layout(
         xaxis_tickangle=-45,
@@ -2407,20 +2405,6 @@ with geral:
 
     # Mostrar
     st.plotly_chart(fig)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 with lista:
