@@ -2469,7 +2469,7 @@ if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_pess
                         "Fim do contrato": recurso_garantido,
                         "Dias restantes": None,
                         "Tipo": "recurso_garantido",
-                        "Texto": f"Recursos garantidos até {recurso_garantido.strftime('%d/%m/%Y')}"
+                        "Texto": recurso_garantido.strftime('%d/%m/%y')
                     })
 
         if lista_tratada:
@@ -2532,6 +2532,14 @@ if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_pess
             )
 
             fig.update_yaxes(categoryorder="array", categoryarray=categorias_y)
+
+            fig.update_xaxes(
+                dtick="M1",                 # marca cada mês
+                showgrid=True,
+                gridcolor="rgba(211,211,211,0.5)",
+
+            )
+
 
             # Linha vertical de hoje
             hoje = pd.Timestamp(datetime.date.today())
