@@ -73,6 +73,18 @@ if navegou_para_esta_pagina:
 st.session_state["pagina_anterior"] = PAGINA_ID
 
 
+######################################################################################################
+# FUNÇÕES
+######################################################################################################
+
+
+def linha(label, valor, col_label=2, col_valor=4):
+    with st.container():
+        c1, c2 = st.columns([col_label, col_valor])
+        c1.markdown(f"**{label}**")
+        c2.markdown(mostrar(valor))
+
+
 def mostrar(valor):
     return valor if valor not in [None, "", []] else "—"
 
@@ -172,121 +184,66 @@ if pessoa_logada:
 
             col1, col2, col3 = st.columns(3, gap="large")
 
-            # Pessoais
-
-            with col1:
-
-                sub1, sub2 = st.columns([2,3])
-
-                # Nome completo
-                sub1.write(f"**Nome completo:**")
-                sub2.write(pessoa_logada.get('nome_completo',''))
+            # ======================
+            # COLUNA 1 – DADOS PESSOAIS
+            # ======================
             
-                # Data de nascimento
-                sub1.write(f"**Data de nascimento:**")
-                sub2.write(mostrar(pessoa_logada.get('data_nascimento','')))
-
-                # CPF
-                sub1.write(f"**CPF:**")
-                sub2.write(mostrar(pessoa_logada.get('CPF','')))
-
-                # RG
-                sub1.write(f"**RG:**")
-                sub2.write(mostrar(pessoa_logada.get('RG','')))
-
-                # Gênero
-                sub1.write(f"**Gênero:**")
-                sub2.write(mostrar(pessoa_logada.get("gênero")))
-
-                # Raça
-                sub1.write(f"**Raça:**")
-                sub2.write(mostrar(pessoa_logada.get("raca")))
-
-                # Escolaridade
-                sub1.write(f"**Escolaridade:**")
-                sub2.write(mostrar(pessoa_logada.get("escolaridade")))
-
-                # Telefone
-                sub1.write(f"**Telefone:**")
-                sub2.write(mostrar(pessoa_logada.get('telefone','')))
-
-                # E-mail
-                sub1.write(f"**E-mail:**")
-                sub2.write(mostrar(pessoa_logada.get('e_mail','')))
+            with col1:
+                linha("Nome completo:", pessoa_logada.get("nome_completo"))
+                linha("Data de nascimento:", pessoa_logada.get("data_nascimento"))
+                linha("CPF:", pessoa_logada.get("CPF"))
+                linha("RG:", pessoa_logada.get("RG"))
+                linha("Gênero:", pessoa_logada.get("gênero"))
+                linha("Raça:", pessoa_logada.get("raca"))
+                linha("Escolaridade:", pessoa_logada.get("escolaridade"))
+                linha("Telefone:", pessoa_logada.get("telefone"))
+                linha("E-mail:", pessoa_logada.get("e_mail"))
 
 
+            # ======================
+            # COLUNA 2 – DADOS BANCÁRIOS
+            # ======================
+            
             with col2:
+                banco = pessoa_logada.get("banco", {})
 
-                sub1, sub2 = st.columns([2,3])   
-
-                # Banco
-                sub1.write(f"**Banco:**")
-                sub2.write(mostrar(pessoa_logada.get('banco',{}).get('nome_banco','')))
-
-                # Agência
-                sub1.write(f"**Agência:**")
-                sub2.write(mostrar(pessoa_logada.get('banco',{}).get('agencia','')))
-                
-                # Tipo de conta
-                sub1.write(f"**Tipo de conta:**")
-                sub2.write(mostrar(pessoa_logada.get('banco',{}).get('tipo_conta','')))
-                
-                # Conta
-                sub1.write(f"**Conta:**")
-                sub2.write(mostrar(pessoa_logada.get('banco',{}).get('conta','')))
+                linha("Banco:", banco.get("nome_banco"))
+                linha("Agência:", banco.get("agencia"))
+                linha("Tipo de conta:", banco.get("tipo_conta"))
+                linha("Conta:", banco.get("conta"))
 
 
+            # ======================
+            # COLUNA 3 – DADOS PROFISSIONAIS
+            # ======================
+            
             with col3:
+                linha("Escritório:", pessoa_logada.get("escritorio"))
+                linha("Cargo:", pessoa_logada.get("cargo"))
 
-                sub1, sub2 = st.columns([2,3])    
-                
-                # Escritório
-                sub1.write(f"**Escritório:**")
-                sub2.write(mostrar(pessoa_logada.get('escritorio','')))
-
-                # Cargo
-                sub1.write(f"**Cargo:**")
-                sub2.write(mostrar(pessoa_logada.get('cargo','')))
-
-                # Programa/Área
-                sub1.write(f"**Programa/Área:**")
+                # Programa / Área
                 programas = pessoa_logada.get("programa_area", [])
-
                 nomes_programas = [
                     id_para_nome_programa.get(pid, "")
                     for pid in programas
                     if pid in id_para_nome_programa
                 ]
-
-                sub2.write(", ".join(nomes_programas))
+                linha("Programa / Área:", ", ".join(nomes_programas))
 
                 # Coordenador
-                sub1.write(f"**Coordenador:**")
                 coord_atual = next(
                     (c for c in dados_pessoas if str(c["_id"]) == str(pessoa_logada.get("coordenador"))),
                     None
                 )
-                sub2.write(coord_atual['nome_completo'] if coord_atual else '—')
+                linha("Coordenador:", coord_atual.get("nome_completo") if coord_atual else None)
 
-                # Tipo de contratação
-                sub1.write(f"**Tipo de contratação:**")
-                sub2.write(mostrar(pessoa_logada.get('tipo_contratacao','')))
+                linha("Tipo de contratação:", pessoa_logada.get("tipo_contratacao"))
 
-                # ===============================
-                # CAMPOS ADICIONAIS SE FOR PJ
-                
+                # Campos extras se PJ
                 if pessoa_logada.get("tipo_contratacao") in ["PJ1", "PJ2"]:
+                    linha("CNPJ:", pessoa_logada.get("cnpj"))
+                    linha("Nome da empresa:", pessoa_logada.get("nome_empresa"))
                     
-                    # CNPJ
-                    sub1.write(f"**CNPJ:**")
-                    sub2.write(mostrar(pessoa_logada.get('cnpj','')))                    
-                    
-                    # Nome da empresa
-                    sub1.write(f"**Nome da empresa:**")
-                    sub2.write(mostrar(pessoa_logada.get('nome_empresa','')))
-
-
-
 
         # ---------------- MODO EDIÇÃO ----------------
         else:

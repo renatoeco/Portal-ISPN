@@ -1525,7 +1525,7 @@ def gerenciar_pessoas():
 
          # SelectBox fora do formulário
         tipo_contratacao = st.selectbox(
-            "Tipo de contratação:",
+            "Tipo de contratação:*",
             ["","PJ1", "PJ2", "CLT", "Estágio"],
             index=0,
             width=300
@@ -1543,7 +1543,7 @@ def gerenciar_pessoas():
             col1, col2 = st.columns([3, 2])
             
             # Nome
-            nome = col1.text_input("Nome completo:", key="cadastrar_nome")
+            nome = col1.text_input("Nome completo:*", key="cadastrar_nome")
 
             status_opcoes = ["ativo", "inativo"]
             status = col2.selectbox(
@@ -1563,7 +1563,7 @@ def gerenciar_pessoas():
             cpf = cols[0].text_input("CPF:", placeholder="000.000.000-00")
             rg = cols[1].text_input("RG e órgão emissor:")
             telefone = cols[2].text_input("Telefone:")
-            email = cols[3].text_input("E-mail:")
+            email = cols[3].text_input("E-mail:*")
 
 
             # -------------------------------------------------
@@ -1591,7 +1591,7 @@ def gerenciar_pessoas():
             # Programa / Área
             # Lista ordenada dos programas/áreas para seleção
             programas_selecionados = cols[2].multiselect(
-                "Programa / Área:",
+                "Programa / Área:*",
                 options=lista_programas_areas,
                 default=[],  # novo colaborador começa vazio
                 key="novo_programa_area",
@@ -1628,7 +1628,7 @@ def gerenciar_pessoas():
             # Extrai nomes únicos dos coordenadores ordenados
             nomes_coordenadores = sorted({c["nome"] for c in coordenadores_possiveis})
             # Seleção do nome do coordenador no formulário
-            coordenador = cols[1].selectbox("Nome do(a) coordenador(a):", nomes_coordenadores, index=None, placeholder="")
+            coordenador = cols[1].selectbox("Nome do(a) coordenador(a):*", nomes_coordenadores, index=None, placeholder="")
 
             # Por fim, pega o id do coordenador
             coordenador_id = None
@@ -1797,9 +1797,20 @@ def gerenciar_pessoas():
             # Ao submeter o formulário de cadastro -----------------------------------------------------------------
             if st.form_submit_button("Cadastrar", type="secondary", icon=":material/person_add:"):
                 
-                # Validação de campos obrigatórios
-                if not nome or not email or not programa_area or not coordenador:
-                    st.warning("Preencha os campos obrigatórios.")
+                campos_obrigatorios = {
+                    "Nome": nome,
+                    "E-mail": email,
+                    "Programa/Área": programa_area,
+                    "Coordenador": coordenador,
+                    "Tipo de contratação": tipo_contratacao
+                }
+
+                campos_faltando = [label for label, valor in campos_obrigatorios.items() if not valor]
+
+                if campos_faltando:
+                    st.warning(
+                        f"Preencha os seguintes campos obrigatórios: {', '.join(campos_faltando)}"
+                    )
                 
                 else:
 
