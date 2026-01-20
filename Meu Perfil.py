@@ -73,6 +73,10 @@ if navegou_para_esta_pagina:
 st.session_state["pagina_anterior"] = PAGINA_ID
 
 
+def mostrar(valor):
+    return valor if valor not in [None, "", []] else "—"
+
+
 ######################################################################################################
 # TRATAMENTO DOS DADOS
 ######################################################################################################
@@ -180,35 +184,35 @@ if pessoa_logada:
             
                 # Data de nascimento
                 sub1.write(f"**Data de nascimento:**")
-                sub2.write(pessoa_logada.get('data_nascimento',''))
+                sub2.write(mostrar(pessoa_logada.get('data_nascimento','')))
 
                 # CPF
                 sub1.write(f"**CPF:**")
-                sub2.write(pessoa_logada.get('CPF',''))
+                sub2.write(mostrar(pessoa_logada.get('CPF','')))
 
                 # RG
                 sub1.write(f"**RG:**")
-                sub2.write(pessoa_logada.get('RG',''))
+                sub2.write(mostrar(pessoa_logada.get('RG','')))
 
                 # Gênero
                 sub1.write(f"**Gênero:**")
-                sub2.write(pessoa_logada.get('gênero',''))
+                sub2.write(mostrar(pessoa_logada.get("gênero")))
 
                 # Raça
                 sub1.write(f"**Raça:**")
-                sub2.write(pessoa_logada.get('raca',''))
+                sub2.write(mostrar(pessoa_logada.get("raca")))
 
                 # Escolaridade
                 sub1.write(f"**Escolaridade:**")
-                sub2.write(pessoa_logada.get('escolaridade',''))
+                sub2.write(mostrar(pessoa_logada.get("escolaridade")))
 
                 # Telefone
                 sub1.write(f"**Telefone:**")
-                sub2.write(pessoa_logada.get('telefone',''))
+                sub2.write(mostrar(pessoa_logada.get('telefone','')))
 
                 # E-mail
                 sub1.write(f"**E-mail:**")
-                sub2.write(pessoa_logada.get('e_mail',''))
+                sub2.write(mostrar(pessoa_logada.get('e_mail','')))
 
 
             with col2:
@@ -217,19 +221,19 @@ if pessoa_logada:
 
                 # Banco
                 sub1.write(f"**Banco:**")
-                sub2.write(pessoa_logada.get('banco',{}).get('nome_banco',''))
+                sub2.write(mostrar(pessoa_logada.get('banco',{}).get('nome_banco','')))
 
                 # Agência
                 sub1.write(f"**Agência:**")
-                sub2.write(pessoa_logada.get('banco',{}).get('agencia',''))
+                sub2.write(mostrar(pessoa_logada.get('banco',{}).get('agencia','')))
                 
                 # Tipo de conta
                 sub1.write(f"**Tipo de conta:**")
-                sub2.write(pessoa_logada.get('banco',{}).get('tipo_conta',''))
+                sub2.write(mostrar(pessoa_logada.get('banco',{}).get('tipo_conta','')))
                 
                 # Conta
                 sub1.write(f"**Conta:**")
-                sub2.write(pessoa_logada.get('banco',{}).get('conta',''))
+                sub2.write(mostrar(pessoa_logada.get('banco',{}).get('conta','')))
 
 
             with col3:
@@ -238,15 +242,23 @@ if pessoa_logada:
                 
                 # Escritório
                 sub1.write(f"**Escritório:**")
-                sub2.write(pessoa_logada.get('escritorio',''))
+                sub2.write(mostrar(pessoa_logada.get('escritorio','')))
 
                 # Cargo
                 sub1.write(f"**Cargo:**")
-                sub2.write(pessoa_logada.get('cargo',''))
+                sub2.write(mostrar(pessoa_logada.get('cargo','')))
 
                 # Programa/Área
                 sub1.write(f"**Programa/Área:**")
-                sub2.write(id_para_nome_programa.get(pessoa_logada.get('programa_area'),''))
+                programas = pessoa_logada.get("programa_area", [])
+
+                nomes_programas = [
+                    id_para_nome_programa.get(pid, "")
+                    for pid in programas
+                    if pid in id_para_nome_programa
+                ]
+
+                sub2.write(", ".join(nomes_programas))
 
                 # Coordenador
                 sub1.write(f"**Coordenador:**")
@@ -254,11 +266,11 @@ if pessoa_logada:
                     (c for c in dados_pessoas if str(c["_id"]) == str(pessoa_logada.get("coordenador"))),
                     None
                 )
-                sub2.write(coord_atual['nome_completo'] if coord_atual else '')
+                sub2.write(coord_atual['nome_completo'] if coord_atual else '—')
 
                 # Tipo de contratação
                 sub1.write(f"**Tipo de contratação:**")
-                sub2.write(pessoa_logada.get('tipo_contratacao',''))
+                sub2.write(mostrar(pessoa_logada.get('tipo_contratacao','')))
 
                 # ===============================
                 # CAMPOS ADICIONAIS SE FOR PJ
@@ -267,11 +279,11 @@ if pessoa_logada:
                     
                     # CNPJ
                     sub1.write(f"**CNPJ:**")
-                    sub2.write(pessoa_logada.get('cnpj',''))                    
+                    sub2.write(mostrar(pessoa_logada.get('cnpj','')))                    
                     
                     # Nome da empresa
                     sub1.write(f"**Nome da empresa:**")
-                    sub2.write(pessoa_logada.get('nome_empresa',''))
+                    sub2.write(mostrar(pessoa_logada.get('nome_empresa','')))
 
 
 
@@ -330,8 +342,23 @@ if pessoa_logada:
 
                 cargo = st.text_input("Cargo", value=pessoa_logada.get("cargo", ""), disabled=True)
 
-                programa_area_nome_atual = id_para_nome_programa.get(pessoa_logada.get("programa_area"), "")
-                programa_area_nome = st.text_input("Programa / Área", value=programa_area_nome_atual, disabled=True)
+                # Lista de ObjectIds já salvos
+                programas_ids = pessoa_logada.get("programa_area", [])
+
+                # Converte IDs -> nomes para valor padrão do multiselect
+                programas_nomes_atuais = [
+                    id_para_nome_programa.get(pid, "")
+                    for pid in programas_ids
+                    if pid in id_para_nome_programa
+                ]
+
+                # Multiselect
+                programas_selecionados = st.multiselect(
+                    "Programa / Área",
+                    options=sorted(nome_para_id_programa.keys()),
+                    default=programas_nomes_atuais,
+                    disabled=True
+                )
 
                 coordenador_atual_id = pessoa_logada.get("coordenador")
                 coord_atual = next((c for c in dados_pessoas if str(c["_id"]) == str(coordenador_atual_id)), None)
@@ -344,9 +371,6 @@ if pessoa_logada:
                 if tipo_contratacao in ["PJ1", "PJ2"]:
                     cnpj = st.text_input("CNPJ", value=pessoa_logada.get("cnpj", ""), disabled=True)
                     nome_empresa = st.text_input("Nome da empresa", value=pessoa_logada.get("nome_empresa", ""), disabled=True)
-
-
-
 
             # Prepara o dicionário de atualização
             update_dict = {
@@ -368,8 +392,6 @@ if pessoa_logada:
                 "banco.tipo_conta": tipo_conta
             }
 
-
-
             # Botão de salvar as alterações
             st.write('')
             if st.button("Salvar alterações", icon=":material/save:", type="primary"):
@@ -386,10 +408,6 @@ if pessoa_logada:
                 
                 time.sleep(2)
                 st.rerun()
-
-
-
-
 
 
     # ============ ABA CONTRATOS ============
