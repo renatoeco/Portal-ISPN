@@ -957,7 +957,7 @@ with aba_res_mp:
                 estrategia
             ):
                 if not metas:
-                    st.warning("Nenhuma meta cadastrada.")
+                    st.caption("Nenhuma meta cadastrada.")
                     return
 
                 st.markdown("##### :material/target: Metas:")
@@ -1062,7 +1062,7 @@ with aba_res_mp:
             acoes_estrategicas = resultado.get("acoes_estrategicas", [])
 
             if not acoes_estrategicas:
-                st.warning("Nenhuma ação estratégica cadastrada para este resultado.")
+                st.caption("Nenhuma ação estratégica cadastrada para este resultado.")
             else:
                 for idx_acao, acao in enumerate(acoes_estrategicas):
 
@@ -1086,7 +1086,7 @@ with aba_res_mp:
                             key_suffix=f"{idx}_{idx_acao}"
                         )
                     else:
-                        st.warning("Nenhuma entrega vinculada a esta ação estratégica.")
+                        st.caption("Nenhuma entrega vinculada a esta ação estratégica.")
 
                     st.divider()
 
@@ -1106,7 +1106,7 @@ with aba_res_mp:
 
 
             if not indicadores_resultado:
-                st.warning("Nenhum indicador relacionado a este resultado.")
+                st.caption("Nenhum indicador relacionado a este resultado.")
             else:
                 for ind in indicadores_resultado:
 
@@ -1240,7 +1240,7 @@ with aba_res_lp:
                         key_suffix=f"{idx}_{_safe_key(titulo_result_lp)}"
                     )
                 else:
-                    st.warning(
+                    st.caption(
                         "Nenhuma entrega registrada para este resultado de longo prazo."
                     )
 
@@ -1257,7 +1257,7 @@ with aba_res_lp:
                 )
 
                 if not indicadores_resultado:
-                    st.warning(
+                    st.caption(
                         "Nenhum indicador relacionado a este resultado de longo prazo."
                     )
                 else:
@@ -1281,7 +1281,7 @@ with aba_res_lp:
                             f"**{nome_legivel}:** {valor_formatado}"
                         )
     else:
-        st.warning("Nenhum resultado de longo prazo encontrado no banco de dados.")
+        st.caption("Nenhum resultado de longo prazo encontrado no banco de dados.")
 
 
 
