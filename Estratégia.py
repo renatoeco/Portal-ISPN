@@ -264,44 +264,6 @@ def editar_titulo_de_cada_resultado_mp_dialog(resultado_idx):
                 time.sleep(2)
                 st.rerun()
                     
-            # st.write("")
-
-            # for m_idx, meta in enumerate(metas):
-            #     titulo_meta = meta.get("nome_meta_mp", f"Meta {m_idx + 1}")
-            #     with st.expander(f"{titulo_meta}", expanded=False):
-            #         novo_nome_meta = st.text_input(
-            #             "Título",
-            #             value=meta.get("nome_meta_mp", ""),
-            #             key=f"nome_meta_{resultado_idx}_{m_idx}"
-            #         )
-            #         novo_objetivo = st.text_input(
-            #             "Objetivo",
-            #             value=meta.get("objetivo", ""),
-            #             key=f"obj_{resultado_idx}_{m_idx}"
-            #         )
-            #         novo_alcancado = st.text_input(
-            #             "Alcançado",
-            #             value=meta.get("alcancado", ""),
-            #             key=f"alcan_{resultado_idx}_{m_idx}"
-            #         )
-
-            #         if st.button("Salvar", key=f"salvar_meta_{resultado_idx}_{m_idx}", icon=":material/save:"):
-            #             resultados[resultado_idx]["metas"][m_idx]["nome_meta_mp"] = novo_nome_meta
-            #             resultados[resultado_idx]["metas"][m_idx]["objetivo"] = novo_objetivo
-            #             resultados[resultado_idx]["metas"][m_idx]["alcancado"] = novo_alcancado
-
-            #             if "_id" not in resultados[resultado_idx]["metas"][m_idx]:
-            #                 resultados[resultado_idx]["metas"][m_idx]["_id"] = str(ObjectId())
-
-            #             estrategia.update_one(
-            #                 {"_id": doc["_id"]},
-            #                 {"$set": {"resultados_medio_prazo.resultados_mp": resultados}}
-            #             )
-            #             st.success("Meta atualizada com sucesso!")
-            #             time.sleep(2)
-            #             st.rerun()
-
-
         # -------------------------- #
         # ABA 3 - AÇÕES ESTRATÉGICAS
         # -------------------------- #
@@ -541,12 +503,19 @@ def buscar_entregas_relacionadas_por_id(
     *,
     eixo_id=None,
     acoes_rm_relacionados=None,
-    resultado_lp_id=None
+    resultado_lp_id=None,
+    situacoes=None,
+    anos_referencia=None,
+    projetos=None  # lista de siglas selecionadas
 ):
+
     entregas_filtradas = []
 
-    projetos = list(
-        projetos_ispn.find({}, {"entregas": 1, "sigla": 1})
+    projetos_db = list(
+        projetos_ispn.find(
+            {"entregas": {"$exists": True, "$ne": []}},
+            {"entregas": 1, "sigla": 1}
+        )
     )
 
     df_pessoas = pd.DataFrame(list(db["pessoas"].find()))
@@ -555,34 +524,68 @@ def buscar_entregas_relacionadas_por_id(
         for _, row in df_pessoas.iterrows()
     } if not df_pessoas.empty else {}
 
-    for projeto in projetos:
+    for projeto in projetos_db:
+
         sigla = projeto.get("sigla", "-")
 
-        for entrega in projeto.get("entregas", []) or []:
+        # -------------------------
+        # FILTRO POR PROJETO
+        # -------------------------
+        if projetos:
+            if sigla not in projetos:
+                continue
+
+        for entrega in projeto.get("entregas", []):
 
             eixos_ids = normalizar_lista_ids(entrega.get("eixos_relacionados", []))
             acoes_ids = normalizar_lista_ids(entrega.get("acoes_resultados_medio_prazo", []))
-            resultados_lp_ids = normalizar_lista_ids(entrega.get("resultados_longo_prazo_relacionados", []))
+            resultados_lp_ids = normalizar_lista_ids(
+                entrega.get("resultados_longo_prazo_relacionados", [])
+            )
 
-            if (
+            relacionada = (
                 (eixo_id and eixo_id in eixos_ids)
                 or (acoes_rm_relacionados and acoes_rm_relacionados in acoes_ids)
                 or (resultado_lp_id and resultado_lp_id in resultados_lp_ids)
-            ):
+            )
 
-                entregas_filtradas.append({
-                    "Projeto": sigla,
-                    "Entrega": entrega.get("nome_da_entrega", "-"),
-                    "Previsão de Conclusão": entrega.get("previsao_da_conclusao", "-"),
-                    "Responsáveis": _format_responsaveis_list(
-                        entrega.get("responsaveis", []),
-                        responsaveis_dict
-                    ),
-                    "Situação": entrega.get("situacao", "-"),
-                    "Ano(s) de Referência": ", ".join(entrega.get("anos_de_referencia", []) or []),
-                })
+            if not relacionada:
+                continue
+
+            # -------------------------
+            # FILTRO POR SITUAÇÃO
+            # -------------------------
+            if situacoes:
+                if entrega.get("situacao") not in situacoes:
+                    continue
+
+            # -------------------------
+            # FILTRO POR ANO DE REFERÊNCIA
+            # -------------------------
+            if anos_referencia:
+                anos_entrega = set(entrega.get("anos_de_referencia", []) or [])
+                if not anos_entrega.intersection(set(anos_referencia)):
+                    continue
+
+            # -------------------------
+            # ENTREGA VÁLIDA
+            # -------------------------
+            entregas_filtradas.append({
+                "Projeto": sigla,
+                "Entrega": entrega.get("nome_da_entrega", "-"),
+                "Previsão de Conclusão": entrega.get("previsao_da_conclusao", "-"),
+                "Responsáveis": _format_responsaveis_list(
+                    entrega.get("responsaveis", []),
+                    responsaveis_dict
+                ),
+                "Situação": entrega.get("situacao", "-"),
+                "Ano(s) de Referência": ", ".join(
+                    entrega.get("anos_de_referencia", []) or []
+                ),
+            })
 
     return entregas_filtradas
+
 
 def exibir_entregas_como_tabela(entregas_list, key_prefix="tabela", key_suffix=None):
     """
@@ -627,8 +630,7 @@ def buscar_entregas_por_acao(nome_acao):
                     "Entrega": entrega.get("nome_da_entrega", ""),
                     "Situação": entrega.get("situacao", ""),
                     "Previsão": entrega.get("previsao_da_conclusao", ""),
-                    "Ano(s) de Referência": ", ".join(entrega.get("anos_de_referencia", [])),
-                    "Observações": entrega.get("anotacoes", "")
+                    "Ano(s) de Referência": ", ".join(map(str, sorted(entrega.get("anos_de_referencia", [])))),
                 })
 
     return entregas_relacionadas
@@ -649,6 +651,95 @@ if "modo_edicao" not in st.session_state:
 st.header("Planejamento Estratégico")
 st.write('')
 
+
+
+# ----------------------------------------------------
+# FILTROS — APENAS PARA ENTREGAS
+# ----------------------------------------------------
+
+with st.form("filtros_entregas", border=False):
+
+    col1, col2, col3 = st.columns(3)
+
+    # ----------------------------------
+    # PROJETO
+    # ----------------------------------
+    projetos_disponiveis = sorted(
+        {
+            proj.get("sigla")
+            for proj in projetos_ispn.find(
+                {
+                    "entregas": {
+                        "$exists": True,
+                        "$ne": []
+                    }
+                },
+                {"sigla": 1}
+            )
+            if proj.get("sigla")
+        }
+    )
+
+
+    with col1:
+        projetos_selecionados = st.multiselect(
+            "Projeto",
+            options=projetos_disponiveis,
+            default=st.session_state.get("filtro_projetos", []),
+            placeholder=""
+        )
+
+    # ----------------------------------
+    # SITUAÇÃO
+    # ----------------------------------
+    situacoes_disponiveis = ["Prevista", "Atrasada", "Concluída"]
+
+    with col2:
+        situacoes_selecionadas = st.multiselect(
+            "Situação",
+            options=situacoes_disponiveis,
+            default=st.session_state.get("filtro_situacoes", []),
+            placeholder=""
+        )
+
+    # ----------------------------------
+    # ANOS DE REFERÊNCIA
+    # ----------------------------------
+    anos_ref_disponiveis = sorted({
+        ano
+        for proj in projetos_ispn.find(
+            {},
+            {"entregas.anos_de_referencia": 1}
+        )
+        for ent in proj.get("entregas", []) or []
+        for ano in ent.get("anos_de_referencia", []) or []
+    })
+
+    with col3:
+        anos_ref_selecionados = st.multiselect(
+            "Ano(s) de referência",
+            options=anos_ref_disponiveis,
+            default=st.session_state.get("filtro_anos_referencia", []),
+            placeholder=""
+        )
+
+    aplicar = st.form_submit_button(
+        "Aplicar filtros",
+        icon=":material/filter_alt:"
+    )
+
+# ------------------------------------------------
+# APLICAÇÃO DOS FILTROS (SESSION_STATE)
+# ------------------------------------------------
+if aplicar:
+    st.session_state["filtro_projetos"] = projetos_selecionados
+    st.session_state["filtro_situacoes"] = situacoes_selecionadas
+    st.session_state["filtro_anos_referencia"] = anos_ref_selecionados
+    st.rerun()
+
+
+st.write("")
+st.write("")
 
 # aba_tm, aba_est, aba_res_mp, aba_res_lp, aba_ebj_est_ins = st.tabs(['Teoria da mudança', 'Estratégia', 'Resultados de Médio Prazo', 'Resultados de Longo Prazo', 'Objetivos Estratégicos Institucionais'])
 aba_est, aba_res_mp, aba_res_lp, aba_ebj_est_ins = st.tabs(['Estratégia', 'Resultados de Médio Prazo', 'Resultados de Longo Prazo', 'Objetivos Estratégicos Organizacionais'])
@@ -817,9 +908,14 @@ with aba_est:
             # --------------------------------------------
             # ENTREGAS DO EIXO
             # --------------------------------------------
+
             entregas_filtradas = buscar_entregas_relacionadas_por_id(
-                eixo_id=str(eixo["_id"])
+                eixo_id=str(eixo["_id"]),
+                situacoes=st.session_state.get("filtro_situacoes", []),
+                anos_referencia=st.session_state.get("filtro_anos_referencia", []),
+                projetos=st.session_state.get("filtro_projetos", [])
             )
+
 
             if entregas_filtradas:
                 exibir_entregas_como_tabela(
@@ -1073,7 +1169,10 @@ with aba_res_mp:
                     st.write(f"**{nome_acao}**")
 
                     entregas_vinculadas = buscar_entregas_relacionadas_por_id(
-                        acoes_rm_relacionados=str(acao["_id"])
+                        acoes_rm_relacionados=str(acao["_id"]),
+                        situacoes=st.session_state.get("filtro_situacoes", []),
+                        anos_referencia=st.session_state.get("filtro_anos_referencia", []),
+                        projetos=st.session_state.get("filtro_projetos", [])
                     )
 
                     # st.write("**:material/package_2: Entregas:**")
@@ -1229,7 +1328,10 @@ with aba_res_lp:
                 st.markdown("**Entregas Planejadas / Realizadas:**")
 
                 entregas_lp = buscar_entregas_relacionadas_por_id(
-                    resultado_lp_id=str(resultado["_id"])
+                    resultado_lp_id=str(resultado["_id"]),
+                    situacoes=st.session_state.get("filtro_situacoes", []),
+                    anos_referencia=st.session_state.get("filtro_anos_referencia", []),
+                    projetos=st.session_state.get("filtro_projetos", [])
                 )
 
                 if entregas_lp:
