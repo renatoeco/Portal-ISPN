@@ -569,6 +569,7 @@ for colab_doc in colaboradores_raw:
 
     nome = colab_doc.get("nome_completo", "Desconhecido")
     genero = colab_doc.get("gênero", "Não informado")
+    cargo = colab_doc.get("cargo", "Não informado")
 
     programa_area_ids = colab_doc.get("programa_area", [])
 
@@ -630,6 +631,7 @@ for colab_doc in colaboradores_raw:
     lista_equipe.append({
         "Nome": nome,
         "Gênero": genero,
+        "Cargo": cargo,
         "Programa": programa_area,
         "Projeto": projeto_str,
         "Início do contrato": data_inicio_final,
@@ -644,9 +646,18 @@ df_equipe = pd.DataFrame(lista_equipe).sort_values("Nome")
 
 df_equipe_exibir = df_equipe.copy()
 
-df_equipe_exibir = df_equipe[
-    ["Nome", "Gênero", "Projeto", "Início do contrato", "Fim do contrato"]
-].copy()
+if set(st.session_state.get("tipo_usuario", [])) & {"admin", "coordenador(a)", "gestao_pessoas"}:
+
+    # Dataframe completo    
+    df_equipe_exibir = df_equipe[
+        ["Nome", "Gênero", "Cargo", "Projeto", "Início do contrato", "Fim do contrato"]
+    ].copy()
+
+else:
+    # Dataframe sem datas de contrato
+    df_equipe_exibir = df_equipe[
+        ["Nome", "Gênero", "Cargo", "Projeto"]
+    ].copy()
 
 
 # #############################################
@@ -832,11 +843,14 @@ for i, aba in enumerate(abas):
         # Tabela de colaboradores
         df_tabela = df_equipe_exibir_filtrado.copy()
 
-        # Substitui None / NaN por string vazia
-        df_tabela[["Início do contrato", "Fim do contrato"]] = (
-            df_tabela[["Início do contrato", "Fim do contrato"]]
-            .fillna("")
-        )
+        colunas_contrato = {"Início do contrato", "Fim do contrato"}
+
+        colunas_existentes = colunas_contrato & set(df_tabela.columns)
+
+        if colunas_existentes:
+            df_tabela[list(colunas_existentes)] = (
+                df_tabela[list(colunas_existentes)].fillna("")
+            )
 
         st.dataframe(df_tabela, hide_index=True)
 
@@ -898,7 +912,11 @@ for i, aba in enumerate(abas):
             
 
             # Ordenar por ordem decrescente de data_fim_contrato
-            df_equipe_exibir_filtrado = df_equipe_exibir_filtrado.sort_values(by='Fim do contrato', ascending=False)
+            if "Fim do contrato" in df_equipe_exibir_filtrado.columns:
+                df_equipe_exibir_filtrado = df_equipe_exibir_filtrado.sort_values(
+                    by="Fim do contrato",
+                    ascending=False
+                )
 
             # Tentando calcular a altura do gráfico dinamicamente
             altura_base = 300  # altura mínima
@@ -1189,7 +1207,7 @@ for i, aba in enumerate(abas):
                             progresso_formatado = (
                                 f"{progresso}%" if progresso not in [None, ""] else ""
                             )
-                            
+
                             # -----------------------------
                             # ENTREGA VÁLIDA → EXIBE
                             # -----------------------------
