@@ -308,7 +308,7 @@ def editar_titulo_de_cada_resultado_mp_dialog(resultado_idx):
         with aba3:
             acoes = resultado.get("acoes_estrategicas", [])
             
-            # 🔹 Expander para adicionar nova ação estratégica (com atividades e anotações)
+            # Expander para adicionar nova ação estratégica (com atividades e anotações)
             with st.expander("Adicionar nova ação estratégica", expanded=False, icon=":material/add_notes:"):
                 novo_titulo_acao = st.text_area("Título da nova ação estratégica", key=f"nova_acao_titulo_{resultado_idx}")
 
@@ -580,7 +580,6 @@ def buscar_entregas_relacionadas_por_id(
                     ),
                     "Situação": entrega.get("situacao", "-"),
                     "Ano(s) de Referência": ", ".join(entrega.get("anos_de_referencia", []) or []),
-                    "Anotações": entrega.get("anotacoes", "-"),
                 })
 
     return entregas_filtradas

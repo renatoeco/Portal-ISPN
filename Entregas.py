@@ -637,7 +637,7 @@ def carregar_entregas():
 
     for projeto in projetos_ispn.find():
         programa_nome = programas_dict.get(projeto.get("programa"), "")
-        nome_projeto = projeto.get("nome_do_projeto") or projeto.get("sigla", "")
+        nome_projeto = projeto.get("sigla") or projeto.get("sigla", "")
 
         for entrega in projeto.get("entregas", []):
 
@@ -657,7 +657,7 @@ def carregar_entregas():
                 "nome_da_entrega": entrega.get("nome_da_entrega"),
                 "entrega_id": entrega["_id"],
                 
-                "nome_do_projeto": nome_projeto,
+                "sigla": nome_projeto,
 
                 # PARA O GRÁFICO
                 "previsao_da_conclusao": data_conclusao,
@@ -691,7 +691,7 @@ def carregar_entregas():
             "projeto_id",
             "nome_da_entrega",
             "entrega_id",
-            "nome_do_projeto",
+            "sigla",
             "previsao_da_conclusao",
             "previsao_da_conclusao_str",
             "responsaveis",
@@ -728,33 +728,66 @@ def carregar_entregas():
 
 
 def grafico_cronograma(df, titulo):
-    
+
     if df.empty:
         st.info("Nenhuma entrega encontrada.")
         return
 
-    hoje = datetime.today()
     df_plot = df.copy()
-    
+
+    # Considera apenas entregas ativas
     df_plot = df_plot[
         df_plot["situacao"].isin(["Prevista", "Atrasada"])
     ]
 
-    # Cria as colunas primeiro
-    df_plot["Inicio"] = df_plot["previsao_da_conclusao"] - pd.Timedelta(days=5)
-    df_plot["Fim"] = df_plot["previsao_da_conclusao"]
-    
-    xmin = min(df_plot["Inicio"].min(), hoje)
-    xmax = max(df_plot["Fim"].max(), hoje)
+    # Remove entregas sem anos de referência
+    df_plot = df_plot[
+        df_plot["anos_referencia_lista"].apply(lambda x: isinstance(x, list) and len(x) > 0)
+    ]
 
+    if df_plot.empty:
+        st.info("Nenhuma entrega com anos de referência.")
+        return
 
-    # Agora sim pode formatar a data
-    df_plot["previsao_conclusao_hover"] = df_plot["Fim"].dt.strftime("%d/%m/%Y")
+    # ==================================================
+    # CRIA INTERVALOS BASEADOS NOS ANOS DE REFERÊNCIA
+    # ==================================================
 
-    # Ordena
-    df_plot = df_plot.sort_values("Fim", ascending=False)
+    df_plot["ano_inicio"] = df_plot["anos_referencia_lista"].apply(min)
+    df_plot["ano_fim"] = df_plot["anos_referencia_lista"].apply(max)
+
+    df_plot["Inicio"] = pd.to_datetime(
+        df_plot["ano_inicio"].astype(str) + "-01-01"
+    )
+
+    df_plot["Fim"] = pd.to_datetime(
+        df_plot["ano_fim"].astype(str) + "-12-31"
+    )
+
+    # ==================================================
+    # LIMITES DO EIXO X (ANO MAIS ANTIGO → MAIS RECENTE)
+    # ==================================================
+
+    ano_minimo = df_plot["ano_inicio"].min()
+    ano_maximo = df_plot["ano_fim"].max()
+
+    xmin = pd.to_datetime(f"{ano_minimo}-01-01")
+    xmax = pd.to_datetime(f"{ano_maximo}-12-31")
+
+    # ==================================================
+    # HOVER
+    # ==================================================
+
+    df_plot["anos_hover"] = df_plot["anos_referencia_lista"].apply(
+        lambda x: ", ".join(str(a) for a in sorted(x))
+    )
+
+    # Ordena visualmente
+    df_plot = df_plot.sort_values("Inicio", ascending=False)
 
     altura_total = max(300, len(df_plot) * 45)
+
+    df_plot["previsao_hover"] = df_plot["previsao_da_conclusao_str"]
 
     fig = px.timeline(
         df_plot,
@@ -763,12 +796,12 @@ def grafico_cronograma(df, titulo):
         y="nome_da_entrega",
         color="situacao",
         custom_data=[
-        "nome_da_entrega",
-        "nome_do_projeto",
-        "previsao_conclusao_hover",
-        "responsaveis",
-        "programa"
-    ],
+            "nome_da_entrega",
+            "sigla",
+            "previsao_hover",
+            "responsaveis",
+            "programa"
+        ],
         height=altura_total,
         title=titulo
     )
@@ -783,7 +816,6 @@ def grafico_cronograma(df, titulo):
         "<extra></extra>"
     )
 
-
     fig.update_yaxes(
         categoryorder="array",
         categoryarray=df_plot["nome_da_entrega"].tolist(),
@@ -792,22 +824,36 @@ def grafico_cronograma(df, titulo):
 
     fig.update_xaxes(
         range=[xmin, xmax],
-        tickformat="%d/%m/%Y",
-        tickangle=-45,
-        #title="Previsão de Conclusão"
+        tickformat="%Y",
+        dtick="M12",
     )
-
 
     fig.update_layout(
         margin=dict(l=180, r=40, t=60, b=40)
     )
 
-    st.plotly_chart(fig, width="stretch")
+    st.plotly_chart(fig)
+
+
+# ==========================================================
+# NORMALIZA ANOS DE REFERÊNCIA (lista de int)
+# ==========================================================
+def extrair_anos_ref(valor):
+    if not valor:
+        return []
+    if isinstance(valor, list):
+        return [int(v) for v in valor if str(v).isdigit()]
+    return [
+        int(v.strip())
+        for v in str(valor).split(",")
+        if v.strip().isdigit()
+    ]
 
 
 # ##########################################################
 # INTERFACE
 # ##########################################################
+
 
 st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
 
@@ -818,6 +864,9 @@ st.write("")
 
 # Montagem do df_entregas
 df_entregas = carregar_entregas()
+
+df_entregas["anos_referencia_lista"] = df_entregas["anos_de_referencia"].apply(extrair_anos_ref)
+
 # Converter as coluans de id para string
 df_entregas["responsaveis_ids"] = df_entregas["responsaveis_ids"].apply(lambda x: [str(i) for i in x])
 
@@ -832,6 +881,117 @@ if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)"}:
         if st.button("Gerenciar entregas", icon=":material/edit:", width=300):
             dialog_editar_entregas()
 
+st.write("")
+st.write("")
+st.write("")
+
+# ==========================================================
+# FILTROS
+# ==========================================================
+
+with st.form("filtros_entregas", border=False):
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    # -------- Projetos --------
+    projetos_opcoes = sorted(
+        df_entregas["sigla"]
+        .dropna()
+        .unique()
+        .tolist()
+    )
+
+    with col1:
+        filtro_projetos = st.multiselect(
+            "Projetos",
+            options=projetos_opcoes,
+            placeholder=""
+        )
+
+    # -------- Anos de Referência --------
+    anos_opcoes = sorted(
+        {
+            ano
+            for lista in df_entregas["anos_referencia_lista"]
+            for ano in lista
+        }
+    )
+
+    with col2:
+        filtro_anos = st.multiselect(
+            "Anos de referência",
+            options=anos_opcoes,
+            placeholder=""
+        )
+
+    # -------- Status --------
+    status_opcoes = sorted(
+        df_entregas["situacao"]
+        .dropna()
+        .unique()
+        .tolist()
+    )
+
+    with col3:
+        filtro_status = st.multiselect(
+            "Situação",
+            options=status_opcoes,
+            placeholder=""
+        )
+
+    # -------- Programas --------
+    programas_opcoes = sorted(
+        df_entregas["programa"]
+        .dropna()
+        .unique()
+        .tolist()
+    )
+
+    with col4:
+        filtro_programas = st.multiselect(
+            "Programa",
+            options=programas_opcoes,
+            placeholder=""
+        )
+
+    aplicar = st.form_submit_button(
+        "Aplicar filtros",
+        icon=":material/filter_alt:"
+    )
+
+# ==========================================================
+# APLICAÇÃO DOS FILTROS
+# ==========================================================
+
+df_filtrado = df_entregas.copy()
+
+if filtro_projetos:
+    df_filtrado = df_filtrado[
+        df_filtrado["sigla"].isin(filtro_projetos)
+    ]
+
+if filtro_anos:
+    df_filtrado = df_filtrado[
+        df_filtrado["anos_referencia_lista"].apply(
+            lambda anos: any(a in anos for a in filtro_anos)
+        )
+    ]
+
+if filtro_status:
+    df_filtrado = df_filtrado[
+        df_filtrado["situacao"].isin(filtro_status)
+    ]
+
+if filtro_programas:
+    df_filtrado = df_filtrado[
+        df_filtrado["programa"].isin(filtro_programas)
+    ]
+
+# DataFrame usado nas abas
+df_entregas_filtrado = df_filtrado.copy()
+
+st.write("")
+
 
 lista_entregas, cronograma_entregas = st.tabs(["Entregas","Cronograma"])
 
@@ -840,7 +1000,7 @@ with lista_entregas:
     # Renomeando as colunas
     RENOMEAR = {
         "nome_da_entrega": "Entrega",
-        "nome_do_projeto": "Projeto",
+        "sigla": "Projeto",
         "previsao_da_conclusao_str": "Previsão de Conclusão",
         "responsaveis": "Responsáveis",
         "situacao": "Situação",
@@ -848,6 +1008,8 @@ with lista_entregas:
         "programa": "Programa",
         "progresso": "Progresso"
     }
+
+    df_entregas_lista = df_entregas_filtrado.copy()
 
     df_entregas_lista = df_entregas_lista.rename(columns=RENOMEAR)
 
@@ -932,17 +1094,9 @@ with lista_entregas:
         st.session_state["abrir_dialogo_entrega"] = False
 
 
-
 with cronograma_entregas:
-   
 
     grafico_cronograma(
-        df_entregas,
+        df_entregas_filtrado,
         "Cronograma de Entregas"
     )
-    
-
-
-
-
-
