@@ -567,6 +567,11 @@ def buscar_entregas_relacionadas_por_id(
                 if not anos_entrega.intersection(set(anos_referencia)):
                     continue
 
+            progresso = entrega.get("progresso")
+            progresso_formatado = (
+                f"{progresso}%" if progresso not in [None, ""] else ""
+            )
+
             # -------------------------
             # ENTREGA VÁLIDA
             # -------------------------
@@ -582,6 +587,7 @@ def buscar_entregas_relacionadas_por_id(
                 "Ano(s) de Referência": ", ".join(
                     entrega.get("anos_de_referencia", []) or []
                 ),
+                "Progresso": progresso_formatado
             })
 
     return entregas_filtradas
@@ -621,9 +627,14 @@ def buscar_entregas_por_acao(nome_acao):
 
     for projeto in projetos:
         sigla = projeto.get("sigla", "")
+        
 
         for entrega in projeto.get("entregas", []):
             if nome_acao in entrega.get("acoes_resultados_medio_prazo", []):
+                progresso = entrega.get("progresso")
+                progresso_formatado = (
+                    f"{progresso}%" if progresso not in [None, ""] else ""
+                )
 
                 entregas_relacionadas.append({
                     "Projeto": sigla,
@@ -631,6 +642,7 @@ def buscar_entregas_por_acao(nome_acao):
                     "Situação": entrega.get("situacao", ""),
                     "Previsão": entrega.get("previsao_da_conclusao", ""),
                     "Ano(s) de Referência": ", ".join(map(str, sorted(entrega.get("anos_de_referencia", [])))),
+                    "Progresso": progresso_formatado
                 })
 
     return entregas_relacionadas
@@ -901,35 +913,12 @@ with aba_est:
                     icon=":material/edit:"
                 )
 
-            st.write("")
-            st.write("**:material/package_2: Entregas Planejadas / Realizadas:**")
-            st.write("")
+            
 
             # --------------------------------------------
-            # ENTREGAS DO EIXO
+            # INDICADORES DO EIXO 
             # --------------------------------------------
 
-            entregas_filtradas = buscar_entregas_relacionadas_por_id(
-                eixo_id=str(eixo["_id"]),
-                situacoes=st.session_state.get("filtro_situacoes", []),
-                anos_referencia=st.session_state.get("filtro_anos_referencia", []),
-                projetos=st.session_state.get("filtro_projetos", [])
-            )
-
-
-            if entregas_filtradas:
-                exibir_entregas_como_tabela(
-                    entregas_filtradas,
-                    key_prefix="tabela_entregas_eixo",
-                    key_suffix=_safe_key(titulo_eixo)
-                )
-            else:
-                st.write("Nenhuma entrega registrada para este eixo.")
-
-            # --------------------------------------------
-            # INDICADORES DO EIXO (COM SOMA FILTRADA POR ANO)
-            # --------------------------------------------
-            st.divider()
             st.markdown("##### :material/monitoring: Indicadores:")
 
             indicadores_eixo = mapa_indicadores_por_eixo.get(eixo_id, [])
@@ -947,6 +936,30 @@ with aba_est:
                     valor_formatado = float_to_br(valor_total)
 
                     st.markdown(f"**{nome_legivel}:** {valor_formatado}")
+
+            # --------------------------------------------
+            # ENTREGAS DO EIXO
+            # --------------------------------------------
+
+            st.divider()
+            st.write("**:material/package_2: Entregas Planejadas / Realizadas:**")
+
+            entregas_filtradas = buscar_entregas_relacionadas_por_id(
+                eixo_id=str(eixo["_id"]),
+                situacoes=st.session_state.get("filtro_situacoes", []),
+                anos_referencia=st.session_state.get("filtro_anos_referencia", []),
+                projetos=st.session_state.get("filtro_projetos", [])
+            )
+
+
+            if entregas_filtradas:
+                exibir_entregas_como_tabela(
+                    entregas_filtradas,
+                    key_prefix="tabela_entregas_eixo",
+                    key_suffix=_safe_key(titulo_eixo)
+                )
+            else:
+                st.write("Nenhuma entrega registrada para este eixo.")
 
 
 # ---------------------------
@@ -1149,6 +1162,42 @@ with aba_res_mp:
             st.divider()
 
             # --------------------------------------------
+            # INDICADORES DO RESULTADO DE MÉDIO PRAZO
+            # --------------------------------------------
+            st.markdown("##### :material/monitoring: Indicadores:")
+            st.write("")
+            
+            resultado_id = str(resultado["_id"])
+            titulo_result = resultado.get("titulo", f"Resultado {idx + 1}")
+
+            indicadores_resultado = mapa_indicadores_por_resultado_mp.get(
+                resultado_id,
+                []
+            )
+
+
+            if not indicadores_resultado:
+                st.caption("Nenhum indicador relacionado a este resultado.")
+            else:
+                for ind in indicadores_resultado:
+
+                    nome_bruto = ind.get(
+                        "nome_indicador",
+                        "Indicador sem nome"
+                    )
+                    nome_legivel = formatar_nome_legivel(nome_bruto)
+
+                    id_indicador = str(ind["_id"])
+                    valor_total = mapa_soma_indicadores.get(id_indicador, 0)
+                    valor_formatado = float_to_br(valor_total)
+
+                    st.markdown(
+                        f"**{nome_legivel}:** {valor_formatado}"
+                    )
+
+            st.divider()
+
+            # --------------------------------------------
             # AÇÕES ESTRATÉGICAS / ENTREGAS
             # --------------------------------------------
             st.markdown("##### :material/package_2: Entregas por Ação Estratégica:")
@@ -1188,39 +1237,7 @@ with aba_res_mp:
 
                     st.divider()
 
-            # --------------------------------------------
-            # INDICADORES DO RESULTADO DE MÉDIO PRAZO
-            # --------------------------------------------
-            st.markdown("##### :material/monitoring: Indicadores:")
-            st.write("")
             
-            resultado_id = str(resultado["_id"])
-            titulo_result = resultado.get("titulo", f"Resultado {idx + 1}")
-
-            indicadores_resultado = mapa_indicadores_por_resultado_mp.get(
-                resultado_id,
-                []
-            )
-
-
-            if not indicadores_resultado:
-                st.caption("Nenhum indicador relacionado a este resultado.")
-            else:
-                for ind in indicadores_resultado:
-
-                    nome_bruto = ind.get(
-                        "nome_indicador",
-                        "Indicador sem nome"
-                    )
-                    nome_legivel = formatar_nome_legivel(nome_bruto)
-
-                    id_indicador = str(ind["_id"])
-                    valor_total = mapa_soma_indicadores.get(id_indicador, 0)
-                    valor_formatado = float_to_br(valor_total)
-
-                    st.markdown(
-                        f"**{nome_legivel}:** {valor_formatado}"
-                    )
 
 
 # ---------------------------
@@ -1322,32 +1339,6 @@ with aba_res_lp:
                     )
 
                 # ====================================================
-                # ENTREGAS PLANEJADAS / REALIZADAS (PRIMEIRO)
-                # ====================================================
-                st.write("")
-                st.markdown("**Entregas Planejadas / Realizadas:**")
-
-                entregas_lp = buscar_entregas_relacionadas_por_id(
-                    resultado_lp_id=str(resultado["_id"]),
-                    situacoes=st.session_state.get("filtro_situacoes", []),
-                    anos_referencia=st.session_state.get("filtro_anos_referencia", []),
-                    projetos=st.session_state.get("filtro_projetos", [])
-                )
-
-                if entregas_lp:
-                    exibir_entregas_como_tabela(
-                        entregas_lp,
-                        key_prefix="tabela_entregas_lp",
-                        key_suffix=f"{idx}_{_safe_key(titulo_result_lp)}"
-                    )
-                else:
-                    st.caption(
-                        "Nenhuma entrega registrada para este resultado de longo prazo."
-                    )
-
-                st.divider()
-
-                # ====================================================
                 # INDICADORES (VINDOS DA COLEÇÃO 'indicadores')
                 # ====================================================
                 st.markdown("##### :material/monitoring: Indicadores:") 
@@ -1381,6 +1372,33 @@ with aba_res_lp:
                         st.markdown(
                             f"**{nome_legivel}:** {valor_formatado}"
                         )
+
+                st.divider()
+
+                # ====================================================
+                # ENTREGAS PLANEJADAS / REALIZADAS (PRIMEIRO)
+                # ====================================================
+                st.write("")
+                st.markdown("**:material/package_2: Entregas Planejadas / Realizadas:**")
+
+                entregas_lp = buscar_entregas_relacionadas_por_id(
+                    resultado_lp_id=str(resultado["_id"]),
+                    situacoes=st.session_state.get("filtro_situacoes", []),
+                    anos_referencia=st.session_state.get("filtro_anos_referencia", []),
+                    projetos=st.session_state.get("filtro_projetos", [])
+                )
+
+                if entregas_lp:
+                    exibir_entregas_como_tabela(
+                        entregas_lp,
+                        key_prefix="tabela_entregas_lp",
+                        key_suffix=f"{idx}_{_safe_key(titulo_result_lp)}"
+                    )
+                else:
+                    st.caption(
+                        "Nenhuma entrega registrada para este resultado de longo prazo."
+                    )
+                
     else:
         st.caption("Nenhum resultado de longo prazo encontrado no banco de dados.")
 

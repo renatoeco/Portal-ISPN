@@ -1184,7 +1184,12 @@ for i, aba in enumerate(abas):
                                 anos_entrega = entrega.get("anos_de_referencia", []) or []
                                 if not set(anos_entrega) & set(filtro_anos):
                                     continue
-
+                            
+                            progresso = entrega.get("progresso")
+                            progresso_formatado = (
+                                f"{progresso}%" if progresso not in [None, ""] else ""
+                            )
+                            
                             # -----------------------------
                             # ENTREGA VÁLIDA → EXIBE
                             # -----------------------------
@@ -1195,6 +1200,7 @@ for i, aba in enumerate(abas):
                                 "Situação": entrega.get("situacao", ""),
                                 "Previsão": entrega.get("previsao_da_conclusao", ""),
                                 "Ano(s) de Referência": ", ".join(map(str, sorted(entrega.get("anos_de_referencia", [])))),
+                                "Progresso": progresso_formatado
                             })
 
                     if entregas_relacionadas:
