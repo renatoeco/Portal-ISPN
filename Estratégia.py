@@ -8,6 +8,10 @@ from bson import ObjectId
 import re
 
 
+st.set_page_config(layout="wide")
+st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
+
+
 ###########################################################################################################
 # CONEXÃO COM O BANCO DE DADOS MONGODB
 ###########################################################################################################
@@ -501,28 +505,17 @@ def normalizar_lista_ids(lista):
 
 def buscar_entregas_relacionadas_por_id(
     *,
+    projetos_db,
+    responsaveis_dict,
     eixo_id=None,
     acoes_rm_relacionados=None,
     resultado_lp_id=None,
     situacoes=None,
     anos_referencia=None,
-    projetos=None  # lista de siglas selecionadas
+    projetos=None
 ):
 
     entregas_filtradas = []
-
-    projetos_db = list(
-        projetos_ispn.find(
-            {"entregas": {"$exists": True, "$ne": []}},
-            {"entregas": 1, "sigla": 1}
-        )
-    )
-
-    df_pessoas = pd.DataFrame(list(db["pessoas"].find()))
-    responsaveis_dict = {
-        str(row["_id"]): row["nome_completo"]
-        for _, row in df_pessoas.iterrows()
-    } if not df_pessoas.empty else {}
 
     for projeto in projetos_db:
 
@@ -617,6 +610,7 @@ def exibir_entregas_como_tabela(entregas_list, key_prefix="tabela", key_suffix=N
     ui.table(data=df, key=key)
     return df
 
+
 def buscar_entregas_por_acao(nome_acao):
     entregas_relacionadas = []
 
@@ -648,13 +642,54 @@ def buscar_entregas_por_acao(nome_acao):
     return entregas_relacionadas
 
 
+@st.cache_data(ttl=300)
+def carregar_estrategia():
+    return estrategia.find_one(
+        {"estrategia.eixos_da_estrategia": {"$exists": True}}
+    )
+
+
+@st.cache_data(ttl=300)
+def carregar_indicadores():
+    return list(indicadores.find())
+
+
+@st.cache_data(ttl=300)
+def carregar_lancamentos(filtro=None):
+    return list(lancamentos_indicadores.find(filtro or {}))
+
+
+@st.cache_data(ttl=300)
+def carregar_projetos_com_entregas():
+    return list(
+        projetos_ispn.find(
+            {"entregas": {"$exists": True, "$ne": []}},
+            {"entregas": 1, "sigla": 1}
+        )
+    )
+
+
+@st.cache_data(ttl=300)
+def carregar_pessoas():
+    return list(db["pessoas"].find({}, {"nome_completo": 1}))
+
+
+@st.cache_data(ttl=300)
+def calcular_mapa_soma_indicadores(_lancamentos):
+    mapa = {}
+    for lanc in _lancamentos:
+        id_ind = str(lanc.get("id_do_indicador"))
+        valor = br_to_float(lanc.get("valor"))
+        mapa[id_ind] = mapa.get(id_ind, 0) + valor
+    return mapa
+
+
 ###########################################################################################################
 # INTERFACE PRINCIPAL
 ###########################################################################################################
 
 
-st.set_page_config(layout="wide")
-st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
+
 
 if "modo_edicao" not in st.session_state:
     st.session_state.modo_edicao = False
@@ -753,6 +788,14 @@ if aplicar:
 st.write("")
 st.write("")
 
+projetos_com_entregas = carregar_projetos_com_entregas()
+
+pessoas = carregar_pessoas()
+responsaveis_dict = {
+    str(p["_id"]): p["nome_completo"]
+    for p in pessoas
+}
+
 # aba_tm, aba_est, aba_res_mp, aba_res_lp, aba_ebj_est_ins = st.tabs(['Teoria da mudança', 'Estratégia', 'Resultados de Médio Prazo', 'Resultados de Longo Prazo', 'Objetivos Estratégicos Institucionais'])
 aba_est, aba_res_mp, aba_res_lp, aba_ebj_est_ins = st.tabs(['Estratégia', 'Resultados de Médio Prazo', 'Resultados de Longo Prazo', 'Objetivos Estratégicos Organizacionais'])
 
@@ -770,7 +813,7 @@ with aba_est:
     # ----------------------------------------------------
     # CARREGAR ESTRATÉGIA
     # ----------------------------------------------------
-    estrategia_doc = estrategia.find_one({"estrategia": {"$exists": True}})
+    estrategia_doc = carregar_estrategia()
 
     titulo_pagina_atual = (
         estrategia_doc.get("estrategia", {}).get("titulo_pagina_estrategia", "")
@@ -845,21 +888,8 @@ with aba_est:
     # ----------------------------------------------------
     # PRÉ-CARREGAR LANÇAMENTOS E SOMAR POR INDICADOR
     # ----------------------------------------------------
-    todos_lancamentos = list(
-        lancamentos_indicadores.find(filtro_lancamentos)
-    )
-
-    mapa_soma_indicadores = {}
-
-    for lanc in todos_lancamentos:
-        id_indicador = str(lanc.get("id_do_indicador"))
-
-        valor = br_to_float(lanc.get("valor"))
-
-        mapa_soma_indicadores[id_indicador] = (
-            mapa_soma_indicadores.get(id_indicador, 0) + valor
-        )
-
+    todos_lancamentos = carregar_lancamentos(filtro_lancamentos)
+    mapa_soma_indicadores = calcular_mapa_soma_indicadores(todos_lancamentos)
 
     # ----------------------------------------------------
     # ORDENAR EIXOS
@@ -878,7 +908,7 @@ with aba_est:
     # ----------------------------------------------------
     # MAPA DE INDICADORES POR EIXO
     # ----------------------------------------------------
-    todos_indicadores = list(indicadores.find())
+    todos_indicadores = carregar_indicadores()
 
     mapa_indicadores_por_eixo = {}
 
@@ -890,6 +920,7 @@ with aba_est:
     # ----------------------------------------------------
     # LOOP DOS EIXOS
     # ----------------------------------------------------
+
     for eixo in lista_estrategias_ordenada:
 
         eixo_id = str(eixo["_id"])
@@ -914,7 +945,6 @@ with aba_est:
                 )
 
             
-
             # --------------------------------------------
             # INDICADORES DO EIXO 
             # --------------------------------------------
@@ -945,11 +975,14 @@ with aba_est:
             st.write("**:material/package_2: Entregas Planejadas / Realizadas:**")
 
             entregas_filtradas = buscar_entregas_relacionadas_por_id(
+                projetos_db=projetos_com_entregas,
+                responsaveis_dict=responsaveis_dict,
                 eixo_id=str(eixo["_id"]),
                 situacoes=st.session_state.get("filtro_situacoes", []),
                 anos_referencia=st.session_state.get("filtro_anos_referencia", []),
                 projetos=st.session_state.get("filtro_projetos", [])
             )
+
 
 
             if entregas_filtradas:
@@ -1009,7 +1042,6 @@ with aba_res_mp:
     # ----------------------------------------------------
     # PRÉ-CARREGAR INDICADORES (MAPA POR RESULTADO MP)
     # ----------------------------------------------------
-    todos_indicadores = list(indicadores.find())
 
     mapa_indicadores_por_resultado_mp = {}
 
@@ -1218,11 +1250,15 @@ with aba_res_mp:
                     st.write(f"**{nome_acao}**")
 
                     entregas_vinculadas = buscar_entregas_relacionadas_por_id(
+                        projetos_db=projetos_com_entregas,
+                        responsaveis_dict=responsaveis_dict,
                         acoes_rm_relacionados=str(acao["_id"]),
                         situacoes=st.session_state.get("filtro_situacoes", []),
                         anos_referencia=st.session_state.get("filtro_anos_referencia", []),
                         projetos=st.session_state.get("filtro_projetos", [])
                     )
+
+
 
                     # st.write("**:material/package_2: Entregas:**")
 
@@ -1382,11 +1418,14 @@ with aba_res_lp:
                 st.markdown("**:material/package_2: Entregas Planejadas / Realizadas:**")
 
                 entregas_lp = buscar_entregas_relacionadas_por_id(
+                    projetos_db=projetos_com_entregas,
+                    responsaveis_dict=responsaveis_dict,
                     resultado_lp_id=str(resultado["_id"]),
                     situacoes=st.session_state.get("filtro_situacoes", []),
                     anos_referencia=st.session_state.get("filtro_anos_referencia", []),
                     projetos=st.session_state.get("filtro_projetos", [])
                 )
+
 
                 if entregas_lp:
                     exibir_entregas_como_tabela(
@@ -1401,8 +1440,6 @@ with aba_res_lp:
                 
     else:
         st.caption("Nenhum resultado de longo prazo encontrado no banco de dados.")
-
-
 
 
 # -----------------------------------------------------------
