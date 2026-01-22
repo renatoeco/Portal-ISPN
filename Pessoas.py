@@ -312,7 +312,7 @@ def gerenciar_pessoas():
             "programa": pessoa.get("programa_area", "")
         }
         for pessoa in dados_pessoas
-        if "coordenador(a)" in pessoa.get("tipo de usuário", "").lower()
+        if "coordenador(a)" in pessoa.get("tipo de usuário", "").lower() and pessoa.get("status") == "ativo"
     ]
     
     # Lista com nomes dos colaboradores para seleção
@@ -1623,7 +1623,7 @@ def gerenciar_pessoas():
                     "programa": pessoa.get("programa_area", "")
                 }
                 for pessoa in dados_pessoas
-                if "coordenador(a)" in pessoa.get("tipo de usuário", "").lower()
+                if "coordenador(a)" in pessoa.get("tipo de usuário", "").lower() and pessoa.get("status") == "ativo"
             ]
             # Extrai nomes únicos dos coordenadores ordenados
             nomes_coordenadores = sorted({c["nome"] for c in coordenadores_possiveis})

@@ -26,6 +26,7 @@ estrategia = db["estrategia"]
 projetos_ispn = db["projetos_ispn"]
 indicadores = db["indicadores"]
 lancamentos_indicadores = db["lancamentos_indicadores"]
+programas_areas = db["programas_areas"]
 
 ###########################################################################################################
 # CONTADOR DE ACESSOS À PÁGINA
@@ -72,6 +73,7 @@ st.session_state["pagina_anterior"] = PAGINA_ID
 ###########################################################################################################
 # FUNÇÕES
 ###########################################################################################################
+
 
 # Função para comparar dataframes e detectar se tem mudanças, para fazer a gravação automática ao editar o data_editor
 def df_tem_mudancas(df_novo: pd.DataFrame, df_antigo: pd.DataFrame) -> bool:
@@ -468,11 +470,13 @@ def editar_titulo_de_cada_resultado_lp_dialog(resultado_idx):
         time.sleep(2)
         st.rerun()
 
+
 def _safe_key(text):
     """Gera uma chave segura para Streamlit a partir de um texto (sem chars especiais)."""
     if text is None:
         return "none"
     return re.sub(r"\W+", "_", str(text)).strip("_").lower()
+
 
 def _format_responsaveis_list(responsaveis_list, responsaveis_dict):
     """
@@ -487,6 +491,7 @@ def _format_responsaveis_list(responsaveis_list, responsaveis_dict):
             key = str(r)
         nomes.append(responsaveis_dict.get(key, "Desconhecido"))
     return ", ".join(nomes) if nomes else "-"
+
 
 def normalizar_lista_ids(lista):
     """
@@ -503,6 +508,7 @@ def normalizar_lista_ids(lista):
             ids.append(str(item))
     return ids
 
+
 def buscar_entregas_relacionadas_por_id(
     *,
     projetos_db,
@@ -510,7 +516,7 @@ def buscar_entregas_relacionadas_por_id(
     eixo_id=None,
     acoes_rm_relacionados=None,
     resultado_lp_id=None,
-    situacoes=None,
+    programas=None,
     anos_referencia=None,
     projetos=None
 ):
@@ -546,10 +552,11 @@ def buscar_entregas_relacionadas_por_id(
                 continue
 
             # -------------------------
-            # FILTRO POR SITUAÇÃO
+            # FILTRO POR PROGRAMA
             # -------------------------
-            if situacoes:
-                if entrega.get("situacao") not in situacoes:
+            if programas:
+                programa_id = normalizar_id(projeto.get("programa"))
+                if programa_id not in programas:
                     continue
 
             # -------------------------
@@ -664,7 +671,11 @@ def carregar_projetos_com_entregas():
     return list(
         projetos_ispn.find(
             {"entregas": {"$exists": True, "$ne": []}},
-            {"entregas": 1, "sigla": 1}
+            {
+                "entregas": 1,
+                "sigla": 1,
+                "programa": 1  
+            }
         )
     )
 
@@ -684,11 +695,32 @@ def calcular_mapa_soma_indicadores(_lancamentos):
     return mapa
 
 
+@st.cache_data(ttl=300)
+def carregar_programas():
+    return list(
+        programas_areas.find(
+            {},
+            {"nome_programa_area": 1}
+        )
+    )
+
+
+def normalizar_id(valor):
+    """
+    Converte ObjectId, dict {'$oid': ...} ou str em str limpa.
+    """
+    if isinstance(valor, ObjectId):
+        return str(valor)
+    if isinstance(valor, dict) and "$oid" in valor:
+        return str(valor["$oid"])
+    if valor is None:
+        return None
+    return str(valor)
+
+
 ###########################################################################################################
 # INTERFACE PRINCIPAL
 ###########################################################################################################
-
-
 
 
 if "modo_edicao" not in st.session_state:
@@ -697,6 +729,8 @@ if "modo_edicao" not in st.session_state:
 
 st.header("Planejamento Estratégico")
 st.write('')
+
+
 
 
 
@@ -737,17 +771,44 @@ with st.form("filtros_entregas", border=False):
         )
 
     # ----------------------------------
-    # SITUAÇÃO
+    # PROGRAMA
     # ----------------------------------
-    situacoes_disponiveis = ["Prevista", "Atrasada", "Concluída"]
+    lista_programas = carregar_programas()
+
+    mapa_programas = {
+        str(p["_id"]): p["nome_programa_area"]
+        for p in lista_programas
+    }
+
+    programas_ids_com_entregas = {
+        str(proj.get("programa"))
+        for proj in projetos_ispn.find(
+            {
+                "entregas": {"$exists": True, "$ne": []},
+                "programa": {"$exists": True, "$ne": None}
+            },
+            {"programa": 1}
+        )
+    }
+
+    programas_opcoes = {
+        mapa_programas[pid]: pid
+        for pid in programas_ids_com_entregas
+        if pid in mapa_programas
+    }
 
     with col2:
-        situacoes_selecionadas = st.multiselect(
-            "Situação",
-            options=situacoes_disponiveis,
-            default=st.session_state.get("filtro_situacoes", []),
+        programas_selecionados_nomes = st.multiselect(
+            "Programa",
+            options=sorted(programas_opcoes.keys()),
+            default=[],
             placeholder=""
         )
+
+    programas_selecionados = [
+        programas_opcoes[nome]
+        for nome in programas_selecionados_nomes
+    ]
 
     # ----------------------------------
     # ANOS DE REFERÊNCIA
@@ -780,7 +841,7 @@ with st.form("filtros_entregas", border=False):
 # ------------------------------------------------
 if aplicar:
     st.session_state["filtro_projetos"] = projetos_selecionados
-    st.session_state["filtro_situacoes"] = situacoes_selecionadas
+    st.session_state["filtro_programas"] = programas_selecionados
     st.session_state["filtro_anos_referencia"] = anos_ref_selecionados
     st.rerun()
 
@@ -978,7 +1039,7 @@ with aba_est:
                 projetos_db=projetos_com_entregas,
                 responsaveis_dict=responsaveis_dict,
                 eixo_id=str(eixo["_id"]),
-                situacoes=st.session_state.get("filtro_situacoes", []),
+                programas=st.session_state.get("filtro_programas", []),
                 anos_referencia=st.session_state.get("filtro_anos_referencia", []),
                 projetos=st.session_state.get("filtro_projetos", [])
             )
@@ -1253,7 +1314,7 @@ with aba_res_mp:
                         projetos_db=projetos_com_entregas,
                         responsaveis_dict=responsaveis_dict,
                         acoes_rm_relacionados=str(acao["_id"]),
-                        situacoes=st.session_state.get("filtro_situacoes", []),
+                        programas=st.session_state.get("filtro_programas", []),
                         anos_referencia=st.session_state.get("filtro_anos_referencia", []),
                         projetos=st.session_state.get("filtro_projetos", [])
                     )
@@ -1421,7 +1482,7 @@ with aba_res_lp:
                     projetos_db=projetos_com_entregas,
                     responsaveis_dict=responsaveis_dict,
                     resultado_lp_id=str(resultado["_id"]),
-                    situacoes=st.session_state.get("filtro_situacoes", []),
+                    programas=st.session_state.get("filtro_programas", []),
                     anos_referencia=st.session_state.get("filtro_anos_referencia", []),
                     projetos=st.session_state.get("filtro_projetos", [])
                 )
