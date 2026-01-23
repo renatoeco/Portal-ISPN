@@ -414,7 +414,7 @@ def dialog_cadastrar_projeto():
 
 
         # --- Status ---
-        status_options = ["", "Em andamento", "Finalizado", "Pausado"]
+        status_options = ["", "Em andamento", "Finalizado", "Cancelado"]
         status = col1.selectbox("Status", options=status_options, index=0)
 
         # --- Datas ---
@@ -785,7 +785,7 @@ def dialog_editar_projeto():
         col1, col2, col3 = st.columns(3)
 
         # Status
-        status_options = ["", "Em andamento", "Finalizado", "Pausado"]
+        status_options = ["", "Em andamento", "Finalizado", "Cancelado"]
 
         status_atual = projeto_info.get("status", "")
         index_status = status_options.index(status_atual) if status_atual in status_options else 0
