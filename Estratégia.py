@@ -649,24 +649,24 @@ def buscar_entregas_por_acao(nome_acao):
     return entregas_relacionadas
 
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=300, show_spinner=False)
 def carregar_estrategia():
     return estrategia.find_one(
         {"estrategia.eixos_da_estrategia": {"$exists": True}}
     )
 
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=300, show_spinner=False)
 def carregar_indicadores():
     return list(indicadores.find())
 
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=300, show_spinner=False)
 def carregar_lancamentos(filtro=None):
     return list(lancamentos_indicadores.find(filtro or {}))
 
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=300, show_spinner=False)
 def carregar_projetos_com_entregas():
     return list(
         projetos_ispn.find(
@@ -680,12 +680,12 @@ def carregar_projetos_com_entregas():
     )
 
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=300, show_spinner=False)
 def carregar_pessoas():
     return list(db["pessoas"].find({}, {"nome_completo": 1}))
 
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=300, show_spinner=False)
 def calcular_mapa_soma_indicadores(_lancamentos):
     mapa = {}
     for lanc in _lancamentos:
@@ -695,7 +695,7 @@ def calcular_mapa_soma_indicadores(_lancamentos):
     return mapa
 
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=300, show_spinner=False)
 def carregar_programas():
     return list(
         programas_areas.find(
