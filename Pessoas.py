@@ -623,16 +623,14 @@ def gerenciar_pessoas():
                         # Opções possíveis para o campo "tipo de usuário"
                         opcoes_tipo_usuario = [
                             "coordenador(a)", "admin", "gestao_pessoas", "gestao_ferias", "supervisao_ferias", 
-                            "gestao_noticias", "gestao_pls", "gestao_projetos_doadores", 
-                            "gestao_fundo_ecos", "gestao_viagens", "gestao_eventos", "gestao_manuais"
+                            "gestao_pls", "gestao_projetos_doadores", "gestao_fundo_ecos", "gestao_viagens", "gestao_eventos"
                         ]
 
                     else: # Se não for admin, não aparece a permissão admin disponível
                         # Opções possíveis para o campo "tipo de usuário"
                         opcoes_tipo_usuario = [
                             "coordenador(a)", "gestao_pessoas", "gestao_ferias", "supervisao_ferias", 
-                            "gestao_noticias", "gestao_pls", "gestao_projetos_doadores", 
-                            "gestao_fundo_ecos", "gestao_viagens", "gestao_eventos", "gestao_manuais"
+                            "gestao_pls", "gestao_projetos_doadores", "gestao_fundo_ecos", "gestao_viagens", "gestao_eventos"
                         ]
 
 
@@ -683,12 +681,7 @@ def gerenciar_pessoas():
                         col1, col2 = st.columns([1, 2])
                         col1.write("**supervisao_ferias**")
                         col2.write("Visualiza detalhes das férias de todos(as).")
-
-                        # gestao_noticias
-                        col1, col2 = st.columns([1, 2])
-                        col1.write("**gestao_noticias**")
-                        col2.write("Faz triagem de notícias.")
-
+                        
                         # gestao_pls
                         col1, col2 = st.columns([1, 2])
                         col1.write("**gestao_pls**")
@@ -708,11 +701,6 @@ def gerenciar_pessoas():
                         col1, col2 = st.columns([1, 2])
                         col1.write("**gestao_viagens**")
                         col2.write("Pode ver os dados de todas as viagens.")
-
-                        # gestao_manuais
-                        col1, col2 = st.columns([1, 2])
-                        col1.write("**gestao_manuais**")
-                        col2.write("Faz a gestão da página de manuais.")
 
                     st.write('')
 
@@ -1717,16 +1705,14 @@ def gerenciar_pessoas():
                 # Opções possíveis para o campo "tipo de usuário"
                 opcoes_tipo_usuario = [
                     "coordenador(a)", "admin", "gestao_pessoas", "gestao_ferias", "supervisao_ferias", 
-                    "gestao_noticias", "gestao_pls", "gestao_projetos_doadores", 
-                    "gestao_fundo_ecos", "gestao_viagens", "gestao_manuais"
+                    "gestao_pls", "gestao_projetos_doadores", "gestao_fundo_ecos", "gestao_viagens"
                 ]
 
             else: # Se não for admin, não aparece a permissão admin disponível
                 # Opções possíveis para o campo "tipo de usuário"
                 opcoes_tipo_usuario = [
                     "coordenador(a)", "gestao_pessoas", "gestao_ferias", "supervisao_ferias", 
-                    "gestao_noticias", "gestao_pls", "gestao_projetos_doadores", 
-                    "gestao_fundo_ecos", "gestao_viagens", "gestao_manuais"
+                    "gestao_pls", "gestao_projetos_doadores","gestao_fundo_ecos", "gestao_viagens"
                 ]
 
             # Multiselect para tipo de usuário com valores padrão preenchidos
@@ -1762,11 +1748,6 @@ def gerenciar_pessoas():
                 col1.write("**supervisao_ferias**")
                 col2.write("Visualiza detalhes das férias de todos(as).")
 
-                # gestao_noticias
-                col1, col2 = st.columns([1, 2])
-                col1.write("**gestao_noticias**")
-                col2.write("Faz triagem de notícias.")
-
                 # gestao_pls
                 col1, col2 = st.columns([1, 2])
                 col1.write("**gestao_pls**")
@@ -1786,11 +1767,6 @@ def gerenciar_pessoas():
                 col1, col2 = st.columns([1, 2])
                 col1.write("**gestao_viagens**")
                 col2.write("Pode ver os dados de todas as viagens.")
-
-                # gestao_manuais
-                col1, col2 = st.columns([1, 2])
-                col1.write("**gestao_manuais**")
-                col2.write("Faz a gestão da página de manuais.")
 
             st.write('')
 
