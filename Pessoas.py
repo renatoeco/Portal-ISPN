@@ -1809,7 +1809,8 @@ def gerenciar_pessoas():
 
                 if campos_faltando:
                     st.warning(
-                        f"Preencha os seguintes campos obrigatórios: {', '.join(campos_faltando)}"
+                        f"Preencha os seguintes campos obrigatórios: {', '.join(campos_faltando)}",
+                        icon = ":material/warning:"
                     )
                 
                 else:
