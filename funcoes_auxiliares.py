@@ -234,14 +234,6 @@ def dialog_editar_entregas():
         "Valor mobilizado de novos recursos"
     ]
     indicador_texto = "Espécies"
-
-    # valores reais (o que vai ser salvo)
-    indicadores_valores = sorted(
-        df_indicadores["nome_indicador"]
-        .dropna()
-        .unique()
-        .tolist()
-    )
     
     # --- 2. Criar dicionários de mapeamento ---
     mapa_doador = {d["_id"]: d["nome_doador"] for d in db["doadores"].find()}
@@ -334,9 +326,6 @@ def dialog_editar_entregas():
     for doc in dados_estrategia:
         for resultado in doc.get("resultados_medio_prazo", {}).get("resultados_mp", []):
 
-            rid = str(resultado["_id"])
-            #mapa_resultados_mp[rid] = resultado["titulo"]
-
             # Metas
             for meta in resultado.get("metas", []):
                 mapa_metas_mp[str(meta["_id"])] = meta["nome_meta_mp"]
@@ -365,7 +354,6 @@ def dialog_editar_entregas():
                 mapa_acoes_programa[str(a["_id"])] = a["acao_estrategica"]
 
     acoes_programa_options = sorted(mapa_acoes_programa.keys(),key=lambda x: mapa_acoes_programa[x])            
-    #resultados_mp_options = sorted(mapa_resultados_mp.keys(), key=lambda x: mapa_resultados_mp[x])
     metas_mp_options = sorted(mapa_metas_mp.keys(), key=lambda x: mapa_metas_mp[x])
     acoes_mp_options = sorted(mapa_acoes_mp.keys(), key=lambda x: mapa_acoes_mp[x])
     resultados_lp_options = sorted(mapa_resultados_lp.keys(),key=lambda x: mapa_resultados_lp[x])
@@ -821,97 +809,93 @@ def dialog_editar_entregas():
 
             with st.expander("Adicionar lançamento", expanded=False):
 
-                # =========================
-                # Selecionar entrega
-                # =========================
-                nomes_entregas = [e["nome_da_entrega"] for e in entregas_existentes]
+                with st.form("form_adicionar_lancamento", border=False):
 
-                entrega_selecionada_nome = st.selectbox(
-                    "Selecione a entrega",
-                    options=nomes_entregas
-                )
+                    # =========================
+                    # Selecionar entrega
+                    # =========================
+                    nomes_entregas = [e["nome_da_entrega"] for e in entregas_existentes]
 
-                entrega_idx = nomes_entregas.index(entrega_selecionada_nome)
-                entrega = entregas_existentes[entrega_idx]
-
-                # =========================
-                # Dados do lançamento
-                # =========================
-
-                ano_lancamento = st.selectbox(
-                    "Ano do lançamento",
-                    options=anos_disponiveis,
-                    index=anos_disponiveis.index(ano_atual) 
-                )
-
-                anotacoes_lancamento = st.text_area(
-                    "Anotações",
-                    placeholder=""
-                )
-
-                st.divider()
-
-                # =========================
-                # Lançamentos de indicadores
-                # =========================
-                st.markdown("### Lançamento de indicadores")
-                
-                st.write("")
-
-                valores_indicadores = {}
-
-                indicadores_entrega = entrega.get("indicadores_relacionados", [])
-
-                for indicador in indicadores_entrega:
-
-                    nome_indicador = mapa_indicadores.get(str(indicador), "Indicador não encontrado")
-                    st.markdown(f"**{formatar_nome_legivel(nome_indicador)}**")
-                    
-                    col1, col2 = st.columns([2, 3])
-
-                    # Campo dinâmico
-                    if formatar_nome_legivel(nome_indicador) in indicadores_float:
-                        valor = col1.number_input(
-                            "Valor",
-                            step=0.01,
-                            key=f"valor_{indicador}"
-                        )
-                    elif formatar_nome_legivel(nome_indicador) == indicador_texto:
-                        valor = col1.text_input(
-                            "Valor",
-                            key=f"valor_{indicador}"
-                        )
-                    else:
-                        valor = col1.number_input(
-                            "Valor",
-                            step=1,
-                            key=f"valor_{indicador}"
-                        )
-
-                    observacoes = col2.text_input(
-                        "Observações",
-                        key=f"obs_{indicador}"
+                    entrega_selecionada_nome = st.selectbox(
+                        "Selecione a entrega",
+                        options=nomes_entregas
                     )
 
-                    valores_indicadores[indicador] = {
-                        "valor": valor,
-                        "observacoes": observacoes
-                    }
+                    entrega_idx = nomes_entregas.index(entrega_selecionada_nome)
+                    entrega = entregas_existentes[entrega_idx]
+
+                    # =========================
+                    # Dados do lançamento
+                    # =========================
+                    ano_lancamento = st.selectbox(
+                        "Ano do lançamento",
+                        options=anos_disponiveis,
+                        index=anos_disponiveis.index(ano_atual)
+                    )
+
+                    anotacoes_lancamento = st.text_area(
+                        "Anotações"
+                    )
 
                     st.divider()
+                    st.markdown("### Lançamento de indicadores")
 
-                # =========================
-                # SALVAR
-                # =========================
-                if st.button("Salvar lançamento", icon=":material/save:"):
+                    valores_indicadores = {}
+                    indicadores_entrega = entrega.get("indicadores_relacionados", [])
+
+                    for indicador in indicadores_entrega:
+
+                        nome_indicador = mapa_indicadores.get(str(indicador), "Indicador não encontrado")
+                        nome_legivel = formatar_nome_legivel(nome_indicador)
+
+                        st.markdown(f"**{nome_legivel}**")
+                        col1, col2 = st.columns([2, 3])
+
+                        if nome_legivel in indicadores_float:
+                            valor = col1.number_input(
+                                "Valor",
+                                step=0.01,
+                                key=f"valor_{indicador}"
+                            )
+                        elif nome_legivel == indicador_texto:
+                            valor = col1.text_input(
+                                "Valor",
+                                key=f"valor_{indicador}"
+                            )
+                        else:
+                            valor = col1.number_input(
+                                "Valor",
+                                step=1,
+                                key=f"valor_{indicador}"
+                            )
+
+                        observacoes = col2.text_input(
+                            "Observações",
+                            key=f"obs_{indicador}"
+                        )
+
+                        valores_indicadores[indicador] = {
+                            "valor": valor,
+                            "observacoes": observacoes
+                        }
+
+                        st.divider()
+
+                    # =========================
+                    # SUBMIT
+                    # =========================
+                    salvar = st.form_submit_button(
+                        "Salvar lançamento",
+                        icon=":material/save:"
+                    )
+
+
+                if salvar:
 
                     if not ano_lancamento:
                         st.warning("Informe o ano do lançamento.")
                         return
 
-                    # -------------------------
-                    # 1. Salvar lançamento da entrega
-                    # -------------------------
                     novo_lancamento_entrega = {
                         "_id": ObjectId(),
                         "ano": str(ano_lancamento),
@@ -930,13 +914,9 @@ def dialog_editar_entregas():
                         {"$set": {"entregas": entregas_existentes}}
                     )
 
-                    # -------------------------
-                    # 2. Salvar lançamentos de indicadores
-                    # -------------------------
-                    
                     for indicador_id, dados in valores_indicadores.items():
 
-                        if dados["valor"] in ["", None] or dados["valor"] == 0:
+                        if dados["valor"] in ["", None, 0]:
                             continue
 
                         nome_indicador = mapa_indicadores.get(str(indicador_id), "")
@@ -949,7 +929,7 @@ def dialog_editar_entregas():
                         else:
                             valor_final = int(dados["valor"])
 
-                        lancamento_indicador = {
+                        colecao_lancamentos.insert_one({
                             "id_do_indicador": ObjectId(indicador_id),
                             "projeto": projeto_info["_id"],
                             "data_anotacao": datetime.now(),
@@ -959,10 +939,7 @@ def dialog_editar_entregas():
                             "observacoes": dados["observacoes"],
                             "tipo": "ispn",
                             "id_lanc_entrega": id_lanc_entrega
-                        }
-
-                        colecao_lancamentos.insert_one(lancamento_indicador)
-
+                        })
 
                     st.success("Lançamento salvo com sucesso!")
                     time.sleep(2)
@@ -1001,25 +978,23 @@ def dialog_editar_entregas():
 
                         else:
 
-                            novo_ano = st.selectbox(
-                                "Ano do lançamento",
-                                options=anos_disponiveis,
-                                index=anos_disponiveis.index(int(lanc.get("ano"))),
-                                key=f"edit_ano_{key_base}"
-                            )
+                            with st.form(f"form_editar_{key_base}", border=False):
 
-                            novas_anotacoes = st.text_area(
-                                "Anotações do lançamento",
-                                value=lanc.get("anotacoes", ""),
-                                key=f"edit_anot_{key_base}"
-                            )
+                                novo_ano = st.selectbox(
+                                    "Ano do lançamento",
+                                    options=anos_disponiveis,
+                                    index=anos_disponiveis.index(int(lanc.get("ano"))),
+                                )
 
-                            salvar_edicao = st.button(
-                                "Salvar alterações",
-                                icon=":material/save:",
-                                key=f"salvar_{key_base}"
-                            )
+                                novas_anotacoes = st.text_area(
+                                    "Anotações do lançamento",
+                                    value=lanc.get("anotacoes", "")
+                                )
 
+                                salvar_edicao = st.form_submit_button(
+                                    "Salvar alterações",
+                                    icon=":material/save:"
+                                )
 
                             if salvar_edicao:
                                 lanc["ano"] = str(novo_ano)
@@ -1033,5 +1008,5 @@ def dialog_editar_entregas():
                                 )
 
                                 st.success("Lançamento atualizado!")
-                                time.sleep(2)
+                                time.sleep(1.5)
                                 st.rerun()
