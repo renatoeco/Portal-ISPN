@@ -912,37 +912,10 @@ with aba_est:
     st.write("")
 
     # ----------------------------------------------------
-    # FILTRO POR ANO (MULTISELECT)
-    # ----------------------------------------------------
-    ver_filtros = st.toggle("Ver filtros", key="ver_filtros")
-
-    anos_selecionados = []
-
-    if ver_filtros:
-        # Buscar apenas anos existentes nos lançamentos
-        anos_disponiveis = sorted(
-            {
-                lanc.get("ano")
-                for lanc in lancamentos_indicadores.find(
-                    {"ano": {"$exists": True, "$ne": ""}},
-                    {"ano": 1}
-                )
-            },
-            reverse=True
-        )
-
-        anos_selecionados = st.multiselect(
-            "Selecione o(s) ano(s):",
-            options=anos_disponiveis,
-            default=anos_disponiveis[:1] if anos_disponiveis else []
-        )
-
-    st.write("")
-
-    # ----------------------------------------------------
     # PREPARAR FILTRO PARA LANÇAMENTOS
     # ----------------------------------------------------
     filtro_lancamentos = {}
+    anos_selecionados = []
     if anos_selecionados:
         filtro_lancamentos["ano"] = {"$in": anos_selecionados}
 
