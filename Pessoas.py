@@ -681,7 +681,12 @@ def gerenciar_pessoas():
                         col1, col2 = st.columns([1, 2])
                         col1.write("**supervisao_ferias**")
                         col2.write("Visualiza detalhes das férias de todos(as).")
-                        
+
+                        # gestao_noticias
+                        # col1, col2 = st.columns([1, 2])
+                        # col1.write("**gestao_noticias**")
+                        # col2.write("Faz triagem de notícias.")
+
                         # gestao_pls
                         col1, col2 = st.columns([1, 2])
                         col1.write("**gestao_pls**")
@@ -1747,6 +1752,11 @@ def gerenciar_pessoas():
                 col1, col2 = st.columns([1, 2])
                 col1.write("**supervisao_ferias**")
                 col2.write("Visualiza detalhes das férias de todos(as).")
+
+                # gestao_noticias
+                # col1, col2 = st.columns([1, 2])
+                # col1.write("**gestao_noticias**")
+                # col2.write("Faz triagem de notícias.")
 
                 # gestao_pls
                 col1, col2 = st.columns([1, 2])
