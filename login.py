@@ -197,14 +197,15 @@ def login():
     
     # Exibe o logo
     container_logo = st.container(horizontal=True, horizontal_alignment="center")
-    container_logo.image("images/logo_ISPN_horizontal_ass.png", width=300)
+    container_logo.image("images/logo_ISPN_horizontal_ass.png", width=350)
 
 
 
     # Pula 10 linhas
-    for _ in range(9):
+    for _ in range(5):
         st.write('')
 
+    
 
     with st.container(horizontal=True, gap="large"):
 
@@ -217,11 +218,9 @@ def login():
 
             cols = st.columns([1, 3])
 
-            # Exibe o logo - TESTE DE LOGOS
 
-            # cols[1].write("Teste de logos. Quero opiniões!")
+            cols[1].image("images/logos_amadoras_animadas.gif", width=600)
 
-            cols[1].image("images/colab_rounded_THIN.png", width=400)
             cols[1].write('')
             cols[1].write('')
 
