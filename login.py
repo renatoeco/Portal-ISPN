@@ -219,7 +219,7 @@ def login():
             cols = st.columns([1, 3])
 
 
-            cols[1].image("images/logos_amadoras_animadas.gif", width=600)
+            cols[1].image("images/logo_cris.png", width=450)
 
             cols[1].write('')
             cols[1].write('')
