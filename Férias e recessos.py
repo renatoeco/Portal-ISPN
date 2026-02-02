@@ -303,8 +303,17 @@ def gerar_grafico_tabela(colaborador_selecionado):
     for colaborador in colaboradores:
         nome = colaborador.get("nome_completo", "Desconhecido")
 
-        programa_id = str(colaborador.get("programa_area"))
-        setor = mapa_programas_areas.get(programa_id, "Desconhecido")
+        programas_ids = colaborador.get("programa_area", [])
+
+        # Garante lista
+        if not isinstance(programas_ids, list):
+            programas_ids = [programas_ids]
+
+        setores = [
+            mapa_programas_areas.get(str(pid), "Desconhecido")
+            for pid in programas_ids
+        ]
+
 
         anos = colaborador.get("férias", {}).get("anos", {})
 
@@ -320,12 +329,27 @@ def gerar_grafico_tabela(colaborador_selecionado):
                         inicio = datetime.strptime(lista_de_dias[i], "%d/%m/%Y")
                         fim = datetime.strptime(lista_de_dias[i + 1], "%d/%m/%Y")
 
-                        gantt_data.append({
-                            'Colaborador': nome,
-                            'Início': inicio,
-                            'Fim': fim,
-                            'Setor': setor
-                        })
+                        num_programas = len(setores)
+                        duracao_total = (fim - inicio).days + 1
+                        dias_por_programa = duracao_total / num_programas
+
+                        for idx, setor in enumerate(setores):
+                            inicio_prog = inicio + timedelta(days=int(idx * dias_por_programa))
+                            fim_prog = (
+                                inicio + timedelta(days=int((idx + 1) * dias_por_programa))
+                                if idx < num_programas - 1
+                                else fim
+                            )
+
+                            gantt_data.append({
+                                "Colaborador": nome,
+                                "Início": inicio_prog,
+                                "Fim": fim_prog,
+                                "Inicio_real": inicio,   
+                                "Fim_real": fim,         
+                                "Setor": setor
+                            })
+
 
                         anos_disponiveis.add(inicio.year)
                         anos_disponiveis.add(fim.year)
@@ -338,6 +362,9 @@ def gerar_grafico_tabela(colaborador_selecionado):
 
     # Cria o DataFrame com as colunas Colaborador, Início e Fim
     df_gantt = pd.DataFrame(gantt_data)
+
+    df_gantt["Inicio_hover"] = df_gantt["Inicio_real"]
+    df_gantt["Fim_hover"] = df_gantt["Fim_real"]
 
     # Converte o conjunto anos_disponiveis para uma lista e ordena
     anos_disponiveis = sorted(list(anos_disponiveis), reverse=True)
@@ -478,24 +505,49 @@ def gerar_grafico_tabela(colaborador_selecionado):
                     x_start="Início",
                     x_end="Final",
                     y="Colaborador",
-                    color="Setor",  # Cor baseada na coluna 'Setor'
-                    color_discrete_map=cores_setores,  # Mapeia as cores de acordo com os setores
-                    hover_data={"Início": False, "Final": False}  # Oculta "Início" e "Final"
-
+                    color="Setor",
+                    color_discrete_map=cores_setores,
+                    custom_data=["Inicio_hover", "Fim_hover", "Setor"]
                 )
+
+                fig.update_traces(
+                    hovertemplate=
+                    "<b>%{y}</b><br>" +
+                    "Início: %{customdata[0]|%d/%m/%Y}<br>" +
+                    "Fim: %{customdata[1]|%d/%m/%Y}<br>" +
+                    "Programa: %{customdata[2]}<extra></extra>"
+                )
+
             else:
                 # Cria o gráfico de Gantt com o setor selecionado, usando a cor do setor selecionado
                 fig = px.timeline(
-                    df_gantt[df_gantt["Setor"] == setor_selecionado],  # Filtra apenas o setor selecionado
+                    df_gantt,
                     x_start="Início",
                     x_end="Final",
                     y="Colaborador",
-                    color="Setor",  # Cor baseada na coluna 'Setor'
-                    color_discrete_map=cores_setores,  # Mapeia as cores de acordo com os setores
-                    hover_data={"Início": False, "Final": False}  # Oculta "Início" e "Final"
+                    color="Setor",
+                    color_discrete_map=cores_setores,
+                    hover_data={
+                        "Início": False,
+                        "Fim": False,
+                        "Inicio_real": "|%d/%m/%Y",
+                        "Fim_real": "|%d/%m/%Y",
+                        "Setor": True
+                    }
                 )
 
-            
+            # Mapeia rótulos reais (remove o sufixo __idx)
+            labels_y = {
+                v: v.split("__")[0]
+                for v in df_gantt["Colaborador"].unique()
+            }
+
+            fig.update_yaxes(
+                tickmode="array",
+                tickvals=list(labels_y.keys()),
+                ticktext=list(labels_y.values())
+            )
+
             # Adiciona uma linha vertical vermelha para marcar o dia de hoje
             hoje = datetime.now().date()  # Multiplicado por 1000 para obter o timestamp em milissegundos
             fig.add_vline(
@@ -560,8 +612,18 @@ def gerar_grafico_tabela(colaborador_selecionado):
             for registro in colaboradores:
                 nome = registro.get("nome_completo", "Não informado")
 
-                programa_id = registro.get("programa_area")
-                setor = mapa_programas_areas.get(str(programa_id), "Não informado")
+                programas_ids = registro.get("programa_area", [])
+
+                if not isinstance(programas_ids, list):
+                    programas_ids = [programas_ids]
+
+                setores = [
+                    mapa_programas_areas.get(str(pid), "Não informado")
+                    for pid in programas_ids
+                ]
+
+                setor_formatado = ", ".join(setores)
+
 
 
                 # setor = registro.get("programa_area", "Não informado")
@@ -606,7 +668,7 @@ def gerar_grafico_tabela(colaborador_selecionado):
                         if (inicio_periodo <= data_referencia_fim) and (fim_periodo >= data_referencia_inicio):
                             todas_solicitacoes.append({
                                 "Nome": nome,
-                                "Setor": setor,
+                                "Setor": setor_formatado,
                                 "Data do registro": solicitacao.get('data_solicitacao', 'Data não disponível'),
                                 "Período solicitado": lista_de_dias,
                                 "Total de dias úteis": solicitacao.get('numero_dias_uteis', 'Não disponível'),
@@ -623,7 +685,11 @@ def gerar_grafico_tabela(colaborador_selecionado):
                 # Filtro por setor, se aplicável
                 if setor_selecionado != "Todos":
                     df_todas_solicitacoes = df_todas_solicitacoes[
-                        df_todas_solicitacoes["Setor"] == setor_selecionado
+                        df_todas_solicitacoes["Setor"].str.contains(
+                            setor_selecionado,
+                            regex=False,
+                            na=False
+                        )
                     ]
 
                 # Subtítulo
