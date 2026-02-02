@@ -3,7 +3,7 @@ import pandas as pd
 from funcoes_auxiliares import conectar_mongo_portal_ispn
 from bson import ObjectId
 from pymongo import MongoClient
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 import re
 import time
 from urllib.parse import quote
@@ -156,6 +156,32 @@ def parse_itinerario(itinerario_texto):
         viagens.append(viagem)
 
     return viagens
+
+
+# Função para a aba de Relatórios pendentes
+def obter_fim_viagem_datetime(itinerario_texto):
+    if not isinstance(itinerario_texto, str) or not itinerario_texto.strip():
+        return pd.NaT
+
+    trechos = parse_itinerario(itinerario_texto)
+
+    if not trechos:
+        return pd.NaT
+
+    data_fim = trechos[-1].get("Data")
+
+    if not data_fim:
+        return pd.NaT
+
+    return pd.to_datetime(
+        data_fim,
+        format="%d-%m-%Y",
+        errors="coerce"
+    )
+
+
+
+
 
 # Função para transformar as diarias em uma lista de dicionários
 def parse_diarias(diarias_texto):
@@ -453,60 +479,6 @@ def carregar_rvss_int():
 
 
 
-# Carregar SAVs externas no google sheets ------------------------------
-# def carregar_savs_ext():
-
-#     # Abrir a planilha de SAVs externas
-#     sheet = client.open_by_key(sheet_id)
-
-#     # Ler todos os valores da planilha
-#     values_savs = sheet.worksheet("SAVs EXTERNAS Portal").get_all_values()
-
-#     # Criar DataFrame de SAVs. A primeira linha é usada como cabeçalho
-#     df_savs = pd.DataFrame(values_savs[1:], columns=values_savs[0])
-
-#     # Converter as colunas de data para datetime
-#     df_savs["Submission Date"] = pd.to_datetime(df_savs["Submission Date"])  # Garantir que é datetime
-#     df_savs["Submission Date"] = df_savs["Submission Date"].dt.strftime("%d/%m/%Y")  # Converter para string no formato brasileiro
-
-#     # Filtar SAVs com o prefixo "EXT-"
-#     df_savs = df_savs[df_savs['Código da viagem:'].str.upper().str.startswith('EXT-')]
-   
-#     # Substitui o caractere $ por \$ para que o Streamlit possa exibir corretamente
-#     df_savs = df_savs.replace({'\$': '\\$'}, regex=True)
-
-#     # Renomeia as colunas para que tenham nomes mais legíveis
-#     df_savs.rename(columns={'Insira aqui os seus deslocamentos. Cada trecho em uma nova linha:': 'Itinerário:',
-#                             'Nome do ponto focal no ISPN (a pessoa que está convidando)': 'Ponto focal:'}, inplace=True)
-
-#     return df_savs
-
-
-# # Carregar RVSs externos no google sheets ------------------------------
-# # @st.cache_data(show_spinner=False)
-# def carregar_rvss_ext():
-
-#     # Abrir a planilha de RVSs externas
-#     sheet = client.open_by_key(sheet_id)
-
-#     # Ler todos os valores da planilha
-#     # values_rvss = sheet.worksheet("TESTE RENATO SAVs").get_all_values()
-#     values_rvss = sheet.worksheet("RVSs EXTERNOS Portal").get_all_values()
-
-#     # Criar DataFrame de RVSs. A primeira linha é usada como cabeçalho
-#     df_rvss = pd.DataFrame(values_rvss[1:], columns=values_rvss[0])
-
-#     # Filtar SAVs com o prefixo "EXT-"
-#     df_rvss = df_rvss[df_rvss['Código da viagem:'].str.upper().str.startswith('EXT-')]
-
-#     # Converter as colunas de data para datetime
-#     df_rvss["Submission Date"] = pd.to_datetime(df_rvss["Submission Date"])  # Garantir que é datetime
-#     df_rvss["Submission Date"] = df_rvss["Submission Date"].dt.strftime("%d/%m/%Y")  # Converter para string no formato brasileiro
-
-#     df_rvss = df_rvss.replace({'\$': '\\$'}, regex=True)
-
-#     return df_rvss
-
 
 # Carregar SAVs de terceiros no google sheets ------------------------------
 # @st.cache_data(show_spinner=False)
@@ -715,34 +687,42 @@ if linha_botoes.button("Atualizar página", icon=":material/refresh:", width=200
     st.session_state.status_usuario = ""
     st.cache_data.clear()
     st.rerun()  
-    
+
+
+
+
+# TRATAMENTO DO df_savs  ---------------------------------
+
+# Limpar a coluna CPF: quero apenas os números
+df_savs['CPF:'] = df_savs['CPF:'].str.replace(r'[^\d]+', '', regex=True)
+
+# Capturar a data da viagem
+df_savs['Data da viagem:'] = df_savs['Itinerário:'].str[6:16].replace('-', '/', regex=True)
+
+destinos = r'Cidade de chegada: (.*?)(?:,|$)'
+
+# Aplicar a regex para cada linha da coluna
+df_savs["Destinos:"] = df_savs["Itinerário:"].apply(lambda x: ' > '.join(re.findall(destinos, x)))
+
+
+
+
     
 st.write("")
 
 # Abas da home
-minhas_viagens, nova_sav, terceiros = st.tabs([":material/flight_takeoff: Minhas Viagens", ":material/add: Nova Solicitação de Viagem", ":material/group: Solicitações para Terceiros"])
+minhas_viagens, nova_sav, terceiros, pendencias = st.tabs([":material/flight_takeoff: Minhas Viagens", ":material/add: Nova Solicitação de Viagem", ":material/group: Solicitações para Terceiros", ":material/assignment_late: Pendências"])
 
 
+# #######################################################################
 # ABA MINHAS VIAGENS
+# #######################################################################
 
 with minhas_viagens:
 
-    # TRATAMENTO DO df_savs  ---------------------------------
-
-    # Limpar a coluna CPF: quero apenas os números
-    df_savs['CPF:'] = df_savs['CPF:'].str.replace(r'[^\d]+', '', regex=True)
-
     # Filtar SAVs com o CPF do usuário
-    # df_savs = df_savs[df_savs['CPF:'].astype(str) == str(usuario['cpf'])]
-    df_savs = df_savs[df_savs['CPF:'].astype(str) == st.session_state.cpf]
+    df_minhas_savs = df_savs[df_savs['CPF:'].astype(str) == st.session_state.cpf]
 
-    # Capturar a data da viagem
-    df_savs['Data da viagem:'] = df_savs['Itinerário:'].str[6:16].replace('-', '/', regex=True)
-
-    destinos = r'Cidade de chegada: (.*?)(?:,|$)'
-    
-    # Aplicar a regex para cada linha da coluna
-    df_savs["Destinos:"] = df_savs["Itinerário:"].apply(lambda x: ' > '.join(re.findall(destinos, x)))
 
     # -------------------------------------
 
@@ -760,7 +740,7 @@ with minhas_viagens:
     st.session_state.status_usuario = ""
 
     # Iterar sobre a lista de viagens
-    for index, row in df_savs[::-1].iterrows():
+    for index, row in df_minhas_savs[::-1].iterrows():
 
         # Preparar o link personalizado para o relatório -----------------------------------------------------
 
@@ -836,8 +816,9 @@ with minhas_viagens:
         st.divider()  # Separador entre cada linha da tabela
 
 
-
+# #######################################################################
 # ABA DE NOVA SOLICITAÇÃO
+# #######################################################################
 
 with nova_sav:
 
@@ -900,6 +881,13 @@ with nova_sav:
 
         col1, col2, col3 = st.columns([1,2,1])
         col2.subheader('Após enviar, role a página até o topo :material/keyboard_double_arrow_up:')
+
+
+
+
+# #######################################################################
+# ABA DE NOVA SOLICITAÇÃO PARA TERCEIROS
+# #######################################################################
 
 
 with terceiros:
@@ -1091,4 +1079,84 @@ with terceiros:
 
         st.divider()  # Separador entre cada linha da tabela
 
+
+# #######################################################################
+# ABA DE PENDÊNCIAS
+# #######################################################################
+
+# ABA DE PENDÊNCIAS
+with pendencias:
+
+    st.subheader("Pendências de Solicitações de Viagem")
+    st.write("")
+
+    col_savs_int, col_savs_ext, col_savs_trc = st.columns(3)
+
+    # ===============================
+    # SAVs INTERNAS SEM RVS
+    # ===============================
+    with col_savs_int:
+        st.markdown("### SAVs Internas")
+
+        if "Código da viagem:" in df_savs.columns and "Código da viagem:" in df_rvss.columns:
+
+            # Normalização completa dos códigos
+            savs_codigos = (
+                df_savs["Código da viagem:"]
+                .astype(str)
+                .str.strip()
+                .str.upper()
+            )
+
+            rvss_codigos = (
+                df_rvss["Código da viagem:"]
+                .astype(str)
+                .str.strip()
+                .str.upper()
+            )
+
+            # Filtra SAVs que NÃO possuem RVS
+            df_savs_pendentes = df_savs[
+                ~savs_codigos.isin(rvss_codigos)
+            ].copy()
+
+            # Capturar a data de fim da viagem
+            df_savs_pendentes["Fim da viagem"] = df_savs_pendentes[
+                "Itinerário:"
+            ].apply(obter_fim_viagem_datetime)
+
+
+            # Limite de 15 dias para considerar os Relatórios atrasados.
+            data_limite = pd.Timestamp.today().normalize() - pd.Timedelta(days=15)
+
+            # Filtra Relatórios atrasados
+            df_savs_pendentes_atrasadas = df_savs_pendentes[
+                df_savs_pendentes["Fim da viagem"] < data_limite
+            ].copy()
+
+
+            if df_savs_pendentes_atrasadas.empty:
+                st.info("Não há SAVs internas com RVS em atraso superior a 15 dias.")
+            else:
+                st.dataframe(
+                    df_savs_pendentes_atrasadas[
+                        [
+                            "Código da viagem:",
+                            "Nome completo:",
+                            "Fim da viagem"
+                        ]
+                    ],
+                    hide_index=True,
+                    use_container_width=True,
+                    column_config={
+                        "Fim da viagem": st.column_config.DateColumn(
+                            format="DD/MM/YYYY"
+                        )
+                    }
+                )
+
+
+
+        else:
+            st.error("Coluna 'Código da viagem:' não encontrada.")
 
