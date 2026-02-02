@@ -249,7 +249,7 @@ def mostrar_detalhes_sav(row):
 
     col1, col2, col3 = st.columns([1, 1, 1])
 
-    col3.link_button("Editar a Solicitação", icon=":material/edit:", use_container_width=True, url=link_edicao)
+    col3.link_button("Editar a Solicitação", icon=":material/edit:", url=link_edicao)
 
 
     # INFORMAÇÕES
@@ -263,11 +263,11 @@ def mostrar_detalhes_sav(row):
 
     # Exibir os detalhes do itinerário como tabela
     st.write("**Itinerário:**")
-    st.dataframe(df_trechos, use_container_width=True, hide_index=True)
+    st.dataframe(df_trechos, hide_index=True)
 
     # Exibir os detalhes das diárias como tabela
     st.write("**Diárias:**")
-    st.dataframe(df_diarias, use_container_width=False, hide_index=True)
+    st.dataframe(df_diarias,  hide_index=True)
 
     st.write(f"**Custo pago pelo anfitrião:** {row['A viagem tem algum custo pago pelo anfitrião?']}")
 
@@ -320,7 +320,7 @@ def mostrar_detalhes_rvs(row, df_rvss):
 
     # Botão para editar o relatório
     col1, col2, col3 = st.columns([1, 1, 1])
-    col3.link_button("Editar o Relatório", icon=":material/edit:", use_container_width=True, url=link_edicao)
+    col3.link_button("Editar o Relatório", icon=":material/edit:", url=link_edicao)
 
     # INFORMAÇÕES
     if row["Código da viagem:"].startswith("TRC"):
@@ -805,7 +805,7 @@ with minhas_viagens:
         col1.write(row['Código da viagem:'])
         col2.write(row['Data da viagem:'])
         col3.write(row['Destinos:'])
-        col4.button('Detalhes', key=f"detalhes_{index}", on_click=mostrar_detalhes_sav, args=(row,), use_container_width=True, icon=":material/info:")
+        col4.button('Detalhes', key=f"detalhes_{index}", on_click=mostrar_detalhes_sav, args=(row,), width="stretch", icon=":material/info:")
         
 
         # Botão dinâmico sobre o relatório --------------------------------------------
@@ -826,12 +826,12 @@ with minhas_viagens:
                 
         # Se o relatório foi entregue, vê o relatório  
         if status_relatorio == "entregue":
-            col5.button('Relatório entregue', key=f"entregue_{index}", on_click=mostrar_detalhes_rvs, args=(row, df_rvss), use_container_width=True, icon=":material/check:", type="primary")
+            col5.button('Relatório entregue', key=f"entregue_{index}", on_click=mostrar_detalhes_rvs, args=(row, df_rvss), width="stretch", icon=":material/check:", type="primary")
         
         # Se não foi entregue, botão para enviar
         if status_relatorio == "pendente":
             # Se não foi entregue, botão para enviar
-            col5.link_button('Enviar relatório', use_container_width=True, icon=":material/description:", url=jotform_rvs_url)
+            col5.link_button('Enviar relatório', width="stretch", icon=":material/description:", url=jotform_rvs_url)
 
         st.divider()  # Separador entre cada linha da tabela
 
@@ -1063,7 +1063,7 @@ with terceiros:
         col2.write(row['Data da viagem:'])
         col3.write(row['Nome do(a) viajante:'])
         col4.write(row['Destinos:'])
-        col5.button('Detalhes', key=f"detalhes_terc_{index}", on_click=mostrar_detalhes_sav, args=(row,), use_container_width=True, icon=":material/info:")
+        col5.button('Detalhes', key=f"detalhes_terc_{index}", on_click=mostrar_detalhes_sav, args=(row,), width="stretch", icon=":material/info:")
         
 
         # Botão dinâmico sobre o relatório --------------------------------------------
@@ -1081,13 +1081,13 @@ with terceiros:
 
         # Se o relatório foi entregue, vê o relatório  
         if status_relatorio == "entregue":
-            col6.button('Relatório entregue', key=f"entregue_ter_{index}", on_click=mostrar_detalhes_rvs, args=(row, df_rvss_terceiros), use_container_width=True, icon=":material/check:", type="primary")
+            col6.button('Relatório entregue', key=f"entregue_ter_{index}", on_click=mostrar_detalhes_rvs, args=(row, df_rvss_terceiros), width="stretch", icon=":material/check:", type="primary")
         
         # Se não foi entregue, botão para enviar
         # else:
         elif status_relatorio == "pendente":
             # Se não foi entregue, botão para enviar
-            col6.link_button('Enviar relatório', use_container_width=True, icon=":material/description:", url=jotform_rvs_terceiros_url)
+            col6.link_button('Enviar relatório', width="stretch", icon=":material/description:", url=jotform_rvs_terceiros_url)
 
         st.divider()  # Separador entre cada linha da tabela
 
