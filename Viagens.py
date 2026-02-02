@@ -707,11 +707,42 @@ df_savs["Destinos:"] = df_savs["Itinerário:"].apply(lambda x: ' > '.join(re.fin
 
 
 
-    
-st.write("")
+# Controle de permissão para mostrar a aba de pendências
 
-# Abas da home
-minhas_viagens, nova_sav, terceiros, pendencias = st.tabs([":material/flight_takeoff: Minhas Viagens", ":material/add: Nova Solicitação de Viagem", ":material/group: Solicitações para Terceiros", ":material/assignment_late: Pendências"])
+# Labels das abas (com ícones)
+abas_labels = [
+    ":material/flight_takeoff: Minhas Viagens",
+    ":material/add: Nova Solicitação de Viagem",
+    ":material/group: Solicitações para Terceiros",
+]
+
+# Perfis com acesso à aba Pendências
+PERFIS_COM_ACESSO_PENDENCIAS = {
+    "admin",
+    "coordenador",
+    "gestao_viagens"
+}
+
+# tipo_usuario é sempre lista
+tipo_usuario = st.session_state.get("tipo_usuario", [])
+
+tem_acesso_pendencias = bool(
+    set(tipo_usuario) & PERFIS_COM_ACESSO_PENDENCIAS
+)
+
+# Adiciona a aba Pendências somente se tiver acesso
+if tem_acesso_pendencias:
+    abas_labels.append(":material/assignment_late: Pendências")
+
+# Cria as abas
+tabs = st.tabs(abas_labels)
+
+# Desempacota
+minhas_viagens = tabs[0]
+nova_sav = tabs[1]
+terceiros = tabs[2]
+pendencias = tabs[3] if tem_acesso_pendencias else None
+
 
 
 # #######################################################################
