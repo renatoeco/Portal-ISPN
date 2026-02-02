@@ -272,23 +272,33 @@ with st.container(horizontal=True):
 st.write('')
 
 
-
 # ---------------------------------------------------------------------------------
 # CRIAR ABAS (Visão Geral + 8 sites)
 # ---------------------------------------------------------------------------------
 
 abas = st.tabs(["Visão Geral"] + list(SITES.keys()))
 
+
+
 # ---------------------------------------------------------------------------------
 # ABA 0 — VISÃO GERAL
 # ---------------------------------------------------------------------------------
 
 with abas[0]:
-    #st.header("Visão Geral")
+
+    st.write("")
+
+    # ---------------------------------------------------------------------------------
+    # PERÍODO DOS DADOS EXIBIDOS
+    # ---------------------------------------------------------------------------------
+
+    st.markdown(
+        f"##### De {inicio.strftime('%d/%m/%Y')} até {fim.strftime('%d/%m/%Y')}"
+    )
     
     st.write("")
     st.write("")
-    st.write("")
+    #st.write("")
 
     dfs = {}
     totais = []
@@ -365,8 +375,22 @@ with abas[0]:
 
 for i, (nome_site, property_id) in enumerate(SITES.items(), start=1):
     with abas[i]:
+
+        
+
         st.header(f"🌐 {nome_site}")
         
+        st.write("")
+        st.write("")
+
+        # ---------------------------------------------------------------------------------
+        # PERÍODO DOS DADOS EXIBIDOS
+        # ---------------------------------------------------------------------------------
+
+        st.markdown(
+            f"##### De {inicio.strftime('%d/%m/%Y')} até {fim.strftime('%d/%m/%Y')}"
+        )
+
         st.write("")
         st.write("")
         

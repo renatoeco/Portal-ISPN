@@ -3,7 +3,9 @@ import pandas as pd
 import datetime
 import time
 from funcoes_auxiliares import conectar_mongo_portal_ispn
-import streamlit_shadcn_ui as ui
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 
 # Configura a página do Streamlit para layout mais amplo
@@ -89,6 +91,103 @@ def mostrar(valor):
     return valor if valor not in [None, "", []] else "—"
 
 
+def obter_valor_aninhado(doc, campo):
+    """
+    Permite comparar campos simples e aninhados, ex:
+    banco.nome_banco
+    """
+    partes = campo.split(".")
+    valor = doc
+    for p in partes:
+        if isinstance(valor, dict):
+            valor = valor.get(p)
+        else:
+            return None
+    return valor
+
+
+def obter_valor_aninhado(doc, campo):
+    """
+    Permite comparar campos simples e aninhados, ex:
+    banco.nome_banco
+    """
+    partes = campo.split(".")
+    valor = doc
+    for p in partes:
+        if isinstance(valor, dict):
+            valor = valor.get(p)
+        else:
+            return None
+    return valor
+
+
+def detectar_alteracoes(doc_antigo, update_dict, labels_campos):
+    """
+    Retorna lista de alterações:
+    [
+        {
+            "campo": "Telefone",
+            "antes": "xx",
+            "depois": "yy"
+        }
+    ]
+    """
+    alteracoes = []
+
+    for campo, novo_valor in update_dict.items():
+        valor_antigo = obter_valor_aninhado(doc_antigo, campo)
+
+        # Normaliza None / vazio
+        if valor_antigo in ["", None]:
+            valor_antigo = None
+        if novo_valor in ["", None]:
+            novo_valor = None
+
+        if valor_antigo != novo_valor:
+            alteracoes.append({
+                "campo": labels_campos.get(campo, campo),
+                "antes": valor_antigo if valor_antigo is not None else "—",
+                "depois": novo_valor if novo_valor is not None else "—"
+            })
+
+    return alteracoes
+
+
+def emails_gestao_pessoas(dados_pessoas):
+    return [
+        p.get("e_mail")
+        for p in dados_pessoas
+        if p.get("tipo de usuário") == "admin" and p.get("e_mail")
+    ]
+
+
+def enviar_email(destinatarios, assunto, corpo):
+    if not destinatarios:
+        return
+
+    # Dados de autenticação do secrets.toml
+    remetente = st.secrets["senhas"]["endereco_email"]
+    senha = st.secrets["senhas"]["senha_email"]
+
+    # Cria a mensagem MIME
+    msg = MIMEText(corpo, "html", "utf-8")
+    msg["Subject"] = assunto
+    msg["From"] = remetente
+    msg["To"] = ", ".join(destinatarios)
+
+    # Tenta enviar via SMTP SSL
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(remetente, senha)
+            server.sendmail(remetente, destinatarios, msg.as_string())
+
+        return True
+    
+    except Exception as e:
+        st.error(f"Erro ao enviar e-mail: {e}")
+        return False
+
+
 ######################################################################################################
 # TRATAMENTO DOS DADOS
 ######################################################################################################
@@ -99,7 +198,23 @@ dados_pessoas = list(pessoas.find())
 dados_programas = list(programas_areas.find())
 dados_projetos_ispn = list(projetos_ispn.find())
 
-
+labels_campos = {
+    "nome_completo": "Nome completo",
+    "telefone": "Telefone",
+    "e_mail": "E-mail",
+    "CPF": "CPF",
+    "RG": "RG",
+    "gênero": "Gênero",
+    "raca": "Raça",
+    "data_nascimento": "Data de nascimento",
+    "escolaridade": "Escolaridade",
+    "banco.nome_banco": "Banco",
+    "banco.agencia": "Agência",
+    "banco.conta": "Conta bancária",
+    "banco.tipo_conta": "Tipo de conta",
+    "cnpj": "CNPJ",
+    "nome_empresa": "Nome da empresa"
+}
 
 # PESSOA
 
@@ -136,20 +251,11 @@ id_para_nome_projeto = {
 
 lista_programas_areas = sorted(nome_para_id_programa.keys())
 
-# # Lista de coordenadores existentes (id, nome, programa)
-# coordenadores_possiveis = [
-#     {
-#         "id": pessoa["_id"],
-#         "nome": pessoa.get("nome_completo", ""),
-#         "programa": pessoa.get("programa_area", "")
-#     }
-#     for pessoa in dados_pessoas
-#     if "coordenador(a)" in pessoa.get("tipo de usuário", "").lower()
-# ]
-
 # PROJETOS
 # Filtra só os projetos em que a sigla não está vazia
 dados_projetos_ispn = [projeto for projeto in dados_projetos_ispn if projeto["sigla"] != ""]
+
+
 
 
 ######################################################################################################
@@ -248,123 +354,159 @@ if pessoa_logada:
         # ---------------- MODO EDIÇÃO ----------------
         else:
 
-            col1, col2, col3 = st.columns(3, gap="large")
+            with st.form("form_edicao_dados_pessoais", border=False):
 
-            # Coluna 1 – Pessoais
-            with col1:
-                nome = st.text_input("Nome completo", value=pessoa_logada.get("nome_completo", ""))
+                col1, col2, col3 = st.columns(3, gap="large")
 
-                data_nascimento_str = pessoa_logada.get("data_nascimento", "")
-                data_nascimento_val = datetime.datetime.strptime(data_nascimento_str, "%d/%m/%Y").date() if data_nascimento_str else None
-                data_nascimento = st.date_input("Data de nascimento", value=data_nascimento_val, format="DD/MM/YYYY")
+                # Coluna 1 – Pessoais
+                with col1:
+                    nome = st.text_input("Nome completo", value=pessoa_logada.get("nome_completo", ""))
 
-                cpf = st.text_input("CPF", value=pessoa_logada.get("CPF", ""))
-                rg = st.text_input("RG", value=pessoa_logada.get("RG", ""))
+                    data_nascimento_str = pessoa_logada.get("data_nascimento", "")
+                    data_nascimento_val = datetime.datetime.strptime(data_nascimento_str, "%d/%m/%Y").date() if data_nascimento_str else None
+                    data_nascimento = st.date_input("Data de nascimento", value=data_nascimento_val, format="DD/MM/YYYY")
 
-                lista_generos = ['Masculino', 'Feminino', 'Não binário', 'Outro']
-                genero_index = lista_generos.index(pessoa_logada.get("gênero", "Masculino")) if pessoa_logada.get("gênero") in lista_generos else 0
-                genero = st.selectbox("Gênero", lista_generos, index=genero_index)
+                    cpf = st.text_input("CPF", value=pessoa_logada.get("CPF", ""))
+                    rg = st.text_input("RG", value=pessoa_logada.get("RG", ""))
 
-                lista_raca = ["Amarelo", "Branco", "Índigena", "Pardo", "Preto", ""]
-                valor_raca = pessoa_logada.get("raca", "")
-                index_raca = lista_raca.index(valor_raca) if valor_raca in lista_raca else 0
-                raca = st.selectbox("Raça", lista_raca, index=index_raca)
+                    lista_generos = ['Masculino', 'Feminino', 'Não binário', 'Outro']
+                    genero_index = lista_generos.index(pessoa_logada.get("gênero", "Masculino")) if pessoa_logada.get("gênero") in lista_generos else 0
+                    genero = st.selectbox("Gênero", lista_generos, index=genero_index)
 
-                lista_escolaridade = ["Ensino fundamental", "Ensino médio", "Curso técnico", "Graduação", "Pós-graduação", "Mestrado", "Doutorado", ""]
-                valor_escolaridade = pessoa_logada.get("escolaridade", "")
-                index_escolaridade = lista_escolaridade.index(valor_escolaridade) if valor_escolaridade in lista_escolaridade else 0
-                escolaridade = st.selectbox("Escolaridade", lista_escolaridade, index=index_escolaridade)
+                    lista_raca = ["Amarelo", "Branco", "Índigena", "Pardo", "Preto", ""]
+                    valor_raca = pessoa_logada.get("raca", "")
+                    index_raca = lista_raca.index(valor_raca) if valor_raca in lista_raca else 0
+                    raca = st.selectbox("Raça", lista_raca, index=index_raca)
 
-                telefone = st.text_input("Telefone", value=pessoa_logada.get("telefone", ""))
-                email = st.text_input("E-mail", value=pessoa_logada.get("e_mail", ""))
+                    lista_escolaridade = ["Ensino fundamental", "Ensino médio", "Curso técnico", "Graduação", "Pós-graduação", "Mestrado", "Doutorado", ""]
+                    valor_escolaridade = pessoa_logada.get("escolaridade", "")
+                    index_escolaridade = lista_escolaridade.index(valor_escolaridade) if valor_escolaridade in lista_escolaridade else 0
+                    escolaridade = st.selectbox("Escolaridade", lista_escolaridade, index=index_escolaridade)
 
-            # Coluna 2 – Dados bancários
-            with col2:
-                nome_banco = st.text_input("Banco", value=pessoa_logada.get("banco", {}).get("nome_banco", ""))
-                agencia = st.text_input("Agência", value=pessoa_logada.get("banco", {}).get("agencia", ""))
+                    telefone = st.text_input("Telefone", value=pessoa_logada.get("telefone", ""))
+                    email = st.text_input("E-mail", value=pessoa_logada.get("e_mail", ""))
 
-                tipo_conta_atual = pessoa_logada.get("banco", {}).get("tipo_conta", "")
-                opcoes_conta = ["", "Conta Corrente", "Conta Poupança", "Conta Salário"]
-                index_conta = opcoes_conta.index(tipo_conta_atual) if tipo_conta_atual in opcoes_conta else 0
-                tipo_conta = st.selectbox("Tipo de conta", options=opcoes_conta, index=index_conta)
+                # Coluna 2 – Dados bancários
+                with col2:
+                    nome_banco = st.text_input("Banco", value=pessoa_logada.get("banco", {}).get("nome_banco", ""))
+                    agencia = st.text_input("Agência", value=pessoa_logada.get("banco", {}).get("agencia", ""))
 
-                conta = st.text_input("Conta", value=pessoa_logada.get("banco", {}).get("conta", ""))
+                    tipo_conta_atual = pessoa_logada.get("banco", {}).get("tipo_conta", "")
+                    opcoes_conta = ["", "Conta Corrente", "Conta Poupança", "Conta Salário"]
+                    index_conta = opcoes_conta.index(tipo_conta_atual) if tipo_conta_atual in opcoes_conta else 0
+                    tipo_conta = st.selectbox("Tipo de conta", options=opcoes_conta, index=index_conta)
 
-            # Coluna 3 – Profissionais
-            with col3:
-                lista_escritorio = ["Brasília", "Santa Inês", ""]
-                valor_escritorio = pessoa_logada.get("escritorio", "")
-                index_escritorio = lista_escritorio.index(valor_escritorio) if valor_escritorio in lista_escritorio else 0
-                escritorio = st.selectbox("Escritório", lista_escritorio, index=index_escritorio, disabled=True)
+                    conta = st.text_input("Conta", value=pessoa_logada.get("banco", {}).get("conta", ""))
 
-                cargo = st.text_input("Cargo", value=pessoa_logada.get("cargo", ""), disabled=True)
+                # Coluna 3 – Profissionais
+                with col3:
+                    lista_escritorio = ["Brasília", "Santa Inês", ""]
+                    valor_escritorio = pessoa_logada.get("escritorio", "")
+                    index_escritorio = lista_escritorio.index(valor_escritorio) if valor_escritorio in lista_escritorio else 0
+                    escritorio = st.selectbox("Escritório", lista_escritorio, index=index_escritorio, disabled=True)
 
-                # Lista de ObjectIds já salvos
-                programas_ids = pessoa_logada.get("programa_area", [])
+                    cargo = st.text_input("Cargo", value=pessoa_logada.get("cargo", ""), disabled=True)
 
-                # Converte IDs -> nomes para valor padrão do multiselect
-                programas_nomes_atuais = [
-                    id_para_nome_programa.get(pid, "")
-                    for pid in programas_ids
-                    if pid in id_para_nome_programa
-                ]
+                    # Lista de ObjectIds já salvos
+                    programas_ids = pessoa_logada.get("programa_area", [])
 
-                # Multiselect
-                programas_selecionados = st.multiselect(
-                    "Programa / Área",
-                    options=sorted(nome_para_id_programa.keys()),
-                    default=programas_nomes_atuais,
-                    disabled=True
+                    # Converte IDs -> nomes para valor padrão do multiselect
+                    programas_nomes_atuais = [
+                        id_para_nome_programa.get(pid, "")
+                        for pid in programas_ids
+                        if pid in id_para_nome_programa
+                    ]
+
+                    # Multiselect
+                    programas_selecionados = st.multiselect(
+                        "Programa / Área",
+                        options=sorted(nome_para_id_programa.keys()),
+                        default=programas_nomes_atuais,
+                        disabled=True
+                    )
+
+                    coordenador_atual_id = pessoa_logada.get("coordenador")
+                    coord_atual = next((c for c in dados_pessoas if str(c["_id"]) == str(coordenador_atual_id)), None)
+                    nome_coordenador_default = coord_atual['nome_completo'] if coord_atual else ""
+                    nome_coordenador = st.text_input("Coordenador", value=nome_coordenador_default, disabled=True)
+
+                    tipo_contratacao = st.text_input("Tipo de contratação", value=pessoa_logada.get("tipo_contratacao", ""), disabled=True)
+
+                    # Campos extras se PJ
+                    if tipo_contratacao in ["PJ1", "PJ2"]:
+                        cnpj = st.text_input("CNPJ", value=pessoa_logada.get("cnpj", ""), disabled=True)
+                        nome_empresa = st.text_input("Nome da empresa", value=pessoa_logada.get("nome_empresa", ""), disabled=True)
+
+                # Prepara o dicionário de atualização
+                update_dict = {
+                    "tipo_contratacao": tipo_contratacao,
+                    "nome_completo": nome,
+                    "telefone": telefone,
+                    "e_mail": email,
+                    "CPF": cpf,
+                    "RG": rg,
+                    "gênero": genero,
+                    "raca": raca,
+                    "data_nascimento": data_nascimento.strftime("%d/%m/%Y") if data_nascimento else None,
+                    "escolaridade": escolaridade,
+                    "cargo": cargo,
+                    "escritorio": escritorio,
+                    "banco.nome_banco": nome_banco,
+                    "banco.agencia": agencia,
+                    "banco.conta": conta,
+                    "banco.tipo_conta": tipo_conta
+                }
+
+                # Botão de salvar as alterações
+                st.write('')
+                salvar = st.form_submit_button(
+                    "Salvar alterações",
+                    type="primary",
+                    icon=":material/save:"
                 )
 
-                coordenador_atual_id = pessoa_logada.get("coordenador")
-                coord_atual = next((c for c in dados_pessoas if str(c["_id"]) == str(coordenador_atual_id)), None)
-                nome_coordenador_default = coord_atual['nome_completo'] if coord_atual else ""
-                nome_coordenador = st.text_input("Coordenador", value=nome_coordenador_default, disabled=True)
+                if salvar:
 
-                tipo_contratacao = st.text_input("Tipo de contratação", value=pessoa_logada.get("tipo_contratacao", ""), disabled=True)
+                    if tipo_contratacao in ["PJ1", "PJ2"]:
+                        update_dict["cnpj"] = cnpj
+                        update_dict["nome_empresa"] = nome_empresa
 
-                # Campos extras se PJ
-                if tipo_contratacao in ["PJ1", "PJ2"]:
-                    cnpj = st.text_input("CNPJ", value=pessoa_logada.get("cnpj", ""), disabled=True)
-                    nome_empresa = st.text_input("Nome da empresa", value=pessoa_logada.get("nome_empresa", ""), disabled=True)
+                    # Detecta alterações antes de salvar
+                    alteracoes = detectar_alteracoes(
+                        pessoa_logada,
+                        update_dict,
+                        labels_campos
+                    )
 
-            # Prepara o dicionário de atualização
-            update_dict = {
-                "tipo_contratacao": tipo_contratacao,
-                "nome_completo": nome,
-                "telefone": telefone,
-                "e_mail": email,
-                "CPF": cpf,
-                "RG": rg,
-                "gênero": genero,
-                "raca": raca,
-                "data_nascimento": data_nascimento.strftime("%d/%m/%Y") if data_nascimento else None,
-                "escolaridade": escolaridade,
-                "cargo": cargo,
-                "escritorio": escritorio,
-                "banco.nome_banco": nome_banco,
-                "banco.agencia": agencia,
-                "banco.conta": conta,
-                "banco.tipo_conta": tipo_conta
-            }
+                    # Atualiza no MongoDB
+                    pessoas.update_one(
+                        {"_id": pessoa_logada["_id"]},
+                        {"$set": update_dict}
+                    )
 
-            # Botão de salvar as alterações
-            st.write('')
-            if st.button("Salvar alterações", icon=":material/save:", type="primary"):
+                    # Se houver alterações, envia e-mail
+                    if alteracoes:
+                        assunto = f"Jataí - Alteração de dados cadastrais de {pessoa_logada.get('nome_completo')}"
 
-                # Só adiciona CNPJ e nome da empresa se for PJ1 ou PJ2
-                if tipo_contratacao in ["PJ1", "PJ2"]:
-                    update_dict["cnpj"] = cnpj
-                    update_dict["nome_empresa"] = nome_empresa
+                        corpo = f"""
+                        <p>{pessoa_logada.get('nome_completo')} fez as seguintes alterações nos seus dados cadastrais:</p>
+                        """
 
-                # Atualiza no MongoDB
-                pessoas.update_one({"_id": pessoa_logada["_id"]}, {"$set": update_dict})
+                        for i, alt in enumerate(alteracoes, start=1):
+                            corpo += f"""
+                            <p>
+                                <strong>{i}. {alt['campo']}</strong><br>
+                                <strong>Antes:</strong> {alt['antes']}<br>
+                                <strong>Depois:</strong> {alt['depois']}
+                            </p>
+                            """
 
-                st.success("Alterações salvas com sucesso!")
-                
-                time.sleep(2)
-                st.rerun()
+                        destinatarios = emails_gestao_pessoas(dados_pessoas)
+                        enviar_email(destinatarios, assunto, corpo)
+
+                    st.success("Alterações salvas com sucesso!")
+                    time.sleep(2)
+                    st.rerun()
 
 
     # ============ ABA CONTRATOS ============

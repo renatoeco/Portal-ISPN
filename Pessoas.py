@@ -144,6 +144,7 @@ for pessoa in dados_pessoas:
         "Tipo Contratação": pessoa.get("tipo_contratacao", ""),
         "Escritório": pessoa.get("escritorio", ""),
         "Data de nascimento": pessoa.get("data_nascimento", ""),
+        "Tipo de usuário": pessoa.get("tipo de usuário", "")
     })
 
 
@@ -370,7 +371,7 @@ def gerenciar_pessoas():
 
     
         # Cria abas
-        aba_info, aba_contratos, aba_previdencia, aba_ferias, aba_anotacoes  = st.tabs([":material/info: Informações gerais", ":material/contract: Contratos", ":material/finance_mode: Previdência", ":material/beach_access: Férias", ":material/notes: Anotações"])
+        aba_info, aba_contratos, aba_previdencia, aba_ferias, aba_anotacoes  = st.tabs([":material/info: Informações gerais", ":material/contract: Contratos", ":material/finance_mode: Previdência", ":material/beach_access: Férias e Recessos", ":material/notes: Anotações"])
     
         # ABA INFORMAÇÕES GERAIS ################################################################
         with aba_info:
@@ -2025,18 +2026,32 @@ with aba_pessoas:
     # cria um dataframe APENAS para exibição (cópia)
     df_pessoas_exibir = df_pessoas_filtrado.copy()
 
+    tipos_com_acesso = {"admin", "coordenador(a)", "gestao_pessoas"}
+    usuario_pode_ver_tipo = bool(set(st.session_state.tipo_usuario) & tipos_com_acesso)
+
     # remove colunas indesejadas SOMENTE no dataframe de exibição
+    colunas_remover = [
+        "Status",
+        "Gênero",
+        "Escolaridade",
+        "Raça",
+        "Tipo Contratação",
+        "Data de nascimento",
+    ]
+
+    # Se o usuário NÃO tiver permissão, remove também "Tipo de usuário"
+    if not usuario_pode_ver_tipo:
+        colunas_remover.append("Tipo de usuário")
+
     df_pessoas_exibir = df_pessoas_exibir.drop(
-        columns=[
-            "Status",
-            "Gênero",
-            "Escolaridade",
-            "Raça",
-            "Tipo Contratação",
-            "Data de nascimento",
-        ],
+        columns=colunas_remover,
         errors="ignore"
     )
+
+    if usuario_pode_ver_tipo and "Tipo de usuário" in df_pessoas_exibir.columns:
+        colunas = [c for c in df_pessoas_exibir.columns if c != "Tipo de usuário"]
+        colunas.append("Tipo de usuário")
+        df_pessoas_exibir = df_pessoas_exibir[colunas]
 
     # exibe sem alterar o dataframe original
     st.dataframe(
@@ -2045,8 +2060,6 @@ with aba_pessoas:
             .fillna(""),
         hide_index=True
     )
-
-
 
     # Gráficos 
     col1, col2 = st.columns(2)
