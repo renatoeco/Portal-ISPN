@@ -68,7 +68,8 @@ doc = estatistica.find_one({}, {"_id": 0})
 # ABAS
 # ---------------------------------------------------------------------------------
 
-aba_banco, aba_visitas = st.tabs(["Banco de Dados", "Visitações"])
+aba_visitas, aba_banco = st.tabs(["Visitações", "Banco de Dados"])
+# aba_banco, aba_visitas = st.tabs(["Banco de Dados", "Visitações"])
 
 
 # ---------------------------------------------------------------------------------
@@ -77,7 +78,7 @@ aba_banco, aba_visitas = st.tabs(["Banco de Dados", "Visitações"])
 with aba_banco:
 
     st.write('')
-    st.markdown("##### Capacidade do Banco de Dados")
+    st.markdown("##### Uso do Banco de Dados")
 
     col1, col2, col3 = st.columns(3)
 
