@@ -1118,7 +1118,7 @@ with terceiros:
 # ABA DE PENDÊNCIAS
 with pendencias:
 
-    st.subheader("Pendências de Solicitações de Viagem")
+    st.subheader("Relatórios pendentes de viagens terminadas há mais de 15 dias")
     st.write("")
 
     col_savs_int, col_savs_ext, col_savs_trc = st.columns(3)
@@ -1127,7 +1127,7 @@ with pendencias:
     # SAVs INTERNAS SEM RVS
     # ===============================
     with col_savs_int:
-        st.markdown("### SAVs Internas")
+        st.markdown("#### SAVs Internas")
 
         if "Código da viagem:" in df_savs.columns and "Código da viagem:" in df_rvss.columns:
 
@@ -1169,6 +1169,11 @@ with pendencias:
             if df_savs_pendentes_atrasadas.empty:
                 st.info("Não há SAVs internas com RVS em atraso superior a 15 dias.")
             else:
+
+                st.write(
+                    f"{df_savs_pendentes_atrasadas.shape[0]} relatórios atrasados"
+                )
+
                 st.dataframe(
                     df_savs_pendentes_atrasadas[
                         [
@@ -1191,3 +1196,78 @@ with pendencias:
         else:
             st.error("Coluna 'Código da viagem:' não encontrada.")
 
+
+
+
+
+
+# ===============================
+# SAVs PARA TERCEIROS SEM RVS
+# ===============================
+with col_savs_ext:
+    st.markdown("#### SAVs para Terceiros")
+
+    if (
+        "Código da viagem:" in df_savs_terceiros.columns
+        and "Código da viagem:" in df_rvss_terceiros.columns
+    ):
+
+        # Normalização completa dos códigos
+        savs_codigos = (
+            df_savs_terceiros["Código da viagem:"]
+            .astype(str)
+            .str.strip()
+            .str.upper()
+        )
+
+        rvss_codigos = (
+            df_rvss_terceiros["Código da viagem:"]
+            .astype(str)
+            .str.strip()
+            .str.upper()
+        )
+
+        # Filtra SAVs que NÃO possuem RVS
+        df_savs_pendentes = df_savs_terceiros[
+            ~savs_codigos.isin(rvss_codigos)
+        ].copy()
+
+        # Capturar a data de fim da viagem
+        df_savs_pendentes["Fim da viagem"] = df_savs_pendentes[
+            "Itinerário:"
+        ].apply(obter_fim_viagem_datetime)
+
+        # Limite de 15 dias
+        data_limite = pd.Timestamp.today().normalize() - pd.Timedelta(days=15)
+
+        # Filtrar atrasadas
+        df_savs_pendentes_atrasadas = df_savs_pendentes[
+            df_savs_pendentes["Fim da viagem"] < data_limite
+        ].copy()
+
+        if df_savs_pendentes_atrasadas.empty:
+            st.info("Não há SAVs de terceiros com RVS em atraso superior a 15 dias.")
+        else:
+            st.write(
+                f"{df_savs_pendentes_atrasadas.shape[0]} relatórios atrasados"
+            )
+
+            st.dataframe(
+                df_savs_pendentes_atrasadas[
+                    [
+                        "Código da viagem:",
+                        "Nome completo:",
+                        "Fim da viagem"
+                    ]
+                ],
+                hide_index=True,
+                use_container_width=True,
+                column_config={
+                    "Fim da viagem": st.column_config.DateColumn(
+                        format="DD/MM/YYYY"
+                    )
+                }
+            )
+
+    else:
+        st.error("Coluna 'Código da viagem:' não encontrada.")
