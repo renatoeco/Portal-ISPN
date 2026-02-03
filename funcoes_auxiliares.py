@@ -209,6 +209,21 @@ def dialog_editar_entregas():
     df_pessoas = pd.DataFrame(list(db["pessoas"].find()))
     df_indicadores = pd.DataFrame(list(indicadores.find()))
     
+    def entrega_pode_ser_excluida(entrega: dict) -> bool:
+        campos_relacionais = [
+            "acoes_resultados_medio_prazo",
+            "metas_resultados_medio_prazo",
+            "resultados_longo_prazo_relacionados",
+            "eixos_relacionados",
+            "indicadores_relacionados",
+            "acoes_relacionadas"
+        ]
+
+        return all(
+            not entrega.get(campo)
+            for campo in campos_relacionais
+        )
+    
     # Garantir string do ObjectId (Streamlit trabalha melhor)
     df_indicadores["_id"] = df_indicadores["_id"].astype(str)
 
@@ -447,7 +462,7 @@ def dialog_editar_entregas():
                 )
 
                 eixos_relacionados = st.multiselect(
-                    "Contribui com quais eixos da estratégia PPP-ECOS?",
+                    "Contribui com quais eixos da estratégia do Fundo Ecos?",
                     options=eixos_options,
                     format_func=lambda x: mapa_eixos.get(x, ""),
                     placeholder="",
@@ -505,7 +520,7 @@ def dialog_editar_entregas():
                         st.success("Entrega adicionada com sucesso!")
                         time.sleep(2)
                         st.rerun()
-        
+                        
 
         # ============================
         # EXIBIR ENTREGAS EXISTENTES
@@ -734,7 +749,7 @@ def dialog_editar_entregas():
                             eixos_default = [str(e) for e in entrega.get("eixos_relacionados", [])]
 
                             entrega_editada["eixos_relacionados"] = st.multiselect(
-                                "Contribui com quais eixos da estratégia PPP-ECOS?",
+                                "Contribui com quais eixos da estratégia do Fundo Ecos?",
                                 options=eixos_options,
                                 default=eixos_default,
                                 format_func=lambda x: mapa_eixos.get(x, ""),
@@ -780,8 +795,10 @@ def dialog_editar_entregas():
                             ]
                             
                             st.write("")
+                            
+                            container_botoes = st.container(horizontal=True)
 
-                            salvar_edicao = st.form_submit_button("Salvar alterações", icon=":material/save:")
+                            salvar_edicao = container_botoes.form_submit_button("Salvar alterações", icon=":material/save:")
                             if salvar_edicao:
                                 entrega_editada["anos_de_referencia"] = [
                                     str(a) for a in entrega_editada["anos_de_referencia"]
@@ -797,6 +814,33 @@ def dialog_editar_entregas():
                                 st.success("Entrega atualizada!")
                                 time.sleep(2)
                                 st.rerun()
+                                
+                            pode_excluir = entrega_pode_ser_excluida(entrega)
+                            if pode_excluir:
+
+                                excluir = container_botoes.form_submit_button(
+                                    "Excluir entrega",
+                                    type="secondary",
+                                    icon=":material/delete:"
+                                )
+                                
+                                st.warning(
+                                    "Esta entrega não possui vínculos com ações estratégicas, metas, resultados, eixos ou indicadores "
+                                    "e pode ser excluída permanentemente."
+                                )
+
+                                if excluir:
+                                    entregas_existentes.pop(i)
+
+                                    projetos_ispn.update_one(
+                                        {"_id": projeto_info["_id"]},
+                                        {"$set": {"entregas": entregas_existentes}}
+                                    )
+
+                                    st.success("Entrega excluída com sucesso.")
+                                    time.sleep(2)
+                                    st.rerun()
+
 
     if mostrar_lancamentos:
         with aba_lancamentos_entregas:
@@ -1008,5 +1052,5 @@ def dialog_editar_entregas():
                                 )
 
                                 st.success("Lançamento atualizado!")
-                                time.sleep(1.5)
+                                time.sleep(2)
                                 st.rerun()
