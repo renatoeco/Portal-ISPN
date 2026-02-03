@@ -1456,24 +1456,15 @@ with tab2:
     projetos_selectbox = [""] + sorted(df_projetos_ispn["sigla"].unique().tolist())
     projeto_selecionado = container_selecao.selectbox('Selecione um projeto', projetos_selectbox, width=300)
 
-
-
     # Botão para cadastrar projeto ------------------------------------
-
-    
-
-    # Botão para cadastrar projeto
-    if container_selecao.button("Cadastrar projeto", icon=":material/add:", width=300):
-        dialog_cadastrar_projeto()
-
-
+    if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)"}:
+        if container_selecao.button("Cadastrar projeto", icon=":material/add:", width=300):
+            dialog_cadastrar_projeto()
 
     # Carrega informações do projeto
     projeto_info = df_projetos_ispn.loc[df_projetos_ispn["sigla"] == projeto_selecionado]
 
-
     if projeto_selecionado == "":
-        # st.write('Selecione um projeto')
         st.stop()
     else:
         st.divider()
@@ -1484,14 +1475,69 @@ with tab2:
         # Sigla do projeto
         st.markdown(f"<h3 style='color:#007ad3'>{projeto_selecionado}</h3>", unsafe_allow_html=True)
         st.write('')
+        
+        # --------------------------------------------------
+        # DADOS DO USUÁRIO LOGADO
+        # --------------------------------------------------
+        usuario_id = str(st.session_state.get("id_usuario"))  
+        tipos_usuario = set(st.session_state.tipo_usuario)
+
+        # --------------------------------------------------
+        # DADOS DO PROJETO SELECIONADO
+        # --------------------------------------------------
+        projeto = projeto_info.iloc[0]
+
+        coordenador_projeto_id = str(projeto.get("coordenador")) if projeto.get("coordenador") else None
+        programa_projeto_id = str(projeto.get("programa")) if projeto.get("programa") else None
+        
+        # --------------------------------------------------
+        # COORDENADOR DO PROGRAMA
+        # --------------------------------------------------
+        coordenador_programa_id = None
+
+        if programa_projeto_id:
+            coord_prog = df_programas.loc[
+                df_programas["_id"].astype(str) == programa_projeto_id,
+                "coordenador_id"
+            ]
+
+            if not coord_prog.empty and coord_prog.iloc[0]:
+                coordenador_programa_id = str(coord_prog.iloc[0])
+            
+        # --------------------------------------------------
+        # GESTORES DO PROJETO
+        # --------------------------------------------------
+        gestores_raw = projeto.get("gestores", [])
+
+        if not isinstance(gestores_raw, list):
+            gestores_raw = []
+
+        gestores_ids = [str(g) for g in gestores_raw if g]
+
+        # --------------------------------------------------
+        # REGRAS DE PERMISSÃO
+        # --------------------------------------------------
+        eh_admin = "admin" in tipos_usuario
+        eh_coord_projeto = usuario_id == coordenador_projeto_id
+        eh_coord_programa = usuario_id == coordenador_programa_id
+        eh_gestor_projeto = usuario_id in gestores_ids
+
+        pode_gerenciar_projeto = any([
+            eh_admin,
+            eh_coord_projeto,
+            eh_coord_programa,
+            eh_gestor_projeto
+        ])
 
         # Botão de gerenciar -------------------
         
-        # Roteamento de tipo de usuário especial
-        if set(st.session_state.tipo_usuario) & {"admin"}:
-
-            # with st.container(horizontal=True):
-            st.button('Gerenciar projeto', width=300, icon=":material/contract_edit:", on_click=dialog_editar_projeto)
+        if pode_gerenciar_projeto:
+            st.button(
+                "Gerenciar projeto",
+                width=300,
+                icon=":material/contract_edit:",
+                on_click=dialog_editar_projeto
+            )
 
     # ------------------------------------------
 

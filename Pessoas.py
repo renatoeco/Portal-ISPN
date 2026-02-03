@@ -624,14 +624,14 @@ def gerenciar_pessoas():
                         # Opções possíveis para o campo "tipo de usuário"
                         opcoes_tipo_usuario = [
                             "coordenador(a)", "admin", "gestao_pessoas", "gestao_ferias", "supervisao_ferias", 
-                            "gestao_pls", "gestao_projetos_doadores", "gestao_fundo_ecos", "gestao_viagens", "gestao_eventos"
+                            "gestao_pls", "gestao_doadores", "gestao_fundo_ecos", "gestao_viagens", "gestao_eventos"
                         ]
 
                     else: # Se não for admin, não aparece a permissão admin disponível
                         # Opções possíveis para o campo "tipo de usuário"
                         opcoes_tipo_usuario = [
                             "coordenador(a)", "gestao_pessoas", "gestao_ferias", "supervisao_ferias", 
-                            "gestao_pls", "gestao_projetos_doadores", "gestao_fundo_ecos", "gestao_viagens", "gestao_eventos"
+                            "gestao_pls", "gestao_doadores", "gestao_fundo_ecos", "gestao_viagens", "gestao_eventos"
                         ]
 
 
@@ -693,10 +693,10 @@ def gerenciar_pessoas():
                         col1.write("**gestao_pls**")
                         col2.write("Faz a gestão dos Projetos de Lei monitorados.")
 
-                        # gestao_projetos_doadores
+                        # gestao_doadores
                         col1, col2 = st.columns([1, 2])
-                        col1.write("**gestao_projetos_doadores**")
-                        col2.write("Faz a gestão de projetos e doadores.")
+                        col1.write("**gestao_doadores**")
+                        col2.write("Faz a gestão de doadores.")
 
                         # gestao_fundo_ecos
                         col1, col2 = st.columns([1, 2])
@@ -1711,14 +1711,14 @@ def gerenciar_pessoas():
                 # Opções possíveis para o campo "tipo de usuário"
                 opcoes_tipo_usuario = [
                     "coordenador(a)", "admin", "gestao_pessoas", "gestao_ferias", "supervisao_ferias", 
-                    "gestao_pls", "gestao_projetos_doadores", "gestao_fundo_ecos", "gestao_viagens"
+                    "gestao_pls", "gestao_doadores", "gestao_fundo_ecos", "gestao_viagens"
                 ]
 
             else: # Se não for admin, não aparece a permissão admin disponível
                 # Opções possíveis para o campo "tipo de usuário"
                 opcoes_tipo_usuario = [
                     "coordenador(a)", "gestao_pessoas", "gestao_ferias", "supervisao_ferias", 
-                    "gestao_pls", "gestao_projetos_doadores","gestao_fundo_ecos", "gestao_viagens"
+                    "gestao_pls", "gestao_doadores","gestao_fundo_ecos", "gestao_viagens"
                 ]
 
             # Multiselect para tipo de usuário com valores padrão preenchidos
@@ -1764,10 +1764,10 @@ def gerenciar_pessoas():
                 col1.write("**gestao_pls**")
                 col2.write("Faz a gestão dos Projetos de Lei monitorados.")
 
-                # gestao_projetos_doadores
+                # gestao_doadores
                 col1, col2 = st.columns([1, 2])
-                col1.write("**gestao_projetos_doadores**")
-                col2.write("Faz a gestão de projetos e doadores.")
+                col1.write("**gestao_doadores**")
+                col2.write("Faz a gestão de doadores.")
 
                 # gestao_fundo_ecos
                 col1, col2 = st.columns([1, 2])
