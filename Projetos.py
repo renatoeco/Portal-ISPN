@@ -431,13 +431,23 @@ def dialog_cadastrar_projeto():
         # --- Contrapartida ---
         contrapartida = col3.number_input("Contrapartida", value=0.00, step=0.01, min_value=0.0, format="%.2f")
 
+        # -----------------------------------
+        # Pessoas ativas (para coordenador e gestores)
+        # -----------------------------------
+        df_pessoas_ativas = df_pessoas[df_pessoas["status"] == "ativo"].copy()
+
+        # Lista de opções (ObjectId como string)
+        pessoas_options = df_pessoas_ativas["_id"].astype(str).tolist()
+
         # --- Coordenador ---
-        coordenador_options = [""] + df_pessoas["_id"].astype(str).tolist()
+        coordenador_options = [""] + pessoas_options
 
         coordenador = col1.selectbox(
             "Coordenador",
             options=coordenador_options,
-            format_func=lambda x: "" if x=="" else df_pessoas.loc[df_pessoas["_id"].astype(str)==x, "nome_completo"].values[0],
+            format_func=lambda x: "" if x == "" else df_pessoas_ativas
+                .loc[df_pessoas_ativas["_id"].astype(str) == x, "nome_completo"]
+                .values[0],
             index=0
         )
 
@@ -458,7 +468,15 @@ def dialog_cadastrar_projeto():
             format_func=lambda x: "" if x=="" else mapa_programa[x],
             index=0
         )
-
+        
+        gestores = st.multiselect(
+            "Gestores(as) do projeto",
+            options=pessoas_options,
+            format_func=lambda x: df_pessoas_ativas
+                .loc[df_pessoas_ativas["_id"].astype(str) == x, "nome_completo"]
+                .values[0],
+            placeholder=""
+        )
 
         # --- Objetivo Geral ---
         objetivo_geral = st.text_area("Objetivo Geral", value="")
@@ -622,6 +640,7 @@ def dialog_cadastrar_projeto():
                 # --- Criar ObjectIds ---
                 projeto_id = bson.ObjectId()
                 coordenador_objid = bson.ObjectId(coordenador) if coordenador else None
+                gestores_objids = [bson.ObjectId(g) for g in gestores] if gestores else []
                 doador_objid = bson.ObjectId(doador) if doador else None
                 programa_objid = bson.ObjectId(programa) if programa else None
 
@@ -667,6 +686,7 @@ def dialog_cadastrar_projeto():
                     "coordenador": coordenador_objid,
                     "doador": doador_objid,
                     "programa": programa_objid,
+                    "gestores": gestores_objids,
                     "status": status,
                     "data_inicio_contrato": data_inicio.strftime("%d/%m/%Y"),
                     "data_fim_contrato": data_fim.strftime("%d/%m/%Y"),
@@ -855,21 +875,37 @@ def dialog_editar_projeto():
         contrapartida_atual = br_to_float(projeto_info.get("valor_da_contrapartida_em_r$", "0"))
         contrapartida = col3.number_input("Contrapartida em R$", value=contrapartida_atual, step=0.01, min_value=0.0, format="%.2f")
 
+        # -----------------------------------
+        # Pessoas ativas (base para selects)
+        # -----------------------------------
+        df_pessoas_ativas = df_pessoas[df_pessoas["status"] == "ativo"].copy()
 
-        # Coordenador
-        coordenador_options = [""] + df_pessoas["_id"].astype(str).tolist()  # inclui vazio
-        coordenador_atual = str(projeto_info.get("coordenador", "")) if projeto_info.get("coordenador") else ""
+        pessoas_ativas_options = df_pessoas_ativas["_id"].astype(str).tolist()
+
+        # Coordenador atual
+        coordenador_atual_obj = projeto_info.get("coordenador")
+        coordenador_atual_str = str(coordenador_atual_obj) if coordenador_atual_obj else ""
+
+        # Opções: pessoas ativas + coordenador atual (se não estiver ativo)
+        coordenador_options = pessoas_ativas_options.copy()
+
+        if coordenador_atual_str and coordenador_atual_str not in coordenador_options:
+            coordenador_options.insert(0, coordenador_atual_str)
+
+        coordenador_options = [""] + coordenador_options
 
         index_coordenador = (
-            coordenador_options.index(coordenador_atual)
-            if coordenador_atual in coordenador_options
+            coordenador_options.index(coordenador_atual_str)
+            if coordenador_atual_str in coordenador_options
             else 0
         )
 
         coordenador = col1.selectbox(
             "Coordenador",
             options=coordenador_options,
-            format_func=lambda x: "" if x == "" else df_pessoas.loc[df_pessoas["_id"].astype(str) == x, "nome_completo"].values[0],
+            format_func=lambda x: "" if x == "" else df_pessoas
+                .loc[df_pessoas["_id"].astype(str) == x, "nome_completo"]
+                .values[0],
             index=index_coordenador
         )
 
@@ -899,6 +935,32 @@ def dialog_editar_projeto():
             options=doador_options,
             format_func=lambda x: mapa_doador[x],
             index=index_doador
+        )
+        
+        # -----------------------------------
+        # Gestores atuais (normalização segura)
+        # -----------------------------------
+        gestores_raw = projeto_info.get("gestores", [])
+
+        if not isinstance(gestores_raw, list):
+            gestores_raw = []
+
+        gestores_atuais = [str(g) for g in gestores_raw if g]
+        
+        gestores_options = pessoas_ativas_options.copy()
+
+        for g in gestores_atuais:
+            if g not in gestores_options:
+                gestores_options.append(g)
+                
+        gestores = st.multiselect(
+            "Gestores(as) do projeto",
+            options=gestores_options,
+            default=gestores_atuais,
+            format_func=lambda x: df_pessoas
+                .loc[df_pessoas["_id"].astype(str) == x, "nome_completo"]
+                .values[0],
+            placeholder=""
         )
 
         # Objetivo geral
@@ -1100,6 +1162,7 @@ def dialog_editar_projeto():
         if submit:
             # Converter coordenador, doador e programa para ObjectId antes de salvar
             coordenador_objid = bson.ObjectId(coordenador) if coordenador else None
+            gestores_objids = [bson.ObjectId(g) for g in gestores] if gestores else []
             doador_objid = bson.ObjectId(doador) if doador else None
             programa_objid = bson.ObjectId(programa) if programa else None
 
@@ -1151,6 +1214,7 @@ def dialog_editar_projeto():
                     "coordenador": coordenador_objid,
                     "doador": doador_objid,
                     "programa": programa_objid,
+                    "gestores": gestores_objids,
                     "status": status,
                     "data_inicio_contrato": data_inicio.strftime("%d/%m/%Y"),
                     "data_fim_contrato": data_fim.strftime("%d/%m/%Y"),
@@ -1160,7 +1224,7 @@ def dialog_editar_projeto():
 
                 projetos_ispn.update_one({"_id": projeto_info["_id"]}, {"$set": update_doc})
                 st.success("Projeto atualizado com sucesso!")
-                time.sleep(3)
+                time.sleep(2)
                 st.rerun()
 
 
@@ -1421,21 +1485,13 @@ with tab2:
         st.markdown(f"<h3 style='color:#007ad3'>{projeto_selecionado}</h3>", unsafe_allow_html=True)
         st.write('')
 
-
-
         # Botão de gerenciar -------------------
         
         # Roteamento de tipo de usuário especial
-        if set(st.session_state.tipo_usuario) & {"admin", "gestao_projetos_doadores"}:
-
-            
-
+        if set(st.session_state.tipo_usuario) & {"admin"}:
 
             # with st.container(horizontal=True):
             st.button('Gerenciar projeto', width=300, icon=":material/contract_edit:", on_click=dialog_editar_projeto)
-
-
-
 
     # ------------------------------------------
 
@@ -1475,8 +1531,8 @@ with tab2:
     st.write('')
 
     # Coordenador
-    coordenador_id = projeto_info["coordenador"].values[0] if not projeto_info.empty else ""
-    coordenador_nome = mapa_coordenador.get(coordenador_id, "")  # retorna string vazia se não achar
+    coordenador_id = projeto_info["coordenador"].values[0] if not projeto_info.empty else None
+    coordenador_nome = (mapa_coordenador.get(str(coordenador_id), "") if coordenador_id else "")
     col1.write(f'**Coordenador(a):** {coordenador_nome}')
 
     # Doador e Programa
