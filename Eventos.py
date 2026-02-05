@@ -220,7 +220,7 @@ def detalhes_evento(codigo):
     mostrar_campo("2) Será necessária hospedagem para os(as) participantes?", 
                 evento.get("2) Será necessária hospedagem para os(as) participantes?"))
     
-    mostrar_campo("Relacione os(as) participantes com hospedagem:", evento.get("Relacione os(as) participantes com hospedagem:"))
+    mostrar_campo("Quantos participantes precisarão de hospedagem?", evento.get("Quantos participantes precisarão de hospedagem?"))
 
     mostrar_campo("3) Será necessário transporte para os(as) participantes?", 
                 evento.get("3) Será necessário transporte para os(as) participantes?"))
