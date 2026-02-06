@@ -193,6 +193,29 @@ def montar_eventos_calendario(df_eventos):
     return eventos_cal
 
 
+def sincronizar_status_evento(codigo_evento, key_status):
+    novo_status = st.session_state.get(key_status)
+
+    if not novo_status:
+        return
+
+    codigo_evento = str(codigo_evento).strip()
+
+    # Atualiza MongoDB
+    eventos.update_one(
+        {"codigo": codigo_evento},
+        {"$set": {"status": novo_status}}
+    )
+
+    # Atualiza DataFrame em memória
+    df_eventos.loc[
+        df_eventos["Código do evento:"].astype(str).str.strip() == codigo_evento,
+        "Status"
+    ] = novo_status
+
+    st.session_state["status_atualizado"] = True
+
+
 def calendario_eventos():
 
     eventos_cal = montar_eventos_calendario(df_eventos)
@@ -271,10 +294,15 @@ def pode_editar_status(evento_cpf):
 
     tipos_usuario = set(st.session_state.get("tipo_usuario", []))
 
-    return (
-        evento_cpf == cpf_usuario
-        or tipos_usuario & {"admin", "gestao_eventos"}
-    )
+    # Admin ou gestão → sempre pode
+    if tipos_usuario & {"admin", "gestao_eventos"}:
+        return True
+
+    # Solicitante → se tiver pelo menos um evento
+    if cpf_usuario and cpf_usuario in set(df_eventos["CPF"]):
+        return True
+
+    return False
 
 
 def atualizar_status_evento(codigo_evento, novo_status):
@@ -442,27 +470,22 @@ def todos_os_eventos():
         pode_editar = pode_editar_status(row["CPF"])
 
         status_atual = row["Status"]
+        key_status = f"status_todos_{row['Código do evento:']}"
 
-        if pode_editar:
-            novo_status = col6.selectbox(
+        modo_edicao = st.session_state.get("modo_edicao", False)
+
+        if pode_editar and modo_edicao:
+            col6.selectbox(
                 label="Status do evento",
                 options=STATUS_EVENTOS,
                 index=STATUS_EVENTOS.index(status_atual),
-                key=f"status_todos_{row['Código do evento:']}",
-                label_visibility="collapsed"
+                key=key_status,
+                label_visibility="collapsed",
+                on_change=sincronizar_status_evento,
+                args=(row["Código do evento:"], key_status)
             )
-
-            if novo_status != status_atual:
-                atualizar_status_evento(row["Código do evento:"], novo_status)
-
-                st.toast("Status atualizado com sucesso")
-                time.sleep(1)
-
-                st.cache_data.clear()
-                st.rerun()
         else:
             col6.write(status_atual)
-
 
         col7.button(
             "Detalhes",
@@ -514,23 +537,20 @@ def meus_eventos():
         pode_editar = pode_editar_status(row["CPF"])
 
         status_atual = row["Status"]
+        key_status = f"status_meus_{row['Código do evento:']}"
 
-        if pode_editar:
-            novo_status = col6.selectbox(
+        modo_edicao = st.session_state.get("modo_edicao", False)
+
+        if pode_editar and modo_edicao:
+            col6.selectbox(
                 label="Status do evento",
                 options=STATUS_EVENTOS,
                 index=STATUS_EVENTOS.index(status_atual),
-                key=f"status_meus_{row['Código do evento:']}",
-                label_visibility="collapsed"
+                key=key_status,
+                label_visibility="collapsed",
+                on_change=sincronizar_status_evento,
+                args=(row["Código do evento:"], key_status)
             )
-
-            if novo_status != status_atual:
-                atualizar_status_evento(row["Código do evento:"], novo_status)
-
-                st.toast("Status atualizado com sucesso")
-
-                st.cache_data.clear()
-                st.rerun()
         else:
             col6.write(status_atual)
 
@@ -617,16 +637,25 @@ df_eventos["Data do evento"] = df_eventos["Datas e horário do evento:"].apply(e
 # ##################################################################
 
 
-# # ??????????????????
-# st.write(df_eventos)
-# st.write(st.session_state)
+# --------------------------------------------------
+# CONTROLE DE MODO DE EDIÇÃO
+# --------------------------------------------------
 
-with st.container(horizontal=True, horizontal_alignment="right"):
+if "modo_edicao" not in st.session_state:
+    st.session_state["modo_edicao"] = False
 
-    if st.button("Atualizar página", type="secondary", icon=":material/refresh:"):
-        st.cache_data.clear()
-        st.cache_resource.clear()
-        st.rerun()
+usuario_pode_ver_toggle = pode_editar_status(df_eventos)
+
+container_toggle = st.container(horizontal=True, horizontal_alignment="right")
+
+if usuario_pode_ver_toggle:
+    st.write("")
+    container_toggle.toggle(
+        "Modo de edição",
+        key="modo_edicao",
+    )
+else:
+    st.session_state["modo_edicao"] = False
 
 # Roteamento de tipo de usuário. admin e gestao_eventos podem ver a aba Todos os eventos
 if set(st.session_state.tipo_usuario) & {"admin", "gestao_eventos"}:
@@ -663,3 +692,16 @@ else:
     # Aba Nova Solicitação
     with tabs[2]:
         st.write("Nova Solicitação")
+        
+if st.session_state.get("status_atualizado"):
+    placeholder = st.empty()
+
+    placeholder.success(
+        "Status atualizado",
+        icon=":material/check:"
+    )
+
+    time.sleep(2)
+
+    placeholder.empty()
+    st.session_state["status_atualizado"] = False
