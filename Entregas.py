@@ -1045,19 +1045,18 @@ with lista_entregas:
             idx = linhas[0]
 
             linha_visivel = df_visivel.iloc[idx]
-            linha_completa = df_completo.iloc[idx]  # 🔴 AQUI
+            linha_completa = df_completo.iloc[idx]  # AQUI
 
             st.session_state["entrega_selecionada"] = {
                 "entrega": linha_visivel["Entrega"],
                 "entrega_id": linha_completa["entrega_id"],
                 "indice": idx,
-                "projeto_id": linha_completa["projeto_id"]  # ✅ EXISTE
+                "projeto_id": linha_completa["projeto_id"]  # EXISTE
             }
 
             st.session_state["abrir_dialogo_entrega"] = True
 
         return handle_selecao_entrega
-
 
 
     key_df = f"df_entregas_lista"
