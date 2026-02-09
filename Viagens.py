@@ -180,9 +180,6 @@ def obter_fim_viagem_datetime(itinerario_texto):
     )
 
 
-
-
-
 # Função para transformar as diarias em uma lista de dicionários
 def parse_diarias(diarias_texto):
     diarias = []
@@ -237,8 +234,6 @@ def get_usuario_normalizado(pessoas, id_usuario) -> dict:
     }
 
     return usuario
-
-
 
 
 # Função para mostrar os detalhes da SAV no diálogo
@@ -327,7 +322,6 @@ def mostrar_detalhes_sav(row):
     st.write(f"**Observações:** {row['Observações gerais:']}")
 
     st.write('')
-
 
 
 @st.dialog("Detalhes do Relatório", width='large')
@@ -419,7 +413,6 @@ def carregar_internos():
     return df_usuarios_internos
 
 
-
 # Cerregar usuários externos no banco de dados ------------------------------
 def carregar_externos():
     # criar um dataframe com os usuários externos
@@ -431,8 +424,8 @@ def carregar_externos():
     return df_usuarios_externos
 
 
-
 # Carregar SAVs internas no google sheets ------------------------------
+@st.cache_data(show_spinner=False, ttl=300)
 def carregar_savs_int():
 
     sheet = client.open_by_key(sheet_id)
@@ -452,7 +445,6 @@ def carregar_savs_int():
     df_savs = df_savs.replace({r'\$': r'\$'}, regex=True)
 
     return df_savs
-
 
 
 # Carregar RVSs internos no google sheets ------------------------------
@@ -478,10 +470,9 @@ def carregar_rvss_int():
     return df_rvss
 
 
-
-
 # Carregar SAVs de terceiros no google sheets ------------------------------
 # @st.cache_data(show_spinner=False)
+@st.cache_data(show_spinner=False, ttl=300)
 def carregar_savs_trc():
 
     # Abrir a planilha de SAVs de terceiros
@@ -537,8 +528,8 @@ def carregar_rvss_trc():
     return df_rvss_terceiros
 
 
-
 # Carregar SAVs Externas no google sheets ------------------------------
+@st.cache_data(show_spinner=False, ttl=300)
 def carregar_savs_ext():
     sheet = client.open_by_key(sheet_id)
 
@@ -557,7 +548,6 @@ def carregar_savs_ext():
     ]
 
     return df
-
 
 
 # Carregar RVSs Externas no google sheets ------------------------------
@@ -581,15 +571,90 @@ def carregar_rvss_ext():
     return df
 
 
+def terceiro_esta_impedido(cpf_viajante, df_savs_trc, df_rvss_trc):
+    """
+    Retorna True se o viajante externo (CPF) tiver
+    viagem finalizada sem relatório entregue.
+    """
+
+    cpf_viajante = "".join(filter(str.isdigit, str(cpf_viajante)))
+
+    df_savs_trc = df_savs_trc.copy()
+    df_savs_trc["CPF:"] = (
+        df_savs_trc["CPF:"]
+        .astype(str)
+        .str.replace(r"\D", "", regex=True)
+    )
+
+    df_viajante = df_savs_trc[
+        df_savs_trc["CPF:"] == cpf_viajante
+    ]
+
+    if df_viajante.empty:
+        return False
+
+    codigos_com_rvs = (
+        df_rvss_trc["Código da viagem:"]
+        .astype(str)
+        .str.strip()
+        .str.upper()
+        .unique()
+    )
+
+    for _, row in df_viajante.iterrows():
+
+        codigo = str(row["Código da viagem:"]).strip().upper()
+
+        if codigo in codigos_com_rvs:
+            continue
+
+        fim_viagem = obter_fim_viagem_datetime(row["Itinerário:"])
+
+        if pd.isna(fim_viagem):
+            continue
+
+        if fim_viagem.date() < date.today():
+            return True
+
+    return False
 
 
+def usuario_esta_impedido(df_savs_usuario, df_rvss):
 
+    codigos_com_rvs = (
+        df_rvss["Código da viagem:"]
+        .astype(str)
+        .str.strip()
+        .str.upper()
+        .unique()
+    )
 
+    for _, row in df_savs_usuario.iterrows():
 
+        codigo = str(row["Código da viagem:"]).strip().upper()
 
+        if codigo in codigos_com_rvs:
+            continue
 
+        trechos = parse_itinerario(row["Itinerário:"])
+        if not trechos:
+            continue
 
+        data_final = trechos[-1].get("Data")
 
+        fim_viagem = pd.to_datetime(
+            data_final,
+            format="%d-%m-%Y",
+            errors="coerce"
+        )
+
+        if pd.isna(fim_viagem):
+            continue
+
+        if fim_viagem.date() < date.today():
+            return True
+
+    return False
 
 
 @st.dialog("Cadastrar viajante externo", width="medium")
@@ -721,8 +786,6 @@ def cadastrar_externo():
                 st.rerun()
 
 
-
- 
 # carrega SAVs e RVSs internas
 df_savs = carregar_savs_int()
 df_rvss = carregar_rvss_int()
@@ -736,8 +799,7 @@ linha_botoes = st.container(horizontal=True, horizontal_alignment="right")
 
 # Botão para atualizar a página
 if linha_botoes.button("Atualizar página", icon=":material/refresh:", width=200):
-    # Limpa o session_state e o cache, e recarrega a página
-    st.session_state.status_usuario = ""
+    # Limpa o cache, e recarrega a página
     st.cache_data.clear()
     st.rerun()  
 
@@ -796,6 +858,15 @@ nova_sav = tabs[1]
 terceiros = tabs[2]
 pendencias = tabs[3] if tem_acesso_pendencias else None
 
+df_minhas_savs = df_savs[
+    df_savs['CPF:'].astype(str) == st.session_state.cpf
+]
+
+st.session_state.status_usuario = (
+    "impedido"
+    if usuario_esta_impedido(df_minhas_savs, df_rvss)
+    else "liberado"
+)
 
 
 # #######################################################################
@@ -819,9 +890,6 @@ with minhas_viagens:
     col3.write('**Itinerário**')
     col4.write('**Solicitações**')
     col5.write('**Relatórios**')
-
-    # Iniciar a variável na session_state que vai identificar se o usuário está impedido ou não de enviar relatório (se tem algum pendente)
-    st.session_state.status_usuario = ""
 
     # Iterar sobre a lista de viagens
     for index, row in df_minhas_savs[::-1].iterrows():
@@ -881,14 +949,7 @@ with minhas_viagens:
         # Se não tem nenhum relatório com esse código de SAV
         else:
             status_relatorio = "pendente"
-
-            # Se a data_final da viagem menor do que hoje, o usuário está impedido
-            if pd.to_datetime(data_final, dayfirst=True).timestamp() < pd.to_datetime(date.today()).timestamp():
             
-                # Impede o usuário de enviar uma nova solicitação se tiver relatório pendente
-                st.session_state.status_usuario = "impedido"
-                
-        # Se o relatório foi entregue, vê o relatório  
         if status_relatorio == "entregue":
             col5.button('Relatório entregue', key=f"entregue_{index}", on_click=mostrar_detalhes_rvs, args=(row, df_rvss), width="stretch", icon=":material/check:", type="primary")
         
@@ -903,6 +964,7 @@ with minhas_viagens:
 # #######################################################################
 # ABA DE NOVA SOLICITAÇÃO
 # #######################################################################
+
 
 with nova_sav:
 
@@ -999,6 +1061,12 @@ with terceiros:
 
         viajante = df_usuarios_externos[df_usuarios_externos['nome_completo'] == viajante_nome].iloc[0].to_dict()
 
+        impedido = terceiro_esta_impedido(
+            viajante["cpf"],
+            df_savs_terceiros,
+            df_rvss_terceiros
+        )
+
         # Monta a URL do JotForm para solicitação de SAV para Terceiros
 
         # Separa o dicionário do banco antes
@@ -1039,10 +1107,28 @@ with terceiros:
         col2.write('')
         col2.write('')
 
-        # Mensagem de manutenção.
-        # col2.write('Site em manutenção. Tente novamente mais tarde.')
+        if impedido:
+            st.write("")
+            st.markdown("""
+                <div style="text-align: center;">
+                    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded" rel="stylesheet">
+                    <span class="material-symbols-rounded" style="font-size:58px; color:red;">
+                        warning
+                    </span>
+                </div>
+                <div style="text-align: center; color: red; font-size: 18px;">
+                    Este viajante possui <strong>relatórios pendentes</strong> de viagens anteriores.<br>
+                    É necessário enviar os relátorios antes de solicitar uma nova viagem.
+                </div>
+            """, unsafe_allow_html=True)
 
-        col2.markdown(f"<a href='{jotform_sav_url}' target='_blank'>>> Clique aqui criar uma nova SAV para Terceiros</a>", unsafe_allow_html=True)
+        else:
+            col2.markdown(
+                f"<a href='{jotform_sav_url}' target='_blank'>>> Clique aqui criar uma nova SAV para Terceiros</a>",
+                unsafe_allow_html=True
+            )
+
+        #col2.markdown(f"<a href='{jotform_sav_url}' target='_blank'>>> Clique aqui criar uma nova SAV para Terceiros</a>", unsafe_allow_html=True)
 
     else:
 
