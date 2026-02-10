@@ -775,7 +775,7 @@ def dialog_editar_projeto():
         elif "ucs" in doc:
             dados_uc = doc["ucs"]
 
-    projeto_info = df_projetos_ispn[df_projetos_ispn["codigo"] == projeto_selecionado].iloc[0]
+    projeto_info = df_projetos_ispn[df_projetos_ispn["sigla"] == projeto_selecionado].iloc[0]
 
     # aba1, aba2 = st.tabs(["Informações gerais", "Entregas"])
 
@@ -1228,13 +1228,15 @@ def dialog_editar_projeto():
                 st.rerun()
 
 
-
 ######################################################################################################
 # INTERFACE
 ######################################################################################################
 
 
 st.header("Projetos do ISPN")
+
+if "projeto_selecionado_projetos" not in st.session_state:
+    st.session_state["projeto_selecionado_projetos"] = None
 
 st.write('')
 
@@ -1247,12 +1249,17 @@ st.write('')
 
 st.write('')
 
-container_selecao = st.container(horizontal=True, horizontal_alignment='distribute')
+container_selecao = st.container(horizontal=True, horizontal_alignment="right")
 
 # Botão para cadastrar projeto ------------------------------------
 if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)"}:
     if container_selecao.button("Cadastrar projeto", icon=":material/add:", width=300):
         dialog_cadastrar_projeto()
+
+    st.write('')
+    st.write('')
+
+
 
 # FILTROS ---------------------------------------------------------------
 
@@ -1410,7 +1417,7 @@ st.write('')
 # st.write('**Projetos**')
 
 # Selecionando colunas pra mostrar
-df_projetos_ispn_filtrado_show = df_projetos_ispn_filtrado[['codigo', 'nome_do_projeto', 'programa_nome', 'doador_nome', 'valor_com_moeda', 'data_inicio_contrato', 'data_fim_contrato', 'status']]
+df_projetos_ispn_filtrado_show = df_projetos_ispn_filtrado[['sigla', 'nome_do_projeto', 'programa_nome', 'doador_nome', 'valor_com_moeda', 'data_inicio_contrato', 'data_fim_contrato', 'status']]
 
 
 # Formatando as datas
@@ -1425,7 +1432,7 @@ df_projetos_ispn_filtrado_show['data_fim_contrato'] = (
 
 # Renomeando as colunas
 df_projetos_ispn_filtrado_show = df_projetos_ispn_filtrado_show.rename(columns={
-    'codigo': 'Código',
+    'sigla': 'Sigla',
     'programa_nome': 'Programa',
     'doador_nome': 'Doador',
     'data_inicio_contrato': 'Início do contrato',
@@ -1438,7 +1445,7 @@ df_projetos_ispn_filtrado_show = df_projetos_ispn_filtrado_show.rename(columns={
 
 # Reorganizar a ordem das colunas
 df_projetos_ispn_filtrado_show = df_projetos_ispn_filtrado_show[
-    ["Código", "Nome do projeto", "Programa", "Doador", "Valor", 
+    ["Sigla", "Nome do projeto", "Programa", "Doador", "Valor", 
     "Início do contrato", "Fim do contrato", "Situação"]
 ]
 
@@ -1450,16 +1457,17 @@ def criar_callback_selecao_projeto(df_visivel, key_df):
         estado = st.session_state.get(key_df, {})
         linhas = estado.get("selection", {}).get("rows", [])
 
+        # SE DESMARCOU → LIMPA O PROJETO
         if not linhas:
+            st.session_state["projeto_selecionado_projetos"] = None
             return
 
         idx = linhas[0]
-        codigo = df_visivel.iloc[idx]["Código"]
+        sigla = df_visivel.iloc[idx]["Sigla"]
 
-        st.session_state["projeto_selecionado"] = codigo
+        st.session_state["projeto_selecionado_projetos"] = sigla
 
     return handle_selecao
-
 
 key_df = "df_visao_geral"
 
@@ -1487,11 +1495,16 @@ st.dataframe(
     height=altura_df
 )
 
-projeto_selecionado = st.session_state["projeto_selecionado"]
+projeto_selecionado = st.session_state.get("projeto_selecionado_projetos")
 
 projeto_info = df_projetos_ispn.loc[
-    df_projetos_ispn["codigo"] == projeto_selecionado
+    df_projetos_ispn["sigla"] == projeto_selecionado
 ]
+
+if projeto_info.empty:
+  
+    st.session_state["projeto_selecionado_projetos"] = None
+    st.stop()
 
 projeto = projeto_info.iloc[0]
 
@@ -1572,7 +1585,7 @@ with st.container(horizontal=True):
 st.subheader(
     "**" + 
     df_projetos_ispn.loc[
-        df_projetos_ispn['codigo'] == projeto_selecionado, 
+        df_projetos_ispn['sigla'] == projeto_selecionado, 
         'nome_do_projeto'
     ].squeeze() + 
     "**"
@@ -1586,7 +1599,7 @@ col1, col2 = st.columns(2)
 # Valor e contrapartida
 
 col1.write('')
-col1.metric("**Valor:**", df_projetos_ispn.loc[df_projetos_ispn['codigo'] == projeto_selecionado, 'valor_com_moeda'].values[0])
+col1.metric("**Valor:**", df_projetos_ispn.loc[df_projetos_ispn['sigla'] == projeto_selecionado, 'valor_com_moeda'].values[0])
 col1.write('')
 
 
@@ -1594,7 +1607,7 @@ col2.write('')
 col2.metric(
 "**Contrapartida:**",
 "R$ " + str(df_projetos_ispn.loc[
-    df_projetos_ispn['codigo'] == projeto_selecionado,
+    df_projetos_ispn['sigla'] == projeto_selecionado,
     'valor_da_contrapartida_em_r$'
 ].values[0])
 )
@@ -1617,11 +1630,11 @@ col1.write(f'**Programa:** {programa}')
 
 
 # Situação
-col2.write(f'**Situação:** {df_projetos_ispn.loc[df_projetos_ispn["codigo"] == projeto_selecionado, "status"].values[0]}')
+col2.write(f'**Situação:** {df_projetos_ispn.loc[df_projetos_ispn["sigla"] == projeto_selecionado, "status"].values[0]}')
 
 # Datas de início e término
-data_inicio = df_projetos_ispn.loc[df_projetos_ispn["codigo"] == projeto_selecionado, "data_inicio_contrato"].dt.strftime("%d/%m/%Y").values[0]
-data_fim = df_projetos_ispn.loc[df_projetos_ispn["codigo"] == projeto_selecionado, "data_fim_contrato"].dt.strftime("%d/%m/%Y").values[0]
+data_inicio = df_projetos_ispn.loc[df_projetos_ispn["sigla"] == projeto_selecionado, "data_inicio_contrato"].dt.strftime("%d/%m/%Y").values[0]
+data_fim = df_projetos_ispn.loc[df_projetos_ispn["sigla"] == projeto_selecionado, "data_fim_contrato"].dt.strftime("%d/%m/%Y").values[0]
 col2.write(f'**Data de início:** {data_inicio}')
 col2.write(f'**Data de término:** {data_fim}')
 
@@ -1629,7 +1642,7 @@ col2.write(f'**Data de término:** {data_fim}')
 
 # Objetivo geral
 objetivo_geral = df_projetos_ispn.loc[
-    df_projetos_ispn["codigo"] == projeto_selecionado, "objetivo_geral"
+    df_projetos_ispn["sigla"] == projeto_selecionado, "objetivo_geral"
 ].values[0]
 # Verificando se é NaN ou vazio
 if pd.isna(objetivo_geral) or objetivo_geral == "":
@@ -1640,7 +1653,7 @@ st.write('')
 
 # Obter o _id do projeto selecionado
 projeto_id = df_projetos_ispn.loc[
-    df_projetos_ispn["codigo"] == projeto_selecionado, "_id"
+    df_projetos_ispn["sigla"] == projeto_selecionado, "_id"
 ].values[0]
 
 
@@ -2068,8 +2081,16 @@ with tab_entregas:
             with st.container(horizontal_alignment="right"):
                 st.write('')    
                 if st.button("Gerenciar entregas", icon=":material/edit:", width=300):
-                    st.session_state["projeto_selecionado"] = projeto_selecionado
+
+                    # SINCRONIZAÇÃO EXPLÍCITA
+                    st.session_state["projeto_selecionado_entregas"] = (
+                        st.session_state.get("projeto_selecionado_projetos")
+                    )
+
+                    st.session_state["pagina_anterior"] = "pagina_projetos"
+
                     dialog_editar_entregas()
+
 
             
             st.write("_Não há entregas cadastradas para este projeto._")
@@ -2146,7 +2167,14 @@ with tab_entregas:
             with st.container(horizontal_alignment="right"):
                 st.write('')    
                 if st.button("Gerenciar entregas", icon=":material/edit:", width=300):
-                    st.session_state["projeto_selecionado"] = projeto_selecionado
+
+                    # SINCRONIZAÇÃO EXPLÍCITA
+                    st.session_state["projeto_selecionado_entregas"] = (
+                        st.session_state.get("projeto_selecionado_projetos")
+                    )
+
+                    st.session_state["pagina_anterior"] = "pagina_projetos"
+
                     dialog_editar_entregas()
 
         # Aplicar filtros

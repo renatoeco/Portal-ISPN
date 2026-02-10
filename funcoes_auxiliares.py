@@ -307,7 +307,7 @@ def dialog_editar_entregas():
     projeto_sigla = st.selectbox(
         "Selecione o projeto",
         options=[""] + projetos_options,
-        key="projeto_selecionado"
+        key="projeto_selecionado_entregas"
     )
 
     if not projeto_sigla:
