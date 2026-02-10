@@ -637,6 +637,15 @@ df_eventos["Data do evento"] = df_eventos["Datas e horário do evento:"].apply(e
 # ##################################################################
 
 
+with st.container(horizontal=True, horizontal_alignment="right"):
+
+    if st.button("Atualizar página", type="secondary", icon=":material/refresh:"):
+        st.cache_data.clear()
+        st.cache_resource.clear()
+        st.rerun()
+
+st.write("")
+
 # --------------------------------------------------
 # CONTROLE DE MODO DE EDIÇÃO
 # --------------------------------------------------
