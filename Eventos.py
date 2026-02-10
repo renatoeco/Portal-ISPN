@@ -660,19 +660,19 @@ else:
 # Roteamento de tipo de usuário. admin e gestao_eventos podem ver a aba Todos os eventos
 if set(st.session_state.tipo_usuario) & {"admin", "gestao_eventos"}:
 
-    tabs = st.tabs(["Todos os eventos", "Minhas solicitações", "Calendário", "Nova Solicitação"])
+    tabs = st.tabs(["Calendário", "Todos os eventos", "Minhas solicitações", "Nova Solicitação"])
+
+    # Aba Calendário
+    with tabs[0]:
+        calendario_eventos()
 
     # Aba Todos os eventos
-    with tabs[0]:
+    with tabs[1]:
         todos_os_eventos()
 
     # Aba Meus eventos
-    with tabs[1]:
-        meus_eventos()
-
-    # Aba Calendário
     with tabs[2]:
-        calendario_eventos()
+        meus_eventos()
 
     # Aba Nova Solicitação
     with tabs[3]:
@@ -681,13 +681,13 @@ if set(st.session_state.tipo_usuario) & {"admin", "gestao_eventos"}:
 else:
     tabs = st.tabs(["Meus eventos", "Calendário", "Nova Solicitação"])
 
-    # Aba Meus eventos
-    with tabs[0]:
-        st.write("Meus eventos")
-
     # Aba Calendário
-    with tabs[1]:
+    with tabs[0]:
         calendario_eventos()
+
+    # Aba Meus eventos
+    with tabs[1]:
+        meus_eventos()
 
     # Aba Nova Solicitação
     with tabs[2]:
