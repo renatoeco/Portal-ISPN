@@ -2075,7 +2075,7 @@ with tab_entregas:
     if not entregas:
 
         # ====================
-        # Botão para abrir o diálogo de Gerenciar indicadores
+        # Botão para abrir o diálogo de Gerenciar entregas
         # ====================
         if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)"}:
             with st.container(horizontal_alignment="right"):
@@ -2163,19 +2163,19 @@ with tab_entregas:
             # ====================
             # Botão para abrir o diálogo de Gerenciar entregas
             # ====================
+            if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)"}:
+                with st.container(horizontal_alignment="right"):
+                    st.write('')    
+                    if st.button("Gerenciar entregas", icon=":material/edit:", width=300):
 
-            with st.container(horizontal_alignment="right"):
-                st.write('')    
-                if st.button("Gerenciar entregas", icon=":material/edit:", width=300):
+                        # SINCRONIZAÇÃO EXPLÍCITA
+                        st.session_state["projeto_selecionado_entregas"] = (
+                            st.session_state.get("projeto_selecionado_projetos")
+                        )
 
-                    # SINCRONIZAÇÃO EXPLÍCITA
-                    st.session_state["projeto_selecionado_entregas"] = (
-                        st.session_state.get("projeto_selecionado_projetos")
-                    )
+                        st.session_state["pagina_anterior"] = "pagina_projetos"
 
-                    st.session_state["pagina_anterior"] = "pagina_projetos"
-
-                    dialog_editar_entregas()
+                        dialog_editar_entregas()
 
         # Aplicar filtros
         df_filtrado = df_entregas.copy()
