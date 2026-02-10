@@ -1477,7 +1477,7 @@ callback = criar_callback_selecao_projeto(
 )
 
 altura_df = altura_dataframe(df_projetos_ispn_filtrado_show, 0)
-altura_df = altura_df or 400
+altura_df = altura_df or 800
 
 
 st.dataframe(
@@ -2077,7 +2077,7 @@ with tab_entregas:
         # ====================
         # Botão para abrir o diálogo de Gerenciar entregas
         # ====================
-        if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)"}:
+        if pode_gerenciar_projeto:
             with st.container(horizontal_alignment="right"):
                 st.write('')    
                 if st.button("Gerenciar entregas", icon=":material/edit:", width=300):
@@ -2163,7 +2163,7 @@ with tab_entregas:
             # ====================
             # Botão para abrir o diálogo de Gerenciar entregas
             # ====================
-            if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)"}:
+            if pode_gerenciar_projeto:
                 with st.container(horizontal_alignment="right"):
                     st.write('')    
                     if st.button("Gerenciar entregas", icon=":material/edit:", width=300):
