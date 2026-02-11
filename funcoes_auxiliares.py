@@ -208,21 +208,26 @@ def dialog_editar_entregas():
     df_projetos_ispn = pd.DataFrame(list(projetos_ispn.find()))
     df_pessoas = pd.DataFrame(list(db["pessoas"].find()))
     df_indicadores = pd.DataFrame(list(indicadores.find()))
-    
-    def entrega_pode_ser_excluida(entrega: dict) -> bool:
-        campos_relacionais = [
-            "acoes_resultados_medio_prazo",
-            "metas_resultados_medio_prazo",
-            "resultados_longo_prazo_relacionados",
-            "eixos_relacionados",
-            "indicadores_relacionados",
-            "acoes_relacionadas"
-        ]
 
-        return all(
-            not entrega.get(campo)
-            for campo in campos_relacionais
-        )
+    def entrega_pode_ser_excluida(entrega: dict, projeto_id) -> bool:
+        entrega_id = entrega.get("_id")
+
+        if not entrega_id:
+            return False
+
+        # Verifica lançamentos EMBUTIDOS no projeto
+        lancamentos_embutidos = entrega.get("lancamentos_entregas", [])
+        if lancamentos_embutidos:
+            return False
+
+        # Verifica lançamentos persistidos na coleção
+        qtd_registros = colecao_lancamentos.count_documents({
+            "projeto": projeto_id,
+            "id_lanc_entrega": entrega_id
+        })
+
+        return qtd_registros == 0
+
     
     # Garantir string do ObjectId (Streamlit trabalha melhor)
     df_indicadores["_id"] = df_indicadores["_id"].astype(str)
@@ -798,48 +803,49 @@ def dialog_editar_entregas():
                             
                             container_botoes = st.container(horizontal=True)
 
-                            salvar_edicao = container_botoes.form_submit_button("Salvar alterações", icon=":material/save:")
-                            if salvar_edicao:
-                                entrega_editada["anos_de_referencia"] = [
-                                    str(a) for a in entrega_editada["anos_de_referencia"]
-                                ]
+                            with container_botoes:
 
-                                entrega_editada["responsaveis"] = [ObjectId(r) for r in entrega_editada["responsaveis"]]
+                                salvar_edicao = st.form_submit_button("Salvar alterações", icon=":material/save:")
+                                if salvar_edicao:
+                                    entrega_editada["anos_de_referencia"] = [
+                                        str(a) for a in entrega_editada["anos_de_referencia"]
+                                    ]
 
-                                entregas_existentes[i] = entrega_editada
-                                projetos_ispn.update_one(
-                                    {"_id": projeto_info["_id"]},
-                                    {"$set": {"entregas": entregas_existentes}}
-                                )
-                                st.success("Entrega atualizada!")
-                                time.sleep(2)
-                                st.rerun()
-                                
-                            pode_excluir = entrega_pode_ser_excluida(entrega)
-                            if pode_excluir:
+                                    entrega_editada["responsaveis"] = [ObjectId(r) for r in entrega_editada["responsaveis"]]
 
-                                excluir = container_botoes.form_submit_button(
-                                    "Excluir entrega",
-                                    type="secondary",
-                                    icon=":material/delete:"
-                                )
-                                
-                                st.warning(
-                                    "Esta entrega não possui vínculos com ações estratégicas, metas, resultados, eixos ou indicadores "
-                                    "e pode ser excluída permanentemente."
-                                )
-
-                                if excluir:
-                                    entregas_existentes.pop(i)
-
+                                    entregas_existentes[i] = entrega_editada
                                     projetos_ispn.update_one(
                                         {"_id": projeto_info["_id"]},
                                         {"$set": {"entregas": entregas_existentes}}
                                     )
-
-                                    st.success("Entrega excluída com sucesso.")
+                                    st.success("Entrega atualizada!")
                                     time.sleep(2)
                                     st.rerun()
+
+                                pode_excluir = entrega_pode_ser_excluida(
+                                    entrega,
+                                    projeto_info["_id"]
+                                )
+
+                                if pode_excluir:
+
+                                    excluir = st.form_submit_button(
+                                        "Excluir entrega",
+                                        type="secondary",
+                                        icon=":material/delete:"
+                                    )
+
+                                    if excluir:
+                                        entregas_existentes.pop(i)
+
+                                        projetos_ispn.update_one(
+                                            {"_id": projeto_info["_id"]},
+                                            {"$set": {"entregas": entregas_existentes}}
+                                        )
+
+                                        st.success("Entrega excluída com sucesso.")
+                                        time.sleep(2)
+                                        st.rerun()
 
 
     if mostrar_lancamentos:

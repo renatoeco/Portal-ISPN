@@ -322,6 +322,16 @@ def dialog_registros_entregas():
     responsaveis_ids = df_entregas.loc[idx, "responsaveis_ids"]
 
     # ===============================
+    # Verificação de registros associados
+    # ===============================
+    qtde_registros = db["registros_entregas"].count_documents({
+        "projeto_id": ObjectId(projeto_id),
+        "nome_da_entrega": nome_entrega
+    })
+
+    tem_registros = qtde_registros > 0
+
+    # ===============================
     # Cabeçalho
     # ===============================
     st.markdown(f"## {nome_entrega}")
@@ -330,10 +340,6 @@ def dialog_registros_entregas():
     col1, col2, col3, col4 = st.columns([1, 1, 1.5, 2.5])
 
     usuarios_coordenadores = set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)"}
-
-
-
-
 
     # ==========================================================
     # Usuários coordenadores (edição habilitada)
@@ -390,7 +396,7 @@ def dialog_registros_entregas():
             )
 
         # st.write("")
-        with st.container(horizontal_alignment="right"):
+        with st.container(horizontal_alignment="right", horizontal=True):
             if st.button("Salvar alterações", icon=":material/save:", width=250):
 
                 nova_situacao = st.session_state[f"entrega_situacao_{idx}"]
@@ -426,8 +432,33 @@ def dialog_registros_entregas():
                 time.sleep(3)
                 st.rerun()
 
+            if not tem_registros:
+                if st.button(
+                    "Excluir entrega",
+                    icon=":material/delete:",
+                    type="secondary",
+                    width=250,
+                    key=f"excluir_entrega_{idx}"
+                ):
+                    # Confirmação simples
+                    projetos_ispn.update_one(
+                        {"_id": ObjectId(projeto_id)},
+                        {
+                            "$pull": {
+                                "entregas": {
+                                    "nome_da_entrega": nome_entrega
+                                }
+                            }
+                        }
+                    )
 
+                    # Remove do DataFrame local
+                    df_entregas.drop(index=idx, inplace=True)
+                    df_entregas.reset_index(drop=True, inplace=True)
 
+                    st.success("Entrega excluída com sucesso.")
+                    time.sleep(2)
+                    st.rerun()
 
     # ==========================================================
     # Usuários comuns (somente leitura)
