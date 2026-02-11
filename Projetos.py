@@ -1476,8 +1476,8 @@ callback = criar_callback_selecao_projeto(
     key_df
 )
 
-altura_df = altura_dataframe(df_projetos_ispn_filtrado_show, 0)
-altura_df = altura_df or 800
+# altura_df = altura_dataframe(df_projetos_ispn_filtrado_show, 0)
+# altura_df = altura_df or 800
 
 
 st.dataframe(
@@ -1492,7 +1492,7 @@ st.dataframe(
             help="Abrir projeto"
         )
     },
-    height=altura_df
+    height=800
 )
 
 projeto_selecionado = st.session_state.get("projeto_selecionado_projetos")
