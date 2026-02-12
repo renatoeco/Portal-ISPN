@@ -28,6 +28,8 @@ df_doadores = pd.DataFrame(list(db["doadores"].find()))
 doadores_dict = {str(d["_id"]): d["nome_doador"] for d in db["doadores"].find()}
 df_programas = pd.DataFrame(list(db["programas_areas"].find()))
 df = pd.DataFrame(list(db["projetos_ispn"].find()))
+# Remover projetos sem doador válido
+df = df[df["doador"].notna() & (df["doador"] != "")].copy()
 
 
 ###########################################################################################################
@@ -79,18 +81,30 @@ st.session_state["pagina_anterior"] = PAGINA_ID
 
 @st.dialog("Gerenciar doadores", width="large")
 def gerenciar_doadores():
+
+    TIPOS_DOADOR = [
+        "Cooperação internacional",
+        "Empresa",
+        "Filantropia privada",
+        "Governo"
+    ]
+
     tab_adicionar, tab_editar = st.tabs([":material/add: Adicionar", ":material/edit: Editar"])
     
+    # =========================
+    # ABA ADICIONAR
+    # =========================
     with tab_adicionar:
         with st.form("form_adicionar_doador", border=False):
             nome_novo = st.text_input("Nome do doador")
             sigla_nova = st.text_input("Sigla")
+            tipo_novo = st.selectbox("Tipo de doador", TIPOS_DOADOR)
+
             submitted = st.form_submit_button("Adicionar", icon=":material/add:", type="primary")
 
             if submitted:
                 nome_limpo = nome_novo.strip()
                 if nome_limpo:
-                    # Verifica se já existe um doador com esse nome (case insensitive)
                     doador_existente = db["doadores"].find_one({
                         "nome_doador": {"$regex": f"^{nome_limpo}$", "$options": "i"}
                     })
@@ -100,7 +114,8 @@ def gerenciar_doadores():
                     else:
                         db["doadores"].insert_one({
                             "nome_doador": nome_limpo,
-                            "sigla_doador": sigla_nova.strip()
+                            "sigla_doador": sigla_nova.strip(),
+                            "tipo_doador": tipo_novo
                         })
                         st.success(f"Doador '{nome_limpo}' adicionado com sucesso!")
                         time.sleep(2)
@@ -108,55 +123,58 @@ def gerenciar_doadores():
                 else:
                     st.warning("O nome do doador é obrigatório.")
 
-
+    # =========================
+    # ABA EDITAR
+    # =========================
     with tab_editar:
-        # Monta a lista com opção vazia primeiro
+
         opcoes = [""] + list(doadores_dict.keys())
 
-        # Cria o selectbox
         doador_id = st.selectbox(
             "Selecione o doador para editar",
             opcoes,
-            format_func=lambda x: doadores_dict.get(x, ""),  # evita erro na opção vazia
+            format_func=lambda x: doadores_dict.get(x, ""),
             key="editar_doador_select"
         )
-        # Exemplo de uso
-        if doador_id == "":
-            st.write("") 
-            
-        else:
-            # Buscar os dados atualizados do doador selecionado
+
+        if doador_id != "":
+
             doador = db["doadores"].find_one({"_id": ObjectId(doador_id)})
 
-            # Formulário para edição
             with st.form("form_editar_doador"):
-                novo_nome = st.text_input("Editar nome", value=doador.get("nome_doador", ""), key="novo_nome")
-                nova_sigla = st.text_input("Editar sigla", value=doador.get("sigla_doador", ""), key="nova_sigla")
+
+                novo_nome = st.text_input(
+                    "Editar nome",
+                    value=doador.get("nome_doador", "")
+                )
+
+                nova_sigla = st.text_input(
+                    "Editar sigla",
+                    value=doador.get("sigla_doador", "")
+                )
+
+                tipo_atual = doador.get("tipo_doador", TIPOS_DOADOR[0])
+
+                novo_tipo = st.selectbox(
+                    "Editar tipo de doador",
+                    TIPOS_DOADOR,
+                    index=TIPOS_DOADOR.index(tipo_atual) if tipo_atual in TIPOS_DOADOR else 0
+                )
 
                 submitted = st.form_submit_button("Salvar alterações", icon=":material/save:")
+
                 if submitted:
                     db["doadores"].update_one(
                         {"_id": ObjectId(doador_id)},
                         {"$set": {
                             "nome_doador": novo_nome.strip(),
-                            "sigla_doador": nova_sigla.strip()
+                            "sigla_doador": nova_sigla.strip(),
+                            "tipo_doador": novo_tipo
                         }}
                     )
                     st.success("Doador atualizado com sucesso!")
                     time.sleep(2)
                     st.rerun()
-
-    # with tab_excluir:
-    #     with st.form("form_excluir_doador", border=False):
-    #         doador_id = st.selectbox("Selecione o doador para excluir", list(doadores_dict.keys()), format_func=lambda x: doadores_dict[x])
-    #         nome_exclusao = doadores_dict[doador_id]
-
-    #         submitted = st.form_submit_button(f"Excluir doador", icon=":material/delete:")
-    #         if submitted:
-    #             db["doadores"].delete_one({"_id": ObjectId(doador_id)})
-    #             st.success(f"Doador '{nome_exclusao}' excluído com sucesso!")
-    #             time.sleep(2)
-    #             st.rerun()
 
 
 ######################################################################################################
@@ -175,14 +193,23 @@ st.header("Doadores")
 
 
 # --- 2. Criar dicionários de mapeamento ---
-mapa_doador = {d["_id"]: d["nome_doador"] for d in db["doadores"].find()}
+# Criar mapas completos a partir da coleção doadores
+doadores_docs = list(db["doadores"].find())
+
+mapa_doador = {d["_id"]: d.get("nome_doador", "Sem nome") for d in doadores_docs}
+mapa_tipo_doador = {d["_id"]: d.get("tipo_doador", "Não informado") for d in doadores_docs}
 mapa_programa = {p["_id"]: p["nome_programa_area"] for p in db["programas_areas"].find()}
 
 # --- 3. Aplicar os mapeamentos ao df ---
 df["nome_doador"] = df["doador"].map(mapa_doador)
+
+df["tipo_de_doador"] = df["doador"].map(mapa_tipo_doador)
+
+df["nome_doador"] = df["nome_doador"].fillna("Doador não cadastrado")
+
+df["tipo_de_doador"] = df["tipo_de_doador"].fillna("Não informado")
+
 df["programa_nome"] = df["programa"].map(mapa_programa)
-
-
 
 # Conversão e limpeza do valor
 df["valor"] = (
@@ -201,9 +228,6 @@ def formatar_valor(row):
     return f"{simbolo} {row['valor']:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 df["Valor"] = df.apply(formatar_valor, axis=1)
-
-
-df["tipo_de_doador"] = df["tipo_de_doador"].str.capitalize()
 
 tab1, tab2 = st.tabs(["Visão geral", "Doadores"])
 
@@ -294,6 +318,7 @@ with tab1:
 
     # total de projetos
     pivot["Número de projetos"] = pivot["_id_Dólares"] + pivot["_id_Reais"]
+    pivot = pivot[pivot["Número de projetos"] > 0]
 
     # renomear colunas para exibir
     resumo_final = pivot.rename(columns={
@@ -480,7 +505,7 @@ with tab2:
     st.write('')
     
     if set(st.session_state.tipo_usuario) & {"admin", "gestao_projetos_doadores"}:
-        col1, col2, col3, col4, col5 = st.columns([2, 1, 1, 3, 2])
+        col1, col2, col3, col4, col5 = st.columns([2, 2, 1, 3, 2])
 
         col5.write('')
         col5.button("Gerenciar doadores", on_click=gerenciar_doadores, width=300, icon=":material/wallet:")
