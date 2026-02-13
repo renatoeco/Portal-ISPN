@@ -36,7 +36,8 @@ if "entrega_selecionada_tabela_key" not in st.session_state:
 
 if "entrega" not in st.session_state:
     st.session_state["entrega"] = False
-    
+
+
 # Mapa id_indicador -> nome
 df_indicadores = pd.DataFrame(list(indicadores.find({}, {"nome_indicador": 1})))
 df_indicadores["_id"] = df_indicadores["_id"].astype(str)
@@ -881,6 +882,41 @@ def extrair_anos_ref(valor):
     ]
 
 
+def verificar_entregas_atrasadas():
+    hoje = datetime.now().date()
+
+    projetos = projetos_ispn.find({"entregas": {"$exists": True}})
+
+    for projeto in projetos:
+        entregas = projeto.get("entregas", [])
+        alterou = False
+
+        for entrega in entregas:
+            if entrega.get("situacao") == "Prevista":
+
+                data_str = entrega.get("previsao_da_conclusao")
+
+                if not data_str:
+                    continue
+
+                try:
+                    data_prevista = datetime.strptime(
+                        data_str, "%d/%m/%Y"
+                    ).date()
+                except ValueError:
+                    continue
+
+                if hoje > data_prevista:
+                    entrega["situacao"] = "Atrasada"
+                    alterou = True
+
+        if alterou:
+            projetos_ispn.update_one(
+                {"_id": projeto["_id"]},
+                {"$set": {"entregas": entregas}}
+            )
+
+
 # ##########################################################
 # INTERFACE
 # ##########################################################
@@ -892,6 +928,23 @@ st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
 st.header("Entregas")
 
 st.write("")
+
+# ==========================================================
+# VERIFICAÇÃO DE ENTREGAS ATRASADAS
+# ==========================================================
+
+if "verificacao_entregas_data" not in st.session_state:
+    st.session_state["verificacao_entregas_data"] = None
+
+if st.session_state["verificacao_entregas_data"] != hoje:
+
+    verificar_entregas_atrasadas()
+
+    st.session_state["verificacao_entregas_data"] = hoje
+    st.session_state["verificacao_entregas_rodou"] = True
+
+else:
+    st.session_state["verificacao_entregas_rodou"] = False
 
 # Montagem do df_entregas
 df_entregas = carregar_entregas()
