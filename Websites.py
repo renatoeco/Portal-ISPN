@@ -98,15 +98,27 @@ SITES = {
 # ---------------------------------------------------------------------------------
 
 @st.cache_data(ttl=3600, show_spinner=False)
-def consultar_dados(property_id, inicio, fim):
+def consultar_dados(property_id, inicio, fim, periodo):
     """Retorna um DataFrame com os dados de visitas de um site"""
-    request = RunReportRequest(
-        property=f"properties/{property_id}",
-        dimensions=[
+    
+    # Se for hoje, inclui hora
+    if periodo == "hoje":
+        dimensions = [
             Dimension(name="pagePath"),
             Dimension(name="pageTitle"),
             Dimension(name="date"),
-        ],
+            Dimension(name="hour"),
+        ]
+    else:
+        dimensions = [
+            Dimension(name="pagePath"),
+            Dimension(name="pageTitle"),
+            Dimension(name="date"),
+        ]
+
+    request = RunReportRequest(
+        property=f"properties/{property_id}",
+        dimensions=dimensions,
         metrics=[Metric(name="screenPageViews")],
         date_ranges=[DateRange(start_date=str(inicio), end_date=str(fim))],
     )
@@ -115,17 +127,29 @@ def consultar_dados(property_id, inicio, fim):
 
     linhas = []
     for row in response.rows:
-        linhas.append({
+        registro = {
             "Data": row.dimension_values[2].value,
             "Página": row.dimension_values[0].value,
             "Título": row.dimension_values[1].value,
             "Visualizações": int(row.metric_values[0].value),
-        })
+        }
+
+        # Se for hoje, adiciona hora
+        if periodo == "hoje":
+            registro["Hora"] = int(row.dimension_values[3].value)
+
+        linhas.append(registro)
 
     df = pd.DataFrame(linhas)
+
     if not df.empty:
         df["Data"] = pd.to_datetime(df["Data"])
+
+        if periodo == "hoje":
+            df["DataHora"] = df["Data"] + pd.to_timedelta(df["Hora"], unit="h")
+
     return df
+
 
 # ---------------------------------------------------------------------------------
 # FUNÇÃO PARA EXIBIR RELATÓRIO DE UM SITE
@@ -171,13 +195,17 @@ def mostrar_relatorio(df, nome_site):
     st.write('')
     st.write('')
 
-    st.markdown(f"##### Evolução diária")
     
     # Gráfico diário
-    visitas_dia = df.groupby("Data")["Visualizações"].sum().reset_index()
-    fig = px.line(visitas_dia, x="Data", y="Visualizações")
-    # fig = px.line(visitas_dia, x="Data", y="Visualizações", title=f"Evolução diária - {nome_site}")
-    
+    if periodo == "hoje" and "DataHora" in df.columns:
+        st.markdown(f"##### Evolução por hora")
+        visitas_hora = df.groupby("DataHora")["Visualizações"].sum().reset_index()
+        fig = px.line(visitas_hora, x="DataHora", y="Visualizações")
+    else:
+        st.markdown(f"##### Evolução diária")
+        visitas_dia = df.groupby("Data")["Visualizações"].sum().reset_index()
+        fig = px.line(visitas_dia, x="Data", y="Visualizações")
+
     fig.update_layout(
             xaxis_title=None,
             yaxis_title="Visualizações",)
@@ -305,7 +333,7 @@ with abas[0]:
 
     for nome_site, property_id in SITES.items():
 
-        df_site = consultar_dados(property_id, inicio, fim)
+        df_site = consultar_dados(property_id, inicio, fim, periodo)
 
         dfs[nome_site] = df_site
 
@@ -355,9 +383,16 @@ with abas[0]:
 
         # Evolução diária consolidada
         df_consolidado = pd.concat([df for df in dfs.values() if not df.empty], ignore_index=True)
-        visitas_dia_total = df_consolidado.groupby("Data")["Visualizações"].sum().reset_index()
-        fig2 = px.line(visitas_dia_total, x="Data", y="Visualizações", title="Evolução diária (todos os sites)")
         
+        if periodo == "hoje" and "DataHora" in df_consolidado.columns:
+            visitas_total = df_consolidado.groupby("DataHora")["Visualizações"].sum().reset_index()
+            fig2 = px.line(visitas_total, x="DataHora", y="Visualizações",
+                        title="Evolução por hora (todos os sites)")
+        else:
+            visitas_total = df_consolidado.groupby("Data")["Visualizações"].sum().reset_index()
+            fig2 = px.line(visitas_total, x="Data", y="Visualizações",
+                        title="Evolução diária (todos os sites)")
+
         fig2.update_layout(
             xaxis_title=None,
             yaxis_title="Visualizações",
@@ -394,7 +429,7 @@ for i, (nome_site, property_id) in enumerate(SITES.items(), start=1):
         st.write("")
         st.write("")
         
-        df = consultar_dados(property_id, inicio, fim)
+        df = consultar_dados(property_id, inicio, fim, periodo)
         mostrar_relatorio(df, nome_site)
         
         # -----------------------------------------
