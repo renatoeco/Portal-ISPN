@@ -688,7 +688,7 @@ if set(st.session_state.tipo_usuario) & {"admin", "gestao_eventos"}:
         nova_solicitacao()
 
 else:
-    tabs = st.tabs(["Meus eventos", "Calendário", "Nova Solicitação"])
+    tabs = st.tabs(["Calendário", "Meus eventos", "Nova Solicitação"])
 
     # Aba Calendário
     with tabs[0]:
