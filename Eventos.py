@@ -700,7 +700,7 @@ else:
 
     # Aba Nova Solicitação
     with tabs[2]:
-        st.write("Nova Solicitação")
+        nova_solicitacao()
         
 if st.session_state.get("status_atualizado"):
     placeholder = st.empty()

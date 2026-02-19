@@ -1492,7 +1492,6 @@ st.dataframe(
             help="Abrir projeto"
         )
     },
-    height=800
 )
 
 projeto_selecionado = st.session_state.get("projeto_selecionado_projetos")

@@ -196,15 +196,56 @@ def mostrar_relatorio(df, nome_site):
     st.write('')
 
     
-    # Gráfico diário
+    # Gráfico de barras (hora ou dia)
     if periodo == "hoje" and "DataHora" in df.columns:
-        st.markdown(f"##### Evolução por hora")
-        visitas_hora = df.groupby("DataHora")["Visualizações"].sum().reset_index()
-        fig = px.line(visitas_hora, x="DataHora", y="Visualizações")
+        st.markdown("##### Evolução por hora")
+
+        visitas_hora = (
+            df.groupby("DataHora")["Visualizações"]
+            .sum()
+            .reset_index()
+            .sort_values("DataHora")
+        )
+
+        # cria coluna formatada
+        visitas_hora["Label"] = visitas_hora["DataHora"].dt.strftime("%H:%M")
+
+        fig = px.bar(
+            visitas_hora,
+            x="Label",
+            y="Visualizações",
+            text="Visualizações"
+        )
+
     else:
-        st.markdown(f"##### Evolução diária")
-        visitas_dia = df.groupby("Data")["Visualizações"].sum().reset_index()
-        fig = px.line(visitas_dia, x="Data", y="Visualizações")
+        st.markdown("##### Evolução diária")
+
+        visitas_dia = (
+            df.groupby("Data")["Visualizações"]
+            .sum()
+            .reset_index()
+            .sort_values("Data")
+        )
+
+        # cria coluna formatada
+        visitas_dia["Label"] = visitas_dia["Data"].dt.strftime("%d/%m/%Y")
+
+        fig = px.bar(
+            visitas_dia,
+            x="Label",
+            y="Visualizações",
+            text="Visualizações"
+        )
+
+    fig.update_traces(
+        textposition="outside"
+    )
+
+    fig.update_layout(
+        xaxis_title=None,
+        yaxis_title="Visualizações",
+    )
+
 
     fig.update_layout(
             xaxis_title=None,
@@ -385,13 +426,46 @@ with abas[0]:
         df_consolidado = pd.concat([df for df in dfs.values() if not df.empty], ignore_index=True)
         
         if periodo == "hoje" and "DataHora" in df_consolidado.columns:
-            visitas_total = df_consolidado.groupby("DataHora")["Visualizações"].sum().reset_index()
-            fig2 = px.line(visitas_total, x="DataHora", y="Visualizações",
-                        title="Evolução por hora (todos os sites)")
+
+            visitas_total = (
+                df_consolidado.groupby("DataHora")["Visualizações"]
+                .sum()
+                .reset_index()
+                .sort_values("DataHora")
+            )
+
+            visitas_total["Label"] = visitas_total["DataHora"].dt.strftime("%H:%M")
+
+            fig2 = px.bar(
+                visitas_total,
+                x="Label",
+                y="Visualizações",
+                text="Visualizações",
+                title="Evolução por hora (todos os sites)"
+            )
+
         else:
-            visitas_total = df_consolidado.groupby("Data")["Visualizações"].sum().reset_index()
-            fig2 = px.line(visitas_total, x="Data", y="Visualizações",
-                        title="Evolução diária (todos os sites)")
+
+            visitas_total = (
+                df_consolidado.groupby("Data")["Visualizações"]
+                .sum()
+                .reset_index()
+                .sort_values("Data")
+            )
+
+            visitas_total["Label"] = visitas_total["Data"].dt.strftime("%d/%m/%Y")
+
+            fig2 = px.bar(
+                visitas_total,
+                x="Label",
+                y="Visualizações",
+                text="Visualizações",
+                title="Evolução diária (todos os sites)"
+            )
+
+        fig2.update_traces(
+            textposition="outside"
+        )
 
         fig2.update_layout(
             xaxis_title=None,
