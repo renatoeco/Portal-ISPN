@@ -1,5 +1,5 @@
 import streamlit as st  
-from pymongo import MongoClient  
+import re
 import time 
 import random  
 import smtplib  
@@ -34,6 +34,27 @@ def encontrar_usuario_por_email(colaboradores, email_busca):
     if usuario:
         return usuario.get("nome_completo"), usuario  # Retorna o nome e os dados do usuário
     return None, None  # Caso não encontre
+
+
+def validar_senha_forte(senha: str):
+    """
+    Regras:
+    - Mínimo 8 caracteres
+    - Pelo menos 1 letra maiúscula
+    - Pelo menos 1 letra minúscula
+    - Pelo menos 1 número
+    """
+    regra = (
+        len(senha) >= 8
+        and re.search(r"[A-Z]", senha)
+        and re.search(r"[a-z]", senha)
+        and re.search(r"\d", senha)
+    )
+
+    if not regra:
+        return False, "A senha deve conter no mínimo 8 caracteres, 1 letra maiúscula, 1 letra minúscula e 1 número."
+
+    return True, ""
 
 
 # Função para enviar um e_mail com código de verificação
@@ -142,50 +163,52 @@ def recuperar_senha_dialog():
 
 
             if enviar_nova_senha:
-                if nova_senha == confirmar_senha and nova_senha.strip():
-                    email = st.session_state.email_verificado
+                if not nova_senha.strip():
+                    st.error("A senha não pode estar vazia.")
 
-                    usuario = colaboradores.find_one({"e_mail": email})
+                elif nova_senha != confirmar_senha:
+                    st.error("As senhas não coincidem.")
 
-                    if usuario:
-                        try:
-                            # Gera hash seguro da senha
-                            hash_senha = bcrypt.hashpw(nova_senha.encode("utf-8"), bcrypt.gensalt())
-
-                            # Atualiza no banco o hash, não a senha em texto puro
-                            result = colaboradores.update_one(
-                                {"e_mail": email},
-                                {"$set": {"senha": hash_senha}}
-                            )
-
-                            if result.matched_count > 0:
-                                st.success("Senha redefinida com sucesso!")
-
-                                # Limpa variáveis de sessão
-                                for key in ["codigo_enviado", "codigo_verificacao", "email_verificado", "codigo_validado"]:
-                                    st.session_state.pop(key, None)
-
-                                # Inicializa tipo de usuário
-                                tipo_usuario = [x.strip() for x in usuario.get("tipo de usuário", "").split(",")]
-                                st.session_state["tipo_usuario"] = tipo_usuario
-
-                                # Marca usuário como logado e reinicia
-                                st.session_state.logged_in = True
-                                time.sleep(2)
-                                st.rerun()
-                            else:
-                                st.error("Erro ao redefinir a senha. Tente novamente.")
-                        except Exception as e:
-                            st.error(f"Erro ao atualizar a senha: {e}")
-                    else:
-                        st.error("Nenhum usuário encontrado com esse e-mail.")
                 else:
-                    st.error("As senhas não coincidem ou estão vazias.")
+                    senha_valida, mensagem = validar_senha_forte(nova_senha)
 
+                    if not senha_valida:
+                        st.error(mensagem)
+                    else:
+                        email = st.session_state.email_verificado
+                        usuario = colaboradores.find_one({"e_mail": email})
 
+                        if usuario:
+                            try:
+                                hash_senha = bcrypt.hashpw(nova_senha.encode("utf-8"), bcrypt.gensalt())
 
+                                result = colaboradores.update_one(
+                                    {"e_mail": email},
+                                    {"$set": {"senha": hash_senha}}
+                                )
 
+                                if result.matched_count > 0:
+                                    st.success("Senha redefinida com sucesso!")
 
+                                    # Limpa variáveis de sessão
+                                    for key in ["codigo_enviado", "codigo_verificacao", "email_verificado", "codigo_validado"]:
+                                        st.session_state.pop(key, None)
+
+                                    tipo_usuario = [x.strip() for x in usuario.get("tipo de usuário", "").split(",")]
+                                    st.session_state["tipo_usuario"] = tipo_usuario
+
+                                    st.session_state.logged_in = True
+                                    time.sleep(2)
+                                    st.rerun()
+                                else:
+                                    st.error("Erro ao redefinir a senha. Tente novamente.")
+
+                            except Exception as e:
+                                st.error(f"Erro ao atualizar a senha: {e}")
+
+                        else:
+                            st.error("Nenhum usuário encontrado com esse e-mail.")
+                            
 
 ##############################################################################################################
 # TELA DE LOGIN
