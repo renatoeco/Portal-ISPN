@@ -2371,54 +2371,53 @@ if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_pess
                     })
 
 
-        
-
         # -------------------- Renderizar lista de contratos --------------------
-        st.write('')
-        st.markdown('<h3 style="font-size: 1.5em;">Contratos com vencimento nos próximos 90 dias:</h3>', unsafe_allow_html=True)
-        st.write('')
-        st.write('')
-        st.write('')
 
-        
+        if not contratos_90_dias:
+            st.write('')
+            st.markdown('<h3 style="font-size: 1.5em;">Não há contratos com vencimento nos próximos 90 dias</h3>', unsafe_allow_html=True)
+            st.write('')
+            st.write('')
+            st.write('')
+        else:
+            for item in contratos_90_dias:
 
-        for item in contratos_90_dias:
+                st.write('')
+                st.markdown('<h3 style="font-size: 1.5em;">Contratos com vencimento nos próximos 90 dias:</h3>', unsafe_allow_html=True)
+                st.write('')
+                st.write('')
+                st.write('')
 
-            col1, col2, col3 = st.columns([1, 1, 3])
+                col1, col2, col3 = st.columns([1, 1, 3])
 
-            pessoa = item["pessoa"]
-            contrato = item["contrato"]
+                pessoa = item["pessoa"]
+                contrato = item["contrato"]
 
-            # with st.container(border=True):
-            
-            col1.write(f"**{pessoa.get('nome_completo', 'Sem nome')}**")
+                col1.write(f"**{pessoa.get('nome_completo', 'Sem nome')}**")
 
-            col2.write(f"**Data de fim:** {contrato.get('data_fim', '')}")
-            col2.write(f"**Data de início:** {contrato.get('data_inicio', '')}")
+                col2.write(f"**Data de fim:** {contrato.get('data_fim', '')}")
+                col2.write(f"**Data de início:** {contrato.get('data_inicio', '')}")
 
-            # col2.write(f"**Mês de reajuste:** {contrato.get('data_reajuste', '')}")
+                projetos_ids = contrato.get("projeto_pagador", [])
+                col3.write('**Projeto:**')
+                if not projetos_ids:
+                    col3.write("O projeto pagador não foi informado")
+                else:
+                    for projeto_id in projetos_ids:
+                        projeto = next(
+                            (p for p in dados_projetos_ispn if p["_id"] == projeto_id),
+                            None
+                        )
+                        if projeto:
+                            col3.write(f"{projeto.get('sigla', '')} - {projeto.get('nome_do_projeto', '')}")
+                        else:
+                            col3.write(f"Projeto não encontrado para o ID: {projeto_id}")
 
+                if contrato.get("anotacoes_contrato"):
+                    col3.write("**Anotações:**")
+                    col3.write(contrato["anotacoes_contrato"])
 
-            projetos_ids = contrato.get("projeto_pagador", [])
-            col3.write('**Projeto:**')
-            if not projetos_ids:
-                col3.write("O projeto pagador não foi informado")
-            else:
-                for projeto_id in projetos_ids:
-                    projeto = next(
-                        (p for p in dados_projetos_ispn if p["_id"] == projeto_id),
-                        None
-                    )
-                    if projeto:
-                        col3.write(f"{projeto.get('sigla', '')} - {projeto.get('nome_do_projeto', '')}")
-                    else:
-                        col3.write(f"Projeto não encontrado para o ID: {projeto_id}")
-
-            if contrato.get("anotacoes_contrato"):
-                col3.write("**Anotações:**")
-                col3.write(contrato["anotacoes_contrato"])
-
-            st.divider()
+                st.divider()
 
         # -------------------- Preparar e renderizar gráfico de timeline --------------------
 
