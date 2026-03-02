@@ -207,10 +207,11 @@ with st.expander("MANUAL OPERACIONAL DO FUNDO ECOS"):
 
 
 # ORGANOGRAMA
-with st.expander("ORGANOGRAMA"):
+with st.expander("ORGANOGRAMA", expanded=True):
     st.write("Organograma do ISPN")
 
-    st.image('https://ispn.org.br/wp-content/uploads/2025/02/Organograma-2025.png', width=1000)
+    with st.container(horizontal=True, horizontal_alignment="center"):
+        st.image('images/organograma.jpeg', width=1000)
 
 # POLÍTICA DE PRIVACIDADE
 with st.expander("POLÍTICA DE PRIVACIDADE"):
