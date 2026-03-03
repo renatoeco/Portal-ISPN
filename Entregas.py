@@ -463,7 +463,7 @@ def dialog_registros_entregas():
                     df_entregas.drop(index=idx, inplace=True)
                     df_entregas.reset_index(drop=True, inplace=True)
 
-                    st.success("Entrega excluída com sucesso.")
+                    st.success("Entrega excluída com sucesso.", icon=":material/check:")
                     time.sleep(2)
                     st.rerun()
 
