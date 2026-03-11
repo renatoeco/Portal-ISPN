@@ -152,9 +152,37 @@ for pessoa in dados_pessoas:
 df_pessoas = pd.DataFrame(pessoas_lista)
 
 
+
 # PROJETOS
 # Filtra só os projetos em que a sigla não está vazia
 dados_projetos_ispn = [projeto for projeto in dados_projetos_ispn if projeto["sigla"] != ""]
+
+
+######################################################################################################
+# PÁGINAS DISPONÍVEIS PARA VISITANTES
+######################################################################################################
+
+# Lista centralizada das páginas que podem ser liberadas para visitantes
+# Os nomes devem corresponder às páginas do sistema
+paginas_disponiveis = [
+    "Institucional",
+    "Estratégia",
+    "Entregas",
+    "Indicadores",
+    "Programas e Áreas",
+    "Pessoas",
+    "Doadores",
+    "Projetos",
+    "Fundo Ecos",
+    "Redes e Articulações",
+    "Monitor de PLs",
+    "Viagens",
+    "Eventos",
+    "Férias e recessos",
+    "Manuais",
+    "Websites"
+]
+
 
 
 
@@ -251,6 +279,75 @@ def enviar_email(destinatario: str, nome: str, valor_contribuicao: float) -> boo
         st.error(f"Erro ao enviar e-mail: {e}")
         return False
     
+
+
+######################################################################################################
+# FUNÇÃO PARA ENVIAR E-MAIL DE CONVITE AO VISITANTE
+######################################################################################################
+
+def enviar_email_convite_visitante(destinatario: str, nome: str) -> bool:
+    """
+    Envia e-mail de convite para acesso ao Sistema Jataí como visitante.
+    """
+
+    remetente = st.secrets["senhas"]["endereco_email"]
+    senha = st.secrets["senhas"]["senha_email"]
+
+    assunto = "Convite para acesso ao Sistema Jataí - ISPN"
+
+    corpo = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Convite de acesso</title>
+    </head>
+    <body style="font-size: 16px; font-family: Arial, sans-serif; background-color: #ffffff; padding: 20px; color: #333;">
+
+        <div style="text-align: center; margin-bottom: 30px;">
+            <img src="https://ispn.org.br/site/wp-content/uploads/2021/04/logo_ISPN_2021.png"
+                alt="ISPN Logo"
+                style="max-width: 150px; margin-bottom: 40px; margin-top: 10px;">
+        </div>
+
+        <p>Olá <strong>{nome}</strong>.</p>
+
+        <p>Você recebeu um convite para acessar o <strong>Sistema Jataí do ISPN</strong> como visitante.</p>
+
+        <p>Acesse o link abaixo e na tela de login clique em <strong>ESQUECI A SENHA</strong>.</p>
+
+        <p>
+            <a href="https://jatai-ispn.streamlit.app" 
+               style="color:#0a66c2; font-weight:bold;">
+               https://jatai-ispn.streamlit.app
+            </a>
+        </p>
+
+        <br>
+
+        <p>Att.</p>
+        <p>Equipe ISPN</p>
+
+    </body>
+    </html>
+    """
+
+    msg = MIMEText(corpo, "html", "utf-8")
+    msg["Subject"] = assunto
+    msg["From"] = remetente
+    msg["To"] = destinatario
+
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(remetente, senha)
+            server.sendmail(remetente, destinatario, msg.as_string())
+        return True
+
+    except Exception as e:
+        st.error(f"Erro ao enviar e-mail: {e}")
+        return False
+
+
 
 def verificar_contratos_vencidos(pessoa):
     hoje = datetime.date.today()
@@ -1943,12 +2040,27 @@ if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_pess
     container_botoes.button("Gerenciar colaboradores", on_click=gerenciar_pessoas, icon=":material/group:")
     st.write('')
 
+
+
 # Roteamento de usuários
 if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_pessoas"}:
-    aba_pessoas, aba_contratos, aba_reajustes, aba_aniversariantes = st.tabs([":material/person: Colaboradores", ":material/contract: Contratos", ":material/payments: Reajustes do mês", ":material/cake: Aniversariantes do mês"])
+
+    aba_pessoas, aba_contratos, aba_reajustes, aba_aniversariantes, aba_visitantes = st.tabs([
+        ":material/person: Colaboradores",
+        ":material/contract: Contratos",
+        ":material/payments: Reajustes do mês",
+        ":material/cake: Aniversariantes do mês",
+        ":material/visibility: Visitantes"
+    ])
 
 else:
-    aba_pessoas, aba_aniversariantes = st.tabs([":material/person: Colaboradores", ":material/cake: Aniversariantes do mês"])
+
+    aba_pessoas, aba_aniversariantes = st.tabs([
+        ":material/person: Colaboradores",
+        ":material/cake: Aniversariantes do mês"
+    ])
+
+
 
 with aba_pessoas:
 
@@ -2566,6 +2678,7 @@ if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_pess
             st.caption("Nenhum contrato válido encontrado.")
 
 
+    # ABA REAJUSTES ---------------------------------------------------------------------------------------------------
     with aba_reajustes:
 
             mes_atual_str = meses_pt[datetime.date.today().month - 1]
@@ -2605,6 +2718,7 @@ if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_pess
                 st.caption("Nenhum contrato com reajuste no mês atual.")
 
 
+# ABA ANIVERSARIANTES ---------------------------------------------------------------------------------------------------
 with aba_aniversariantes:
 
     # Obter mês atual
@@ -2638,3 +2752,240 @@ with aba_aniversariantes:
 
     if not encontrados:
         st.caption("Nenhum aniversariante encontrado neste mês.")
+
+
+
+
+
+######################################################################################################
+# ABA VISITANTES
+######################################################################################################
+
+######################################################################################################
+# DIÁLOGO - CONVIDAR VISITANTE
+######################################################################################################
+
+@st.dialog("Convidar visitante")
+def dialog_convidar_visitante():
+
+    with st.form("form_convidar_visitante", border=False):
+
+        nome_visitante = st.text_input(
+            "Nome do(a) visitante:"
+        )
+
+        email_visitante = st.text_input(
+            "E-mail:"
+        )
+
+        data_expiracao = st.date_input(
+            "Data de expiração do acesso: *(lógica ainda não implementada)*",
+            value=None,
+            format="DD/MM/YYYY"
+        )
+
+        paginas_selecionadas = st.multiselect(
+            "Páginas que o visitante poderá acessar:",
+            paginas_disponiveis
+        )
+
+        st.write("")
+
+        if st.form_submit_button("Criar visitante", type="secondary", icon=":material/person_add:"):
+
+            with st.spinner('Aguarde...'):
+
+                # Validação do nome
+                if not nome_visitante.strip():
+
+                    st.error("Informe o nome do visitante.")
+                    return
+
+                # Validação do e-mail
+                if not email_visitante.strip():
+
+                    st.error("Informe o e-mail do visitante.")
+                    return
+
+                # Validação da data
+                if data_expiracao is None:
+
+                    st.error("Informe a data de expiração do acesso.")
+                    return
+
+                # Validação das páginas
+                if not paginas_selecionadas:
+
+                    st.error("Selecione pelo menos uma página para o visitante.")
+                    return
+
+                # Converte data para string no formato dd/mm/yyyy
+                data_expiracao_str = data_expiracao.strftime("%d/%m/%Y")
+
+                # Documento a ser salvo no MongoDB
+                novo_visitante = {
+                    "nome_completo": nome_visitante,
+                    "e_mail": email_visitante,
+                    "tipo de usuário": "visitante",
+                    "status": "ativo",
+                    "data_expiracao_acesso": data_expiracao_str,
+                    "paginas_permitidas": paginas_selecionadas
+                }
+
+
+                pessoas.insert_one(novo_visitante)
+
+                # Envia e-mail de convite
+                email_enviado = enviar_email_convite_visitante(
+                    email_visitante,
+                    nome_visitante
+                )
+
+                if email_enviado:
+
+                    st.success("Visitante criado e e-mail de convite enviado com sucesso.", icon=":material/check:")
+
+                else:
+
+                    st.warning("Visitante criado, mas houve erro ao enviar o e-mail.")
+
+                time.sleep(3)
+
+                st.rerun()
+
+
+
+
+
+######################################################################################################
+# DIÁLOGO - REMOVER VISITANTE
+######################################################################################################
+
+@st.dialog("Remover acesso do visitante")
+def dialog_remover_visitante(id_visitante, nome_visitante):
+
+    st.write(f"Deseja realmente remover o acesso de **{nome_visitante}**?")
+
+    st.write('')
+
+    with st.container(horizontal=True):
+
+
+        if st.button("Cancelar"):
+
+            st.rerun()
+
+        if st.button("Confirmar remoção", type="primary"):
+
+            pessoas.delete_one({"_id": id_visitante})
+
+            st.success("Acesso removido com sucesso.", icon=":material/check:")
+
+            time.sleep(3)
+
+            st.rerun()
+
+
+
+
+if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_pessoas"}:
+
+
+
+    with aba_visitantes:
+
+        st.subheader("Controle de acesso de visitantes")
+
+        cols = st.columns([1,5])
+
+        cols[0].button(
+            "Convidar visitante",
+            icon=":material/person_add:",
+            on_click=dialog_convidar_visitante
+        )
+
+        st.write('')
+
+        ##################################################################################################
+        # CABEÇALHO DA TABELA
+        ##################################################################################################
+
+        cols = st.columns([2,2,5,2])
+
+        cols[0].markdown("**Nome**")
+        cols[1].markdown("**E-mail**")
+        cols[2].markdown("**Páginas permitidas**")
+        cols[3].markdown("**Ações**")
+
+        st.write('')
+
+        # Busca usuários marcados como visitante
+        visitantes = list(
+            pessoas.find({
+                "tipo de usuário": {"$regex": "visitante", "$options": "i"}
+            })
+        )
+
+        # Caso não existam visitantes cadastrados
+        if not visitantes:
+
+            st.caption("Nenhum visitante cadastrado.")
+
+        else:
+
+            for visitante in visitantes:
+
+                cols = st.columns([2,2,5,2])
+
+                # Nome do visitante
+                cols[0].write(
+                    visitante.get("nome_completo", "")
+                )
+
+                # Email do visitante
+                cols[1].write(
+                    visitante.get("e_mail", "")
+                )
+
+                # Recupera páginas atualmente permitidas
+                paginas_atuais = visitante.get("paginas_permitidas", [])
+
+                # Multiselect de páginas
+                paginas_selecionadas = cols[2].multiselect(
+                    "Páginas permitidas",
+                    paginas_disponiveis,
+                    default=paginas_atuais,
+                    key=f"visitante_{visitante['_id']}"
+                )
+
+                # Atualiza permissões caso haja alteração
+                if paginas_selecionadas != paginas_atuais:
+
+                    pessoas.update_one(
+                        {"_id": visitante["_id"]},
+                        {"$set": {"paginas_permitidas": paginas_selecionadas}}
+                    )
+
+                    st.success(
+                        f"Permissões atualizadas para {visitante.get('nome_completo','')}"
+                    )
+
+                    time.sleep(3)
+
+                    st.rerun()
+
+                # Botão remover acesso
+                if cols[3].button(
+                    "Remover acesso",
+                    key=f"remover_{visitante['_id']}",
+                    icon=":material/delete:"
+                ):
+
+                    dialog_remover_visitante(
+                        visitante["_id"],
+                        visitante.get("nome_completo","")
+                    )
+
+                st.divider()
+
+

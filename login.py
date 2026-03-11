@@ -64,7 +64,7 @@ def enviar_email(destinatario, codigo):
     senha = st.secrets["senhas"]["senha_email"]
 
     # Conteúdo do e_mail
-    assunto = f"Código de Verificação - Colab ISPN: {codigo}"
+    assunto = f"Código de Verificação - Jataí ISPN: {codigo}"
     corpo = f"""
     <html>
         <body>
@@ -194,12 +194,23 @@ def recuperar_senha_dialog():
                                     for key in ["codigo_enviado", "codigo_verificacao", "email_verificado", "codigo_validado"]:
                                         st.session_state.pop(key, None)
 
+
                                     tipo_usuario = [x.strip() for x in usuario.get("tipo de usuário", "").split(",")]
                                     st.session_state["tipo_usuario"] = tipo_usuario
 
+                                    # Salva páginas permitidas para visitantes
+                                    st.session_state["paginas_permitidas"] = usuario.get(
+                                        "paginas_permitidas",
+                                        []
+                                    )
+
                                     st.session_state.logged_in = True
+
                                     time.sleep(2)
+
                                     st.rerun()
+
+
                                 else:
                                     st.error("Erro ao redefinir a senha. Tente novamente.")
 
@@ -287,13 +298,26 @@ def login():
 
                             tipo_usuario = [x.strip() for x in usuario_encontrado.get("tipo de usuário", "").split(",")]
 
+
+
+
                             # Autentica
                             st.session_state["logged_in"] = True
                             st.session_state["tipo_usuario"] = tipo_usuario
                             st.session_state["nome"] = usuario_encontrado.get("nome_completo")
                             st.session_state["cpf"] = usuario_encontrado.get("CPF")
                             st.session_state["id_usuario"] = usuario_encontrado.get("_id")
+
+                            # Salva páginas permitidas para visitante
+                            st.session_state["paginas_permitidas"] = usuario_encontrado.get(
+                                "paginas_permitidas",
+                                []
+                            )
+
                             st.rerun()
+
+
+
                         else:
                             # Senha inválida ou não hashada corretamente
                             st.error("E-mail ou senha inválidos!", width=300)
@@ -329,7 +353,16 @@ def login():
 if "logged_in" not in st.session_state or not st.session_state["logged_in"]:
     login()  # Mostra tela de login
 
+
+
+
+
+
 else:
+
+    ##############################################################################################################
+    # ADMIN / COORDENADOR
+    ##############################################################################################################
 
     if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)"}:
 
@@ -345,79 +378,102 @@ else:
             st.Page("Fundo Ecos.py", title="Fundo Ecos", icon=":material/owl:"),
             st.Page("Redes e Articulações.py", title="Redes e Articulações", icon=":material/network_node:"),
             st.Page("Monitor de PLs.py", title="Monitor de PLs", icon=":material/balance:"),
-            # st.Page("Clipping de Notícias.py", title="Clipping de Notícias", icon=":material/attach_file:"),
             st.Page("Viagens.py", title="Viagens", icon=":material/travel:"),
             st.Page("Eventos.py", title="Eventos", icon=":material/event:"),
             st.Page("Férias e recessos.py", title="Férias e Recessos", icon=":material/beach_access:"),
             st.Page("Manuais.py", title="Políticas e Manuais", icon=":material/menu_book:"),
-            # st.Page("Regiões de Atuação.py", title="Regiões de Atuação", icon=":material/globe_location_pin:"),
-            st.Page("Websites.py", title="Websites", icon=':material/web_traffic:'),
+            st.Page("Websites.py", title="Websites", icon=":material/web_traffic:"),
             st.Page("Meu Perfil.py", title="Meu Perfil", icon=":material/person:"),
             st.Page("Administracao.py", title="Administração", icon=":material/settings:")
         ])
+
         pg.run()
 
 
+    ##############################################################################################################
+    # VISITANTES
+    ##############################################################################################################
+
+    elif "visitante" in st.session_state.tipo_usuario:
+
+        paginas_permitidas = st.session_state.get("paginas_permitidas", [])
+
+        todas_paginas = {
+            "Institucional": st.Page("Institucional.py", title="Institucional", icon=":material/account_balance:"),
+            "Estratégia": st.Page("Estratégia.py", title="Estratégia", icon=":material/tactic:"),
+            "Entregas": st.Page("Entregas.py", title="Entregas", icon=":material/package_2:"),
+            "Indicadores": st.Page("Indicadores.py", title="Indicadores", icon=":material/monitoring:"),
+            "Programas e Áreas": st.Page("Programas e Áreas.py", title="Programas e Áreas", icon=":material/team_dashboard:"),
+            "Pessoas": st.Page("Pessoas.py", title="Pessoas", icon=":material/groups:"),
+            "Doadores": st.Page("Doadores.py", title="Doadores", icon=":material/all_inclusive:"),
+            "Projetos": st.Page("Projetos.py", title="Projetos", icon=":material/book:"),
+            "Fundo Ecos": st.Page("Fundo Ecos.py", title="Fundo Ecos", icon=":material/owl:"),
+            "Redes e Articulações": st.Page("Redes e Articulações.py", title="Redes e Articulações", icon=":material/network_node:"),
+            "Monitor de PLs": st.Page("Monitor de PLs.py", title="Monitor de PLs", icon=":material/balance:"),
+            "Viagens": st.Page("Viagens.py", title="Viagens", icon=":material/travel:"),
+            "Eventos": st.Page("Eventos.py", title="Eventos", icon=":material/event:"),
+            "Férias e recessos": st.Page("Férias e recessos.py", title="Férias e Recessos", icon=":material/beach_access:"),
+            "Manuais": st.Page("Manuais.py", title="Políticas e Manuais", icon=":material/menu_book:"),
+            "Websites": st.Page("Websites.py", title="Websites", icon=":material/web_traffic:")
+        }
+
+        paginas_visiveis = [
+            todas_paginas[p] for p in paginas_permitidas if p in todas_paginas
+        ]
+
+        pg = st.navigation(paginas_visiveis)
+
+        pg.run()
+
+
+    ##############################################################################################################
+    # GESTÃO
+    ##############################################################################################################
 
     elif set(st.session_state.tipo_usuario) & {"gestao_pessoas", "gestao_ferias"}:
 
         pg = st.navigation([
             st.Page("Institucional.py", title="Institucional", icon=":material/account_balance:"),
-            #st.Page("Estratégia.py", title="Estratégia", icon=":material/tactic:"),
-            # st.Page("Entregas.py", title="Entregas", icon=":material/package_2:"),
             st.Page("Indicadores.py", title="Indicadores", icon=":material/monitoring:"),
             st.Page("Programas e Áreas.py", title="Programas e Áreas", icon=":material/team_dashboard:"),
             st.Page("Pessoas.py", title="Pessoas", icon=":material/groups:"),
-            # st.Page("Doadores.py", title="Doadores", icon=":material/all_inclusive:"),
-            # st.Page("Projetos.py", title="Projetos", icon=":material/book:"),
             st.Page("Fundo Ecos.py", title="Fundo Ecos", icon=":material/owl:"),
             st.Page("Redes e Articulações.py", title="Redes e Articulações", icon=":material/network_node:"),
             st.Page("Monitor de PLs.py", title="Monitor de PLs", icon=":material/balance:"),
-            # st.Page("Clipping de Notícias.py", title="Clipping de Notícias", icon=":material/attach_file:"),
             st.Page("Viagens.py", title="Viagens", icon=":material/travel:"),
             st.Page("Eventos.py", title="Eventos", icon=":material/event:"),
             st.Page("Férias e recessos.py", title="Férias e Recessos", icon=":material/beach_access:"),
             st.Page("Manuais.py", title="Políticas e Manuais", icon=":material/menu_book:"),
-            # st.Page("Regiões de Atuação.py", title="Regiões de Atuação", icon=":material/globe_location_pin:"),
-            st.Page("Websites.py", title="Websites", icon=':material/web_traffic:'),
+            st.Page("Websites.py", title="Websites", icon=":material/web_traffic:"),
             st.Page("Meu Perfil.py", title="Meu Perfil", icon=":material/person:")
         ])
-        
+
         pg.run()
 
 
+    ##############################################################################################################
+    # USUÁRIOS COMUNS
+    ##############################################################################################################
 
-
-    else: # Usuários comuns
+    else:
 
         pg = st.navigation([
             st.Page("Institucional.py", title="Institucional", icon=":material/account_balance:"),
-            #st.Page("Estratégia.py", title="Estratégia", icon=":material/tactic:"),
-            # st.Page("Entregas.py", title="Entregas", icon=":material/package_2:"),
             st.Page("Indicadores.py", title="Indicadores", icon=":material/monitoring:"),
             st.Page("Programas e Áreas.py", title="Programas e Áreas", icon=":material/team_dashboard:"),
             st.Page("Pessoas.py", title="Pessoas", icon=":material/groups:"),
-            # st.Page("Doadores.py", title="Doadores", icon=":material/all_inclusive:"),
-            # st.Page("Projetos.py", title="Projetos", icon=":material/book:"),
             st.Page("Fundo Ecos.py", title="Fundo Ecos", icon=":material/owl:"),
             st.Page("Redes e Articulações.py", title="Redes e Articulações", icon=":material/network_node:"),
             st.Page("Monitor de PLs.py", title="Monitor de PLs", icon=":material/balance:"),
-            # st.Page("Clipping de Notícias.py", title="Clipping de Notícias", icon=":material/attach_file:"),
             st.Page("Viagens.py", title="Viagens", icon=":material/travel:"),
             st.Page("Eventos.py", title="Eventos", icon=":material/event:"),
             st.Page("Férias e recessos.py", title="Férias e Recessos", icon=":material/beach_access:"),
             st.Page("Manuais.py", title="Políticas e Manuais", icon=":material/menu_book:"),
-            # st.Page("Regiões de Atuação.py", title="Regiões de Atuação", icon=":material/globe_location_pin:"),
-            st.Page("Websites.py", title="Websites", icon=':material/web_traffic:'),
+            st.Page("Websites.py", title="Websites", icon=":material/web_traffic:"),
             st.Page("Meu Perfil.py", title="Meu Perfil", icon=":material/person:")
         ])
-                
+
         pg.run()
-
-
-
-
-
 
 
 
