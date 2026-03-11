@@ -124,12 +124,14 @@ def renderizar_novo_registro(idx):
     ano_lancamento = st.selectbox(
         "Ano do registro",
         options=anos_disponiveis,
-        index=anos_disponiveis.index(ano_atual) 
+        index=anos_disponiveis.index(ano_atual),
+        disabled=usuario_visitante 
     )
 
     anotacoes_lancamento = st.text_area(
         "Anotações",
-        placeholder=""
+        placeholder="",
+        disabled=usuario_visitante 
     )
 
     st.divider()
@@ -185,25 +187,29 @@ def renderizar_novo_registro(idx):
             valor = col1.number_input(
                 "Valor",
                 step=0.01,
-                key=f"valor_{key_base}"
+                key=f"valor_{key_base}",
+                disabled=usuario_visitante 
             )
 
         elif nome_legivel == indicador_texto:
             valor = col1.text_input(
                 "Valor",
-                key=f"valor_{key_base}"
+                key=f"valor_{key_base}",
+                disabled=usuario_visitante
             )
 
         else:
             valor = col1.number_input(
                 "Valor",
                 step=1,
-                key=f"valor_{key_base}"
+                key=f"valor_{key_base}",
+                disabled=usuario_visitante
             )
 
         observacoes = col2.text_input(
             "Observações",
-            key=f"obs_{key_base}"
+            key=f"obs_{key_base}",
+                disabled=usuario_visitante
         )
 
         valores_indicadores[indicador_id] = {
@@ -216,7 +222,7 @@ def renderizar_novo_registro(idx):
     # =========================
     # SALVAR
     # =========================
-    if st.button("Salvar lançamento", icon=":material/save:"):
+    if st.button("Salvar lançamento", icon=":material/save:", disabled=usuario_visitante):
 
         if not ano_lancamento:
             st.warning("Informe o ano do lançamento.")
@@ -637,6 +643,8 @@ def dialog_registros_entregas():
                 st.divider()
 
     with tab_novo_registro:
+
+        
 
         renderizar_novo_registro(idx)
 
@@ -1075,6 +1083,10 @@ if filtro_programas:
 df_entregas_filtrado = df_filtrado.copy()
 
 st.write("")
+
+
+# Verifica se o usuário é visitante
+usuario_visitante = "visitante" in st.session_state.get("tipo_usuario", [])
 
 
 lista_entregas, cronograma_entregas = st.tabs(["Entregas","Cronograma"])

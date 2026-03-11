@@ -2952,7 +2952,7 @@ if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_pess
 
                 # Multiselect de páginas
                 paginas_selecionadas = cols[2].multiselect(
-                    "Páginas permitidas",
+                    "Páginas permitidas (serão exibidas nessa ordem)",
                     paginas_disponiveis,
                     default=paginas_atuais,
                     key=f"visitante_{visitante['_id']}"
