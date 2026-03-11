@@ -276,6 +276,10 @@ st.session_state["pagina_anterior"] = PAGINA_ID
 ######################################################################################################
 
 
+# Verifica se o usuário é visitante
+usuario_visitante = "visitante" in st.session_state.get("tipo_usuario", [])
+
+
 # --- 1. Converter listas de documentos em DataFrames ---
 df_doadores = pd.DataFrame(list(db["doadores"].find()))
 df_programas = pd.DataFrame(list(db["programas_areas"].find()))
@@ -1755,7 +1759,7 @@ with tab_indicadores:
 
     linhas = []
     if not lancamentos:
-        st.info("Não há lançamentos de indicadores para este projeto.")
+        st.caption("Não há lançamentos de indicadores para este projeto.")
     else:
         
         for lan in lancamentos:
@@ -1842,7 +1846,8 @@ with tab_indicadores:
 
             indicador_legivel = st.selectbox(
                 "Indicador",
-                [""] + [i for i in ordem_indicadores if i in indicadores_opcoes]
+                [""] + [i for i in ordem_indicadores if i in indicadores_opcoes],
+                disabled=usuario_visitante
             )
 
             if indicador_legivel != "":
@@ -1910,7 +1915,7 @@ with tab_indicadores:
                 lancamentos_proj = [l for l in lancamentos_proj if l.get("autor_anotacao") == autor_nome]
 
             if not lancamentos_proj:
-                st.info("Nenhum lançamento disponível para edição.")
+                st.caption("Nenhum lançamento disponível para edição.")
             else:
                 lanc_opcoes = {}
                 for l in lancamentos_proj:
@@ -1923,7 +1928,7 @@ with tab_indicadores:
                     label = f"{data_str} - {autor} - {indicador_nome}"
                     lanc_opcoes[label] = l["_id"]
 
-                lanc_sel = st.selectbox("Selecione o lançamento", [""] + list(lanc_opcoes.keys()), key=f"select_lanc_{bson.ObjectId(projeto_id)}")
+                lanc_sel = st.selectbox("Selecione o lançamento", [""] + list(lanc_opcoes.keys()), key=f"select_lanc_{bson.ObjectId(projeto_id)}", disabled=usuario_visitante)
 
                 if lanc_sel != "":
                     lanc_id = lanc_opcoes[lanc_sel]
@@ -1981,7 +1986,7 @@ with tab_indicadores:
                 lancamentos_proj = [l for l in lancamentos_proj if l.get("autor_anotacao") == autor_nome]
 
             if not lancamentos_proj:
-                st.info("Nenhum lançamento disponível para exclusão.")
+                st.caption("Nenhum lançamento disponível para exclusão.")
             else:
                 lanc_opcoes = {}
                 for l in lancamentos_proj:
@@ -1994,7 +1999,7 @@ with tab_indicadores:
                     label = f"{data_str} - {autor} - {indicador_nome}"
                     lanc_opcoes[label] = l["_id"]
 
-                lanc_sel = st.selectbox("Selecione o lançamento", [""] + list(lanc_opcoes.keys()), key=f"select_lanc_2")
+                lanc_sel = st.selectbox("Selecione o lançamento", [""] + list(lanc_opcoes.keys()), key=f"select_lanc_2", disabled=usuario_visitante)
 
                 if lanc_sel != "":
                     lanc_id = lanc_opcoes[lanc_sel]
@@ -2220,7 +2225,7 @@ with tab_anotacoes:
 
                 st.write(f"Data: {hoje}")
 
-                anotacao_texto = st.text_area("Anotação")
+                anotacao_texto = st.text_area("Anotação", disabled=usuario_visitante)
 
                 submit = st.form_submit_button("Salvar anotação", icon=':material/save:', type="primary")
 
@@ -2267,7 +2272,7 @@ with tab_anotacoes:
                 ]
                 
                 if not opcoes:
-                    st.write("_Você não possui anotações para editar._")
+                    st.write("Você não possui anotações para editar.")
                 else:
                     # Adiciona opção vazia no início
                     opcoes_com_vazio = [""] + opcoes
@@ -2276,7 +2281,8 @@ with tab_anotacoes:
                     selecionada = st.selectbox(
                         "Selecione a anotação para editar",
                         options=opcoes_com_vazio,
-                        index=0
+                        index=0,
+                        disabled=usuario_visitante
                     )
                     
                     if selecionada:  # só prosseguir se o usuário selecionar algo
@@ -2330,7 +2336,8 @@ with tab_anotacoes:
                     selecionada = st.selectbox(
                         "Selecione a anotação para apagar",
                         options=opcoes_com_vazio,
-                        index=0  # valor padrão vazio
+                        index=0,  # valor padrão vazio
+                        disabled=usuario_visitante
                     )
                     
                     if selecionada:  # só prosseguir se o usuário selecionar algo
