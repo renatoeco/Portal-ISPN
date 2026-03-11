@@ -523,7 +523,7 @@ with tab2:
     # Adiciona opção vazia no topo
     todos_doadores_opcoes = [""] + todos_doadores
 
-    # col1, col2, col3, col4 = st.columns([2, 1, 1, 3])
+    col1, col2, col3, col4 = st.columns([2, 1, 1, 3])
 
     doador_selecionado = col1.selectbox("Selecione o doador", todos_doadores_opcoes)
     
