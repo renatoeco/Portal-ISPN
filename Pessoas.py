@@ -305,9 +305,9 @@ def enviar_email_convite_visitante(destinatario: str, nome: str) -> bool:
     <body style="font-size: 16px; font-family: Arial, sans-serif; background-color: #ffffff; padding: 20px; color: #333;">
 
         <div style="text-align: center; margin-bottom: 30px;">
-            <img src="https://ispn.org.br/site/wp-content/uploads/2021/04/logo_ISPN_2021.png"
+            <img src="https://ispn.org.br/wp-content/uploads/2024/10/logo_ISPN_horizontal_ass.png"
                 alt="ISPN Logo"
-                style="max-width: 150px; margin-bottom: 40px; margin-top: 10px;">
+                style="max-width: 200px; margin-bottom: 40px; margin-top: 10px;">
         </div>
 
         <p>Olá <strong>{nome}</strong>.</p>
