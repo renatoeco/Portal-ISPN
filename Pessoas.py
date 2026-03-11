@@ -2941,7 +2941,7 @@ if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_pess
 
             for visitante in visitantes:
 
-                cols = st.columns([2,2,5,2])
+                cols = st.columns([2,2,5,2], gap="medium")
 
                 # Nome do visitante
                 cols[0].write(
