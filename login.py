@@ -360,11 +360,13 @@ if "logged_in" not in st.session_state or not st.session_state["logged_in"]:
 
 else:
 
-    ##############################################################################################################
-    # ADMIN / COORDENADOR
-    ##############################################################################################################
 
-    if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)"}:
+
+##############################################################################################################
+# ADMIN
+##############################################################################################################
+
+    if "admin" in st.session_state.tipo_usuario:
 
         pg = st.navigation([
             st.Page("Institucional.py", title="Institucional", icon=":material/account_balance:"),
@@ -384,10 +386,43 @@ else:
             st.Page("Manuais.py", title="Políticas e Manuais", icon=":material/menu_book:"),
             st.Page("Websites.py", title="Websites", icon=":material/web_traffic:"),
             st.Page("Meu Perfil.py", title="Meu Perfil", icon=":material/person:"),
-            st.Page("Administracao.py", title="Administração", icon=":material/settings:")
+            st.Page("Administracao.py", title="Administração", icon=":material/settings:"),
+            st.Page("Kanban.py", title="Kanban", icon=":material/view_apps:")
+
         ])
 
         pg.run()
+
+
+    ##############################################################################################################
+    # COORDENADOR(A)
+    ##############################################################################################################
+
+    elif "coordenador(a)" in st.session_state.tipo_usuario:
+
+        pg = st.navigation([
+            st.Page("Institucional.py", title="Institucional", icon=":material/account_balance:"),
+            st.Page("Estratégia.py", title="Estratégia", icon=":material/tactic:"),
+            st.Page("Entregas.py", title="Entregas", icon=":material/package_2:"),
+            st.Page("Indicadores.py", title="Indicadores", icon=":material/monitoring:"),
+            st.Page("Programas e Áreas.py", title="Programas e Áreas", icon=":material/team_dashboard:"),
+            st.Page("Pessoas.py", title="Pessoas", icon=":material/groups:"),
+            st.Page("Doadores.py", title="Doadores", icon=":material/all_inclusive:"),
+            st.Page("Projetos.py", title="Projetos", icon=":material/book:"),
+            st.Page("Fundo Ecos.py", title="Fundo Ecos", icon=":material/owl:"),
+            st.Page("Redes e Articulações.py", title="Redes e Articulações", icon=":material/network_node:"),
+            st.Page("Monitor de PLs.py", title="Monitor de PLs", icon=":material/balance:"),
+            st.Page("Viagens.py", title="Viagens", icon=":material/travel:"),
+            st.Page("Eventos.py", title="Eventos", icon=":material/event:"),
+            st.Page("Férias e recessos.py", title="Férias e Recessos", icon=":material/beach_access:"),
+            st.Page("Manuais.py", title="Políticas e Manuais", icon=":material/menu_book:"),
+            st.Page("Websites.py", title="Websites", icon=":material/web_traffic:"),
+            st.Page("Meu Perfil.py", title="Meu Perfil", icon=":material/person:")
+        ])
+
+        pg.run()
+
+
 
 
     ##############################################################################################################
