@@ -2128,6 +2128,10 @@ with aba_pessoas:
 
     df_pessoas_filtrado = df_pessoas_filtrado[df_pessoas_filtrado["Status"] == status]
 
+    # Remove visitantes
+    df_pessoas_filtrado = df_pessoas_filtrado[
+        df_pessoas_filtrado["Tipo de usuário"] != "visitante"
+    ]
 
     # Exibir DataFrame --------------------------------------------------
     st.write('')
@@ -2791,7 +2795,7 @@ def dialog_convidar_visitante():
 
         st.write("")
 
-        if st.form_submit_button("Criar visitante", type="secondary", icon=":material/person_add:"):
+        if st.form_submit_button("Convidar visitante", type="secondary", icon=":material/person_add:"):
 
             with st.spinner('Aguarde...'):
 
@@ -2843,11 +2847,11 @@ def dialog_convidar_visitante():
 
                 if email_enviado:
 
-                    st.success("Visitante criado e e-mail de convite enviado com sucesso.", icon=":material/check:")
+                    st.success("Visitante convidado e e-mail de convite enviado com sucesso.", icon=":material/check:")
 
                 else:
 
-                    st.warning("Visitante criado, mas houve erro ao enviar o e-mail.")
+                    st.warning("Visitante convidado, mas houve erro ao enviar o e-mail.")
 
                 time.sleep(3)
 
@@ -2895,6 +2899,8 @@ if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_pess
     with aba_visitantes:
 
         st.subheader("Controle de acesso de visitantes")
+
+        st.write('')
 
         cols = st.columns([1,5])
 
@@ -2978,7 +2984,8 @@ if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_pess
                 if cols[3].button(
                     "Remover acesso",
                     key=f"remover_{visitante['_id']}",
-                    icon=":material/delete:"
+                    icon=":material/delete:",
+                    type="tertiary"
                 ):
 
                     dialog_remover_visitante(
