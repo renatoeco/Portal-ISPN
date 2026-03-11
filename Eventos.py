@@ -294,12 +294,12 @@ def pode_editar_status(evento_cpf):
 
     tipos_usuario = set(st.session_state.get("tipo_usuario", []))
 
-    # Admin ou gestão → sempre pode
-    if tipos_usuario & {"admin", "gestao_eventos"}:
+    # Perfis com permissão global
+    if tipos_usuario & {"admin", "coordenador(a)", "gestao_pessoas"}:
         return True
 
-    # Solicitante → se tiver pelo menos um evento
-    if cpf_usuario and cpf_usuario in set(df_eventos["CPF"]):
+    # Solicitante do evento
+    if cpf_usuario == evento_cpf:
         return True
 
     return False
@@ -581,6 +581,39 @@ def nova_solicitacao():
         icon=":material/docs:"
     )
 
+def usuario_pode_editar_algum_evento():
+
+    tipos_usuario = set(st.session_state.get("tipo_usuario", []))
+
+    cpf_usuario = (
+        str(st.session_state.get("cpf", ""))
+        .replace(".", "")
+        .replace("-", "")
+        .zfill(11)
+    )
+
+    if tipos_usuario & {"admin", "coordenador(a)", "gestao_pessoas"}:
+        return True
+
+    if cpf_usuario in set(df_eventos["CPF"]):
+        return True
+
+    return False
+
+def render_toggle_edicao(key_toggle):
+
+    container = st.container(horizontal=True, horizontal_alignment="right")
+
+    if usuario_pode_editar_algum_evento():
+
+        valor = container.toggle(
+            "Modo de edição",
+            value=st.session_state.get("modo_edicao", False),
+            key=key_toggle
+        )
+
+        st.session_state["modo_edicao"] = valor
+
 
 # ##################################################################
 # CARREGAMENTO E TRATAMENTO DOS DADOS
@@ -646,61 +679,42 @@ with st.container(horizontal=True, horizontal_alignment="right"):
 
 st.write("")
 
-# --------------------------------------------------
-# CONTROLE DE MODO DE EDIÇÃO
-# --------------------------------------------------
 
-if "modo_edicao" not in st.session_state:
-    st.session_state["modo_edicao"] = False
 
-usuario_pode_ver_toggle = pode_editar_status(df_eventos)
+#with st.expander("Calendário de eventos", expanded=False):
+st.write("")
+st.write("")
 
-container_toggle = st.container(horizontal=True, horizontal_alignment="right")
+calendario_eventos()
 
-if usuario_pode_ver_toggle:
+st.write("")
+st.write("")
+    
+tabs = st.tabs(["Todos os eventos", "Minhas solicitações", "Nova Solicitação"])
+
+# Aba Calendário
+# with tabs[0]:
+#     calendario_eventos()
+
+# Aba Todos os eventos
+with tabs[0]:
+    
+    render_toggle_edicao("toggle_todos")
     st.write("")
-    container_toggle.toggle(
-        "Modo de edição",
-        key="modo_edicao",
-    )
-else:
-    st.session_state["modo_edicao"] = False
+    
+    todos_os_eventos()
 
-# Roteamento de tipo de usuário. admin e gestao_eventos podem ver a aba Todos os eventos
-if set(st.session_state.tipo_usuario) & {"admin", "gestao_eventos"}:
+# Aba Meus eventos
+with tabs[1]:
+    
+    render_toggle_edicao("toggle_meus") 
+    st.write("")
+    
+    meus_eventos()
 
-    tabs = st.tabs(["Calendário", "Todos os eventos", "Minhas solicitações", "Nova Solicitação"])
-
-    # Aba Calendário
-    with tabs[0]:
-        calendario_eventos()
-
-    # Aba Todos os eventos
-    with tabs[1]:
-        todos_os_eventos()
-
-    # Aba Meus eventos
-    with tabs[2]:
-        meus_eventos()
-
-    # Aba Nova Solicitação
-    with tabs[3]:
-        nova_solicitacao()
-
-else:
-    tabs = st.tabs(["Calendário", "Meus eventos", "Nova Solicitação"])
-
-    # Aba Calendário
-    with tabs[0]:
-        calendario_eventos()
-
-    # Aba Meus eventos
-    with tabs[1]:
-        meus_eventos()
-
-    # Aba Nova Solicitação
-    with tabs[2]:
-        nova_solicitacao()
+# Aba Nova Solicitação
+with tabs[2]:
+    nova_solicitacao()
         
 if st.session_state.get("status_atualizado"):
     placeholder = st.empty()
