@@ -578,13 +578,17 @@ def nova_solicitacao():
         label="Clique aqui para enviar uma nova solicitação",
         url=url_com_parametro,
         type="secondary",
-        icon=":material/docs:"
+        icon=":material/docs:",
+        disabled=usuario_visitante
     )
 
 
 # ##################################################################
 # CARREGAMENTO E TRATAMENTO DOS DADOS
 # ##################################################################
+
+# Verifica se o usuário é visitante
+usuario_visitante = "visitante" in st.session_state.get("tipo_usuario", [])
 
 
 df_eventos = carregar_eventos()
