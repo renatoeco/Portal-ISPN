@@ -1,13 +1,11 @@
 import streamlit as st
 import pandas as pd 
 from funcoes_auxiliares import conectar_mongo_portal_ispn
-# from bson import ObjectId
 from streamlit_calendar import calendar
 from datetime import datetime
 import re
 import time
-# from urllib.parse import quote
-# import streamlit.components.v1 as components
+import streamlit_antd_components as sac
 import gspread
 from google.oauth2.service_account import Credentials
 
@@ -690,36 +688,52 @@ st.write("")
 st.write("")
 st.write("")
 
-calendario_eventos()
+#calendario_eventos()
 
 st.write("")
 st.write("")
-    
-tabs = st.tabs(["Todos os eventos", "Minhas solicitações", "Nova Solicitação"])
 
-# Aba Calendário
-# with tabs[0]:
-#     calendario_eventos()
+tab = sac.tabs([
+    sac.TabsItem(label='Calendário', icon='calendar'),
+    sac.TabsItem(label='Todos os eventos', icon='list'),
+    sac.TabsItem(label='Minhas solicitações', icon='person'),
+    sac.TabsItem(label='Nova solicitação', icon='plus'),
+], align='start')
 
-# Aba Todos os eventos
-with tabs[0]:
+if tab == 'Calendário':
+    calendario_eventos()
     
-    render_toggle_edicao("toggle_todos")
-    st.write("")
-    
+elif tab == 'Todos os eventos':
+    render_toggle_edicao("toggle_meus") 
     todos_os_eventos()
 
-# Aba Meus eventos
-with tabs[1]:
-    
+elif tab == 'Minhas solicitações':
     render_toggle_edicao("toggle_meus") 
-    st.write("")
-    
     meus_eventos()
 
-# Aba Nova Solicitação
-with tabs[2]:
+elif tab == 'Nova solicitação':
     nova_solicitacao()
+    
+# tabs = st.tabs(["Todos os eventos", "Minhas solicitações", "Nova Solicitação"])
+
+# with tabs[0]:
+    
+#     render_toggle_edicao("toggle_todos")
+#     st.write("")
+    
+#     todos_os_eventos()
+
+# # Aba Meus eventos
+# with tabs[1]:
+    
+#     render_toggle_edicao("toggle_meus") 
+#     st.write("")
+    
+#     meus_eventos()
+
+# # Aba Nova Solicitação
+# with tabs[2]:
+#     nova_solicitacao()
         
 if st.session_state.get("status_atualizado"):
     placeholder = st.empty()
