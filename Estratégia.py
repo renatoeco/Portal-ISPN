@@ -1398,8 +1398,8 @@ with aba_res_mp:
                             for i, meta in enumerate(metas):
                                 nova_lista.append({
                                     **meta,
-                                    "objetivo": df_editado.loc[i]["Objetivo"],
-                                    "alcancado": df_editado.loc[i]["Alcançado"]
+                                    "objetivo": df_editado.loc[i, "Objetivo"],
+                                    "alcancado": df_editado.loc[i, "Alcançado"]
                                 })
 
                             estrategia.update_one(
