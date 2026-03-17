@@ -109,7 +109,6 @@ streamlit-embedcode==0.1.2
 streamlit-extras==0.7.1
 streamlit-faker==0.0.3
 streamlit-image-coordinates==0.2.1
-streamlit-kanban-os @ git+https://github.com/gquinche/streamlit-kanban-board.git@a9602df8f80a3df29fa8f456f15154b0c4abae4f
 streamlit-keyup==0.3.0
 streamlit-shadcn-ui==0.1.18
 streamlit-toggle-switch==1.0.2
