@@ -3,12 +3,8 @@ from bson import ObjectId
 from datetime import datetime
 
 from funcoes_auxiliares import conectar_mongo_portal_ispn
-from streamlit_kanban_os import kanban_board
-
 
 st.set_page_config(layout="wide")
-
-
 
 # Exibe o logo do ISPN na página
 st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
@@ -16,13 +12,6 @@ st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
 # Cabeçalho da página
 st.header("Kanban")
 st.write('')
-
-
-
-
-
-
-
 
 ######################################################################################################
 # CONEXÃO COM O BANCO
@@ -37,7 +26,6 @@ kanban_boards = db["kanban_boards"]
 kanban_pistas = db["kanban_pistas"]
 kanban_cards = db["kanban_cards"]
 
-
 ######################################################################################################
 # IDENTIFICA USUÁRIO LOGADO
 ######################################################################################################
@@ -49,12 +37,106 @@ id_usuario = st.session_state["id_usuario"]
 
 
 
-
 ######################################################################################################
-# FUNÇÕES AUXILIARES
+# EDITAR CARD
 ######################################################################################################
 
+@st.dialog("Editar atividade")
+def dialog_editar_card(card):
 
+    # Carrega pistas do board
+    pistas_board = list(
+        kanban_pistas.find({"board_id": card["board_id"]}).sort("ordem", 1)
+    )
+
+    dict_pistas = {p["nome"]: p["_id"] for p in pistas_board}
+
+    # Campo atividade
+    atividade = st.text_input("Atividade", value=card.get("atividade", ""))
+
+    # Campo descrição
+    descricao = st.text_area("Descrição", value=card.get("descricao_ativ", ""))
+
+    # Descobre nome da pista atual
+    pista_atual_nome = next(
+        (p["nome"] for p in pistas_board if p["_id"] == card["pista_id"]),
+        None
+    )
+
+    # Select de pista
+    pista_escolhida = st.selectbox(
+        "Pista",
+        options=list(dict_pistas.keys()),
+        index=list(dict_pistas.keys()).index(pista_atual_nome) if pista_atual_nome else 0
+    )
+
+    # Data fim
+    data_fim_inicial = datetime.strptime(
+        card.get("data_fim", "01/01/2000"),
+        "%d/%m/%Y"
+    )
+
+    data_fim_input = st.date_input(
+        "Data fim",
+        value=data_fim_inicial,
+        format="DD/MM/YYYY"
+    )
+
+    # Pessoas
+    pessoas_lista = list(pessoas.find({}))
+    dict_pessoas = {
+        p["nome_completo"]: p["_id"] for p in pessoas_lista
+    }
+
+    # Responsáveis atuais
+    responsaveis_atuais = [
+        nome for nome, _id in dict_pessoas.items()
+        if _id in card.get("responsaveis", [])
+    ]
+
+    responsaveis = st.multiselect(
+        "Responsáveis",
+        options=list(dict_pessoas.keys()),
+        default=responsaveis_atuais
+    )
+
+    # Botão salvar
+    if st.button("Salvar alterações", use_container_width=True):
+
+        lista_responsaveis = [
+            dict_pessoas[nome] for nome in responsaveis
+        ]
+
+        nova_pista_id = dict_pistas[pista_escolhida]
+
+        # Se mudou de pista, recalcula ordem
+        if nova_pista_id != card["pista_id"]:
+
+            total_destino = kanban_cards.count_documents({
+                "board_id": card["board_id"],
+                "pista_id": nova_pista_id
+            })
+
+            nova_ordem = total_destino
+
+        else:
+            nova_ordem = card["ordem"]
+
+        kanban_cards.update_one(
+            {"_id": card["_id"]},
+            {
+                "$set": {
+                    "atividade": atividade,
+                    "descricao_ativ": descricao,
+                    "data_fim": data_fim_input.strftime("%d/%m/%Y"),
+                    "responsaveis": lista_responsaveis,
+                    "pista_id": nova_pista_id,
+                    "ordem": nova_ordem
+                }
+            }
+        )
+
+        st.rerun()
 
 
 
@@ -62,21 +144,52 @@ id_usuario = st.session_state["id_usuario"]
 # CRIAR NOVO BOARD
 ######################################################################################################
 
-# DIÁLOGO CRIAR BOARD
-
 @st.dialog("Criar novo board")
 def dialog_criar_board():
 
     nome_board = st.text_input("Nome do board")
 
+    # Busca apenas pessoas ativas já ordenadas alfabeticamente
+    pessoas_ativas = list(
+        pessoas.find({"status": "ativo"}).sort("nome_completo", 1)
+    )
+
+
+    # # Busca apenas pessoas ativas
+    # pessoas_ativas = list(
+    #     pessoas.find({"status": "ativo"})
+    # )
+
+    # Dicionário nome -> id
+    dict_pessoas = {
+        p["nome_completo"]: p["_id"]
+        for p in pessoas_ativas
+    }
+
+    # Multiselect de membros
+    membros_selecionados = st.multiselect(
+        "Membros do board",
+        options=list(dict_pessoas.keys())
+    )
+
     if st.button("Criar board", use_container_width=True):
 
         if nome_board != "":
 
+            # Converte nomes selecionados em IDs
+            lista_membros = [
+                dict_pessoas[nome]
+                for nome in membros_selecionados
+            ]
+
+            # Garante que o criador está na lista
+            if id_usuario not in lista_membros:
+                lista_membros.append(id_usuario)
+
             kanban_boards.insert_one({
                 "nome": nome_board,
                 "criador": id_usuario,
-                "membros": [id_usuario],
+                "membros": lista_membros,
                 "data_criacao": datetime.now()
             })
 
@@ -84,10 +197,26 @@ def dialog_criar_board():
 
 
 
+# @st.dialog("Criar novo board")
+# def dialog_criar_board():
 
+#     nome_board = st.text_input("Nome do board")
+
+#     if st.button("Criar board", use_container_width=True):
+
+#         if nome_board != "":
+
+#             kanban_boards.insert_one({
+#                 "nome": nome_board,
+#                 "criador": id_usuario,
+#                 "membros": [id_usuario],
+#                 "data_criacao": datetime.now()
+#             })
+
+#             st.rerun()
 
 ######################################################################################################
-# DIÁLOGO CRIAR COLUNA
+# CRIAR COLUNA
 ######################################################################################################
 
 @st.dialog("Criar coluna")
@@ -109,13 +238,8 @@ def dialog_criar_pista(board_id):
 
             st.rerun()
 
-
-
-
-
-
 ######################################################################################################
-# DIÁLOGO CRIAR ATIVIDADE
+# CRIAR CARD
 ######################################################################################################
 
 @st.dialog("Criar atividade")
@@ -132,7 +256,6 @@ def dialog_criar_card(board_id):
     dict_pistas = {p["nome"]: p["_id"] for p in pistas_board}
 
     atividade = st.text_input("Atividade")
-
     descricao = st.text_area("Descrição")
 
     pista_escolhida = st.selectbox(
@@ -140,13 +263,9 @@ def dialog_criar_card(board_id):
         list(dict_pistas.keys())
     )
 
-    data_fim_input = st.date_input(
-        "Data fim",
-        format="DD/MM/YYYY"
-    )
+    data_fim_input = st.date_input("Data fim", format="DD/MM/YYYY")
 
     pessoas_lista = list(pessoas.find({}))
-
     dict_pessoas = {
         p["nome_completo"]: p["_id"] for p in pessoas_lista
     }
@@ -173,37 +292,20 @@ def dialog_criar_card(board_id):
 
             "atividade": atividade,
             "descricao_ativ": descricao,
-
             "criador": id_usuario,
-
             "data_criacao": datetime.now().strftime("%d/%m/%Y %H:%M"),
-
             "data_fim": data_fim,
-
             "responsaveis": lista_responsaveis,
-
             "board_id": board_id,
             "pista_id": dict_pistas[pista_escolhida],
-
             "ordem": total_cards
         })
 
         st.rerun()
 
-
-
-
-
-
-
 ######################################################################################################
-# INÍCIO DA INTERFACE
+# BARRA SUPERIOR
 ######################################################################################################
-
-
-
-# BARRA SUPERIOR COM BOTÃO DE NOVO BOARD
-
 
 with st.container(horizontal=True, horizontal_alignment="right"):
 
@@ -218,29 +320,24 @@ with st.container(horizontal=True, horizontal_alignment="right"):
 st.divider()
 
 ######################################################################################################
-# LISTA BOARDS DO USUÁRIO
+# LISTA BOARDS
 ######################################################################################################
 
 boards_usuario = list(
-    kanban_boards.find({
-        "membros": id_usuario
-    })
+    kanban_boards.find({"membros": id_usuario})
 )
 
 if len(boards_usuario) == 0:
     st.warning("Nenhum board criado.")
     st.stop()
 
-
-# Cria dicionário nome → id
 dict_boards = {
     board["nome"]: board["_id"]
     for board in boards_usuario
 }
 
-
 ######################################################################################################
-# SELEÇÃO DE BOARD
+# SELEÇÃO BOARD
 ######################################################################################################
 
 board_nome = st.segmented_control(
@@ -251,30 +348,20 @@ board_nome = st.segmented_control(
 
 board_id = dict_boards[board_nome]
 
-
-
-
-
-
 ######################################################################################################
-# BARRA DE AÇÕES
+# AÇÕES
 ######################################################################################################
-
 
 with st.container(horizontal=True, horizontal_alignment="right"):
-
-
 
     if st.button("Nova coluna", icon=":material/add_column_right:", width=200):
         dialog_criar_pista(board_id)
 
-
-    if st.button(" Nova Atividade", icon=":material/task:",type="primary", width=200):
+    if st.button(" Nova Atividade", icon=":material/task:", type="primary", width=200):
         dialog_criar_card(board_id)
 
-
 ######################################################################################################
-# INÍCIO DO KANBAN
+# RENDERIZAÇÃO KANBAN 
 ######################################################################################################
 
 
@@ -283,40 +370,47 @@ with st.container(horizontal=True, horizontal_alignment="right"):
 @st.fragment
 def renderizar_kanban(board_id):
 
-    ##################################################################################################
-    # CARREGAR PISTAS
-    ##################################################################################################
-
+    # Carrega pistas
     pistas = list(
         kanban_pistas.find({"board_id": board_id}).sort("ordem", 1)
     )
 
-    ##################################################################################################
-    # CARREGAR CARDS
-    ##################################################################################################
-
+    # Carrega cards
     cards = list(
         kanban_cards.find({"board_id": board_id}).sort("ordem", 1)
     )
 
+    # Dicionário de pessoas
     pessoas_dict = {
         p["_id"]: p["nome_completo"]
         for p in pessoas.find({})
     }
 
-    ##################################################################################################
-    # MONTAR COLUNAS
-    ##################################################################################################
+    st.write('')
+    st.write('')
+    st.write('')
 
-    columns = []
+    # Evita erro quando não há pistas
+    if len(pistas) == 0:
+        st.warning("Este painel ainda não possui colunas. Crie a primeira coluna.")
+        return
 
-    for pista in pistas:
+    # Cria colunas
+    cols = st.columns(len(pistas), gap="small")
 
-        cards_pista = []
+    # Itera sobre pistas
+    for idx, pista in enumerate(pistas):
 
-        for card in cards:
+        with cols[idx]:
+            st.subheader(pista["nome"])
 
-            if card["pista_id"] == pista["_id"]:
+            cards_pista = [
+                c for c in cards if c["pista_id"] == pista["_id"]
+            ]
+
+            cards_pista = sorted(cards_pista, key=lambda x: x["ordem"])
+
+            for card in cards_pista:
 
                 nomes_responsaveis = []
 
@@ -325,107 +419,189 @@ def renderizar_kanban(board_id):
                     if pessoa:
                         nomes_responsaveis.append(pessoa.split()[0])
 
-                cards_pista.append({
-                    "id": str(card["_id"]),
-                    "title": (
-                        f"{card['atividade']}\n"
-                        f"Data fim: {card.get('data_fim','')}\n"
-                        f"Responsáveis: {', '.join(nomes_responsaveis)}"
-                    )
-                })
 
 
-        columns.append({
-            "title": pista["nome"],
-            "cards": cards_pista
-        })
+                # ########################
+                # CARD
+                # ########################
 
-    ##################################################################################################
-    # RENDERIZAR KANBAN
-    ##################################################################################################
+                with st.container(border=True):
+
+                                        
+
+                    # ########################
+                    # Popover do menu
+                    # ########################
+
+                    with st.container(horizontal=True, horizontal_alignment="right"):
+
+                        with st.popover(
+                            "",
+                            icon=":material/more_vert:",
+                            type="tertiary"
+                        ):
+
+                            # Botão editar card
+                            if st.button(
+                                "Editar card",
+                                icon=":material/edit:",
+                                key=f"editar_{card['_id']}",
+                                use_container_width=True,
+                                type="secondary"
+                            ):
+                                dialog_editar_card(card)
+
+
+                            st.caption("Mover para:")
+
+                            # Itera sobre todas as pistas
+                            for pista_destino in pistas:
+
+                                # Ignora a pista atual
+                                if pista_destino["_id"] == pista["_id"]:
+                                    continue
+
+                                # Botão para mover card ----------------------------------------------
+                                if st.button(
+                                    pista_destino["nome"],
+                                    key=f"mover_{card['_id']}_{pista_destino['_id']}",
+                                    use_container_width=True,
+                                    type="secondary",
+                                    width=400,
+                                ):
+
+                                    # Calcula nova ordem (último da lista da pista destino)
+                                    total_destino = kanban_cards.count_documents({
+                                        "board_id": board_id,
+                                        "pista_id": pista_destino["_id"]
+                                    })
+
+                                    # Atualiza card no banco
+                                    kanban_cards.update_one(
+                                        {"_id": card["_id"]},
+                                        {
+                                            "$set": {
+                                                "pista_id": pista_destino["_id"],
+                                                "ordem": total_destino
+                                            }
+                                        }
+                                    )
+
+                                    # Recarrega interface
+                                    st.rerun(scope="fragment")
 
 
 
 
 
-    # CONFIGURAÇÃO DE LARGURA DAS COLUNAS
-    # Slider para definir largura mínima das pistas
-    min_width_colunas = st.slider(
-        "Largura das colunas",
-        min_value=120,
-        max_value=600,
-        value=210,
-        step=10,
-        width=300
-    )
+
+                    st.markdown(f"**{card['atividade']}**")
+
+                    if card.get("descricao_ativ"):
+                        st.caption(card["descricao_ativ"])
+
+                    st.write(f":material/event: {card.get('data_fim','')}")
+                    st.write(f":material/group: {', '.join(nomes_responsaveis)}")
 
 
-    board = kanban_board(
-        columns,
 
-        horizontal=True,
 
-        width="stretch",
-        height="content",
 
-        horizontal_alignment="distribute",
 
-        min_width=min_width_colunas,
 
-        stacked=False,
 
-        gap="small",
-        border=False
-    )
 
-    ##################################################################################################
-    # SALVAR MOVIMENTAÇÃO
-    ##################################################################################################
 
-    mudou = False
 
-    if board and "columns" in board:
 
-        for coluna in board["columns"]:
 
-            pista_atual = None
 
-            for pista in pistas:
-                if pista["nome"] == coluna["title"]:
-                    pista_atual = pista
-                    break
 
-            if pista_atual is None:
-                continue
 
-            pista_id = pista_atual["_id"]
 
-            for ordem_card, card in enumerate(coluna["cards"]):
 
-                card_id = ObjectId(card["id"])
 
-                card_db = kanban_cards.find_one({"_id": card_id})
 
-                if card_db["pista_id"] != pista_id or card_db["ordem"] != ordem_card:
 
-                    kanban_cards.update_one(
-                        {"_id": card_id},
-                        {
-                            "$set": {
-                                "pista_id": pista_id,
-                                "ordem": ordem_card
-                            }
-                        }
-                    )
 
-                    mudou = True
 
-    if mudou:
-        st.rerun(scope="fragment")
+# @st.fragment
+# def renderizar_kanban(board_id):
+
+#     # Carrega pistas
+#     pistas = list(
+#         kanban_pistas.find({"board_id": board_id}).sort("ordem", 1)
+#     )
+
+#     # Carrega cards
+#     cards = list(
+#         kanban_cards.find({"board_id": board_id}).sort("ordem", 1)
+#     )
+
+#     # Dicionário de pessoas
+#     pessoas_dict = {
+#         p["_id"]: p["nome_completo"]
+#         for p in pessoas.find({})
+#     }
+
+
+#     st.write('')
+#     st.write('')
+#     st.write('')
+
+#     # Cria colunas dinamicamente baseado nas pistas
+#     cols = st.columns(len(pistas), gap="small")
+
+#     # Itera sobre pistas e colunas
+#     for idx, pista in enumerate(pistas):
+
+#         with cols[idx]:
+
+#             # Título da coluna
+#             st.subheader(pista["nome"])
+
+#             # Filtra cards da pista atual
+#             cards_pista = [
+#                 c for c in cards if c["pista_id"] == pista["_id"]
+#             ]
+
+#             # Ordena corretamente
+#             cards_pista = sorted(cards_pista, key=lambda x: x["ordem"])
+
+#             # Renderiza cards
+#             for card in cards_pista:
+
+#                 nomes_responsaveis = []
+
+#                 for resp in card.get("responsaveis", []):
+#                     pessoa = pessoas_dict.get(resp)
+#                     if pessoa:
+#                         nomes_responsaveis.append(pessoa.split()[0])
+
+#                 # Card visual com container
+#                 with st.container(border=True):
+
+#                     st.markdown(f"**{card['atividade']}**")
+
+#                     if card.get("descricao_ativ"):
+#                         st.caption(card["descricao_ativ"])
+
+#                     st.write(f"Data fim: {card.get('data_fim','')}")
+
+#                     st.write(
+#                         f"Responsáveis: {', '.join(nomes_responsaveis)}"
+#                     )
+
+
+
 
 
 
 renderizar_kanban(board_id)
+
+
+
+
 
 
 
