@@ -530,10 +530,14 @@ def editar_objetivo_estrategico_dialog(obj_idx):
         if st.button("Adicionar meta", icon=":material/add:"):
 
             nova_meta = {
+            nova_meta = {
                 "_id": str(ObjectId()),
                 "meta_obj": novo_nome,
                 "objetivo": novo_objetivo,
                 "alcancado": ""
+            }
+
+            objetivo.setdefault("metas", []).append(nova_meta)
             }
 
             objetivo.setdefault("metas", []).append(nova_meta)
@@ -1394,8 +1398,8 @@ with aba_res_mp:
                             for i, meta in enumerate(metas):
                                 nova_lista.append({
                                     **meta,
-                                    "objetivo": df_editado.loc[i, "Objetivo"],
-                                    "alcancado": df_editado.loc[i, "Alcançado"]
+                                    "objetivo": df_editado.loc[i]["Objetivo"],
+                                    "alcancado": df_editado.loc[i]["Alcançado"]
                                 })
 
                             estrategia.update_one(
