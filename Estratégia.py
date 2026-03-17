@@ -1350,6 +1350,7 @@ with aba_res_mp:
                 doc,
                 estrategia
             ):
+
                 if not metas:
                     st.caption("Nenhuma meta cadastrada.")
                     return
@@ -1367,72 +1368,48 @@ with aba_res_mp:
                 ])
 
                 if st.session_state.modo_edicao:
-                    chave_original = f"df_metas_original_mp_{idx}"
-                    chave_editado = f"df_metas_editado_mp_{idx}"
-
-                    if chave_original not in st.session_state:
-                        st.session_state[chave_original] = df_metas.copy()
 
                     df_editado = st.data_editor(
-                        st.session_state.get(
-                            chave_editado,
-                            st.session_state[chave_original],
-                        ),
+                        df_metas,
                         hide_index=True,
-                        key=f"editor_metas_mp_{idx}",
+                        key=f"editor_metas_mp_{idx}_{len(metas)}",
                         column_config={
-                            "Meta": st.column_config.TextColumn(
-                                "Meta",
-                                disabled=True
-                            ),
+                            "Meta": st.column_config.TextColumn("Meta", disabled=True),
                             "Objetivo": st.column_config.TextColumn("Objetivo"),
                             "Alcançado": st.column_config.TextColumn("Alcançado"),
                         },
                         num_rows="fixed"
                     )
 
-                    st.session_state[chave_editado] = df_editado.copy()
+                    if not df_editado.equals(df_metas):
 
-                    houve_mudanca = df_tem_mudancas(
-                        df_editado,
-                        st.session_state[chave_original]
-                    )
-
-                    if houve_mudanca:
-                        container_botao = st.container(horizontal_alignment="left", width=300)
-                        if container_botao.button(
-                            "Atualizar metas",
-                            icon=":material/save:",
+                        if st.button(
+                            "Salvar alterações",
                             key=f"salvar_metas_mp_{idx}",
-                            use_container_width=True
+                            icon=":material/save:"
                         ):
-                            nova_lista_metas = []
+
+                            nova_lista = []
+
                             for i, meta in enumerate(metas):
-                                nova_lista_metas.append({
+                                nova_lista.append({
                                     **meta,
-                                    "objetivo": df_editado.loc[i]["Objetivo"],
-                                    "alcancado": df_editado.loc[i]["Alcançado"]
+                                    "objetivo": df_editado.loc[i, "Objetivo"],
+                                    "alcancado": df_editado.loc[i, "Alcançado"]
                                 })
 
                             estrategia.update_one(
-                                {
-                                    "_id": doc["_id"],
-                                    f"resultados_medio_prazo.resultados_mp.{idx}._id": resultado["_id"]
-                                },
+                                {"_id": doc["_id"]},
                                 {
                                     "$set": {
-                                        f"resultados_medio_prazo.resultados_mp.{idx}.metas": nova_lista_metas
+                                        f"resultados_medio_prazo.resultados_mp.{idx}.metas": nova_lista
                                     }
                                 }
                             )
 
-                            st.session_state[chave_original] = df_editado.copy()
-                            st.session_state.pop(chave_editado, None)
-
-                            msg = st.empty()
-                            msg.success("Metas atualizadas com sucesso")
+                            st.success("Metas atualizadas!")
                             time.sleep(2)
-                            msg.empty()
+                            st.rerun()
 
                 else:
                     st.dataframe(df_metas, hide_index=True)
@@ -1719,84 +1696,47 @@ def fragmento_metas_obj(
 
     if st.session_state.modo_edicao:
 
-        chave_original = f"df_metas_original_obj_{idx}"
-        chave_editado = f"df_metas_editado_obj_{idx}"
-
-        if chave_original not in st.session_state:
-            st.session_state[chave_original] = df_metas.copy()
-
         df_editado = st.data_editor(
-            st.session_state.get(
-                chave_editado,
-                st.session_state[chave_original]
-            ),
+            df_metas,
             hide_index=True,
-            key=f"editor_metas_obj_{idx}",
+            key=f"editor_metas_obj_{idx}_{len(metas)}",
             column_config={
-                "Meta": st.column_config.TextColumn(
-                    "Meta",
-                    disabled=True
-                ),
+                "Meta": st.column_config.TextColumn("Meta", disabled=True),
                 "Objetivo": st.column_config.TextColumn("Objetivo"),
                 "Alcançado": st.column_config.TextColumn("Alcançado"),
             },
             num_rows="fixed"
         )
-        
-        df_editado = df_editado.reset_index(drop=True)
 
-        st.session_state[chave_editado] = df_editado.copy()
+        if not df_editado.equals(df_metas):
 
-        houve_mudanca = df_tem_mudancas(
-            df_editado,
-            st.session_state[chave_original]
-        )
-
-        if houve_mudanca:
-
-            container_botao = st.container(
-                horizontal_alignment="left",
-                width=300
-            )
-
-            if container_botao.button(
-                "Atualizar metas",
-                icon=":material/save:",
+            if st.button(
+                "Salvar alterações",
                 key=f"salvar_metas_obj_{idx}",
-                use_container_width=True
+                icon=":material/save:"
             ):
 
-                nova_lista_metas = []
+                nova_lista = []
 
-                for i, row in df_editado.iterrows():
-
-                    meta_original = metas[i] if i < len(metas) else {}
-
-                    nova_lista_metas.append({
-                        **meta_original,
-                        "objetivo": row["Objetivo"],
-                        "alcancado": row["Alcançado"]
+                for i, meta in enumerate(metas):
+                    nova_lista.append({
+                        **meta,
+                        "objetivo": df_editado.loc[i, "Objetivo"],
+                        "alcancado": df_editado.loc[i, "Alcançado"]
                     })
 
                 estrategia.update_one(
-                    {
-                        "_id": doc["_id"],
-                        f"objetivos_estrategicos_institucionais.obj_estrat_inst.{idx}._id": objetivo["_id"]
-                    },
+                    {"_id": doc["_id"]},
                     {
                         "$set": {
-                            f"objetivos_estrategicos_institucionais.obj_estrat_inst.{idx}.metas": nova_lista_metas
+                            f"objetivos_estrategicos_institucionais.obj_estrat_inst.{idx}.metas": nova_lista
                         }
                     }
                 )
 
-                st.session_state[chave_original] = df_editado.copy()
-                st.session_state.pop(chave_editado, None)
-
-                msg = st.empty()
-                msg.success("Metas atualizadas com sucesso")
+                st.success("Metas atualizadas!")
                 time.sleep(2)
-                msg.empty()
+                st.rerun()
 
     else:
         st.dataframe(df_metas, hide_index=True)
@@ -1835,8 +1775,6 @@ with aba_ebj_est_ins:
             # ====================================================
             # METAS
             # ====================================================
-
-            
 
             fragmento_metas_obj(
                 metas=objetivo.get("metas", []),
