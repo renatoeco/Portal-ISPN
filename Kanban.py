@@ -41,36 +41,49 @@ id_usuario = st.session_state["id_usuario"]
 # EDITAR CARD
 ######################################################################################################
 
+
+
+######################################################################################################
+# EDITAR CARD COM TAGS (SEM FECHAR O DIALOG)
+######################################################################################################
+
 @st.dialog("Editar atividade")
 def dialog_editar_card(card):
 
-    # Carrega pistas do board
+    ##################################################################################################
+    # CARREGA PISTAS
+    ##################################################################################################
+
     pistas_board = list(
         kanban_pistas.find({"board_id": card["board_id"]}).sort("ordem", 1)
     )
 
     dict_pistas = {p["nome"]: p["_id"] for p in pistas_board}
 
-    # Campo atividade
+    ##################################################################################################
+    # CAMPOS PRINCIPAIS
+    ##################################################################################################
+
     atividade = st.text_input("Atividade", value=card.get("atividade", ""))
 
-    # Campo descrição
     descricao = st.text_area("Descrição", value=card.get("descricao_ativ", ""))
 
-    # Descobre nome da pista atual
+    # Descobre pista atual
     pista_atual_nome = next(
         (p["nome"] for p in pistas_board if p["_id"] == card["pista_id"]),
         None
     )
 
-    # Select de pista
     pista_escolhida = st.selectbox(
         "Pista",
         options=list(dict_pistas.keys()),
         index=list(dict_pistas.keys()).index(pista_atual_nome) if pista_atual_nome else 0
     )
 
-    # Data fim
+    ##################################################################################################
+    # DATA
+    ##################################################################################################
+
     data_fim_inicial = datetime.strptime(
         card.get("data_fim", "01/01/2000"),
         "%d/%m/%Y"
@@ -82,13 +95,16 @@ def dialog_editar_card(card):
         format="DD/MM/YYYY"
     )
 
-    # Pessoas
+    ##################################################################################################
+    # PESSOAS
+    ##################################################################################################
+
     pessoas_lista = list(pessoas.find({}))
+
     dict_pessoas = {
         p["nome_completo"]: p["_id"] for p in pessoas_lista
     }
 
-    # Responsáveis atuais
     responsaveis_atuais = [
         nome for nome, _id in dict_pessoas.items()
         if _id in card.get("responsaveis", [])
@@ -100,18 +116,117 @@ def dialog_editar_card(card):
         default=responsaveis_atuais
     )
 
+    ##################################################################################################
+    # TAGS - ESTADO LOCAL
+    ##################################################################################################
 
-    # Botão salvar
+    if "tags_board_local" not in st.session_state:
+        board = kanban_boards.find_one({"_id": card["board_id"]})
+        st.session_state["tags_board_local"] = board.get("tags", [])
+
+    tags_board = st.session_state["tags_board_local"]
+
+    dict_tags = {
+        tag["nome"]: tag for tag in tags_board
+    }
+
+    opcoes_tags = ["+ Nova tag"] + sorted(dict_tags.keys())
+
+    # Tags atuais do card
+    tags_card_atuais = [
+        tag["nome"] for tag in card.get("tags", [])
+    ]
+
+    tags_selecionadas = st.multiselect(
+        "Tags",
+        options=opcoes_tags,
+        default=tags_card_atuais
+    )
+
+    ##################################################################################################
+    # CONTROLE DE CRIAÇÃO DE TAG
+    ##################################################################################################
+
+    if "criar_tag" not in st.session_state:
+        st.session_state["criar_tag"] = False
+
+    if "+ Nova tag" in tags_selecionadas:
+        st.session_state["criar_tag"] = True
+
+    ##################################################################################################
+    # FORM NOVA TAG
+    ##################################################################################################
+
+    if st.session_state["criar_tag"]:
+
+        with st.container(border=True):
+
+            st.subheader("Nova tag")
+
+            nome_tag = st.text_input("Nome da tag")
+            cor_tag = st.color_picker("Cor", "#ff0000")
+
+            col1, col2 = st.columns(2)
+
+            # Salvar tag
+            with col1:
+                if st.button("Salvar tag", use_container_width=True):
+
+                    if nome_tag != "":
+
+                        nomes_existentes = [
+                            t["nome"] for t in tags_board
+                        ]
+
+                        if nome_tag not in nomes_existentes:
+
+                            nova_tag = {
+                                "nome": nome_tag,
+                                "cor": cor_tag
+                            }
+
+                            # Salva no banco
+                            kanban_boards.update_one(
+                                {"_id": card["board_id"]},
+                                {"$push": {"tags": nova_tag}}
+                            )
+
+                            # Atualiza estado local
+                            st.session_state["tags_board_local"].append(nova_tag)
+
+                        st.session_state["criar_tag"] = False
+
+            # Cancelar
+            with col2:
+                if st.button("Cancelar", use_container_width=True):
+                    st.session_state["criar_tag"] = False
+
+    ##################################################################################################
+    # SALVAR ALTERAÇÕES
+    ##################################################################################################
+
     st.divider()
+
     if st.button("Salvar alterações", icon=":material/save:", type="primary"):
 
+        # Responsáveis
         lista_responsaveis = [
             dict_pessoas[nome] for nome in responsaveis
         ]
 
+        # Tags válidas
+        tags_validas = [
+            t for t in tags_selecionadas if t != "+ Nova tag"
+        ]
+
+        lista_tags = [
+            dict_tags[nome] for nome in tags_validas
+        ]
+
+        # Pista
         nova_pista_id = dict_pistas[pista_escolhida]
 
-        # Se mudou de pista, recalcula ordem
+        # Ordem
         if nova_pista_id != card["pista_id"]:
 
             total_destino = kanban_cards.count_documents({
@@ -124,6 +239,7 @@ def dialog_editar_card(card):
         else:
             nova_ordem = card["ordem"]
 
+        # Atualiza card
         kanban_cards.update_one(
             {"_id": card["_id"]},
             {
@@ -132,13 +248,21 @@ def dialog_editar_card(card):
                     "descricao_ativ": descricao,
                     "data_fim": data_fim_input.strftime("%d/%m/%Y"),
                     "responsaveis": lista_responsaveis,
+                    "tags": lista_tags,
                     "pista_id": nova_pista_id,
                     "ordem": nova_ordem
                 }
             }
         )
 
+        # Limpa estado local (evita conflito entre dialogs)
+        if "tags_board_local" in st.session_state:
+            del st.session_state["tags_board_local"]
+
         st.rerun()
+
+
+
 
 
 
@@ -223,12 +347,26 @@ def dialog_criar_pista(board_id):
 
             st.rerun()
 
+
+
+
+
+
+
+
+
+
+
 ######################################################################################################
-# CRIAR CARD
+# CRIAR CARD COM TAGS (SEM FECHAR O DIALOG AO CRIAR TAG)
 ######################################################################################################
 
 @st.dialog("Criar atividade")
 def dialog_criar_card(board_id):
+
+    ##################################################################################################
+    # CARREGA PISTAS
+    ##################################################################################################
 
     pistas_board = list(
         kanban_pistas.find({"board_id": board_id}).sort("ordem", 1)
@@ -240,6 +378,10 @@ def dialog_criar_card(board_id):
 
     dict_pistas = {p["nome"]: p["_id"] for p in pistas_board}
 
+    ##################################################################################################
+    # CAMPOS PRINCIPAIS
+    ##################################################################################################
+
     atividade = st.text_input("Atividade")
     descricao = st.text_area("Descrição")
 
@@ -249,6 +391,10 @@ def dialog_criar_card(board_id):
     )
 
     data_fim_input = st.date_input("Data fim", format="DD/MM/YYYY")
+
+    ##################################################################################################
+    # PESSOAS
+    ##################################################################################################
 
     pessoas_lista = list(pessoas.find({}))
     dict_pessoas = {
@@ -260,33 +406,142 @@ def dialog_criar_card(board_id):
         list(dict_pessoas.keys())
     )
 
+    ##################################################################################################
+    # TAGS - ESTADO LOCAL (EVITA FECHAR O DIALOG)
+    ##################################################################################################
+
+    # Inicializa estado local das tags apenas uma vez
+    if "tags_board_local" not in st.session_state:
+        board = kanban_boards.find_one({"_id": board_id})
+        st.session_state["tags_board_local"] = board.get("tags", [])
+
+    tags_board = st.session_state["tags_board_local"]
+
+    # Mapeia nome -> objeto tag
+    dict_tags = {
+        tag["nome"]: tag for tag in tags_board
+    }
+
+    # Opções com "+ Nova tag"
+    opcoes_tags = ["+ Nova tag"] + sorted(dict_tags.keys())
+
+    tags_selecionadas = st.multiselect(
+        "Tags",
+        options=opcoes_tags
+    )
+
+    ##################################################################################################
+    # CONTROLE DE EXIBIÇÃO DO FORM DE NOVA TAG
+    ##################################################################################################
+
+    if "criar_tag" not in st.session_state:
+        st.session_state["criar_tag"] = False
+
+    if "+ Nova tag" in tags_selecionadas:
+        st.session_state["criar_tag"] = True
+
+    ##################################################################################################
+    # FORM DE CRIAÇÃO DE TAG (SEM RERUN)
+    ##################################################################################################
+
+    if st.session_state["criar_tag"]:
+
+        with st.container(border=True):
+
+            st.subheader("Nova tag")
+
+            nome_tag = st.text_input("Nome da tag")
+            cor_tag = st.color_picker("Cor", "#ff0000")
+
+            col1, col2 = st.columns(2)
+
+            # BOTÃO SALVAR TAG
+            with col1:
+                if st.button("Salvar tag", use_container_width=True):
+
+                    if nome_tag != "":
+
+                        # Evita duplicação
+                        nomes_existentes = [
+                            t["nome"] for t in tags_board
+                        ]
+
+                        if nome_tag not in nomes_existentes:
+
+                            nova_tag = {
+                                "nome": nome_tag,
+                                "cor": cor_tag
+                            }
+
+                            # Salva no banco
+                            kanban_boards.update_one(
+                                {"_id": board_id},
+                                {"$push": {"tags": nova_tag}}
+                            )
+
+                            # Atualiza estado local (SEM rerun)
+                            st.session_state["tags_board_local"].append(nova_tag)
+
+                        # Fecha form de criação
+                        st.session_state["criar_tag"] = False
+
+            # BOTÃO CANCELAR
+            with col2:
+                if st.button("Cancelar", use_container_width=True):
+                    st.session_state["criar_tag"] = False
+
+    ##################################################################################################
+    # SALVAR CARD
+    ##################################################################################################
+
     if st.button("Criar atividade", use_container_width=True):
 
-        data_fim = data_fim_input.strftime("%d/%m/%Y")
-
+        # Converte responsáveis para IDs
         lista_responsaveis = [
-            dict_pessoas[nome] for nome in responsaveis
+            dict_pessoas[n] for n in responsaveis
         ]
 
-        total_cards = kanban_cards.count_documents({
+        # Remove opção "+ Nova tag"
+        tags_validas = [
+            t for t in tags_selecionadas if t != "+ Nova tag"
+        ]
+
+        # Converte para objetos completos de tag
+        lista_tags = [
+            dict_tags[n] for n in tags_validas
+        ]
+
+        # Calcula ordem
+        total = kanban_cards.count_documents({
             "board_id": board_id,
             "pista_id": dict_pistas[pista_escolhida]
         })
 
+        # Insere card
         kanban_cards.insert_one({
-
             "atividade": atividade,
             "descricao_ativ": descricao,
             "criador": id_usuario,
             "data_criacao": datetime.now().strftime("%d/%m/%Y %H:%M"),
-            "data_fim": data_fim,
+            "data_fim": data_fim_input.strftime("%d/%m/%Y"),
             "responsaveis": lista_responsaveis,
+            "tags": lista_tags,
             "board_id": board_id,
             "pista_id": dict_pistas[pista_escolhida],
-            "ordem": total_cards
+            "ordem": total
         })
 
+        # Limpa estado de tags (opcional, evita “vazar” para outro board)
+        if "tags_board_local" in st.session_state:
+            del st.session_state["tags_board_local"]
+
         st.rerun()
+
+
+
+
+
+
 
 ######################################################################################################
 # BARRA SUPERIOR
@@ -420,6 +675,33 @@ def renderizar_kanban(board_id):
 
                     with st.container(horizontal=True, horizontal_alignment="right"):
 
+
+                        # ########################
+                        # BADGES DE TAGS
+                        # ########################
+
+                        tags_card = card.get("tags", [])
+
+                        if tags_card:
+
+                            badges_html = ""
+
+                            for tag in tags_card:
+                                badges_html += f"""
+                                <span style="
+                                    background-color:{tag['cor']};
+                                    color:white;
+                                    padding:2px 8px;
+                                    border-radius:8px;
+                                    font-size:14px;
+                                    margin-right:4px;
+                                ">
+                                    {tag['nome']}
+                                </span>
+                                """
+
+                            st.markdown(badges_html, unsafe_allow_html=True)
+
                         with st.popover(
                             "",
                             icon=":material/more_vert:",
@@ -474,9 +756,6 @@ def renderizar_kanban(board_id):
 
                                     # Recarrega interface
                                     st.rerun(scope="fragment")
-
-
-
 
 
 
