@@ -451,7 +451,7 @@ def dialog_criar_card(board_id):
             st.subheader("Nova tag")
 
             nome_tag = st.text_input("Nome da tag")
-            cor_tag = st.color_picker("Cor", "#ff0000")
+            cor_tag = st.color_picker("Cor", "#3642ad")
 
             col1, col2 = st.columns(2)
 
