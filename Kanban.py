@@ -100,8 +100,10 @@ def dialog_editar_card(card):
         default=responsaveis_atuais
     )
 
+
     # Botão salvar
-    if st.button("Salvar alterações", use_container_width=True):
+    st.divider()
+    if st.button("Salvar alterações", icon=":material/save:", type="primary"):
 
         lista_responsaveis = [
             dict_pessoas[nome] for nome in responsaveis
