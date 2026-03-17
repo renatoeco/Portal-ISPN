@@ -1821,6 +1821,8 @@ with aba_ebj_est_ins:
                     st.dataframe(df_metas, hide_index=True)
 
             else:
+                st.write("")
+                st.write("")
                 st.caption("Nenhuma meta cadastrada.")
 
             st.divider()
