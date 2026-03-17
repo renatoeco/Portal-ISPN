@@ -197,23 +197,6 @@ def dialog_criar_board():
 
 
 
-# @st.dialog("Criar novo board")
-# def dialog_criar_board():
-
-#     nome_board = st.text_input("Nome do board")
-
-#     if st.button("Criar board", use_container_width=True):
-
-#         if nome_board != "":
-
-#             kanban_boards.insert_one({
-#                 "nome": nome_board,
-#                 "criador": id_usuario,
-#                 "membros": [id_usuario],
-#                 "data_criacao": datetime.now()
-#             })
-
-#             st.rerun()
 
 ######################################################################################################
 # CRIAR COLUNA
@@ -502,97 +485,6 @@ def renderizar_kanban(board_id):
 
                     st.write(f":material/event: {card.get('data_fim','')}")
                     st.write(f":material/group: {', '.join(nomes_responsaveis)}")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# @st.fragment
-# def renderizar_kanban(board_id):
-
-#     # Carrega pistas
-#     pistas = list(
-#         kanban_pistas.find({"board_id": board_id}).sort("ordem", 1)
-#     )
-
-#     # Carrega cards
-#     cards = list(
-#         kanban_cards.find({"board_id": board_id}).sort("ordem", 1)
-#     )
-
-#     # Dicionário de pessoas
-#     pessoas_dict = {
-#         p["_id"]: p["nome_completo"]
-#         for p in pessoas.find({})
-#     }
-
-
-#     st.write('')
-#     st.write('')
-#     st.write('')
-
-#     # Cria colunas dinamicamente baseado nas pistas
-#     cols = st.columns(len(pistas), gap="small")
-
-#     # Itera sobre pistas e colunas
-#     for idx, pista in enumerate(pistas):
-
-#         with cols[idx]:
-
-#             # Título da coluna
-#             st.subheader(pista["nome"])
-
-#             # Filtra cards da pista atual
-#             cards_pista = [
-#                 c for c in cards if c["pista_id"] == pista["_id"]
-#             ]
-
-#             # Ordena corretamente
-#             cards_pista = sorted(cards_pista, key=lambda x: x["ordem"])
-
-#             # Renderiza cards
-#             for card in cards_pista:
-
-#                 nomes_responsaveis = []
-
-#                 for resp in card.get("responsaveis", []):
-#                     pessoa = pessoas_dict.get(resp)
-#                     if pessoa:
-#                         nomes_responsaveis.append(pessoa.split()[0])
-
-#                 # Card visual com container
-#                 with st.container(border=True):
-
-#                     st.markdown(f"**{card['atividade']}**")
-
-#                     if card.get("descricao_ativ"):
-#                         st.caption(card["descricao_ativ"])
-
-#                     st.write(f"Data fim: {card.get('data_fim','')}")
-
-#                     st.write(
-#                         f"Responsáveis: {', '.join(nomes_responsaveis)}"
-#                     )
-
-
 
 
 
