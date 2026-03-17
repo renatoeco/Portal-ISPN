@@ -99,22 +99,30 @@ def dialog_editar_card(card):
     # PESSOAS
     ##################################################################################################
 
-    pessoas_lista = list(pessoas.find({}))
+    # Busca pessoas já ordenadas alfabeticamente
+    pessoas_lista = list(
+        pessoas.find({}).sort("nome_completo", 1)
+    )
 
+    # Cria dicionário mantendo a ordem
     dict_pessoas = {
         p["nome_completo"]: p["_id"] for p in pessoas_lista
     }
 
+    # Responsáveis atuais
     responsaveis_atuais = [
         nome for nome, _id in dict_pessoas.items()
         if _id in card.get("responsaveis", [])
     ]
 
+    # Multiselect já ordenado
     responsaveis = st.multiselect(
         "Responsáveis",
         options=list(dict_pessoas.keys()),
         default=responsaveis_atuais
     )
+
+
 
     ##################################################################################################
     # TAGS - ESTADO LOCAL
