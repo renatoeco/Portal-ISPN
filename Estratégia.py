@@ -471,6 +471,231 @@ def editar_titulo_de_cada_resultado_lp_dialog(resultado_idx):
         st.rerun()
 
 
+@st.dialog("Editar objetivo estratégico", width="large")
+def editar_objetivo_estrategico_dialog(obj_idx):
+
+    doc = estrategia.find_one(
+        {"objetivos_estrategicos_institucionais": {"$exists": True}}
+    )
+
+    objetivos = doc["objetivos_estrategicos_institucionais"]["obj_estrat_inst"]
+
+    objetivo = objetivos[obj_idx]
+
+    aba1, aba2, aba3, aba4 = st.tabs(
+        ["Título", "Metas", "Indicadores", "Ações Estratégicas", ]
+    )
+    
+    with aba1:
+
+        titulo_atual = objetivo.get("titulo", "")
+
+        novo_titulo = st.text_area(
+            "Título do objetivo",
+            value=titulo_atual,
+            height="content"
+        )
+
+        if st.button("Salvar", icon=":material/save:"):
+
+            objetivos[obj_idx]["titulo"] = novo_titulo
+
+            estrategia.update_one(
+                {"_id": doc["_id"]},
+                {"$set": {
+                    "objetivos_estrategicos_institucionais.obj_estrat_inst": objetivos
+                }}
+            )
+
+            st.success("Título atualizado com sucesso!")
+            time.sleep(2)
+            st.rerun()
+            
+    with aba2:
+
+        metas = objetivo.get("metas", [])
+
+        st.subheader("Adicionar meta")
+
+        novo_nome = st.text_input(
+            "Título da meta",
+            key=f"nova_meta_{obj_idx}"
+        )
+
+        novo_objetivo = st.text_input(
+            "Objetivo da meta",
+            key=f"nova_meta_obj_{obj_idx}"
+        )
+
+        if st.button("Adicionar meta", icon=":material/add:"):
+
+            metas.append({
+                "_id": str(ObjectId()),
+                "meta_obj": novo_nome,
+                "objetivo": novo_objetivo,
+                "alcancado": ""
+            })
+
+            estrategia.update_one(
+                {"_id": doc["_id"]},
+                {"$set": {
+                    "objetivos_estrategicos_institucionais.obj_estrat_inst": objetivos
+                }}
+            )
+
+            st.success("Meta adicionada!")
+            time.sleep(2)
+            st.rerun()
+            
+    with aba3:
+
+        indicadores_obj = objetivo.get("indicadores", [])
+
+        # -------------------------------------------------
+        # ADICIONAR INDICADOR
+        # -------------------------------------------------
+
+        with st.expander("Adicionar indicador"):
+
+            novo_indicador = st.text_area(
+                "Nome do indicador",
+                key=f"novo_ind_obj_{obj_idx}"
+            )
+
+            if st.button("Adicionar indicador", icon=":material/add:"):
+
+                novo = {
+                    "_id": str(ObjectId()),
+                    "nome_indicador": novo_indicador
+                }
+
+                objetivo.setdefault("indicadores", []).append(novo)
+
+                estrategia.update_one(
+                    {"_id": doc["_id"]},
+                    {"$set": {
+                        "objetivos_estrategicos_institucionais.obj_estrat_inst": objetivos
+                    }}
+                )
+
+                st.success("Indicador adicionado!")
+                time.sleep(2)
+                st.rerun()
+
+        st.write("")
+
+        # -------------------------------------------------
+        # EDITAR INDICADORES EXISTENTES
+        # -------------------------------------------------
+
+        for i, ind in enumerate(indicadores_obj):
+
+            titulo = ind.get("nome_indicador", f"Indicador {i+1}")
+
+            with st.expander(titulo):
+
+                novo_nome = st.text_area(
+                    "Indicador",
+                    value=ind.get("nome_indicador", ""),
+                    key=f"ind_nome_{obj_idx}_{i}"
+                )
+
+                if st.button(
+                    "Salvar",
+                    key=f"salvar_ind_{obj_idx}_{i}",
+                    icon=":material/save:"
+                ):
+
+                    objetivos[obj_idx]["indicadores"][i]["nome_indicador"] = novo_nome
+
+                    estrategia.update_one(
+                        {"_id": doc["_id"]},
+                        {"$set": {
+                            "objetivos_estrategicos_institucionais.obj_estrat_inst": objetivos
+                        }}
+                    )
+
+                    st.success("Indicador atualizado!")
+                    time.sleep(2)
+                    st.rerun()
+            
+    with aba4:
+
+        acoes = objetivo.get("acoes_estrategicas", [])
+
+        # -------------------------------------------------
+        # ADICIONAR NOVA AÇÃO
+        # -------------------------------------------------
+
+        with st.expander("Adicionar ação estratégica"):
+
+            nova_acao = st.text_area(
+                "Título da ação estratégica",
+                key=f"nova_acao_obj_{obj_idx}"
+            )
+
+            if st.button(
+                "Adicionar ação",
+                icon=":material/add:",
+                key=f"add_acao_obj_{obj_idx}"
+            ):
+
+                nova = {
+                    "_id": str(ObjectId()),
+                    "acao_estrategica_obj": nova_acao
+                }
+
+                objetivo.setdefault("acoes_estrategicas", []).append(nova)
+
+                estrategia.update_one(
+                    {"_id": doc["_id"]},
+                    {"$set": {
+                        "objetivos_estrategicos_institucionais.obj_estrat_inst": objetivos
+                    }}
+                )
+
+                st.success("Ação estratégica adicionada!")
+                time.sleep(2)
+                st.rerun()
+
+        st.write("")
+
+        # -------------------------------------------------
+        # EDITAR AÇÕES EXISTENTES
+        # -------------------------------------------------
+
+        for i, acao in enumerate(acoes):
+
+            titulo = acao.get("acao_estrategica_obj", f"Ação {i+1}")
+
+            with st.expander(titulo):
+
+                novo_nome = st.text_area(
+                    "Título da ação estratégica",
+                    value=titulo,
+                    key=f"acao_nome_{obj_idx}_{i}"
+                )
+
+                if st.button(
+                    "Salvar",
+                    key=f"salvar_acao_{obj_idx}_{i}",
+                    icon=":material/save:"
+                ):
+
+                    objetivos[obj_idx]["acoes_estrategicas"][i]["acao_estrategica_obj"] = novo_nome
+
+                    estrategia.update_one(
+                        {"_id": doc["_id"]},
+                        {"$set": {
+                            "objetivos_estrategicos_institucionais.obj_estrat_inst": objetivos
+                        }}
+                    )
+
+                    st.success("Ação estratégica atualizada!")
+                    time.sleep(2)
+                    st.rerun()
+
+
 def _safe_key(text):
     """Gera uma chave segura para Streamlit a partir de um texto (sem chars especiais)."""
     if text is None:
@@ -723,15 +948,8 @@ def normalizar_id(valor):
 ###########################################################################################################
 
 
-if "modo_edicao" not in st.session_state:
-    st.session_state.modo_edicao = False
-
-
 st.header("Planejamento Estratégico")
 st.write('')
-
-
-
 
 
 # ----------------------------------------------------
@@ -857,6 +1075,24 @@ responsaveis_dict = {
     for p in pessoas
 }
 
+# ------------------------------------------------
+# MODO DE EDIÇÃO GLOBAL
+# ------------------------------------------------
+
+if "modo_edicao" not in st.session_state:
+    st.session_state.modo_edicao = False
+
+if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)"}:
+    col1, col2 = st.columns([5,1])
+
+    with col2:
+        st.toggle(
+            "Modo de edição",
+            key="modo_edicao"
+        )
+        
+st.write("")
+
 # aba_tm, aba_est, aba_res_mp, aba_res_lp, aba_ebj_est_ins = st.tabs(['Teoria da mudança', 'Estratégia', 'Resultados de Médio Prazo', 'Resultados de Longo Prazo', 'Objetivos Estratégicos Institucionais'])
 aba_est, aba_res_mp, aba_res_lp, aba_ebj_est_ins = st.tabs(['Estratégia', 'Resultados de Médio Prazo', 'Resultados de Longo Prazo', 'Objetivos Estratégicos Organizacionais'])
 
@@ -864,12 +1100,6 @@ aba_est, aba_res_mp, aba_res_lp, aba_ebj_est_ins = st.tabs(['Estratégia', 'Resu
 # ABA ESTRATÉGIA
 # ---------------------------
 with aba_est:
-
-    # ----------------------------------------------------
-    # ESTADO INICIAL
-    # ----------------------------------------------------
-    if "modo_edicao_1" not in st.session_state:
-        st.session_state.modo_edicao_1 = False
 
     # ----------------------------------------------------
     # CARREGAR ESTRATÉGIA
@@ -889,19 +1119,17 @@ with aba_est:
     # ----------------------------------------------------
     # MODO EDIÇÃO
     # ----------------------------------------------------
-    if set(st.session_state.tipo_usuario) & {"admin"}:
-        col1, col2 = st.columns([4, 1])
-        col1.toggle("Modo de edição", value=False, key="modo_edicao_1")
+    col1, col2 = st.columns([4, 1])
 
-        if st.session_state.modo_edicao_1:
-            with col2:
-                st.button(
-                    "Editar página",
-                    icon=":material/edit:",
-                    key="editar_titulo_estrategia",
-                    on_click=editar_estrategia_dialog,
-                    use_container_width=True
-                )
+    if st.session_state.modo_edicao:
+        with col2:
+            st.button(
+                "Editar aba",
+                icon=":material/edit:",
+                key="editar_titulo_estrategia",
+                on_click=editar_estrategia_dialog,
+                use_container_width=True
+            )
 
     st.write("")
     st.subheader(
@@ -967,7 +1195,7 @@ with aba_est:
             # --------------------------------------------
             # BOTÃO EDITAR EIXO
             # --------------------------------------------
-            if st.session_state.modo_edicao_1:
+            if st.session_state.modo_edicao:
                 col1, col2 = st.columns([4, 1])
                 col2.button(
                     "Editar eixo",
@@ -1017,8 +1245,6 @@ with aba_est:
                 projetos=st.session_state.get("filtro_projetos", [])
             )
 
-
-
             if entregas_filtradas:
                 exibir_entregas_como_tabela(
                     entregas_filtradas,
@@ -1035,12 +1261,6 @@ with aba_est:
 with aba_res_mp:
 
     # ----------------------------------------------------
-    # ESTADO INICIAL
-    # ----------------------------------------------------
-    if "modo_edicao_2" not in st.session_state:
-        st.session_state.modo_edicao_2 = False
-
-    # ----------------------------------------------------
     # CARREGAR DOCUMENTO DE RESULTADOS MP
     # ----------------------------------------------------
     doc = estrategia.find_one({"resultados_medio_prazo": {"$exists": True}})
@@ -1055,19 +1275,17 @@ with aba_res_mp:
     # ----------------------------------------------------
     # MODO EDIÇÃO
     # ----------------------------------------------------
-    if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)"}:
-        col1, col2 = st.columns([4, 1])
-        col1.toggle("Modo de edição", value=False, key="modo_edicao_2")
+    col1, col2 = st.columns([4, 1])
 
-        if st.session_state.modo_edicao_2 and "admin" in st.session_state.tipo_usuario:
-            with col2:
-                st.button(
-                    "Editar página",
-                    icon=":material/edit:",
-                    key="editar_titulo_result_mp",
-                    on_click=editar_titulo_pagina_resultados_mp_dialog,
-                    use_container_width=True
-                )
+    if st.session_state.modo_edicao:
+        with col2:
+            st.button(
+                "Editar aba",
+                icon=":material/edit:",
+                key="editar_titulo_result_mp",
+                on_click=editar_titulo_pagina_resultados_mp_dialog,
+                use_container_width=True
+            )
 
     st.write("")
     st.subheader(titulo_pagina)
@@ -1111,7 +1329,7 @@ with aba_res_mp:
             # --------------------------------------------
             # BOTÃO EDITAR RESULTADO
             # --------------------------------------------
-            if st.session_state.modo_edicao_2:
+            if st.session_state.modo_edicao:
                 col1, col2 = st.columns([4, 1])
                 col2.button(
                     "Editar resultado",
@@ -1146,7 +1364,7 @@ with aba_res_mp:
                     for m in metas
                 ])
 
-                if st.session_state.modo_edicao_2:
+                if st.session_state.modo_edicao:
                     chave_original = f"df_metas_original_mp_{idx}"
                     chave_editado = f"df_metas_editado_mp_{idx}"
 
@@ -1316,12 +1534,6 @@ with aba_res_mp:
 with aba_res_lp:
 
     # ----------------------------------------------------
-    # ESTADO INICIAL
-    # ----------------------------------------------------
-    if "modo_edicao_lp" not in st.session_state:
-        st.session_state.modo_edicao_lp = False
-
-    # ----------------------------------------------------
     # CARREGAR DOCUMENTO DE RESULTADOS DE LONGO PRAZO
     # ----------------------------------------------------
     doc = estrategia.find_one({"resultados_longo_prazo": {"$exists": True}})
@@ -1336,19 +1548,16 @@ with aba_res_lp:
     # ----------------------------------------------------
     # MODO DE EDIÇÃO
     # ----------------------------------------------------
-    if set(st.session_state.tipo_usuario) & {"admin"}:
-        col1, col2 = st.columns([4, 1])
-        col1.toggle("Modo de edição", value=False, key="modo_edicao_lp")
-
-        if st.session_state.modo_edicao_lp:
-            with col2:
-                st.button(
-                    "Editar página",
-                    icon=":material/edit:",
-                    key="editar_titulo_result_lp",
-                    on_click=editar_titulo_pagina_resultados_lp_dialog,
-                    use_container_width=True
-                )
+    col1, col2 = st.columns([4, 1])
+    if st.session_state.modo_edicao:
+        with col2:
+            st.button(
+                "Editar aba",
+                icon=":material/edit:",
+                key="editar_titulo_result_lp",
+                on_click=editar_titulo_pagina_resultados_lp_dialog,
+                use_container_width=True
+            )
 
     st.write("")
     st.subheader(titulo_pagina_lp)
@@ -1398,7 +1607,7 @@ with aba_res_lp:
                 # --------------------------------------------
                 # BOTÃO EDITAR RESULTADO
                 # --------------------------------------------
-                if st.session_state.modo_edicao_lp:
+                if st.session_state.modo_edicao:
                     col1, col2 = st.columns([4, 1])
                     col2.button(
                         "Editar resultado",
@@ -1492,38 +1701,190 @@ with aba_ebj_est_ins:
     st.write('')
     st.subheader(doc["objetivos_estrategicos_institucionais"]["titulo_pagina_obj_estrat_inst"])
     st.write('')
-    st.markdown('<span style="color:red">**Página não implementada*</span>', unsafe_allow_html=True)
-    st.write('')
 
-    # Objetivo 1
-    with st.expander(f'**Objetivo 1 - {objetivos[0]["titulo"]}**'):
-        st.write('')
+    for idx, objetivo in enumerate(objetivos):
 
-    # Objetivo 2
-    with st.expander(f'**Objetivo 2 - {objetivos[1]["titulo"]}**'):
-        st.write('')
+        with st.expander(f"**Objetivo {idx+1} - {objetivo['titulo']}**"):
 
-    # Objetivo 3
-    with st.expander(f'**Objetivo 3 - {objetivos[2]["titulo"]}**'):
-        st.write('')
+            # --------------------------------------------
+            # BOTÃO EDITAR
+            # --------------------------------------------
+            if st.session_state.modo_edicao:
+                col1, col2 = st.columns([4,1])
+                col2.button(
+                    "Editar objetivo",
+                    icon=":material/edit:",
+                    key=f"editar_obj_{idx}",
+                    on_click=lambda i=idx: editar_objetivo_estrategico_dialog(i)
+                )
 
-    # Objetivo 4
-    with st.expander(f'**Objetivo 4 - {objetivos[3]["titulo"]}**'):
-        st.write('')
+                st.write("")
+                st.write("")
+                
 
-    # Objetivo 5
-    with st.expander(f'**Objetivo 5 - {objetivos[4]["titulo"]}**'):
-        st.write('')
+            # ====================================================
+            # METAS
+            # ====================================================
 
-    # Objetivo 6
-    with st.expander(f'**Objetivo 6 - {objetivos[5]["titulo"]}**'):
-        st.write('')
+            metas = objetivo.get("metas", [])
 
-    # Objetivo 7
-    with st.expander(f'**Objetivo 7 - {objetivos[6]["titulo"]}**'):
-        st.write('')
+            if metas:
 
-    # Objetivo 8
-    with st.expander(f'**Objetivo 8 - {objetivos[7]["titulo"]}**'):
-        st.write('')   
+                st.markdown("##### :material/target: Metas:")
+                st.write("")
+
+                df_metas = pd.DataFrame([
+                    {
+                        "Meta": m.get("meta_obj", ""),
+                        "Objetivo": m.get("objetivo", ""),
+                        "Alcançado": m.get("alcancado", "")
+                    }
+                    for m in metas
+                ])
+
+                if st.session_state.modo_edicao:
+
+                    chave_original = f"df_metas_original_obj_{idx}"
+                    chave_editado = f"df_metas_editado_obj_{idx}"
+
+                    if chave_original not in st.session_state:
+                        st.session_state[chave_original] = df_metas.copy()
+
+                    df_editado = st.data_editor(
+                        st.session_state.get(
+                            chave_editado,
+                            st.session_state[chave_original]
+                        ),
+                        hide_index=True,
+                        key=f"editor_metas_obj_{idx}",
+                        column_config={
+                            "Meta": st.column_config.TextColumn(
+                                "Meta",
+                                disabled=True
+                            ),
+                            "Objetivo": st.column_config.TextColumn("Objetivo"),
+                            "Alcançado": st.column_config.TextColumn("Alcançado"),
+                        },
+                        num_rows="fixed"
+                    )
+
+                    st.session_state[chave_editado] = df_editado.copy()
+
+                    houve_mudanca = df_tem_mudancas(
+                        df_editado,
+                        st.session_state[chave_original]
+                    )
+
+                    if houve_mudanca:
+
+                        container_botao = st.container(
+                            horizontal_alignment="left",
+                            width=300
+                        )
+
+                        if container_botao.button(
+                            "Atualizar metas",
+                            icon=":material/save:",
+                            key=f"salvar_metas_obj_{idx}",
+                            use_container_width=True
+                        ):
+
+                            nova_lista_metas = []
+
+                            for i, meta in enumerate(metas):
+                                nova_lista_metas.append({
+                                    **meta,
+                                    "objetivo": df_editado.loc[i, "Objetivo"],
+                                    "alcancado": df_editado.loc[i, "Alcançado"]
+                                })
+
+                            estrategia.update_one(
+                                {
+                                    "objetivos_estrategicos_institucionais.obj_estrat_inst._id": objetivo["_id"]
+                                },
+                                {
+                                    "$set": {
+                                        f"objetivos_estrategicos_institucionais.obj_estrat_inst.{idx}.metas": nova_lista_metas
+                                    }
+                                }
+                            )
+
+                            st.session_state[chave_original] = df_editado.copy()
+                            st.session_state.pop(chave_editado, None)
+
+                            msg = st.empty()
+                            msg.success("Metas atualizadas com sucesso")
+                            time.sleep(2)
+                            msg.empty()
+
+                else:
+                    st.dataframe(df_metas, hide_index=True)
+
+            else:
+                st.caption("Nenhuma meta cadastrada.")
+
+            st.divider()
+
+            # ====================================================
+            # INDICADORES
+            # ====================================================
+
+            st.markdown("##### :material/monitoring: Indicadores:")
+            st.write("")
+
+            indicadores_obj = objetivo.get("indicadores", [])
+
+            if not indicadores_obj:
+                st.caption("Nenhum indicador relacionado a este objetivo.")
+            else:
+                for ind in indicadores_obj:
+
+                    nome_bruto = ind.get("nome_indicador", "Indicador sem nome")
+                    nome_legivel = formatar_nome_legivel(nome_bruto)
+
+                    st.markdown(f"**{nome_legivel}**")
+
+            st.divider()
+
+            # ====================================================
+            # AÇÕES ESTRATÉGICAS
+            # ====================================================
+
+            st.markdown("##### :material/package_2: Entregas por Ação Estratégica:")
+            st.write("")
+
+            acoes = objetivo.get("acoes_estrategicas", [])
+
+            if not acoes:
+                st.caption("Nenhuma ação estratégica cadastrada.")
+            else:
+
+                for idx_acao, acao in enumerate(acoes):
+
+                    nome_acao = acao.get(
+                        "acao_estrategica_obj",
+                        f"Ação {idx_acao+1}"
+                    )
+
+                    st.write(f"**{nome_acao}**")
+
+                    entregas_vinculadas = buscar_entregas_relacionadas_por_id(
+                        projetos_db=projetos_com_entregas,
+                        responsaveis_dict=responsaveis_dict,
+                        acoes_rm_relacionados=str(acao["_id"]),
+                        programas=st.session_state.get("filtro_programas", []),
+                        anos_referencia=st.session_state.get("filtro_anos_referencia", []),
+                        projetos=st.session_state.get("filtro_projetos", [])
+                    )
+
+                    if entregas_vinculadas:
+                        exibir_entregas_como_tabela(
+                            entregas_vinculadas,
+                            key_prefix="tabela_entrega_obj",
+                            key_suffix=f"{idx}_{idx_acao}"
+                        )
+                    else:
+                        st.caption("Nenhuma entrega vinculada a esta ação estratégica.")
+
+                    st.divider()
         
