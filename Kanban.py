@@ -172,7 +172,7 @@ def dialog_editar_card(card):
             st.subheader("Nova tag")
 
             nome_tag = st.text_input("Nome da tag")
-            cor_tag = st.color_picker("Cor", "#ff0000")
+            cor_tag = st.color_picker("Cor", "#007ad3")
 
             col1, col2 = st.columns(2)
 
