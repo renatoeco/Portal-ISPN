@@ -340,7 +340,7 @@ with st.container(horizontal=True, horizontal_alignment="right"):
     if st.button("Nova coluna", icon=":material/add_column_right:", width=200):
         dialog_criar_pista(board_id)
 
-    if st.button(" Nova Atividade", icon=":material/task:", type="primary", width=200):
+    if st.button(" Nova Atividade", icon=":material/assignment_turned_in:", type="primary", width=200):
         dialog_criar_card(board_id)
 
 ######################################################################################################
