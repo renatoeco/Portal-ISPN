@@ -673,44 +673,47 @@ def renderizar_kanban(board_id):
 
                     with st.container(horizontal=True, horizontal_alignment="right"):
 
+                        with st.container():
 
-                        # ########################
-                        # BADGES DE TAGS
-                        # ########################
+                            # ########################
+                            # BADGES DE TAGS
+                            # ########################
 
-                        tags_card = card.get("tags", [])
+                            tags_card = card.get("tags", [])
 
-                        if tags_card:
+                            if tags_card:
 
-                            badges_html = """
-                            <div style="
-                                display:flex;
-                                flex-wrap:wrap;
-                                gap:6px;
-                                margin-bottom:6px;
-                            ">
-                            """
-
-                            for tag in tags_card:
-                                badges_html += f"""
+                                badges_html = """
                                 <div style="
-                                    background-color:{tag['cor']};
-                                    color:white;
-                                    padding:2px 8px;
-                                    border-radius:8px;
-                                    font-size:13px;
-                                    display:inline-block;
+                                    display:flex;
+                                    flex-wrap:wrap;
+                                    gap:6px;
+                                    margin-bottom:6px;
                                 ">
-                                    {tag['nome']}
-                                </div>
                                 """
 
-                            badges_html += "</div>"
+                                for tag in tags_card:
+                                    badges_html += f"""
+                                    <div style="
+                                        background-color:{tag['cor']};
+                                        color:white;
+                                        padding:2px 8px;
+                                        border-radius:8px;
+                                        font-size:13px;
+                                        display:inline-block;
+                                    ">
+                                        {tag['nome']}
+                                    </div>
+                                    """
 
-                            st.html(badges_html)
+                                badges_html += "</div>"
+
+                                st.html(badges_html)
 
 
-
+                        # ########################
+                        # POPOVER menu do card
+                        # ########################
 
                         with st.popover(
                             "",
