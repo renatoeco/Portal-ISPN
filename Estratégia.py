@@ -1801,9 +1801,8 @@ with aba_ebj_est_ins:
                 for ind in indicadores_obj:
 
                     nome_bruto = ind.get("nome_indicador", "Indicador sem nome")
-                    nome_legivel = formatar_nome_legivel(nome_bruto)
 
-                    st.markdown(f"**{nome_legivel}**")
+                    st.markdown(f"**{nome_bruto}**")
 
             st.divider()
 
