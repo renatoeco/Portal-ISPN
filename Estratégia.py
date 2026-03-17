@@ -529,12 +529,14 @@ def editar_objetivo_estrategico_dialog(obj_idx):
 
         if st.button("Adicionar meta", icon=":material/add:"):
 
-            metas.append({
+            nova_meta = {
                 "_id": str(ObjectId()),
                 "meta_obj": novo_nome,
                 "objetivo": novo_objetivo,
                 "alcancado": ""
-            })
+            }
+
+            objetivo.setdefault("metas", []).append(nova_meta)
 
             estrategia.update_one(
                 {"_id": doc["_id"]},
@@ -557,12 +559,12 @@ def editar_objetivo_estrategico_dialog(obj_idx):
 
         with st.expander("Adicionar indicador"):
 
-            novo_indicador = st.text_area(
-                "Nome do indicador",
+            novo_indicador = st.text_input(
+                "Indicador",
                 key=f"novo_ind_obj_{obj_idx}"
             )
 
-            if st.button("Adicionar indicador", icon=":material/add:"):
+            if st.button("Salvar", icon=":material/add:"):
 
                 novo = {
                     "_id": str(ObjectId()),
@@ -594,7 +596,7 @@ def editar_objetivo_estrategico_dialog(obj_idx):
 
             with st.expander(titulo):
 
-                novo_nome = st.text_area(
+                novo_nome = st.text_input(
                     "Indicador",
                     value=ind.get("nome_indicador", ""),
                     key=f"ind_nome_{obj_idx}_{i}"
@@ -1408,8 +1410,8 @@ with aba_res_mp:
                             for i, meta in enumerate(metas):
                                 nova_lista_metas.append({
                                     **meta,
-                                    "objetivo": df_editado.loc[i, "Objetivo"],
-                                    "alcancado": df_editado.loc[i, "Alcançado"]
+                                    "objetivo": df_editado.loc[i]["Objetivo"],
+                                    "alcancado": df_editado.loc[i]["Alcançado"]
                                 })
 
                             estrategia.update_one(
@@ -1484,7 +1486,7 @@ with aba_res_mp:
             # --------------------------------------------
             # AÇÕES ESTRATÉGICAS / ENTREGAS
             # --------------------------------------------
-            st.markdown("##### :material/package_2: Entregas por Ação Estratégica:")
+            st.markdown("##### :material/package_2: Entregas por ação estratégica:")
             st.write("")
 
             acoes_estrategicas = resultado.get("acoes_estrategicas", [])
@@ -1689,11 +1691,120 @@ with aba_res_lp:
 # ABA OBJETIVOS ESTRATEGICOS INSTITUCIONAIS
 # -----------------------------------------------------------
 
+@st.fragment
+def fragmento_metas_obj(
+    *,
+    metas,
+    idx,
+    objetivo,
+    doc,
+    estrategia
+):
+
+    if not metas:
+        st.caption("Nenhuma meta cadastrada.")
+        return
+
+    st.markdown("##### :material/target: Metas:")
+    st.write("")
+
+    df_metas = pd.DataFrame([
+        {
+            "Meta": m.get("meta_obj", ""),
+            "Objetivo": m.get("objetivo", ""),
+            "Alcançado": m.get("alcancado", "")
+        }
+        for m in metas
+    ])
+
+    if st.session_state.modo_edicao:
+
+        chave_original = f"df_metas_original_obj_{idx}"
+        chave_editado = f"df_metas_editado_obj_{idx}"
+
+        if chave_original not in st.session_state:
+            st.session_state[chave_original] = df_metas.copy()
+
+        df_editado = st.data_editor(
+            st.session_state.get(
+                chave_editado,
+                st.session_state[chave_original]
+            ),
+            hide_index=True,
+            key=f"editor_metas_obj_{idx}",
+            column_config={
+                "Meta": st.column_config.TextColumn(
+                    "Meta",
+                    disabled=True
+                ),
+                "Objetivo": st.column_config.TextColumn("Objetivo"),
+                "Alcançado": st.column_config.TextColumn("Alcançado"),
+            },
+            num_rows="fixed"
+        )
+        
+        df_editado = df_editado.reset_index(drop=True)
+
+        st.session_state[chave_editado] = df_editado.copy()
+
+        houve_mudanca = df_tem_mudancas(
+            df_editado,
+            st.session_state[chave_original]
+        )
+
+        if houve_mudanca:
+
+            container_botao = st.container(
+                horizontal_alignment="left",
+                width=300
+            )
+
+            if container_botao.button(
+                "Atualizar metas",
+                icon=":material/save:",
+                key=f"salvar_metas_obj_{idx}",
+                use_container_width=True
+            ):
+
+                nova_lista_metas = []
+
+                for i, row in df_editado.iterrows():
+
+                    meta_original = metas[i] if i < len(metas) else {}
+
+                    nova_lista_metas.append({
+                        **meta_original,
+                        "objetivo": row["Objetivo"],
+                        "alcancado": row["Alcançado"]
+                    })
+
+                estrategia.update_one(
+                    {
+                        "_id": doc["_id"],
+                        f"objetivos_estrategicos_institucionais.obj_estrat_inst.{idx}._id": objetivo["_id"]
+                    },
+                    {
+                        "$set": {
+                            f"objetivos_estrategicos_institucionais.obj_estrat_inst.{idx}.metas": nova_lista_metas
+                        }
+                    }
+                )
+
+                st.session_state[chave_original] = df_editado.copy()
+                st.session_state.pop(chave_editado, None)
+
+                msg = st.empty()
+                msg.success("Metas atualizadas com sucesso")
+                time.sleep(2)
+                msg.empty()
+
+    else:
+        st.dataframe(df_metas, hide_index=True)
+
 with aba_ebj_est_ins:
     
     doc = estrategia.find_one(
-        {"objetivos_estrategicos_institucionais": {"$exists": True}},
-        {"_id": 0, "objetivos_estrategicos_institucionais": 1}
+        {"objetivos_estrategicos_institucionais": {"$exists": True}}
     )
 
     objetivos = doc["objetivos_estrategicos_institucionais"]["obj_estrat_inst"]
@@ -1717,113 +1828,23 @@ with aba_ebj_est_ins:
                     key=f"editar_obj_{idx}",
                     on_click=lambda i=idx: editar_objetivo_estrategico_dialog(i)
                 )
-
-                st.write("")
-                st.write("")
                 
+            st.write("")
+            st.write("")   
 
             # ====================================================
             # METAS
             # ====================================================
 
-            metas = objetivo.get("metas", [])
+            
 
-            if metas:
-
-                st.markdown("##### :material/target: Metas:")
-                st.write("")
-
-                df_metas = pd.DataFrame([
-                    {
-                        "Meta": m.get("meta_obj", ""),
-                        "Objetivo": m.get("objetivo", ""),
-                        "Alcançado": m.get("alcancado", "")
-                    }
-                    for m in metas
-                ])
-
-                if st.session_state.modo_edicao:
-
-                    chave_original = f"df_metas_original_obj_{idx}"
-                    chave_editado = f"df_metas_editado_obj_{idx}"
-
-                    if chave_original not in st.session_state:
-                        st.session_state[chave_original] = df_metas.copy()
-
-                    df_editado = st.data_editor(
-                        st.session_state.get(
-                            chave_editado,
-                            st.session_state[chave_original]
-                        ),
-                        hide_index=True,
-                        key=f"editor_metas_obj_{idx}",
-                        column_config={
-                            "Meta": st.column_config.TextColumn(
-                                "Meta",
-                                disabled=True
-                            ),
-                            "Objetivo": st.column_config.TextColumn("Objetivo"),
-                            "Alcançado": st.column_config.TextColumn("Alcançado"),
-                        },
-                        num_rows="fixed"
-                    )
-
-                    st.session_state[chave_editado] = df_editado.copy()
-
-                    houve_mudanca = df_tem_mudancas(
-                        df_editado,
-                        st.session_state[chave_original]
-                    )
-
-                    if houve_mudanca:
-
-                        container_botao = st.container(
-                            horizontal_alignment="left",
-                            width=300
-                        )
-
-                        if container_botao.button(
-                            "Atualizar metas",
-                            icon=":material/save:",
-                            key=f"salvar_metas_obj_{idx}",
-                            use_container_width=True
-                        ):
-
-                            nova_lista_metas = []
-
-                            for i, meta in enumerate(metas):
-                                nova_lista_metas.append({
-                                    **meta,
-                                    "objetivo": df_editado.loc[i, "Objetivo"],
-                                    "alcancado": df_editado.loc[i, "Alcançado"]
-                                })
-
-                            estrategia.update_one(
-                                {
-                                    "objetivos_estrategicos_institucionais.obj_estrat_inst._id": objetivo["_id"]
-                                },
-                                {
-                                    "$set": {
-                                        f"objetivos_estrategicos_institucionais.obj_estrat_inst.{idx}.metas": nova_lista_metas
-                                    }
-                                }
-                            )
-
-                            st.session_state[chave_original] = df_editado.copy()
-                            st.session_state.pop(chave_editado, None)
-
-                            msg = st.empty()
-                            msg.success("Metas atualizadas com sucesso")
-                            time.sleep(2)
-                            msg.empty()
-
-                else:
-                    st.dataframe(df_metas, hide_index=True)
-
-            else:
-                st.write("")
-                st.write("")
-                st.caption("Nenhuma meta cadastrada.")
+            fragmento_metas_obj(
+                metas=objetivo.get("metas", []),
+                idx=idx,
+                objetivo=objetivo,
+                doc=doc,
+                estrategia=estrategia
+            )
 
             st.divider()
 
@@ -1852,7 +1873,7 @@ with aba_ebj_est_ins:
             # AÇÕES ESTRATÉGICAS
             # ====================================================
 
-            st.markdown("##### :material/package_2: Entregas por Ação Estratégica:")
+            st.markdown("##### :material/package_2: Entregas por ação estratégica:")
             st.write("")
 
             acoes = objetivo.get("acoes_estrategicas", [])
