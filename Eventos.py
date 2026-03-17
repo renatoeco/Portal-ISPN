@@ -1507,6 +1507,9 @@ st.write("")
 #with st.expander("Calendário de eventos", expanded=False):
 st.write("")
 st.write("")
+#with st.expander("Calendário de eventos", expanded=False):
+st.write("")
+st.write("")
 
 calendario_eventos()
 
