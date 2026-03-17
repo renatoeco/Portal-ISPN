@@ -669,9 +669,7 @@ def renderizar_kanban(board_id):
 
                                         
 
-                    # ########################
-                    # Popover do menu
-                    # ########################
+
 
                     with st.container(horizontal=True, horizontal_alignment="right"):
 
@@ -684,23 +682,35 @@ def renderizar_kanban(board_id):
 
                         if tags_card:
 
-                            badges_html = ""
+                            badges_html = """
+                            <div style="
+                                display:flex;
+                                flex-wrap:wrap;
+                                gap:6px;
+                                margin-bottom:6px;
+                            ">
+                            """
 
                             for tag in tags_card:
                                 badges_html += f"""
-                                <span style="
+                                <div style="
                                     background-color:{tag['cor']};
                                     color:white;
                                     padding:2px 8px;
                                     border-radius:8px;
-                                    font-size:14px;
-                                    margin-right:4px;
+                                    font-size:13px;
+                                    display:inline-block;
                                 ">
                                     {tag['nome']}
-                                </span>
+                                </div>
                                 """
 
-                            st.markdown(badges_html, unsafe_allow_html=True)
+                            badges_html += "</div>"
+
+                            st.html(badges_html)
+
+
+
 
                         with st.popover(
                             "",
