@@ -17,6 +17,7 @@ st.write('')
 # CONEXÃO COM O BANCO
 ######################################################################################################
 
+
 # Conecta no MongoDB
 db = conectar_mongo_portal_ispn()
 
@@ -25,6 +26,50 @@ pessoas = db["pessoas"]
 kanban_boards = db["kanban_boards"]
 kanban_pistas = db["kanban_pistas"]
 kanban_cards = db["kanban_cards"]
+estatistica = db["estatistica"]  # Coleção de estatísticas
+
+
+###########################################################################################################
+# CONTADOR DE ACESSOS À PÁGINA
+###########################################################################################################
+
+
+PAGINA_ID = "pagina_kanban"
+nome_pagina = "Kanban"
+
+hoje = datetime.now().strftime("%d/%m/%Y")
+
+pagina_anterior = st.session_state.get("pagina_anterior")
+navegou_para_esta_pagina = (pagina_anterior != PAGINA_ID)
+
+if navegou_para_esta_pagina:
+
+    # Obter o único documento
+    doc = estatistica.find_one({})
+
+    # Criar o campo caso não exista
+    if nome_pagina not in doc:
+        estatistica.update_one(
+            {},
+            {"$set": {nome_pagina: []}}
+        )
+
+    estatistica.update_one(
+            {},
+            {"$inc": {f"{nome_pagina}.$[elem].numero_de_acessos": 1}},
+            array_filters=[{"elem.data": hoje}]
+        )
+
+    estatistica.update_one(
+        {f"{nome_pagina}.data": {"$ne": hoje}},
+        {"$push": {
+            nome_pagina: {"data": hoje, "numero_de_acessos": 1}
+        }}
+    )
+
+# Registrar página anterior
+st.session_state["pagina_anterior"] = PAGINA_ID
+
 
 ######################################################################################################
 # IDENTIFICA USUÁRIO LOGADO
