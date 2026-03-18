@@ -103,9 +103,18 @@ def dialog_ajuda():
 
     st.markdown("""
                 
-**Kanban** é a técnica de organizar **cartões de atividades** em **colunas**, que são organizadas em um **painel**.
 
-Você pode ter **vários painéis**.
+O objetivo do **Kanban** é apoiar o **gerenciamento de atividades**, de forma individual ou coletiva.
+                
+**Kanban** é a técnica de organizar **cartões de atividades** em **colunas**. 
+                
+As colunas representam o "**status**" das atividades.
+                
+Os cartões de atividades devem **migrar de uma coluna para outra**, conforme mudam de status.
+                
+Um conjunto de colunas compõe um **painel**.
+
+Você pode ter **vários painéis**, para diferentes finalidades.
 
 Você pode criar **um** ou **mais** painéis **só para você**. Assim ninguém terá acesso.
 
@@ -116,7 +125,7 @@ Ou você pode convidar **outras pessoas** para o seu painel. Assim poderão usá
 ### Comece criando um painel
 
 1. Clique no botão **'Novo painel'**  
-2. Escolha os participantes do painel  
+2. Escolha os **participantes** do painel  
 
 ---
 
@@ -137,16 +146,16 @@ Crie colunas à vontade, não tem regras.
 
 1. Clique no botão azul **'Nova atividade'**  
 2. Preencha os campos *(a tag é opcional)*  
-3. Clique em **'Criar atividade'**  
 
 ---
 
 ### Movendo atividades entre colunas
 
-Você pode mover um cartão de atividade para outra coluna:                
+Você pode mover um **cartão de atividade** para outra coluna:                
 
-1. Clique no botão de opções do cartão  
-2. Na seção **'Mover para:'**, escolha a coluna desejada  
+1. Clique no botão de opções no cartão (ícone de 3 pontos) 
+2. Na seção **'Mover para:'**, escolha a coluna desejada 
+                 
 """)
 
 
@@ -1097,16 +1106,7 @@ criador_board = board.get("criador")
 ######################################################################################################
 st.write("")
 
-with st.container(horizontal=True, horizontal_alignment="right"):
 
-    if st.button(
-        "Novo painel",
-        type="secondary",
-        icon=":material/add:",
-        width=200,
-        key="botao_criar_painel"
-    ):
-        dialog_criar_board()
     
 if "filtro_responsaveis" not in st.session_state:
     st.session_state["filtro_responsaveis"] = []
@@ -1151,6 +1151,8 @@ with st.form("filtros_kanban", border=False):
 
     
     st.write("")
+
+    # Botão de filtrar
     aplicar_filtros = st.form_submit_button("Filtrar", icon=":material/filter_alt:")
     if aplicar_filtros:
 
