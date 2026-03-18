@@ -1,7 +1,8 @@
 import streamlit as st
-from bson import ObjectId
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from datetime import datetime
-
 from funcoes_auxiliares import conectar_mongo_portal_ispn
 
 st.set_page_config(layout="wide")
@@ -75,17 +76,15 @@ st.session_state["pagina_anterior"] = PAGINA_ID
 # IDENTIFICA USUÁRIO LOGADO
 ######################################################################################################
 
+
 # Recupera id do usuário logado
 id_usuario = st.session_state["id_usuario"]
-
-
-
-
 
 
 ######################################################################################################
 # CRIAR NOVO BOARD
 ######################################################################################################
+
 
 @st.dialog("Criar novo board")
 def dialog_criar_board():
@@ -134,11 +133,10 @@ def dialog_criar_board():
             st.rerun()
 
 
-
-
 ######################################################################################################
 # CRIAR COLUNA
 ######################################################################################################
+
 
 @st.dialog("Criar coluna")
 def dialog_criar_pista(board_id):
@@ -160,6 +158,130 @@ def dialog_criar_pista(board_id):
             st.rerun()
 
 
+######################################################################################################
+# FUNÇÃO PARA ENVIO DE EMAIL
+######################################################################################################
+
+
+def enviar_email(destinatario, atividade, descricao, data_fim, board_nome, nome_usuario, responsaveis):
+
+    remetente = st.secrets["senhas"]["endereco_email"]
+    senha = st.secrets["senhas"]["senha_email"]
+
+    assunto = f"{nome_usuario} atribuiu uma atividade a você no Kanban"
+
+    corpo = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+        <meta charset="UTF-8">
+        </head>
+
+        <body style="margin:0; padding:0; font-family: Arial, sans-serif; background-color:#f4f6f8;">
+
+        <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f6f8; padding:30px;">
+        <tr>
+        <td align="center">
+
+        <table width="600" cellpadding="0" cellspacing="0" style="background:white; border-radius:8px; overflow:hidden; box-shadow:0 2px 6px rgba(0,0,0,0.08);">
+
+        <tr>
+        <td align="center" style="padding:20px;">
+        <img 
+        src="https://ispn.org.br/wp-content/uploads/2024/10/logo_ISPN_horizontal_ass.png"
+        width="180"
+        style="display:block; margin:auto; border:0; outline:none; text-decoration:none;"
+        >
+        </td>
+        </tr>
+
+        <tr>
+        <td style="padding:30px;">
+
+        <p style="font-size:15px; color:#555; margin-bottom:20px;">
+        Você foi marcado(a) em uma atividade no Kanban do sistema <strong>Jataí</strong>.
+        </p>
+
+        <table width="100%" cellpadding="10" cellspacing="0" style="border-collapse:collapse; margin-top:20px;">
+        
+        <tr>
+        <td style="font-weight:bold;">Painel</td>
+        <td>{board_nome}</td>
+        </tr>
+
+        <tr style="background:#f1f3f5;">
+        <td style="font-weight:bold;">Atividade</td>
+        <td>{atividade}</td>
+        </tr>
+
+        <tr>
+        <td style="font-weight:bold;">Descrição</td>
+        <td>{descricao}</td>
+        </tr>
+
+        <tr style="background:#f1f3f5;">
+        <td style="font-weight:bold;">Data limite</td>
+        <td>{data_fim}</td>
+        </tr>
+
+        <tr>
+        <td style="font-weight:bold;">Responsáveis</td>
+        <td>{responsaveis}</td>
+        </tr>
+
+        </table>
+
+        <table width="100%" style="margin-top:30px;">
+        <tr>
+        <td align="center">
+
+        <a href="https://jatai-ispn.streamlit.app"
+        style="
+        background:#0a66c2;
+        color:white;
+        padding:12px 22px;
+        text-decoration:none;
+        border-radius:6px;
+        font-weight:bold;
+        display:inline-block;
+        ">
+        Abrir Jataí
+        </a>
+
+        </td>
+        </tr>
+        </table>
+
+        </td>
+        </tr>
+
+        <tr>
+        <td style="background:#f4f6f8; text-align:center; padding:15px; font-size:12px; color:#888;">
+        ISPN • Sistema de Gestão
+        </td>
+        </tr>
+
+        </table>
+
+        </td>
+        </tr>
+        </table>
+
+        </body>
+        </html>
+        """
+
+    msg = MIMEMultipart()
+    msg["From"] = remetente
+    msg["To"] = destinatario
+    msg["Subject"] = assunto
+
+    msg.attach(MIMEText(corpo, "html"))
+
+    with smtplib.SMTP("smtp.gmail.com", 587) as servidor:
+        servidor.starttls()
+        servidor.login(remetente, senha)
+        servidor.send_message(msg)
 
 
 
@@ -167,10 +289,14 @@ def dialog_criar_pista(board_id):
 # DIÁLOGO DE CRIAR E EDITAR CARD DE ATIVIDADE
 ######################################################################################################
 
+
 @st.dialog("Atividade")
 def dialog_card(board_id, card=None):
 
     modo_edicao = card is not None
+
+    board = kanban_boards.find_one({"_id": board_id})
+    membros_board = board.get("membros", [])
 
     ##################################################################################################
     # CARREGA DADOS
@@ -232,7 +358,10 @@ def dialog_card(board_id, card=None):
     ##################################################################################################
 
     pessoas_lista = list(
-        pessoas.find({}).sort("nome_completo", 1)
+        pessoas.find({
+            "_id": {"$in": membros_board},
+            "status": "ativo"
+        }).sort("nome_completo", 1)
     )
 
     dict_pessoas = {
@@ -307,6 +436,7 @@ def dialog_card(board_id, card=None):
                     if nome_tag and nome_tag not in dict_tags:
 
                         nova_tag = {"nome": nome_tag, "cor": cor_tag}
+                        
 
                         kanban_boards.update_one(
                             {"_id": board_id},
@@ -319,16 +449,28 @@ def dialog_card(board_id, card=None):
                 if st.button("Cancelar", width="stretch"):
                     st.session_state["criar_tag"] = False
 
+
     ##################################################################################################
     # SALVAR
     ##################################################################################################
 
-    st.divider()
+
+    #st.divider()
+    st.write("")
+
+    enviar_email_responsaveis = st.checkbox(
+        "Enviar e-mail para os responsáveis",
+        value=True
+    )
+
+    st.write("")
 
     if st.button(
         "Salvar alterações" if modo_edicao else "Criar atividade",
         type="primary"
     ):
+        # Responsáveis antigos (para detectar novos)
+        responsaveis_antigos = card.get("responsaveis", []) if modo_edicao else []
 
         lista_responsaveis = [
             dict_pessoas[n] for n in responsaveis
@@ -389,6 +531,51 @@ def dialog_card(board_id, card=None):
                 "ordem": ordem
             })
 
+        # Descobrir novos responsáveis
+        novos_responsaveis = [
+            r for r in lista_responsaveis
+            if r not in responsaveis_antigos
+        ]
+
+        # Buscar nome do board
+        board = kanban_boards.find_one({"_id": board_id})
+        board_nome = board["nome"]
+
+        # Buscar quem atribuiu
+        usuario = pessoas.find_one({"_id": id_usuario})
+        nome_usuario = usuario["nome_completo"]
+
+        if enviar_email_responsaveis:
+
+            nomes_responsaveis = []
+
+            for resp in lista_responsaveis:
+                pessoa_resp = pessoas.find_one({"_id": resp})
+                if pessoa_resp:
+                    nomes_responsaveis.append(pessoa_resp["nome_completo"])
+
+            responsaveis_str = ", ".join(nomes_responsaveis)
+
+            for resp_id in novos_responsaveis:
+
+                # Não enviar email se a pessoa atribuiu a tarefa para si mesma
+                if resp_id == id_usuario:
+                    continue
+
+                pessoa = pessoas.find_one({"_id": resp_id})
+
+                if pessoa and pessoa.get("e_mail"):
+
+                    enviar_email(
+                        pessoa["e_mail"],
+                        atividade,
+                        descricao,
+                        data_fim_input.strftime("%d/%m/%Y"),
+                        board_nome,
+                        nome_usuario,
+                        responsaveis_str
+                    )
+
         # limpa estado
         if key_tags in st.session_state:
             del st.session_state[key_tags]
@@ -396,14 +583,10 @@ def dialog_card(board_id, card=None):
         st.rerun()
 
 
-
-
-
-
-
 ######################################################################################################
 # DIÁLOGO DE GERENCIAR BOARD
 ######################################################################################################
+
 
 @st.dialog("Gerenciar painel", width="small")
 def dialog_gerenciar_board(board_id):
@@ -491,10 +674,10 @@ def dialog_gerenciar_board(board_id):
             st.rerun()
 
 
-
     ##################################################################################################
     # ABA COLUNAS
     ##################################################################################################
+
 
     with tab_colunas:
 
@@ -555,6 +738,7 @@ def dialog_gerenciar_board(board_id):
     ##################################################################################################
     # ABA TAGS
     ##################################################################################################
+
 
     with tab_tags:
 
@@ -696,15 +880,10 @@ def dialog_gerenciar_board(board_id):
                             st.rerun()
 
 
-
-
-
-
-
-
 ######################################################################################################
 # BARRA SUPERIOR
 ######################################################################################################
+
 
 with st.container(horizontal=True, horizontal_alignment="right"):
 
@@ -718,9 +897,11 @@ with st.container(horizontal=True, horizontal_alignment="right"):
 
 st.divider()
 
+
 ######################################################################################################
 # LISTA BOARDS
 ######################################################################################################
+
 
 boards_usuario = list(
     kanban_boards.find({"membros": id_usuario})
@@ -735,9 +916,11 @@ dict_boards = {
     for board in boards_usuario     
 }
 
+
 ######################################################################################################
 # SELEÇÃO BOARD
 ######################################################################################################
+
 
 board_nome = st.segmented_control(
     "Meus Painéis",
@@ -746,16 +929,26 @@ board_nome = st.segmented_control(
 )
 
 board_id = dict_boards[board_nome]
+board = kanban_boards.find_one({"_id": board_id})
+criador_board = board.get("criador")
+
 
 ######################################################################################################
 # AÇÕES
 ######################################################################################################
 
+
 with st.container(horizontal=True, horizontal_alignment="right"):
 
-    if st.button(
-        "Configurações", icon=":material/settings:", type="secondary", width=200):
-        dialog_gerenciar_board(board_id)
+    if id_usuario == criador_board:
+
+        if st.button(
+            "Configurações",
+            icon=":material/settings:",
+            type="secondary",
+            width=200
+        ):
+            dialog_gerenciar_board(board_id)
 
     if st.button("Nova coluna", icon=":material/add_column_right:", width=200):
         dialog_criar_pista(board_id)
@@ -763,11 +956,10 @@ with st.container(horizontal=True, horizontal_alignment="right"):
     if st.button("Nova Atividade", icon=":material/assignment_turned_in:", type="primary", width=200):
         dialog_card(board_id)
 
+
 ######################################################################################################
 # RENDERIZAÇÃO KANBAN 
 ######################################################################################################
-
-
 
 
 @st.fragment
@@ -786,7 +978,7 @@ def renderizar_kanban(board_id):
     # Dicionário de pessoas
     pessoas_dict = {
         p["_id"]: p["nome_completo"]
-        for p in pessoas.find({})
+        for p in pessoas.find({"status": "ativo"})
     }
 
     st.write('')
@@ -940,8 +1132,6 @@ def renderizar_kanban(board_id):
 
                     st.write(f":material/event: {card.get('data_fim','')}")
                     st.write(f":material/group: {', '.join(nomes_responsaveis)}")
-
-
 
 
 renderizar_kanban(board_id)
