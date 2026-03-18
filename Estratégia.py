@@ -530,14 +530,10 @@ def editar_objetivo_estrategico_dialog(obj_idx):
         if st.button("Adicionar meta", icon=":material/add:"):
 
             nova_meta = {
-            nova_meta = {
                 "_id": str(ObjectId()),
                 "meta_obj": novo_nome,
                 "objetivo": novo_objetivo,
                 "alcancado": ""
-            }
-
-            objetivo.setdefault("metas", []).append(nova_meta)
             }
 
             objetivo.setdefault("metas", []).append(nova_meta)
