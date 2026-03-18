@@ -185,7 +185,7 @@ def dialog_criar_board():
         options=list(dict_pessoas.keys())
     )
 
-    if st.button("Criar board", use_container_width=True):
+    if st.button("Criar painel", use_container_width=True):
 
         if nome_board != "":
 
