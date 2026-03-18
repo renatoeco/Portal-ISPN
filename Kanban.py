@@ -888,6 +888,15 @@ def dialog_gerenciar_board(board_id):
 with st.container(horizontal=True, horizontal_alignment="right"):
 
     if st.button(
+        "Ajuda",
+        icon=":material/help:",
+        type="tertiary",
+        width=200
+    ):
+        dialog_ajuda()
+
+
+    if st.button(
         "Novo painel",
         type="secondary",
         icon=":material/add:",
