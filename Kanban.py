@@ -1046,6 +1046,7 @@ def dialog_gerenciar_board(board_id):
 
 with st.container(horizontal=True, horizontal_alignment="right"):
 
+    # Botão de ajuda
     if st.button(
         "Ajuda",
         icon=":material/help:",
@@ -1054,7 +1055,7 @@ with st.container(horizontal=True, horizontal_alignment="right"):
     ):
         dialog_ajuda()
 
-
+    # Botão de novo painel
     if st.button(
         "Novo painel",
         type="secondary",
@@ -1101,68 +1102,10 @@ board = kanban_boards.find_one({"_id": board_id})
 criador_board = board.get("criador")
 
 
-######################################################################################################
-# BARRA SUPERIOR
-######################################################################################################
 st.write("")
 
 
-    
-if "filtro_responsaveis" not in st.session_state:
-    st.session_state["filtro_responsaveis"] = []
 
-if "filtro_tags" not in st.session_state:
-    st.session_state["filtro_tags"] = []
-
-with st.form("filtros_kanban", border=False):
-    st.write("")
-
-    col1, col2= st.columns(2)
-
-    pessoas_ativas = list(
-        pessoas.find({
-            "_id": {"$in": board.get("membros", [])},
-            "status": "ativo"
-        }).sort("nome_completo", 1)
-    )
-
-    dict_pessoas = {
-        p["nome_completo"]: p["_id"]
-        for p in pessoas_ativas
-    }
-
-    with col1:
-        filtro_responsaveis = st.multiselect(
-            "Responsáveis",
-            options=list(dict_pessoas.keys()),
-            placeholder=""
-        )
-
-    # Tags do board atual
-    tags_board = board.get("tags", [])
-    lista_tags = [t["nome"] for t in tags_board]
-
-    with col2:
-        filtro_tags = st.multiselect(
-            "Tags",
-            options=lista_tags,
-            placeholder=""
-        )
-
-    
-    st.write("")
-
-    # Botão de filtrar
-    aplicar_filtros = st.form_submit_button("Filtrar", icon=":material/filter_alt:")
-    if aplicar_filtros:
-
-        st.session_state["filtro_responsaveis"] = [
-            dict_pessoas[n] for n in filtro_responsaveis
-        ]
-
-        st.session_state["filtro_tags"] = filtro_tags
-
-st.divider()
 
 
 ######################################################################################################
@@ -1171,6 +1114,64 @@ st.divider()
 
 
 with st.container(horizontal=True, horizontal_alignment="right"):
+
+
+    ######################################################################################################
+    # FILTROS
+    ######################################################################################################
+
+    with st.popover("Filtros", icon=":material/filter_alt:", width=200):
+            
+        if "filtro_responsaveis" not in st.session_state:
+            st.session_state["filtro_responsaveis"] = []
+
+        if "filtro_tags" not in st.session_state:
+            st.session_state["filtro_tags"] = []
+
+        with st.form("filtros_kanban", border=False):
+            st.write("")
+
+            pessoas_ativas = list(
+                pessoas.find({
+                    "_id": {"$in": board.get("membros", [])},
+                    "status": "ativo"
+                }).sort("nome_completo", 1)
+            )
+
+            dict_pessoas = {
+                p["nome_completo"]: p["_id"]
+                for p in pessoas_ativas
+            }
+
+            filtro_responsaveis = st.multiselect(
+                "Responsáveis",
+                options=list(dict_pessoas.keys()),
+                placeholder=""
+            )
+
+            # Tags do board atual
+            tags_board = board.get("tags", [])
+            lista_tags = [t["nome"] for t in tags_board]
+
+            filtro_tags = st.multiselect(
+                "Tags",
+                options=lista_tags,
+                placeholder=""
+            )
+            
+            st.write("")
+
+            # Botão de filtrar
+            aplicar_filtros = st.form_submit_button("Filtrar", icon=":material/filter_alt:")
+            if aplicar_filtros:
+
+                st.session_state["filtro_responsaveis"] = [
+                    dict_pessoas[n] for n in filtro_responsaveis
+                ]
+
+                st.session_state["filtro_tags"] = filtro_tags
+
+
 
     if id_usuario == criador_board:
 
@@ -1235,7 +1236,6 @@ def renderizar_kanban(board_id):
         for p in pessoas.find({"status": "ativo"})
     }
 
-    st.write('')
     st.write('')
     st.write('')
 
