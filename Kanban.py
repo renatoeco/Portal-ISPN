@@ -827,8 +827,8 @@ def dialog_gerenciar_board(board_id):
         acao_escolhida = st.radio(
             "O que deseja fazer?",
             [
-                "Adicionar tag",
                 "Editar tags",
+                "Adicionar tag",
             ],
             horizontal=True
         )
@@ -839,7 +839,7 @@ def dialog_gerenciar_board(board_id):
             # NOVA TAG
             ##################################################################################################
 
-            st.subheader("Nova tag")
+            st.subheader("Adicionar tag")
 
             with st.container(horizontal=True):
 
@@ -867,6 +867,7 @@ def dialog_gerenciar_board(board_id):
 
         elif acao_escolhida == "Editar tags":
 
+            st.subheader("Editar tags")
 
 
             # LISTA DE TAGS
@@ -894,7 +895,8 @@ def dialog_gerenciar_board(board_id):
                         if st.button(
                             "",
                             icon=":material/save:",
-                            key=f"salvar_tag_{idx}"
+                            key=f"salvar_tag_{idx}",
+                            type="tertiary"
                         ):
 
                             tag_antiga = tags[idx].copy()
@@ -930,7 +932,8 @@ def dialog_gerenciar_board(board_id):
                         if st.button(
                             "",
                             icon=":material/delete:",
-                            key=f"delete_tag_{idx}"
+                            key=f"delete_tag_{idx}",
+                            type="tertiary"
                         ):
 
                             tag_remover = tags[idx]["nome"]
