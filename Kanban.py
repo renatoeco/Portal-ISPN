@@ -552,170 +552,244 @@ def dialog_card(board_id, card=None):
     st.write("")
 
 
-    # BOTÃO SALVAR
-    if st.button(
-        "Salvar alterações" if modo_edicao else "Criar atividade",
-        type="primary"
-    ):
 
 
-        # Validação básica
-        if not atividade.strip():
-            st.warning("O nome da atividade é obrigatório.")
-            return
 
 
-        try:
 
-            # Responsáveis antigos (para detectar novos)
-            responsaveis_antigos = card.get("responsaveis", []) if modo_edicao else []
 
-            # Converte nomes → IDs (evita erro se lista vazia)
-            lista_responsaveis = [
-                dict_pessoas[n] for n in responsaveis if n in dict_pessoas
-            ]
 
-            # Filtra tags válidas
-            tags_validas = [
-                t for t in tags_selecionadas if t != "+ Nova tag"
-            ]
 
-            lista_tags = [
-                dict_tags[n] for n in tags_validas if n in dict_tags
-            ]
 
-            # ID da pista selecionada
-            pista_id = dict_pistas[pista_escolhida]
 
-            ##################################################################
-            # UPDATE OU INSERT
-            ##################################################################
 
-            if modo_edicao:
 
-                # Define ordem corretamente ao trocar de coluna
-                if pista_id != card["pista_id"]:
-                    ordem = kanban_cards.count_documents({
-                        "board_id": board_id,
-                        "pista_id": pista_id
-                    })
-                else:
-                    ordem = card["ordem"]
 
-                kanban_cards.update_one(
-                    {"_id": card["_id"]},
-                    {
-                        "$set": {
+    # Define modo edição
+    modo_edicao = card is not None
+
+    # Define chave única para evitar conflito entre cards
+    if modo_edicao:
+        key_delete = f"confirmar_exclusao_card_{card['_id']}"
+    else:
+        key_delete = "confirmar_exclusao_card_novo"
+
+    # Inicializa estado
+    if key_delete not in st.session_state:
+        st.session_state[key_delete] = False
+
+    # Controle visual
+    confirmando_exclusao = st.session_state[key_delete]
+
+
+    ##################################################################
+    # CONTAINER PRINCIPAL DE BOTÕES
+    ##################################################################
+    with st.container(horizontal=True, horizontal_alignment="distribute"):
+
+
+        ##################################################################
+        # BOTÃO SALVAR (escondido durante confirmação)
+        ##################################################################
+        if not confirmando_exclusao:
+
+            if st.button(
+                "Salvar alterações" if modo_edicao else "Criar atividade",
+                type="primary", 
+                icon=":material/save:",
+                width="content"
+            ):
+
+                # Validação básica
+                if not atividade.strip():
+                    st.warning("O nome da atividade é obrigatório.")
+                    return
+
+                try:
+
+                    # Responsáveis antigos
+                    responsaveis_antigos = card.get("responsaveis", []) if modo_edicao else []
+
+                    # Converte nomes → IDs
+                    lista_responsaveis = [
+                        dict_pessoas[n] for n in responsaveis if n in dict_pessoas
+                    ]
+
+                    # Filtra tags válidas
+                    tags_validas = [
+                        t for t in tags_selecionadas if t != "+ Nova tag"
+                    ]
+
+                    lista_tags = [
+                        dict_tags[n] for n in tags_validas if n in dict_tags
+                    ]
+
+                    # ID da pista
+                    pista_id = dict_pistas[pista_escolhida]
+
+                    ##################################################################
+                    # INSERT OU UPDATE
+                    ##################################################################
+                    if modo_edicao:
+
+                        if pista_id != card["pista_id"]:
+                            ordem = kanban_cards.count_documents({
+                                "board_id": board_id,
+                                "pista_id": pista_id
+                            })
+                        else:
+                            ordem = card["ordem"]
+
+                        kanban_cards.update_one(
+                            {"_id": card["_id"]},
+                            {"$set": {
+                                "atividade": atividade,
+                                "descricao_ativ": descricao,
+                                "data_fim": data_fim_input.strftime("%d/%m/%Y"),
+                                "responsaveis": lista_responsaveis,
+                                "tags": lista_tags,
+                                "pista_id": pista_id,
+                                "ordem": ordem
+                            }}
+                        )
+
+                    else:
+
+                        ordem = kanban_cards.count_documents({
+                            "board_id": board_id,
+                            "pista_id": pista_id
+                        })
+
+                        kanban_cards.insert_one({
                             "atividade": atividade,
                             "descricao_ativ": descricao,
+                            "criador": id_usuario,
+                            "data_criacao": datetime.now().strftime("%d/%m/%Y %H:%M"),
                             "data_fim": data_fim_input.strftime("%d/%m/%Y"),
                             "responsaveis": lista_responsaveis,
                             "tags": lista_tags,
+                            "board_id": board_id,
                             "pista_id": pista_id,
                             "ordem": ordem
-                        }
-                    }
-                )
+                        })
 
-            else:
+                    ##################################################################
+                    # EMAIL
+                    ##################################################################
+                    if enviar_email_responsaveis:
 
-                # Define ordem como último da coluna
-                ordem = kanban_cards.count_documents({
-                    "board_id": board_id,
-                    "pista_id": pista_id
-                })
+                        novos_responsaveis = [
+                            r for r in lista_responsaveis
+                            if r not in responsaveis_antigos
+                        ]
 
-                kanban_cards.insert_one({
-                    "atividade": atividade,
-                    "descricao_ativ": descricao,
-                    "criador": id_usuario,
-                    "data_criacao": datetime.now().strftime("%d/%m/%Y %H:%M"),
-                    "data_fim": data_fim_input.strftime("%d/%m/%Y"),
-                    "responsaveis": lista_responsaveis,
-                    "tags": lista_tags,
-                    "board_id": board_id,
-                    "pista_id": pista_id,
-                    "ordem": ordem
-                })
+                        board = kanban_boards.find_one({"_id": board_id})
+                        board_nome = board["nome"]
 
-            ##################################################################
-            # EMAIL (não interrompe fluxo se falhar)
-            ##################################################################
+                        usuario = pessoas.find_one({"_id": id_usuario})
+                        nome_usuario = usuario["nome_completo"]
 
+                        nomes_responsaveis = []
 
+                        for resp in lista_responsaveis:
+                            pessoa_resp = pessoas.find_one({"_id": resp})
+                            if pessoa_resp:
+                                nomes_responsaveis.append(pessoa_resp["nome_completo"])
 
-            if enviar_email_responsaveis:
+                        responsaveis_str = ", ".join(nomes_responsaveis)
 
-                novos_responsaveis = [
-                    r for r in lista_responsaveis
-                    if r not in responsaveis_antigos
-                ]
+                        for resp_id in novos_responsaveis:
 
+                            if resp_id == id_usuario:
+                                continue
 
-                board = kanban_boards.find_one({"_id": board_id})
-                board_nome = board["nome"]
+                            pessoa = pessoas.find_one({"_id": resp_id})
 
-                usuario = pessoas.find_one({"_id": id_usuario})
-                nome_usuario = usuario["nome_completo"]
+                            if pessoa and pessoa.get("e_mail"):
 
-                nomes_responsaveis = []
+                                try:
+                                    enviar_email(
+                                        pessoa["e_mail"],
+                                        atividade,
+                                        descricao,
+                                        data_fim_input.strftime("%d/%m/%Y"),
+                                        board_nome,
+                                        nome_usuario,
+                                        responsaveis_str
+                                    )
 
-                for resp in lista_responsaveis:
-                    pessoa_resp = pessoas.find_one({"_id": resp})
-                    if pessoa_resp:
-                        nomes_responsaveis.append(pessoa_resp["nome_completo"])
+                                except Exception as e:
+                                    st.error(f"Erro ao enviar e-mail: {str(e)}")
 
-                responsaveis_str = ", ".join(nomes_responsaveis)
+                    ##################################################################
+                    # LIMPEZA
+                    ##################################################################
+                    if key_tags in st.session_state:
+                        del st.session_state[key_tags]
 
-                for resp_id in novos_responsaveis:
+                    st.success("Atividade salva com sucesso", icon=":material/check:")
 
-                    # Não envia email para si mesmo
-                    if resp_id == id_usuario:
-                        continue
+                    # Aqui pode rerun (fecha dialog corretamente)
+                    st.rerun()
 
-                    pessoa = pessoas.find_one({"_id": resp_id})
-
-
-                    if pessoa and pessoa.get("e_mail"):
-
-                        try:
-                            enviar_email(
-                                pessoa["e_mail"],
-                                atividade,
-                                descricao,
-                                data_fim_input.strftime("%d/%m/%Y"),
-                                board_nome,
-                                nome_usuario,
-                                responsaveis_str
-                            )
-
-                        except Exception as e:
-
-                            # Mostra erro detalhado na tela
-                            st.error(f"Erro ao enviar e-mail para {pessoa['e_mail']}: {str(e)}")
+                except Exception as e:
+                    st.error(f"Erro ao salvar atividade: {str(e)}")
 
 
-            ##################################################################
-            # LIMPEZA DE ESTADO
-            ##################################################################
+        ##################################################################
+        # BOTÃO DELETE (somente edição e fora do modo confirmação)
+        ##################################################################
+        if modo_edicao and not confirmando_exclusao:
 
-            if key_tags in st.session_state:
-                del st.session_state[key_tags]
+            with st.container(horizontal=True, horizontal_alignment="right"):
 
-            ##################################################################
-            # FEEDBACK + DELAY
-            ##################################################################
+                if st.button(
+                    "",
+                    icon=":material/delete:",
+                    type="secondary",
+                    key=f"btn_delete_{card['_id']}"
+                ):
+                    # Apenas muda estado (SEM rerun)
+                    st.session_state[key_delete] = True
 
-            st.success("Atividade salva com sucesso", icon=":material/check:")
 
-            time.sleep(3)
+    ##################################################################
+    # CONTAINER DE CONFIRMAÇÃO
+    ##################################################################
+    if modo_edicao and confirmando_exclusao:
 
-            st.rerun()
+        with st.container(border=True):
 
-        except Exception as e:
+            st.warning("Tem certeza que deseja excluir esta atividade?")
 
-            # Exibe erro real (isso ajuda a identificar problemas futuros)
-            st.error(f"Erro ao salvar atividade: {str(e)}")
+            with st.container(horizontal=True):
+
+                # CONFIRMAR
+                if st.button(
+                    "Confirmar exclusão da atividade",
+                    type="primary",
+                    icon=":material/delete:",
+                ):
+
+                    kanban_cards.delete_one({"_id": card["_id"]})
+
+                    # Limpa estado
+                    st.session_state[key_delete] = False
+
+                    st.success("Atividade excluída", icon=":material/check:")
+
+                    time.sleep(3)
+                    # Aqui sim pode rerun
+                    st.rerun()
+
+                # CANCELAR
+                if st.button(
+                    "Cancelar",
+                    use_container_width=True
+                ):
+                    # Apenas volta estado (SEM rerun)
+                    st.session_state[key_delete] = False
+
 
 
 
