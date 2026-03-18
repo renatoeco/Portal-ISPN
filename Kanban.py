@@ -3,6 +3,8 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
+import time
+
 from funcoes_auxiliares import conectar_mongo_portal_ispn
 
 st.set_page_config(layout="wide")
@@ -391,7 +393,7 @@ def dialog_card(board_id, card=None):
     )
 
     if len(pistas_board) == 0:
-        st.warning("Crie ao menos uma pista.")
+        st.warning("Crie ao menos uma coluna.")
         return
 
     dict_pistas = {p["nome"]: p["_id"] for p in pistas_board}
@@ -549,122 +551,175 @@ def dialog_card(board_id, card=None):
 
     st.write("")
 
+
+    # BOTÃO SALVAR
     if st.button(
         "Salvar alterações" if modo_edicao else "Criar atividade",
         type="primary"
     ):
-        # Responsáveis antigos (para detectar novos)
-        responsaveis_antigos = card.get("responsaveis", []) if modo_edicao else []
 
-        lista_responsaveis = [
-            dict_pessoas[n] for n in responsaveis
-        ]
 
-        tags_validas = [
-            t for t in tags_selecionadas if t != "+ Nova tag"
-        ]
+        # Validação básica
+        if not atividade.strip():
+            st.warning("O nome da atividade é obrigatório.")
+            return
 
-        lista_tags = [
-            dict_tags[n] for n in tags_validas
-        ]
 
-        pista_id = dict_pistas[pista_escolhida]
+        try:
 
-        if modo_edicao:
+            # Responsáveis antigos (para detectar novos)
+            responsaveis_antigos = card.get("responsaveis", []) if modo_edicao else []
 
-            if pista_id != card["pista_id"]:
+            # Converte nomes → IDs (evita erro se lista vazia)
+            lista_responsaveis = [
+                dict_pessoas[n] for n in responsaveis if n in dict_pessoas
+            ]
+
+            # Filtra tags válidas
+            tags_validas = [
+                t for t in tags_selecionadas if t != "+ Nova tag"
+            ]
+
+            lista_tags = [
+                dict_tags[n] for n in tags_validas if n in dict_tags
+            ]
+
+            # ID da pista selecionada
+            pista_id = dict_pistas[pista_escolhida]
+
+            ##################################################################
+            # UPDATE OU INSERT
+            ##################################################################
+
+            if modo_edicao:
+
+                # Define ordem corretamente ao trocar de coluna
+                if pista_id != card["pista_id"]:
+                    ordem = kanban_cards.count_documents({
+                        "board_id": board_id,
+                        "pista_id": pista_id
+                    })
+                else:
+                    ordem = card["ordem"]
+
+                kanban_cards.update_one(
+                    {"_id": card["_id"]},
+                    {
+                        "$set": {
+                            "atividade": atividade,
+                            "descricao_ativ": descricao,
+                            "data_fim": data_fim_input.strftime("%d/%m/%Y"),
+                            "responsaveis": lista_responsaveis,
+                            "tags": lista_tags,
+                            "pista_id": pista_id,
+                            "ordem": ordem
+                        }
+                    }
+                )
+
+            else:
+
+                # Define ordem como último da coluna
                 ordem = kanban_cards.count_documents({
                     "board_id": board_id,
                     "pista_id": pista_id
                 })
-            else:
-                ordem = card["ordem"]
 
-            kanban_cards.update_one(
-                {"_id": card["_id"]},
-                {
-                    "$set": {
-                        "atividade": atividade,
-                        "descricao_ativ": descricao,
-                        "data_fim": data_fim_input.strftime("%d/%m/%Y"),
-                        "responsaveis": lista_responsaveis,
-                        "tags": lista_tags,
-                        "pista_id": pista_id,
-                        "ordem": ordem
-                    }
-                }
-            )
+                kanban_cards.insert_one({
+                    "atividade": atividade,
+                    "descricao_ativ": descricao,
+                    "criador": id_usuario,
+                    "data_criacao": datetime.now().strftime("%d/%m/%Y %H:%M"),
+                    "data_fim": data_fim_input.strftime("%d/%m/%Y"),
+                    "responsaveis": lista_responsaveis,
+                    "tags": lista_tags,
+                    "board_id": board_id,
+                    "pista_id": pista_id,
+                    "ordem": ordem
+                })
 
-        else:
+            ##################################################################
+            # EMAIL (não interrompe fluxo se falhar)
+            ##################################################################
 
-            ordem = kanban_cards.count_documents({
-                "board_id": board_id,
-                "pista_id": pista_id
-            })
 
-            kanban_cards.insert_one({
-                "atividade": atividade,
-                "descricao_ativ": descricao,
-                "criador": id_usuario,
-                "data_criacao": datetime.now().strftime("%d/%m/%Y %H:%M"),
-                "data_fim": data_fim_input.strftime("%d/%m/%Y"),
-                "responsaveis": lista_responsaveis,
-                "tags": lista_tags,
-                "board_id": board_id,
-                "pista_id": pista_id,
-                "ordem": ordem
-            })
 
-        # Descobrir novos responsáveis
-        novos_responsaveis = [
-            r for r in lista_responsaveis
-            if r not in responsaveis_antigos
-        ]
+            if enviar_email_responsaveis:
 
-        # Buscar nome do board
-        board = kanban_boards.find_one({"_id": board_id})
-        board_nome = board["nome"]
+                novos_responsaveis = [
+                    r for r in lista_responsaveis
+                    if r not in responsaveis_antigos
+                ]
 
-        # Buscar quem atribuiu
-        usuario = pessoas.find_one({"_id": id_usuario})
-        nome_usuario = usuario["nome_completo"]
 
-        if enviar_email_responsaveis:
+                board = kanban_boards.find_one({"_id": board_id})
+                board_nome = board["nome"]
 
-            nomes_responsaveis = []
+                usuario = pessoas.find_one({"_id": id_usuario})
+                nome_usuario = usuario["nome_completo"]
 
-            for resp in lista_responsaveis:
-                pessoa_resp = pessoas.find_one({"_id": resp})
-                if pessoa_resp:
-                    nomes_responsaveis.append(pessoa_resp["nome_completo"])
+                nomes_responsaveis = []
 
-            responsaveis_str = ", ".join(nomes_responsaveis)
+                for resp in lista_responsaveis:
+                    pessoa_resp = pessoas.find_one({"_id": resp})
+                    if pessoa_resp:
+                        nomes_responsaveis.append(pessoa_resp["nome_completo"])
 
-            for resp_id in novos_responsaveis:
+                responsaveis_str = ", ".join(nomes_responsaveis)
 
-                # Não enviar email se a pessoa atribuiu a tarefa para si mesma
-                if resp_id == id_usuario:
-                    continue
+                for resp_id in novos_responsaveis:
 
-                pessoa = pessoas.find_one({"_id": resp_id})
+                    # Não envia email para si mesmo
+                    if resp_id == id_usuario:
+                        continue
 
-                if pessoa and pessoa.get("e_mail"):
+                    pessoa = pessoas.find_one({"_id": resp_id})
 
-                    enviar_email(
-                        pessoa["e_mail"],
-                        atividade,
-                        descricao,
-                        data_fim_input.strftime("%d/%m/%Y"),
-                        board_nome,
-                        nome_usuario,
-                        responsaveis_str
-                    )
 
-        # limpa estado
-        if key_tags in st.session_state:
-            del st.session_state[key_tags]
+                    if pessoa and pessoa.get("e_mail"):
 
-        st.rerun()
+                        try:
+                            enviar_email(
+                                pessoa["e_mail"],
+                                atividade,
+                                descricao,
+                                data_fim_input.strftime("%d/%m/%Y"),
+                                board_nome,
+                                nome_usuario,
+                                responsaveis_str
+                            )
+
+                        except Exception as e:
+
+                            # Mostra erro detalhado na tela
+                            st.error(f"Erro ao enviar e-mail para {pessoa['e_mail']}: {str(e)}")
+
+
+            ##################################################################
+            # LIMPEZA DE ESTADO
+            ##################################################################
+
+            if key_tags in st.session_state:
+                del st.session_state[key_tags]
+
+            ##################################################################
+            # FEEDBACK + DELAY
+            ##################################################################
+
+            st.success("Atividade salva com sucesso", icon=":material/check:")
+
+            time.sleep(3)
+
+            st.rerun()
+
+        except Exception as e:
+
+            # Exibe erro real (isso ajuda a identificar problemas futuros)
+            st.error(f"Erro ao salvar atividade: {str(e)}")
+
+
+
+
 
 
 ######################################################################################################
@@ -782,6 +837,7 @@ def dialog_gerenciar_board(board_id):
                     value=pista["nome"],
                     key=f"coluna_nome_{pista['_id']}"
                 )
+
 
                 with st.popover(
                     "",
@@ -1120,7 +1176,24 @@ with st.container(horizontal=True, horizontal_alignment="right"):
     # FILTROS
     ######################################################################################################
 
-    with st.popover("Filtros", icon=":material/filter_alt:", width=200):
+    # Verifica se há filtros ativos
+    filtro_resps = st.session_state.get("filtro_responsaveis", [])
+    filtro_tags = st.session_state.get("filtro_tags", [])
+
+    filtros_ativos = bool(filtro_resps or filtro_tags)
+
+    # Define label e tipo do botão
+    label_filtros = "Filtro ATIVO" if filtros_ativos else "Filtros"
+    tipo_filtros = "primary" if filtros_ativos else "secondary"
+
+
+    with st.popover(
+        label_filtros,
+        icon=":material/filter_alt:",
+        width=200,
+        type=tipo_filtros
+    ):
+    # with st.popover("Filtros", icon=":material/filter_alt:", width=200):
             
         if "filtro_responsaveis" not in st.session_state:
             st.session_state["filtro_responsaveis"] = []
@@ -1163,6 +1236,7 @@ with st.container(horizontal=True, horizontal_alignment="right"):
 
             # Botão de filtrar
             aplicar_filtros = st.form_submit_button("Filtrar", icon=":material/filter_alt:")
+
             if aplicar_filtros:
 
                 st.session_state["filtro_responsaveis"] = [
@@ -1170,6 +1244,11 @@ with st.container(horizontal=True, horizontal_alignment="right"):
                 ]
 
                 st.session_state["filtro_tags"] = filtro_tags
+
+                # Atualiza interface imediatamente
+                st.rerun()
+
+
 
 
 
