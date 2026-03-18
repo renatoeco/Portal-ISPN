@@ -158,14 +158,13 @@ Você pode mover um cartão de atividade para outra coluna:
 
 
 ######################################################################################################
-# CRIAR NOVO BOARD
+# CRIAR NOVO PAINEL
 ######################################################################################################
 
-
-@st.dialog("Criar novo board")
+@st.dialog("Criar novo painel")
 def dialog_criar_board():
 
-    nome_board = st.text_input("Nome do board")
+    nome_board = st.text_input("Nome do painel")
 
     # Busca apenas pessoas ativas já ordenadas alfabeticamente
     pessoas_ativas = list(
@@ -181,7 +180,7 @@ def dialog_criar_board():
 
     # Multiselect de membros
     membros_selecionados = st.multiselect(
-        "Membros do board",
+        "Membros(as) do painel",
         options=list(dict_pessoas.keys())
     )
 
