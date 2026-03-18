@@ -881,6 +881,33 @@ def dialog_gerenciar_board(board_id):
 
 
 ######################################################################################################
+# BARRA SUPERIOR
+######################################################################################################
+
+
+with st.container(horizontal=True, horizontal_alignment="right"):
+
+    if st.button(
+        "Ajuda",
+        icon=":material/help:",
+        type="tertiary",
+        width=200
+    ):
+        dialog_ajuda()
+
+
+    if st.button(
+        "Novo painel",
+        type="secondary",
+        icon=":material/add:",
+        width=200
+    ):
+        dialog_criar_board()
+
+st.divider()
+
+
+######################################################################################################
 # LISTA BOARDS
 ######################################################################################################
 
