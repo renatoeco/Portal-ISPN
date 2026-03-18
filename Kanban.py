@@ -477,7 +477,8 @@ def dialog_gerenciar_board(board_id):
                 if st.button(
                     "",
                     icon=":material/save:",
-                    key=f"salvar_coluna_{pista['_id']}"
+                    key=f"salvar_coluna_{pista['_id']}",
+                    type="tertiary"
                 ):
                     kanban_pistas.update_one(
                         {"_id": pista["_id"]},
@@ -490,7 +491,9 @@ def dialog_gerenciar_board(board_id):
                 if st.button(
                     "",
                     icon=":material/delete:",
-                    key=f"delete_coluna_{pista['_id']}"
+                    key=f"delete_coluna_{pista['_id']}",
+                    type="tertiary"
+
                 ):
 
                     # Verifica se existem cards na coluna
