@@ -774,6 +774,78 @@ def dialog_gerenciar_board(board_id):
                     key=f"coluna_nome_{pista['_id']}"
                 )
 
+                with st.popover(
+                    "",
+                    icon=":material/unfold_more:"
+                ):
+
+                    st.caption("Reordenar")
+
+                    # SUBIR
+                    if st.button(
+                        "Subir",
+                        key=f"subir_{pista['_id']}",
+                        use_container_width=True
+                    ):
+
+                        ordem_atual = pista["ordem"]
+
+                        if ordem_atual > 0:
+
+                            pista_acima = kanban_pistas.find_one({
+                                "board_id": board_id,
+                                "ordem": ordem_atual - 1
+                            })
+
+                            if pista_acima:
+
+                                kanban_pistas.update_one(
+                                    {"_id": pista["_id"]},
+                                    {"$set": {"ordem": ordem_atual - 1}}
+                                )
+
+                                kanban_pistas.update_one(
+                                    {"_id": pista_acima["_id"]},
+                                    {"$set": {"ordem": ordem_atual}}
+                                )
+
+                                st.rerun(scope="fragment")
+
+
+                    # DESCER
+                    if st.button(
+                        "Descer",
+                        key=f"descer_{pista['_id']}",
+                        use_container_width=True
+                    ):
+
+                        ordem_atual = pista["ordem"]
+
+                        max_ordem = kanban_pistas.count_documents({
+                            "board_id": board_id
+                        }) - 1
+
+                        if ordem_atual < max_ordem:
+
+                            pista_abaixo = kanban_pistas.find_one({
+                                "board_id": board_id,
+                                "ordem": ordem_atual + 1
+                            })
+
+                            if pista_abaixo:
+
+                                kanban_pistas.update_one(
+                                    {"_id": pista["_id"]},
+                                    {"$set": {"ordem": ordem_atual + 1}}
+                                )
+
+                                kanban_pistas.update_one(
+                                    {"_id": pista_abaixo["_id"]},
+                                    {"$set": {"ordem": ordem_atual}}
+                                )
+
+                                st.rerun(scope="fragment")
+
                 # Botões
 
                 # Salvar
