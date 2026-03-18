@@ -81,6 +81,82 @@ st.session_state["pagina_anterior"] = PAGINA_ID
 id_usuario = st.session_state["id_usuario"]
 
 
+
+
+
+
+
+######################################################################################################
+# FUNÇÕES
+######################################################################################################
+
+
+
+
+
+######################################################################################################
+# DIÁLOGO AJUDA
+######################################################################################################
+
+@st.dialog("Ajuda", width="medium")
+def dialog_ajuda():
+
+    st.markdown("""
+                
+**Kanban** é a técnica de organizar **cartões de atividades** em **colunas**, que são organizadas em um **painel**.
+
+Você pode ter **vários painéis**.
+
+Você pode criar **um** ou **mais** painéis **só para você**. Assim ninguém terá acesso.
+
+Ou você pode convidar **outras pessoas** para o seu painel. Assim poderão usá-lo **em grupo**.
+
+---
+
+### Comece criando um painel
+
+1. Clique no botão **'Novo painel'**  
+2. Escolha os participantes do painel  
+
+---
+
+### Depois crie as colunas
+
+1. Clique no botão **'Nova coluna'**  
+2. Repita quantas vezes for necessário  
+
+A forma mais clássica de usar o kanban é com 3 colunas: **'A fazer'**, **'Fazendo'** e **'Concluído'**.
+
+Mas você pode criar outras colunas, como '**Prioridades**', '**Em revisão**', '**Aguardando**', ... etc. 
+                
+Crie colunas à vontade, não tem regras.                                
+
+---
+
+### Então crie as atividades
+
+1. Clique no botão azul **'Nova atividade'**  
+2. Preencha os campos *(a tag é opcional)*  
+3. Clique em **'Criar atividade'**  
+
+---
+
+### Movendo atividades entre colunas
+
+Você pode mover um cartão de atividade para outra coluna:                
+
+1. Clique no botão de opções do cartão  
+2. Na seção **'Mover para:'**, escolha a coluna desejada  
+""")
+
+
+
+
+
+
+
+
+
 ######################################################################################################
 # CRIAR NOVO BOARD
 ######################################################################################################
@@ -337,7 +413,7 @@ def dialog_card(board_id, card=None):
         index_pista = 0
 
     pista_escolhida = st.selectbox(
-        "Pista",
+        "Coluna",
         list(dict_pistas.keys()),
         index=index_pista
     )
@@ -351,7 +427,7 @@ def dialog_card(board_id, card=None):
     else:
         data_inicial = datetime.today()
 
-    data_fim_input = st.date_input("Data fim", value=data_inicial)
+    data_fim_input = st.date_input("Data limite", value=data_inicial)
 
     ##################################################################################################
     # PESSOAS
@@ -1019,7 +1095,13 @@ st.divider()
 
 with st.container(horizontal=True, horizontal_alignment="right"):
 
-    if id_usuario == criador_board:
+    if st.button(
+        "Ajuda",
+        icon=":material/help:",
+        type="secondary",
+        width=200
+    ):
+        dialog_ajuda()
 
         if st.button(
             "Configurações",
