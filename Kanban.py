@@ -1031,7 +1031,8 @@ with st.container(horizontal=True, horizontal_alignment="right"):
         "Novo painel",
         type="secondary",
         icon=":material/add:",
-        width=200
+        width=200,
+        key="botao_criar_painel"
     ):
         dialog_criar_board()
     
@@ -1097,21 +1098,14 @@ st.divider()
 
 with st.container(horizontal=True, horizontal_alignment="right"):
 
+
     if st.button(
-        "Ajuda",
-        icon=":material/help:",
+        "Configurações",
+        icon=":material/settings:",
         type="secondary",
         width=200
     ):
-        dialog_ajuda()
-
-        if st.button(
-            "Configurações",
-            icon=":material/settings:",
-            type="secondary",
-            width=200
-        ):
-            dialog_gerenciar_board(board_id)
+        dialog_gerenciar_board(board_id)
 
     if st.button("Nova coluna", icon=":material/add_column_right:", width=200):
         dialog_criar_pista(board_id)
