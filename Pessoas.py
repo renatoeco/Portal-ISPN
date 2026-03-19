@@ -674,45 +674,67 @@ def gerenciar_pessoas():
                     
                     st.markdown("---")
 
-                    # Dados bancários
-
-                    st.write("**Dados bancários**")
-
-
-                    col1, col2 = st.columns([1, 1])
-                    nome_banco = col1.text_input("Nome do banco:", value=pessoa.get("banco", {}).get("nome_banco", ""), key=f"editar_banco_{pessoa_id}")
-                    agencia = col2.text_input("Agência:", value=pessoa.get("banco", {}).get("agencia", ""), key=f"editar_agencia_{pessoa_id}")
-
-                    col1, col2 = st.columns([1, 1])
-                    conta = col1.text_input("Conta:", value=pessoa.get("banco", {}).get("conta", ""), key=f"editar_conta_bancaria_{pessoa_id}")
-
-
                     opcoes_conta = ["", "Conta Corrente", "Conta Poupança", "Conta Salário"]
 
-                    tipo_conta_atual = pessoa.get("banco", {}).get("tipo_conta", "")
+                    # Dados bancários
 
-                    # Define o índice com segurança
-                    if tipo_conta_atual in opcoes_conta:
-                        index_conta = opcoes_conta.index(tipo_conta_atual)
+                    st.markdown("#### **Dados bancários**")
+                    st.write("")
+
+                    if tipo_contratacao in ["PJ1", "PJ2"]:
+
+                        st.markdown("##### **Conta Pessoa Jurídica (PJ)**")
+
+                        col1, col2 = st.columns(2)
+                        banco_pj_nome = col1.text_input("Banco PJ:", value=pessoa.get("banco_pj", {}).get("nome_banco", ""))
+                        banco_pj_agencia = col2.text_input("Agência PJ:", value=pessoa.get("banco_pj", {}).get("agencia", ""))
+
+                        col1, col2 = st.columns(2)
+                        banco_pj_conta = col1.text_input("Conta PJ:", value=pessoa.get("banco_pj", {}).get("conta", ""))
+                        banco_pj_tipo = col2.selectbox(
+                            "Tipo conta PJ:",
+                            opcoes_conta,
+                            index=opcoes_conta.index(pessoa.get("banco_pj", {}).get("tipo_conta", "")) 
+                            if pessoa.get("banco_pj", {}).get("tipo_conta", "") in opcoes_conta else 0
+                        )
+
+                        st.write("")
+                        st.write("")
+
+                        st.markdown("##### **Conta Pessoa Física (PF)**")
+
+                        col1, col2 = st.columns(2)
+                        banco_pf_nome = col1.text_input("Banco PF:", value=pessoa.get("banco_pf", {}).get("nome_banco", ""))
+                        banco_pf_agencia = col2.text_input("Agência PF:", value=pessoa.get("banco_pf", {}).get("agencia", ""))
+
+                        col1, col2 = st.columns(2)
+                        banco_pf_conta = col1.text_input("Conta PF:", value=pessoa.get("banco_pf", {}).get("conta", ""))
+                        banco_pf_tipo = col2.selectbox(
+                            "Tipo conta PF:",
+                            opcoes_conta,
+                            index=opcoes_conta.index(pessoa.get("banco_pf", {}).get("tipo_conta", "")) 
+                            if pessoa.get("banco_pf", {}).get("tipo_conta", "") in opcoes_conta else 0
+                        )
+
                     else:
-                        index_conta = 0  # seleciona a opção vazia
+                        # comportamento atual (CLT, estágio etc)
+                        col1, col2 = st.columns(2)
+                        nome_banco = col1.text_input("Nome do banco:", value=pessoa.get("banco", {}).get("nome_banco", ""))
+                        agencia = col2.text_input("Agência:", value=pessoa.get("banco", {}).get("agencia", ""))
 
-                    tipo_conta = col2.selectbox(
-                        "Tipo de conta:",
-                        options=opcoes_conta,
-                        index=index_conta,
-                        key=f"editar_editar_tipo_conta_{pessoa_id}"
-                    )
+                        col1, col2 = st.columns(2)
+                        conta = col1.text_input("Conta:", value=pessoa.get("banco", {}).get("conta", ""))
+                        tipo_conta = col2.selectbox(
+                            "Tipo de conta:",
+                            opcoes_conta,
+                            index=opcoes_conta.index(pessoa.get("banco", {}).get("tipo_conta", "")) 
+                            if pessoa.get("banco", {}).get("tipo_conta", "") in opcoes_conta else 0
+                        )
                     
                     st.divider()
-                    
-                    
-                            
-                    #st.divider()
 
                     # Permissões
                     st.write('**Permissões**')
-
 
                     # Roteamento de tipo de usuário especial
                     # Só o admin pode atribuir permissão para outro admin
@@ -810,7 +832,11 @@ def gerenciar_pessoas():
                     # -------------------------------
                     # Botão salvar
                     # -------------------------------
-                    if st.form_submit_button("Salvar alterações", type="secondary", icon=":material/save:"):
+                    if st.form_submit_button(
+                        "Salvar alterações",
+                        type="secondary",
+                        icon=":material/save:"
+                    ):
 
                         dados_update = {
                             "nome_completo": nome,
@@ -822,35 +848,56 @@ def gerenciar_pessoas():
                             "gênero": genero,
                             "raca": raca,
                             "escolaridade": escolaridade,
-                            "banco.nome_banco": nome_banco,
-                            "banco.agencia": agencia,
-                            "banco.conta": conta,
-                            "banco.tipo_conta": tipo_conta,
                             "programa_area": programa_area,
                             "coordenador": coordenador_id,
                             "cargo": cargo,
-                            "tipo_contratacao": tipo_contratacao,  # vem de fora do form
+                            "tipo_contratacao": tipo_contratacao,
                             "escritorio": escritorio,
                             "tipo de usuário": ", ".join(tipo_usuario) if tipo_usuario else "",
                             "status": status,
                         }
 
                         if tipo_contratacao in ["PJ1", "PJ2"]:
-                            # adiciona ou atualiza campos extras
+
                             dados_update["cnpj"] = cnpj
                             dados_update["nome_empresa"] = nome_empresa
 
+                            dados_update["banco_pj"] = {
+                                "nome_banco": banco_pj_nome,
+                                "agencia": banco_pj_agencia,
+                                "conta": banco_pj_conta,
+                                "tipo_conta": banco_pj_tipo
+                            }
+
+                            dados_update["banco_pf"] = {
+                                "nome_banco": banco_pf_nome,
+                                "agencia": banco_pf_agencia,
+                                "conta": banco_pf_conta,
+                                "tipo_conta": banco_pf_tipo
+                            }
+
+                            # remove banco antigo
+                            dados_update["banco"] = None
+
                             pessoas.update_one(
                                 {"_id": pessoa["_id"]},
-                                {"$set": dados_update}  # mantém + adiciona cnpj/nome_empresa
+                                {"$set": dados_update}
                             )
+
                         else:
-                            # remove campos extras se existirem
+
+                            dados_update["banco"] = {
+                                "nome_banco": nome_banco,
+                                "agencia": agencia,
+                                "conta": conta,
+                                "tipo_conta": tipo_conta
+                            }
+
                             pessoas.update_one(
                                 {"_id": pessoa["_id"]},
                                 {
                                     "$set": dados_update,
-                                    "$unset": {"cnpj": "", "nome_empresa": ""}
+                                    "$unset": {"cnpj": "", "nome_empresa": "", "banco_pj": "", "banco_pf": ""}
                                 }
                             )
 
@@ -1752,14 +1799,45 @@ def gerenciar_pessoas():
             # -------------------------------------------------
 
             st.markdown("#### Dados bancários")
-            
-            col1, col2 = st.columns([1, 1])
-            nome_banco = col1.text_input("Nome do banco:")
-            agencia = col2.text_input("Agência:")
-            
-            col1, col2 = st.columns([1, 1])
-            conta = col1.text_input("Conta:")
-            tipo_conta = col2.selectbox("Tipo de conta:", ["Conta Corrente", "Conta Poupança", "Conta Salário"], index=None, placeholder="")
+
+
+            opcoes_conta = ["", "Conta Corrente", "Conta Poupança", "Conta Salário"]
+
+            if tipo_contratacao in ["PJ1", "PJ2"]:
+
+                st.write("")
+
+                st.markdown("##### Conta Pessoa Jurídica (PJ)")
+
+                col1, col2 = st.columns(2)
+                banco_pj_nome = col1.text_input("Banco PJ:")
+                banco_pj_agencia = col2.text_input("Agência PJ:")
+
+                col1, col2 = st.columns(2)
+                banco_pj_conta = col1.text_input("Conta PJ:")
+                banco_pj_tipo = col2.selectbox("Tipo conta PJ:", opcoes_conta)
+
+                st.write("")
+
+                st.markdown("##### Conta Pessoa Física (PF)")
+
+                col1, col2 = st.columns(2)
+                banco_pf_nome = col1.text_input("Banco PF:")
+                banco_pf_agencia = col2.text_input("Agência PF:")
+
+                col1, col2 = st.columns(2)
+                banco_pf_conta = col1.text_input("Conta PF:")
+                banco_pf_tipo = col2.selectbox("Tipo conta PF:", opcoes_conta)
+
+            else:
+
+                col1, col2 = st.columns(2)
+                nome_banco = col1.text_input("Nome do banco:")
+                agencia = col2.text_input("Agência:")
+
+                col1, col2 = st.columns(2)
+                conta = col1.text_input("Conta:")
+                tipo_conta = col2.selectbox("Tipo de conta:", opcoes_conta)
 
 
             # # -------------------------------------------------
@@ -1918,12 +1996,6 @@ def gerenciar_pessoas():
                         "tipo_contratacao": tipo_contratacao,
                         "escritorio": escritorio,
                         "programa_area": programa_area,
-                        "banco": {
-                            "nome_banco": nome_banco,
-                            "agencia": agencia,
-                            "conta": conta,
-                            "tipo_conta": tipo_conta
-                        },
                         "férias": {
                             "anos": {
                                 str(ano_atual): {
@@ -1951,10 +2023,40 @@ def gerenciar_pessoas():
 
                     # Adiciona cnpj e nome_empresa somente se for PJ
                     if tipo_contratacao in ["PJ1", "PJ2"]:
-                        novo_documento.update({
-                            "cnpj": cnpj,
-                            "nome_empresa": nome_empresa
-                        })
+
+                        novo_documento["banco_pj"] = {
+                            "nome_banco": banco_pj_nome,
+                            "agencia": banco_pj_agencia,
+                            "conta": banco_pj_conta,
+                            "tipo_conta": banco_pj_tipo
+                        }
+
+                        novo_documento["banco_pf"] = {
+                            "nome_banco": banco_pf_nome,
+                            "agencia": banco_pf_agencia,
+                            "conta": banco_pf_conta,
+                            "tipo_conta": banco_pf_tipo
+                        }
+
+                        novo_documento["cnpj"] = cnpj
+                        novo_documento["nome_empresa"] = nome_empresa
+
+                        
+                        novo_documento.pop("banco", None)
+
+                    else:
+
+                        novo_documento["banco"] = {
+                            "nome_banco": nome_banco,
+                            "agencia": agencia,
+                            "conta": conta,
+                            "tipo_conta": tipo_conta
+                        }
+
+                        novo_documento.pop("banco_pj", None)
+                        novo_documento.pop("banco_pf", None)
+                        novo_documento.pop("cnpj", None)
+                        novo_documento.pop("nome_empresa", None)
 
                     # Insere o novo colaborador no banco
                     pessoas.insert_one(novo_documento)
