@@ -1296,13 +1296,11 @@ st.write("")
 # Nome grande (maior que subheader)
 st.markdown(f"### {board['nome']}")
 
-st.write("")
 
 # Descrição
 if board.get("descricao"):
     st.caption(board["descricao"])
 
-st.write("")
 
 # Participantes
 nomes_membros = []
