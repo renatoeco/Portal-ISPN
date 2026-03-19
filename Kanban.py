@@ -177,6 +177,8 @@ def dialog_criar_board():
 
     nome_board = st.text_input("Nome do painel")
 
+    descricao = st.text_area("Descrição do painel")
+
     # Busca apenas pessoas ativas já ordenadas alfabeticamente
     pessoas_ativas = list(
         pessoas.find({"status": "ativo"}).sort("nome_completo", 1)
@@ -192,7 +194,8 @@ def dialog_criar_board():
     # Multiselect de membros
     membros_selecionados = st.multiselect(
         "Membros(as) do painel",
-        options=list(dict_pessoas.keys())
+        options=list(dict_pessoas.keys()),
+        placeholder=""
     )
 
     if st.button("Criar painel", use_container_width=True):
@@ -211,6 +214,7 @@ def dialog_criar_board():
 
             kanban_boards.insert_one({
                 "nome": nome_board,
+                "descricao": descricao,
                 "criador": id_usuario,
                 "membros": lista_membros,
                 "data_criacao": datetime.now()
@@ -749,8 +753,10 @@ def dialog_card(board_id, card=None):
                     type="secondary",
                     key=f"btn_delete_{card['_id']}"
                 ):
-                    # Apenas muda estado (SEM rerun)
+                    
                     st.session_state[key_delete] = True
+                    st.rerun(scope="fragment")
+
 
 
     ##################################################################
@@ -766,7 +772,7 @@ def dialog_card(board_id, card=None):
 
                 # CONFIRMAR
                 if st.button(
-                    "Confirmar exclusão da atividade",
+                    "Sim",
                     type="primary",
                     icon=":material/delete:",
                 ):
@@ -778,17 +784,18 @@ def dialog_card(board_id, card=None):
 
                     st.success("Atividade excluída", icon=":material/check:")
 
-                    time.sleep(3)
-                    # Aqui sim pode rerun
+                    time.sleep(2)
                     st.rerun()
 
                 # CANCELAR
                 if st.button(
-                    "Cancelar",
+                    "Não",
                     use_container_width=True
                 ):
-                    # Apenas volta estado (SEM rerun)
+                   
                     st.session_state[key_delete] = False
+                    st.rerun(scope="fragment")
+
 
 
 
@@ -801,7 +808,7 @@ def dialog_card(board_id, card=None):
 ######################################################################################################
 
 
-@st.dialog("Gerenciar painel", width="small")
+@st.dialog("Gerenciar painel", width="medium")
 def dialog_gerenciar_board(board_id):
 
     # Carrega board
@@ -826,6 +833,11 @@ def dialog_gerenciar_board(board_id):
 
         # Nome do board
         nome = st.text_input("Nome do painel", value=board.get("nome", ""))
+
+        descricao = st.text_area(
+            "Descrição do painel",
+            value=board.get("descricao", "")
+        )
 
         ##################################################################################################
         # MEMBROS
@@ -879,6 +891,7 @@ def dialog_gerenciar_board(board_id):
                 {
                     "$set": {
                         "nome": nome,
+                        "descricao": descricao,
                         "membros": lista_membros
                     }
                 }
@@ -1000,26 +1013,67 @@ def dialog_gerenciar_board(board_id):
                     )
                     st.rerun()
 
+                ##################################################################
+                # BOTÃO DELETE (somente edição e fora do modo confirmação)
+                ##################################################################
+  
 
-                # Excluir
-                if st.button(
-                    "",
-                    icon=":material/delete:",
-                    key=f"delete_coluna_{pista['_id']}",
-                    type="tertiary"
+                key_delete_coluna = f"confirmar_exclusao_coluna_{pista['_id']}"
 
-                ):
+                # Inicializa estado
+                if key_delete_coluna not in st.session_state:
+                    st.session_state[key_delete_coluna] = False
 
-                    # Verifica se existem cards na coluna
-                    total_cards = kanban_cards.count_documents({
-                        "pista_id": pista["_id"]
-                    })
+                confirmando_exclusao_coluna = st.session_state[key_delete_coluna]
 
-                    if total_cards > 0:
-                        st.warning("Não é possível excluir uma coluna que possui atividades.")
-                    else:
-                        kanban_pistas.delete_one({"_id": pista["_id"]})
-                        st.rerun()
+                if not confirmando_exclusao_coluna:
+
+                    with st.container(horizontal=True, horizontal_alignment="right"):
+
+                        if st.button(
+                            "",
+                            icon=":material/delete:",
+                            type="secondary",
+                            key=f"delete_coluna_{pista['_id']}",
+                        ):
+                            st.session_state[key_delete_coluna] = True
+                            st.rerun(scope="fragment")
+
+
+                ##################################################################
+                # CONTAINER DE CONFIRMAÇÃO
+                ##################################################################
+                if confirmando_exclusao_coluna:
+
+                    with st.container(border=True, horizontal=True):
+
+                        st.warning("Tem certeza que deseja excluir esta coluna?")
+
+                        with st.container(horizontal=True):
+
+                            # CONFIRMAR
+                            if st.button(
+                                "Sim",
+                                type="primary",
+                                icon=":material/delete:",
+                            ):
+                            
+                                kanban_pistas.delete_one({"_id": pista["_id"]})
+                                st.session_state[key_delete_coluna] = False
+
+                                st.success("Coluna excluída", icon=":material/check:")
+                                time.sleep(2)
+                                st.rerun()
+                                
+                            # CANCELAR
+                            if st.button(
+                                "Não",
+                            ):
+                                
+                                st.session_state[key_delete_coluna] = False
+                                st.rerun(scope="fragment")
+
+
 
     ##################################################################################################
     # ABA TAGS
@@ -1231,11 +1285,33 @@ board_id = dict_boards[board_nome]
 board = kanban_boards.find_one({"_id": board_id})
 criador_board = board.get("criador")
 
+st.write("")
+
+# Nome grande (maior que subheader)
+st.markdown(f"### {board['nome']}")
 
 st.write("")
 
+# Descrição
+if board.get("descricao"):
+    st.caption(board["descricao"])
+
+st.write("")
+
+# Participantes
+nomes_membros = []
+
+for m in board.get("membros", []):
+    pessoa = pessoas.find_one({"_id": m})
+    if pessoa:
+        nomes_membros.append(pessoa["nome_completo"])
+
+if nomes_membros:
+    st.caption("**Participantes:** " + ", ".join(nomes_membros))
 
 
+st.write("")
+st.write("")
 
 
 ######################################################################################################
@@ -1404,7 +1480,7 @@ def renderizar_kanban(board_id):
     for idx, pista in enumerate(pistas):
 
         with cols[idx]:
-            st.subheader(pista["nome"])
+            st.markdown(f"#### {pista["nome"]}")
 
             cards_pista = [
                 c for c in cards if c["pista_id"] == pista["_id"]
