@@ -417,7 +417,8 @@ else:
             st.Page("Férias e recessos.py", title="Férias e Recessos", icon=":material/beach_access:"),
             st.Page("Manuais.py", title="Políticas e Manuais", icon=":material/menu_book:"),
             st.Page("Websites.py", title="Websites", icon=":material/web_traffic:"),
-            st.Page("Meu Perfil.py", title="Meu Perfil", icon=":material/person:")
+            st.Page("Meu Perfil.py", title="Meu Perfil", icon=":material/person:"),
+            st.Page("Kanban.py", title="Kanban", icon=":material/view_apps:")
         ])
 
         pg.run()
