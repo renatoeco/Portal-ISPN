@@ -1281,6 +1281,12 @@ board_nome = st.segmented_control(
     default=list(dict_boards.keys())[0],
 )
 
+st.write("")
+
+if not board_nome:
+    st.warning("Selecione um painel")
+    st.stop()
+
 board_id = dict_boards[board_nome]
 board = kanban_boards.find_one({"_id": board_id})
 criador_board = board.get("criador")
