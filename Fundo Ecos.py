@@ -492,15 +492,21 @@ def mostrar_detalhes(codigo_proj: str):
 
             lat_long_str = projeto.get('lat_long_principal', '')
 
-            if lat_long_str:
-                lat_str, lon_str = lat_long_str.split(",")
-                lat, lon = float(lat_str.strip()), float(lon_str.strip())
+            if lat_long_str and "," in lat_long_str:
+                try:
+                    partes = [p.strip() for p in lat_long_str.split(",")]
 
-                # Cria DataFrame
-                df = pd.DataFrame({"lat": [lat], "lon": [lon]})
+                    if len(partes) == 2:
+                        lat, lon = float(partes[0]), float(partes[1])
 
-                # Plota o mapa
-                st.map(df, zoom=6)   
+                        df = pd.DataFrame({"lat": [lat], "lon": [lon]})
+                        st.map(df, zoom=6)
+                    else:
+                        st.warning("Coordenadas inválidas (formato incorreto).")
+                except Exception:
+                    st.warning("Erro ao interpretar latitude/longitude.")
+            else:
+                st.caption("Coordenadas não informadas.") 
                 
         # ---------------------------------------------------------
         #  TABELA COMPLETA DE REGIÕES DE ATUAÇÃO
