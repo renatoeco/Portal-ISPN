@@ -550,7 +550,7 @@ def dialog_card(board_id, card=None):
 
     enviar_email_responsaveis = st.checkbox(
         "Enviar e-mail para os responsáveis",
-        value=True
+        value=False
     )
 
     st.write("")
