@@ -2136,32 +2136,49 @@ with tab_entregas:
 
         # Opções únicas para filtros
         situacoes = sorted(df_entregas["Situação"].dropna().unique().tolist())
-        anos_disponiveis = sorted(
+        # Extrair todos os anos das entregas
+        anos_extraidos = sorted(
             set(
-                ano.strip()
+                int(ano.strip())
                 for sublist in df_entregas["Anos de Referência"].dropna()
                 for ano in sublist.split(",")
+                if ano.strip().isdigit()
             )
         )
+
+        # Garantir que existem anos
+        if anos_extraidos:
+            menor_ano = min(anos_extraidos)
+            maior_ano = max(anos_extraidos)
+
+            # Criar range contínuo
+            anos_disponiveis = [str(ano) for ano in range(menor_ano, maior_ano + 1)]
+        else:
+            anos_disponiveis = []
 
         with st.container(horizontal=True):
 
             with st.container(horizontal=True):
 
                 filtro_situacao = st.multiselect(
-                    "Filtrar por Situação:",
+                    "Situação:",
                     options=situacoes,
                     default=[],
                     placeholder="",
                     width=250
                 )
 
-                filtro_ano = st.multiselect(
-                    "Filtrar por Ano de Referência:",
+                ano_de = st.selectbox(
+                    "Entregas de:",
                     options=anos_disponiveis,
-                    default=[],
+                    index=0,
                     placeholder="",
-                    width=250
+                )
+
+                ano_ate = st.selectbox(
+                    "Até:",
+                    options=[""] + anos_disponiveis,
+                    index=len(anos_disponiveis) if anos_disponiveis else 0
                 )
 
             # ====================
@@ -2187,11 +2204,33 @@ with tab_entregas:
         if filtro_situacao:
             df_filtrado = df_filtrado[df_filtrado["Situação"].isin(filtro_situacao)]
 
-        if filtro_ano:
+        if ano_de or ano_ate:
+
+            def filtrar_intervalo(anos_str):
+                if not anos_str:
+                    return False
+
+                anos_lista = [int(a.strip()) for a in anos_str.split(",") if a.strip().isdigit()]
+
+                if not anos_lista:
+                    return False
+
+                # Caso ambos preenchidos
+                if ano_de and ano_ate:
+                    return any(int(ano_de) <= ano <= int(ano_ate) for ano in anos_lista)
+
+                # Apenas "de"
+                if ano_de:
+                    return any(ano >= int(ano_de) for ano in anos_lista)
+
+                # Apenas "até"
+                if ano_ate:
+                    return any(ano <= int(ano_ate) for ano in anos_lista)
+
+                return True
+
             df_filtrado = df_filtrado[
-                df_filtrado["Anos de Referência"].apply(
-                    lambda x: any(ano in x for ano in filtro_ano)
-                )
+                df_filtrado["Anos de Referência"].apply(filtrar_intervalo)
             ]
 
         # ===============================================================
