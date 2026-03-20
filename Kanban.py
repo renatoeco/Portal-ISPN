@@ -875,29 +875,91 @@ def dialog_gerenciar_board(board_id):
 
         st.write('')
 
-        if st.button("Salvar alterações", width=200, type="primary", icon=":material/save:"):
+        container_botoes = st.container(horizontal=True)
+        
+        with container_botoes:
+            if st.button("Salvar alterações", width=200, type="primary", icon=":material/save:"):
 
-            # Converte nomes selecionados → IDs
-            lista_membros = [
-                dict_pessoas[nome] for nome in membros_selecionados
-            ]
+                # Converte nomes selecionados → IDs
+                lista_membros = [
+                    dict_pessoas[nome] for nome in membros_selecionados
+                ]
 
-            # Garante que o criador continua no board
-            if board["criador"] not in lista_membros:
-                lista_membros.append(board["criador"])
+                # Garante que o criador continua no board
+                if board["criador"] not in lista_membros:
+                    lista_membros.append(board["criador"])
 
-            kanban_boards.update_one(
-                {"_id": board_id},
-                {
-                    "$set": {
-                        "nome": nome,
-                        "descricao": descricao,
-                        "membros": lista_membros
+                kanban_boards.update_one(
+                    {"_id": board_id},
+                    {
+                        "$set": {
+                            "nome": nome,
+                            "descricao": descricao,
+                            "membros": lista_membros
+                        }
                     }
-                }
-            )
+                )
 
-            st.rerun()
+                st.rerun()
+
+            # CHAVE ÚNICA
+            key_delete_board = f"confirmar_exclusao_board_{board_id}"
+
+            if key_delete_board not in st.session_state:
+                st.session_state[key_delete_board] = False
+
+            confirmando_exclusao_board = st.session_state[key_delete_board]
+
+            # BOTÃO EXCLUIR (modo normal)
+            if not confirmando_exclusao_board:
+
+                if st.button(
+                    "Excluir painel",
+                    icon=":material/delete:",
+                    type="secondary",
+                    width=200
+                ):
+                    st.session_state[key_delete_board] = True
+                    st.rerun(scope="fragment")
+
+            # CONFIRMAÇÃO
+            if confirmando_exclusao_board:
+
+                with st.container(border=True):
+
+                    st.warning("Tem certeza que deseja excluir este painel?")
+
+                    # CONFIRMAR
+                    if st.button(
+                        "Sim",
+                        type="primary",
+                        icon=":material/delete:",
+                        use_container_width=True
+                    ):
+
+                        # EXCLUI CARDS
+                        kanban_cards.delete_many({"board_id": board_id})
+
+                        # EXCLUI COLUNAS
+                        kanban_pistas.delete_many({"board_id": board_id})
+
+                        # EXCLUI BOARD
+                        kanban_boards.delete_one({"_id": board_id})
+
+                        st.session_state[key_delete_board] = False
+
+                        st.success("Painel excluído com sucesso", icon=":material/check:")
+                        time.sleep(2)
+
+                        st.rerun()
+
+                    # CANCELAR
+                    if st.button(
+                        "Não",
+                        use_container_width=True
+                    ):
+                        st.session_state[key_delete_board] = False
+                        st.rerun(scope="fragment")
 
 
     ##################################################################################################
@@ -1058,10 +1120,14 @@ def dialog_gerenciar_board(board_id):
                                 icon=":material/delete:",
                             ):
                             
+                                kanban_cards.delete_many({
+                                    "pista_id": pista["_id"]
+                                })
+
                                 kanban_pistas.delete_one({"_id": pista["_id"]})
                                 st.session_state[key_delete_coluna] = False
 
-                                st.success("Coluna excluída", icon=":material/check:")
+                                st.success("Coluna excluída e atividades excluídas", icon=":material/check:")
                                 time.sleep(2)
                                 st.rerun()
                                 
