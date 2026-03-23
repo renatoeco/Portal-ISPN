@@ -106,21 +106,6 @@ def obter_valor_aninhado(doc, campo):
     return valor
 
 
-def obter_valor_aninhado(doc, campo):
-    """
-    Permite comparar campos simples e aninhados, ex:
-    banco.nome_banco
-    """
-    partes = campo.split(".")
-    valor = doc
-    for p in partes:
-        if isinstance(valor, dict):
-            valor = valor.get(p)
-        else:
-            return None
-    return valor
-
-
 def detectar_alteracoes(doc_antigo, update_dict, labels_campos):
     """
     Retorna lista de alterações:
@@ -153,11 +138,20 @@ def detectar_alteracoes(doc_antigo, update_dict, labels_campos):
     return alteracoes
 
 
+def flatten_banco(prefixo, banco_dict):
+    return {
+        f"{prefixo}.nome_banco": banco_dict.get("nome_banco"),
+        f"{prefixo}.agencia": banco_dict.get("agencia"),
+        f"{prefixo}.conta": banco_dict.get("conta"),
+        f"{prefixo}.tipo_conta": banco_dict.get("tipo_conta"),
+    }
+
+
 def emails_gestao_pessoas(dados_pessoas):
     return [
         p.get("e_mail")
         for p in dados_pessoas
-        if p.get("tipo de usuário") == "admin" and p.get("e_mail")
+        if p.get("tipo de usuário") == "gestao_pessoas" and p.get("e_mail")
     ]
 
 
@@ -188,6 +182,59 @@ def enviar_email(destinatarios, assunto, corpo):
         return False
 
 
+# Função auxiliar para evitar repetição
+def exibir_banco(prefixo, banco_dict):
+    """
+    Exibe os dados do banco com prefixo (PF/PJ) no label.
+    """
+    banco_dict = banco_dict or {}
+
+    # Verifica se tem algum dado preenchido
+    if any(banco_dict.get(campo) for campo in ["nome_banco", "agencia", "conta", "tipo_conta"]):
+
+        sufixo = f"{prefixo}" if prefixo else ""
+
+        linha(f"Banco ({sufixo}):", banco_dict.get("nome_banco"))
+        linha(f"Agência ({sufixo}):", banco_dict.get("agencia"))
+        linha(f"Tipo de conta ({sufixo}):", banco_dict.get("tipo_conta"))
+        linha(f"Conta ({sufixo}):", banco_dict.get("conta"))
+
+        #st.write("")
+
+
+def input_banco(prefixo, banco_dict):
+        """
+        Cria inputs de banco com prefixo no label e retorna os valores.
+        prefixo: "" | "PF" | "PJ"
+        """
+        banco_dict = banco_dict or {}
+
+        sufixo = f" ({prefixo})" if prefixo else ""
+
+        nome_banco = st.text_input(f"Banco{sufixo}", value=banco_dict.get("nome_banco", ""))
+        agencia = st.text_input(f"Agência{sufixo}", value=banco_dict.get("agencia", ""))
+
+        tipo_conta_atual = banco_dict.get("tipo_conta", "")
+        opcoes_conta = ["", "Conta Corrente", "Conta Poupança", "Conta Salário"]
+        index_conta = opcoes_conta.index(tipo_conta_atual) if tipo_conta_atual in opcoes_conta else 0
+
+        tipo_conta = st.selectbox(
+            f"Tipo de conta{sufixo}",
+            options=opcoes_conta,
+            index=index_conta,
+            key=f"tipo_conta_{prefixo or 'pf_unico'}"
+        )
+
+        conta = st.text_input(f"Conta{sufixo}", value=banco_dict.get("conta", ""))
+
+        return {
+            "nome_banco": nome_banco,
+            "agencia": agencia,
+            "conta": conta,
+            "tipo_conta": tipo_conta
+        }
+        
+
 ######################################################################################################
 # TRATAMENTO DOS DADOS
 ######################################################################################################
@@ -208,10 +255,14 @@ labels_campos = {
     "raca": "Raça",
     "data_nascimento": "Data de nascimento",
     "escolaridade": "Escolaridade",
-    "banco.nome_banco": "Banco",
-    "banco.agencia": "Agência",
-    "banco.conta": "Conta bancária",
-    "banco.tipo_conta": "Tipo de conta",
+    "banco_pf.nome_banco": "Banco PF",
+    "banco_pf.agencia": "Agência PF",
+    "banco_pf.conta": "Conta PF",
+    "banco_pf.tipo_conta": "Tipo de conta PF",
+    "banco_pj.nome_banco": "Banco PJ",
+    "banco_pj.agencia": "Agência PJ",
+    "banco_pj.conta": "Conta PJ",
+    "banco_pj.tipo_conta": "Tipo de conta PJ",
     "cnpj": "CNPJ",
     "nome_empresa": "Nome da empresa"
 }
@@ -311,12 +362,24 @@ if pessoa_logada:
             # ======================
             
             with col2:
-                banco = pessoa_logada.get("banco", {})
+                tipo = pessoa_logada.get("tipo_contratacao")
 
-                linha("Banco:", banco.get("nome_banco"))
-                linha("Agência:", banco.get("agencia"))
-                linha("Tipo de conta:", banco.get("tipo_conta"))
-                linha("Conta:", banco.get("conta"))
+                # ======================
+                # PF → banco único
+                # ======================
+                if tipo not in ["PJ1", "PJ2"]:
+                    banco = pessoa_logada.get("banco") or {}
+                    exibir_banco("", banco)
+                    
+                # ======================
+                # PJ → dois bancos
+                # ======================
+                else:
+                    banco_pf = pessoa_logada.get("banco_pf") or {}
+                    banco_pj = pessoa_logada.get("banco_pj") or {}
+
+                    exibir_banco("PF", banco_pf)
+                    exibir_banco("PJ", banco_pj)
 
 
             # ======================
@@ -388,16 +451,28 @@ if pessoa_logada:
 
                 # Coluna 2 – Dados bancários
                 with col2:
-                    nome_banco = st.text_input("Banco", value=pessoa_logada.get("banco", {}).get("nome_banco", ""))
-                    agencia = st.text_input("Agência", value=pessoa_logada.get("banco", {}).get("agencia", ""))
+                    
+                    tipo = pessoa_logada.get("tipo_contratacao")
+                    
+                    # ======================
+                    # PF → banco único
+                    # ======================
+                    if tipo not in ["PJ1", "PJ2"]:
 
-                    tipo_conta_atual = pessoa_logada.get("banco", {}).get("tipo_conta", "")
-                    opcoes_conta = ["", "Conta Corrente", "Conta Poupança", "Conta Salário"]
-                    index_conta = opcoes_conta.index(tipo_conta_atual) if tipo_conta_atual in opcoes_conta else 0
-                    tipo_conta = st.selectbox("Tipo de conta", options=opcoes_conta, index=index_conta)
+                        banco_atual = pessoa_logada.get("banco") or {}
+                        banco_editado = input_banco("", banco_atual)
 
-                    conta = st.text_input("Conta", value=pessoa_logada.get("banco", {}).get("conta", ""))
+                    # ======================
+                    # PJ → dois bancos
+                    # ======================
+                    else:
 
+                        banco_pf_atual = pessoa_logada.get("banco_pf") or pessoa_logada.get("banco") or {}
+                        banco_pj_atual = pessoa_logada.get("banco_pj") or {}
+
+                        banco_pf_editado = input_banco("PF", banco_pf_atual)
+                        banco_pj_editado = input_banco("PJ", banco_pj_atual)
+                        
                 # Coluna 3 – Profissionais
                 with col3:
                     lista_escritorio = ["Brasília", "Santa Inês", ""]
@@ -451,11 +526,20 @@ if pessoa_logada:
                     "escolaridade": escolaridade,
                     "cargo": cargo,
                     "escritorio": escritorio,
-                    "banco.nome_banco": nome_banco,
-                    "banco.agencia": agencia,
-                    "banco.conta": conta,
-                    "banco.tipo_conta": tipo_conta
                 }
+                
+                # ======================
+                # BANCOS
+                # ======================
+                if tipo_contratacao not in ["PJ1", "PJ2"]:
+                    update_dict_flat = flatten_banco("banco", banco_editado)
+                else:
+                    update_dict_flat = {
+                        **flatten_banco("banco_pf", banco_pf_editado),
+                        **flatten_banco("banco_pj", banco_pj_editado),
+                    }
+
+                update_dict_completo = {**update_dict, **update_dict_flat}
 
                 # Botão de salvar as alterações
                 st.write('')
@@ -474,14 +558,13 @@ if pessoa_logada:
                     # Detecta alterações antes de salvar
                     alteracoes = detectar_alteracoes(
                         pessoa_logada,
-                        update_dict,
+                        update_dict_completo,
                         labels_campos
                     )
 
-                    # Atualiza no MongoDB
                     pessoas.update_one(
                         {"_id": pessoa_logada["_id"]},
-                        {"$set": update_dict}
+                        {"$set": update_dict_completo}
                     )
 
                     # Se houver alterações, envia e-mail
