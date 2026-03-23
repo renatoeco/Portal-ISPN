@@ -297,9 +297,27 @@ mapa_programa = {p["_id"]: p["nome_programa_area"] for p in db["programas_areas"
 df_projetos_ispn["doador_nome"] = df_projetos_ispn["doador"].apply(
     lambda x: mapa_doador.get(x, "não informado")
 )
-df_projetos_ispn["programa_nome"] = df_projetos_ispn["programa"].apply(
-    lambda x: mapa_programa.get(x, "não informado")
-)
+def map_programas(lista_ids):
+    if not isinstance(lista_ids, list):
+        lista_ids = [lista_ids] if lista_ids else []
+
+    nomes = [
+        mapa_programa.get(pid, "")
+        for pid in lista_ids
+        if pid in mapa_programa
+    ]
+
+    return ", ".join(sorted(nomes)) if nomes else "Não informado"
+
+# Padronizar campo programas
+if "programas" not in df_projetos_ispn.columns:
+    if "programa" in df_projetos_ispn.columns:
+        df_projetos_ispn["programas"] = df_projetos_ispn["programa"]
+    else:
+        df_projetos_ispn["programas"] = [[] for _ in range(len(df_projetos_ispn))]
+
+# Aplicar mapeamento
+df_projetos_ispn["programa_nome"] = df_projetos_ispn["programas"].apply(map_programas)
 
 # --- 4. Criar a coluna 'valor_com_moeda' ---
 df_projetos_ispn['valor_com_moeda'] = df_projetos_ispn.apply(formatar_valor, axis=1)
@@ -402,7 +420,7 @@ def dialog_cadastrar_projeto():
         elif "ucs" in doc:
             dados_uc = doc["ucs"]
 
-    with st.form("form_cadastrar_projeto"):
+    with st.form("form_cadastrar_projeto", border=False):
         # --- Colunas ---
         col1, col2, col3 = st.columns([1,1,1])
 
@@ -466,11 +484,11 @@ def dialog_cadastrar_projeto():
 
         # --- Programa / Área ---
         programa_options = [""] + list(mapa_programa.keys())
-        programa = col3.selectbox(
+        programas_selecionados = col3.multiselect(
             "Programa / Área",
             options=programa_options,
-            format_func=lambda x: "" if x=="" else mapa_programa[x],
-            index=0
+            format_func=lambda x: "" if x == "" else mapa_programa[x],
+            placeholder=""
         )
         
         gestores = st.multiselect(
@@ -646,7 +664,7 @@ def dialog_cadastrar_projeto():
                 coordenador_objid = bson.ObjectId(coordenador) if coordenador else None
                 gestores_objids = [bson.ObjectId(g) for g in gestores] if gestores else []
                 doador_objid = bson.ObjectId(doador) if doador else None
-                programa_objid = bson.ObjectId(programa) if programa else None
+                programas_objids = [bson.ObjectId(p) for p in programas_selecionados] if programas_selecionados else []
 
                 # ----------------------------------------------------------
                 # MONTAR LISTA DE REGIÕES DE ATUAÇÃO PARA SALVAR NO MONGODB
@@ -689,7 +707,7 @@ def dialog_cadastrar_projeto():
                     "valor_da_contrapartida_em_r$": float_to_br(contrapartida),
                     "coordenador": coordenador_objid,
                     "doador": doador_objid,
-                    "programa": programa_objid,
+                    "programas": programas_objids,
                     "gestores": gestores_objids,
                     "status": status,
                     "data_inicio_contrato": data_inicio.strftime("%d/%m/%Y"),
@@ -917,17 +935,23 @@ def dialog_editar_projeto():
         mapa_programa_str = {str(k): v for k, v in mapa_programa.items()}
 
         programa_options = list(mapa_programa_str.keys())
-        programa_atual = str(projeto_info.get("programa", ""))  # valor do banco como string
-        index_programa = programa_options.index(programa_atual) if programa_atual in programa_options else 0
+        programas_atuais = projeto_info.get("programas", [])
 
-        # Determinar índice do valor atual
-        index_programa = programa_options.index(programa_atual) if programa_atual in programa_options else 0
+        if not isinstance(programas_atuais, list):
+            programas_atuais = [programas_atuais] if programas_atuais else []
 
-        programa = col2.selectbox(
+        programas_atuais_str = [str(p) for p in programas_atuais]
+        
+        mapa_programa_str = {str(k): v for k, v in mapa_programa.items()}
+
+        programa_options = list(mapa_programa_str.keys())
+
+        programas_selecionados = col2.multiselect(
             "Programa / Área",
             options=programa_options,
-            format_func=lambda x: mapa_programa_str[x],  # pega o nome do programa
-            index=index_programa
+            default=programas_atuais_str,
+            format_func=lambda x: mapa_programa_str[x],
+            placeholder=""
         )
         
         # Doador
@@ -1168,7 +1192,7 @@ def dialog_editar_projeto():
             coordenador_objid = bson.ObjectId(coordenador) if coordenador else None
             gestores_objids = [bson.ObjectId(g) for g in gestores] if gestores else []
             doador_objid = bson.ObjectId(doador) if doador else None
-            programa_objid = bson.ObjectId(programa) if programa else None
+            programas_objids = [bson.ObjectId(p) for p in programas_selecionados] if programas_selecionados else []
 
 
             # Checar duplicidade de sigla
@@ -1217,7 +1241,7 @@ def dialog_editar_projeto():
                     "valor_da_contrapartida_em_r$": float_to_br(contrapartida),
                     "coordenador": coordenador_objid,
                     "doador": doador_objid,
-                    "programa": programa_objid,
+                    "programas": programas_objids,
                     "gestores": gestores_objids,
                     "status": status,
                     "data_inicio_contrato": data_inicio.strftime("%d/%m/%Y"),
@@ -1317,7 +1341,9 @@ if doador_selecionado != "Todos":
     df_projetos_ispn_filtrado = df_projetos_ispn_filtrado[df_projetos_ispn_filtrado['doador_nome'] == doador_selecionado]
 
 if programa_selecionado != "Todos":
-    df_projetos_ispn_filtrado = df_projetos_ispn_filtrado[df_projetos_ispn_filtrado['programa_nome'] == programa_selecionado]
+    df_projetos_ispn_filtrado = df_projetos_ispn_filtrado[
+        df_projetos_ispn_filtrado["programa_nome"].str.contains(programa_selecionado, na=False)
+    ]
 
 if status_selecionado != "Todos":
     df_projetos_ispn_filtrado = df_projetos_ispn_filtrado[df_projetos_ispn_filtrado['status'] == status_selecionado]
@@ -1628,8 +1654,7 @@ col1.write(f'**Coordenador(a):** {coordenador_nome}')
 doador = projeto_info["doador_nome"].values[0] if not projeto_info.empty else ""
 programa = projeto_info["programa_nome"].values[0] if not projeto_info.empty else ""
 col1.write(f'**Doador:** {doador}')
-col1.write(f'**Programa:** {programa}')
-
+col1.write(f'**Programa(s):** {programa}')
 
 
 # Situação
