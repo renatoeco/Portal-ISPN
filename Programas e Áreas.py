@@ -1206,7 +1206,7 @@ for i, aba in enumerate(abas):
                         ui.table(
                             data=df_entregas,
                             maxHeight=400,
-                            key=f"tabela_entregas_{i}"   # key só aqui
+                            key=f"tabela_entregas_{id_programa}_{acao_id}"   # key só aqui
                         )
 
                     else:
