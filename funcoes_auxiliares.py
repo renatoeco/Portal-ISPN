@@ -407,21 +407,17 @@ def dialog_editar_entregas():
                 
                 col1, col2 = st.columns(2)
                 
-                previsao_da_conclusao = col1.date_input("Previsão de conclusão", format="DD/MM/YYYY")
-                
-                ano_atual = datetime.now().year
-                ano_inicial = ano_atual - 1
-                ano_final = ano_atual + 6
-
-                anos_disponiveis = list(range(ano_inicial, ano_final + 1))
-
-                anos_de_referencia = col2.multiselect(
-                    "Anos de referência",
-                    options=anos_disponiveis,
-                    #default=[ano_atual],
-                    placeholder=""
+                data_inicio = col1.date_input(
+                    "Data de início",
+                    value=datetime.today(),
+                    format="DD/MM/YYYY"
                 )
-                
+
+                previsao_da_conclusao = col2.date_input(
+                    "Previsão de conclusão",
+                    format="DD/MM/YYYY"
+                )
+               
                 col1, col2 = st.columns(2)
                 
                 situacao = col1.selectbox("Situação", ["Prevista", "Atrasada", "Concluída"])
@@ -507,7 +503,7 @@ def dialog_editar_entregas():
                             "responsaveis": [ObjectId(r) for r in responsaveis_selecionados],
                             "situacao": situacao,
                             "progresso": int(progresso_nova_entrega),
-                            "anos_de_referencia": [str(a) for a in anos_de_referencia],
+                            "data_inicio": data_inicio.strftime("%d/%m/%Y"),
                             "acoes_resultados_medio_prazo": [ObjectId(a) for a in acoes_medio_prazo_relacionadas],
                             "resultados_longo_prazo_relacionados": [ObjectId(r) for r in resultados_longo_prazo_relacionados],
                             "eixos_relacionados": [ObjectId(e) for e in eixos_relacionados],
@@ -554,9 +550,8 @@ def dialog_editar_entregas():
 
                     if not modo_edicao:
                         # --- Modo de visualização ---
+                        st.write(f"**Data de início:** {entrega.get('data_inicio', '-')}")
                         st.write(f"**Previsão:** {entrega.get('previsao_da_conclusao', '-')}")
-                        st.write(f"**Responsáveis:** {responsaveis_formatados}")
-                        st.write(f"**Anos de referência:** {', '.join(entrega.get('anos_de_referencia', []))}")
                         st.write(f"**Situação:** {entrega.get('situacao', '-')}")
                         
                         progresso = entrega.get("progresso", 0)
@@ -565,6 +560,8 @@ def dialog_editar_entregas():
                         except (TypeError, ValueError):
                             progresso = 0
                         st.write(f"**Progresso:** {progresso}%")
+                        
+                        st.write(f"**Responsáveis:** {responsaveis_formatados}")
                         
                         st.write("")
 
@@ -659,16 +656,20 @@ def dialog_editar_entregas():
                             )
                             entrega_editada["previsao_da_conclusao"] = entrega_editada["previsao_da_conclusao"].strftime("%d/%m/%Y")
 
-                            anos_salvos = [
-                                int(a) for a in entrega.get("anos_de_referencia", [])
-                                if str(a).isdigit()
-                            ]
+                            data_inicio_raw = entrega.get("data_inicio")
 
-                            entrega_editada["anos_de_referencia"] = col2.multiselect(
-                                "Anos de referência",
-                                options=anos_disponiveis,
-                                default=anos_salvos,
-                                placeholder=""
+                            data_inicio_edit = col2.date_input(
+                                "Data de início",
+                                value=(
+                                    pd.to_datetime(data_inicio_raw, format="%d/%m/%Y", errors="coerce").date()
+                                    if data_inicio_raw else None
+                                ),
+                                format="DD/MM/YYYY"
+                            )
+
+                            entrega_editada["data_inicio"] = (
+                                data_inicio_edit.strftime("%d/%m/%Y")
+                                if data_inicio_edit else None
                             )
 
                             col1, col2 = st.columns(2)
@@ -807,9 +808,6 @@ def dialog_editar_entregas():
 
                                 salvar_edicao = st.form_submit_button("Salvar alterações", icon=":material/save:")
                                 if salvar_edicao:
-                                    entrega_editada["anos_de_referencia"] = [
-                                        str(a) for a in entrega_editada["anos_de_referencia"]
-                                    ]
 
                                     entrega_editada["responsaveis"] = [ObjectId(r) for r in entrega_editada["responsaveis"]]
 
@@ -877,6 +875,13 @@ def dialog_editar_entregas():
                     # =========================
                     # Dados do lançamento
                     # =========================
+                    
+                    ano_atual = datetime.now().year
+                    ano_inicial = ano_atual - 1
+                    ano_final = ano_atual + 6
+
+                    anos_disponiveis = list(range(ano_inicial, ano_final + 1))
+                    
                     ano_lancamento = st.selectbox(
                         "Ano do lançamento",
                         options=anos_disponiveis,

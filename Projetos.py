@@ -2136,25 +2136,37 @@ with tab_entregas:
 
         # Opções únicas para filtros
         situacoes = sorted(df_entregas["Situação"].dropna().unique().tolist())
-        # Extrair todos os anos das entregas
-        anos_extraidos = sorted(
-            set(
-                int(ano.strip())
-                for sublist in df_entregas["Anos de Referência"].dropna()
-                for ano in sublist.split(",")
-                if ano.strip().isdigit()
+        
+        # Buscar menor previsão de conclusão diretamente do MongoDB
+        pipeline = [
+            {"$unwind": "$entregas"},
+            {"$match": {"entregas.previsao_da_conclusao": {"$ne": None, "$ne": ""}}},
+            {
+                "$group": {
+                    "_id": None,
+                    "min_data": {"$min": "$entregas.previsao_da_conclusao"}
+                }
+            }
+        ]
+
+        resultado = list(projetos_ispn.aggregate(pipeline))
+
+        # Definir data_inicio padrão
+        if resultado and resultado[0].get("min_data"):
+            data_inicio_default = pd.to_datetime(
+                resultado[0]["min_data"],
+                format="%d/%m/%Y",
+                errors="coerce"
             )
-        )
-
-        # Garantir que existem anos
-        if anos_extraidos:
-            menor_ano = min(anos_extraidos)
-            maior_ano = max(anos_extraidos)
-
-            # Criar range contínuo
-            anos_disponiveis = [str(ano) for ano in range(menor_ano, maior_ano + 1)]
         else:
-            anos_disponiveis = []
+            data_inicio_default = pd.to_datetime(datetime.date.today())
+
+        # Converter previsão para datetime
+        df_entregas["Previsão de Conclusão"] = pd.to_datetime(
+            df_entregas["Previsão de Conclusão"],
+            format="%d/%m/%Y",
+            errors="coerce"
+        )
 
         with st.container(horizontal=True):
 
@@ -2168,18 +2180,25 @@ with tab_entregas:
                     width=250
                 )
 
-                ano_de = st.selectbox(
-                    "Entregas de:",
-                    options=anos_disponiveis,
-                    index=0,
-                    placeholder="",
+                data_inicio = st.date_input(
+                    "Entregas a partir de:",
+                    value=data_inicio_default.date() if pd.notna(data_inicio_default) else datetime.date.today(),
+                    format="DD/MM/YYYY",
+                    width=250
                 )
 
-                ano_ate = st.selectbox(
+                data_fim = st.date_input(
                     "Até:",
-                    options=[""] + anos_disponiveis,
-                    index=len(anos_disponiveis) if anos_disponiveis else 0
+                    value=df_entregas["Previsão de Conclusão"].max().date()
+                    if df_entregas["Previsão de Conclusão"].notna().any()
+                    else datetime.date.today(),
+                    format="DD/MM/YYYY",
+                    width=250
                 )
+
+                # Converter para datetime
+                data_inicio = pd.to_datetime(data_inicio)
+                data_fim = pd.to_datetime(data_fim)
 
             # ====================
             # Botão para abrir o diálogo de Gerenciar entregas
@@ -2204,41 +2223,27 @@ with tab_entregas:
         if filtro_situacao:
             df_filtrado = df_filtrado[df_filtrado["Situação"].isin(filtro_situacao)]
 
-        if ano_de or ano_ate:
-
-            def filtrar_intervalo(anos_str):
-                if not anos_str:
-                    return False
-
-                anos_lista = [int(a.strip()) for a in anos_str.split(",") if a.strip().isdigit()]
-
-                if not anos_lista:
-                    return False
-
-                # Caso ambos preenchidos
-                if ano_de and ano_ate:
-                    return any(int(ano_de) <= ano <= int(ano_ate) for ano in anos_lista)
-
-                # Apenas "de"
-                if ano_de:
-                    return any(ano >= int(ano_de) for ano in anos_lista)
-
-                # Apenas "até"
-                if ano_ate:
-                    return any(ano <= int(ano_ate) for ano in anos_lista)
-
-                return True
-
-            df_filtrado = df_filtrado[
-                df_filtrado["Anos de Referência"].apply(filtrar_intervalo)
-            ]
+        df_filtrado = df_filtrado[
+            (df_filtrado["Previsão de Conclusão"] >= data_inicio) &
+            (df_filtrado["Previsão de Conclusão"] <= data_fim)
+        ]
 
         # ===============================================================
         # EXIBIÇÃO DA TABELA
         # ===============================================================
 
         st.write('')
-        ui.table(data=df_filtrado)
+        
+        # Criar cópia para exibição (evita quebrar o filtro)
+        df_exibir = df_filtrado.copy()
+
+        # Converter datetime para string (formato brasileiro)
+        df_exibir["Previsão de Conclusão"] = df_exibir["Previsão de Conclusão"].dt.strftime("%d/%m/%Y")
+
+        # Substituir NaT por vazio (opcional, mas recomendado)
+        df_exibir["Previsão de Conclusão"] = df_exibir["Previsão de Conclusão"].fillna("")
+
+        ui.table(data=df_exibir)
 
 
 # ##########################################################
