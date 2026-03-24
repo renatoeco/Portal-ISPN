@@ -543,6 +543,10 @@ if pessoa_logada:
 
                 # Botão de salvar as alterações
                 st.write('')
+                st.write('')
+
+                st.caption("Ao salvar as alterações, será enviado um e-mail de notificação para o DP.")
+
                 salvar = st.form_submit_button(
                     "Salvar alterações",
                     type="primary",
