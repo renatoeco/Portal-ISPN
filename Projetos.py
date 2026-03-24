@@ -937,12 +937,21 @@ def dialog_editar_projeto():
         programa_options = list(mapa_programa_str.keys())
         programas_atuais = projeto_info.get("programas", [])
 
+        # Garante lista
         if not isinstance(programas_atuais, list):
             programas_atuais = [programas_atuais] if programas_atuais else []
 
-        programas_atuais_str = [str(p) for p in programas_atuais]
-        
-        mapa_programa_str = {str(k): v for k, v in mapa_programa.items()}
+        # Converte para string e remove inválidos
+        programas_atuais_str = [
+            str(p) for p in programas_atuais
+            if p and str(p) != "nan"
+        ]
+
+        # Mantém apenas os que existem nas opções
+        programas_atuais_str = [
+            p for p in programas_atuais_str
+            if p in programa_options
+        ]
 
         programa_options = list(mapa_programa_str.keys())
 
