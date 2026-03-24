@@ -263,9 +263,31 @@ def dialog_editar_entregas():
     df_projetos_ispn["doador_nome"] = df_projetos_ispn["doador"].apply(
         lambda x: mapa_doador.get(x, "não informado")
     )
-    df_projetos_ispn["programa_nome"] = df_projetos_ispn["programa"].apply(
-        lambda x: mapa_programa.get(x, "não informado")
-    )
+
+
+
+    # Converte lista de programas em nomes legíveis
+    def resolver_programas(lista_programas):
+        """
+        Converte lista de ObjectIds de programas em string com nomes legíveis.
+
+        Parâmetros:
+            lista_programas (list | None): Lista de IDs de programas.
+
+        Retorno:
+            str: Nomes dos programas separados por vírgula.
+        """
+        if isinstance(lista_programas, list) and lista_programas:
+            return ", ".join(
+                mapa_programa.get(p, "não informado")
+                for p in lista_programas
+            )
+
+        return "não informado"
+
+    df_projetos_ispn["programa_nome"] = df_projetos_ispn["programas"].apply(resolver_programas)
+
+
 
     # --- 4. Converter datas para datetime
     df_projetos_ispn['data_inicio_contrato'] = pd.to_datetime(
@@ -333,7 +355,14 @@ def dialog_editar_entregas():
         
     dados_estrategia = list(estrategia.find({}))
     dados_programas = list(programas.find({}))
-    programa_do_projeto = projeto_info.get("programa")
+
+    # Recupera lista de programas vinculados ao projeto
+    programas_do_projeto = projeto_info.get("programas", [])
+
+    # Garante que sempre seja lista
+    if not isinstance(programas_do_projeto, list):
+        programas_do_projeto = []
+
 
     #mapa_resultados_mp = {}
     mapa_metas_mp = {}
@@ -367,11 +396,17 @@ def dialog_editar_entregas():
             eixos_da_estrategia.extend(
                 [e.get("titulo") for e in doc["estrategia"].get("eixos_da_estrategia", []) if e.get("titulo")]
             )
-    
+
+
+    # Mapeia ações estratégicas considerando múltiplos programas
+    programas_ids = set(programas_do_projeto)
+
     for doc in dados_programas:
-        if doc["_id"] == programa_do_projeto:
+        if doc["_id"] in programas_ids:
             for a in doc.get("acoes_estrategicas", []):
                 mapa_acoes_programa[str(a["_id"])] = a["acao_estrategica"]
+
+
 
     acoes_programa_options = sorted(mapa_acoes_programa.keys(),key=lambda x: mapa_acoes_programa[x])            
     metas_mp_options = sorted(mapa_metas_mp.keys(), key=lambda x: mapa_metas_mp[x])
