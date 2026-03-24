@@ -551,7 +551,7 @@ def dialog_editar_entregas():
                     if not modo_edicao:
                         # --- Modo de visualização ---
                         st.write(f"**Data de início:** {entrega.get('data_inicio', '-')}")
-                        st.write(f"**Previsão:** {entrega.get('previsao_da_conclusao', '-')}")
+                        st.write(f"**Previsão de conclusão:** {entrega.get('previsao_da_conclusao', '-')}")
                         st.write(f"**Situação:** {entrega.get('situacao', '-')}")
                         
                         progresso = entrega.get("progresso", 0)
