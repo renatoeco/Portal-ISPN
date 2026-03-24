@@ -197,7 +197,7 @@ def exibir_banco(prefixo, banco_dict):
         linha(f"Banco ({sufixo}):", banco_dict.get("nome_banco"))
         linha(f"Agência ({sufixo}):", banco_dict.get("agencia"))
         linha(f"Tipo de conta ({sufixo}):", banco_dict.get("tipo_conta"))
-        linha(f"Conta ({sufixo}):", banco_dict.get("conta"))
+        linha(f"Número da conta ({sufixo}):", banco_dict.get("conta"))
 
         #st.write("")
 
@@ -225,7 +225,7 @@ def input_banco(prefixo, banco_dict):
             key=f"tipo_conta_{prefixo or 'pf_unico'}"
         )
 
-        conta = st.text_input(f"Conta{sufixo}", value=banco_dict.get("conta", ""))
+        conta = st.text_input(f"Número da conta{sufixo}", value=banco_dict.get("conta", ""))
 
         return {
             "nome_banco": nome_banco,
@@ -543,6 +543,10 @@ if pessoa_logada:
 
                 # Botão de salvar as alterações
                 st.write('')
+                st.write('')
+
+                st.caption("Ao salvar as alterações, será enviado um e-mail de notificação para o DP.")
+
                 salvar = st.form_submit_button(
                     "Salvar alterações",
                     type="primary",
