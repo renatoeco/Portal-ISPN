@@ -695,15 +695,23 @@ def carregar_entregas():
 
         for entrega in projeto.get("entregas", []):
 
-            data_raw = entrega.get("previsao_da_conclusao")
+            data_inicio_raw = entrega.get("data_de_inicio")
+            data_fim_raw = entrega.get("previsao_da_conclusao")
 
-            if not data_raw:
-                continue  # pula entregas sem data
+            data_inicio = None
+            data_fim = None
 
             try:
-                data_conclusao = datetime.strptime(data_raw, "%d/%m/%Y")
-            except ValueError:
-                continue  # pula datas inválidas
+                if data_inicio_raw:
+                    data_inicio = datetime.strptime(data_inicio_raw, "%d/%m/%Y")
+            except:
+                pass
+
+            try:
+                if data_fim_raw:
+                    data_fim = datetime.strptime(data_fim_raw, "%d/%m/%Y")
+            except:
+                pass
 
             registros.append({
                 "projeto_id": projeto["_id"],
@@ -713,18 +721,17 @@ def carregar_entregas():
                 
                 "sigla": nome_projeto,
 
-                # PARA O GRÁFICO
-                "previsao_da_conclusao": data_conclusao,
+                "data_inicio": data_inicio,
+                "data_inicio_str": data_inicio.strftime("%d/%m/%Y") if data_inicio else "",
 
-                # PARA A TABELA (JSON-safe)
-                "previsao_da_conclusao_str": data_conclusao.strftime("%d/%m/%Y"),
+                "previsao_da_conclusao": data_fim,
+                "previsao_da_conclusao_str": data_fim.strftime("%d/%m/%Y") if data_fim else "",
 
                 "responsaveis": resolver_responsaveis(
                     entrega.get("responsaveis", []),
                     pessoas
                 ),
                 "situacao": entrega.get("situacao"),
-                "anos_de_referencia": ", ".join(entrega.get("anos_de_referencia", [])),
                 "programa": programas_nomes,  # lista
                 "programa_str": ", ".join(programas_nomes),  # string para exibição
                 "responsaveis_ids": [ObjectId(r) for r in entrega.get("responsaveis", [])],
@@ -751,7 +758,8 @@ def carregar_entregas():
             "previsao_da_conclusao_str",
             "responsaveis",
             "situacao",
-            "anos_de_referencia",
+            "data_inicio",
+            "data_inicio_str",
             "programa",
             "programa_str",
             "responsaveis_ids",
@@ -767,6 +775,10 @@ def carregar_entregas():
         ]
 
     df = pd.DataFrame(registros)
+    
+    # Converte colunas para datetime (resolve o erro do .dt)
+    df["data_inicio"] = pd.to_datetime(df["data_inicio"], errors="coerce")
+    df["previsao_da_conclusao"] = pd.to_datetime(df["previsao_da_conclusao"], errors="coerce")
 
     # GARANTIA DE ESQUEMA
     for col in COLUNAS_PADRAO:
@@ -796,47 +808,23 @@ def grafico_cronograma(df, titulo):
         df_plot["situacao"].isin(["Prevista", "Atrasada"])
     ]
 
-    # Remove entregas sem anos de referência
-    df_plot = df_plot[
-        df_plot["anos_referencia_lista"].apply(lambda x: isinstance(x, list) and len(x) > 0)
-    ]
-
     if df_plot.empty:
         st.info("Nenhuma entrega com anos de referência.")
         return
 
-    # ==================================================
-    # CRIA INTERVALOS BASEADOS NOS ANOS DE REFERÊNCIA
-    # ==================================================
-
-    df_plot["ano_inicio"] = df_plot["anos_referencia_lista"].apply(min)
-    df_plot["ano_fim"] = df_plot["anos_referencia_lista"].apply(max)
-
-    df_plot["Inicio"] = pd.to_datetime(
-        df_plot["ano_inicio"].astype(str) + "-01-01"
-    )
-
-    df_plot["Fim"] = pd.to_datetime(
-        df_plot["ano_fim"].astype(str) + "-12-31"
-    )
-
+    df_plot["Inicio"] = df_plot["data_inicio"]
+    df_plot["Fim"] = df_plot["previsao_da_conclusao"]
+    
     # ==================================================
     # LIMITES DO EIXO X (ANO MAIS ANTIGO → MAIS RECENTE)
     # ==================================================
 
-    ano_minimo = df_plot["ano_inicio"].min()
-    ano_maximo = df_plot["ano_fim"].max()
-
-    xmin = pd.to_datetime(f"{ano_minimo}-01-01")
-    xmax = pd.to_datetime(f"{ano_maximo}-12-31")
+    xmin = df_plot["Inicio"].min()
+    xmax = df_plot["Fim"].max()
 
     # ==================================================
     # HOVER
     # ==================================================
-
-    df_plot["anos_hover"] = df_plot["anos_referencia_lista"].apply(
-        lambda x: ", ".join(str(a) for a in sorted(x))
-    )
 
     # Ordena visualmente
     df_plot = df_plot.sort_values("Inicio", ascending=False)
@@ -880,8 +868,15 @@ def grafico_cronograma(df, titulo):
 
     fig.update_xaxes(
         range=[xmin, xmax],
-        tickformat="%Y",
-        dtick="M12",
+
+        # Formato brasileiro de data
+        tickformat="%d/%m/%Y",
+
+        # Define ticks automaticamente (baseado no zoom)
+        tickmode="auto",
+
+        # Hover mais bonito
+        hoverformat="%d/%m/%Y"
     )
 
     fig.update_layout(
@@ -889,21 +884,6 @@ def grafico_cronograma(df, titulo):
     )
 
     st.plotly_chart(fig)
-
-
-# ==========================================================
-# NORMALIZA ANOS DE REFERÊNCIA (lista de int)
-# ==========================================================
-def extrair_anos_ref(valor):
-    if not valor:
-        return []
-    if isinstance(valor, list):
-        return [int(v) for v in valor if str(v).isdigit()]
-    return [
-        int(v.strip())
-        for v in str(valor).split(",")
-        if v.strip().isdigit()
-    ]
 
 
 def verificar_entregas_atrasadas():
@@ -973,8 +953,6 @@ else:
 # Montagem do df_entregas
 df_entregas = carregar_entregas()
 
-df_entregas["anos_referencia_lista"] = df_entregas["anos_de_referencia"].apply(extrair_anos_ref)
-
 # Converter as coluans de id para string
 df_entregas["responsaveis_ids"] = df_entregas["responsaveis_ids"].apply(lambda x: [str(i) for i in x])
 
@@ -999,7 +977,7 @@ st.write("")
 
 with st.form("filtros_entregas", border=False):
 
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3 = st.columns(3)
 
     # -------- Projetos --------
     projetos_opcoes = sorted(
@@ -1016,22 +994,6 @@ with st.form("filtros_entregas", border=False):
             placeholder=""
         )
 
-    # -------- Anos de Referência --------
-    anos_opcoes = sorted(
-        {
-            ano
-            for lista in df_entregas["anos_referencia_lista"]
-            for ano in lista
-        }
-    )
-
-    with col2:
-        filtro_anos = st.multiselect(
-            "Anos de referência",
-            options=anos_opcoes,
-            placeholder=""
-        )
-
     # -------- Status --------
     status_opcoes = sorted(
         df_entregas["situacao"]
@@ -1040,7 +1002,7 @@ with st.form("filtros_entregas", border=False):
         .tolist()
     )
 
-    with col3:
+    with col2:
         filtro_status = st.multiselect(
             "Situação",
             options=status_opcoes,
@@ -1055,11 +1017,29 @@ with st.form("filtros_entregas", border=False):
         if prog
     })
 
-    with col4:
+    with col3:
         filtro_programas = st.multiselect(
             "Programa",
             options=programas_opcoes,
             placeholder=""
+        )
+
+    col1, col2 = st.columns(2)
+
+        # -------- Datas de Início e Fim --------
+
+    with col1:
+        filtro_data_inicio = st.date_input(
+            "Data de início",
+            value=None,
+            format="DD/MM/YYYY"
+        )
+
+    with col2:
+        filtro_data_fim = st.date_input(
+            "Previsão de conclusão",
+            value=None,
+            format="DD/MM/YYYY"
         )
 
     aplicar = st.form_submit_button(
@@ -1078,13 +1058,6 @@ if filtro_projetos:
         df_filtrado["sigla"].isin(filtro_projetos)
     ]
 
-if filtro_anos:
-    df_filtrado = df_filtrado[
-        df_filtrado["anos_referencia_lista"].apply(
-            lambda anos: any(a in anos for a in filtro_anos)
-        )
-    ]
-
 if filtro_status:
     df_filtrado = df_filtrado[
         df_filtrado["situacao"].isin(filtro_status)
@@ -1095,6 +1068,18 @@ if filtro_programas:
         df_filtrado["programa"].apply(
             lambda lista: any(p in filtro_programas for p in lista)
         )
+    ]
+
+if filtro_data_inicio:
+    df_filtrado = df_filtrado[
+        df_filtrado["data_inicio"].notna() &
+        (df_filtrado["data_inicio"] >= pd.to_datetime(filtro_data_inicio))
+    ]
+
+if filtro_data_fim:
+    df_filtrado = df_filtrado[
+        df_filtrado["previsao_da_conclusao"].notna() &
+        (df_filtrado["previsao_da_conclusao"] <= pd.to_datetime(filtro_data_fim))
     ]
 
 # DataFrame usado nas abas
@@ -1115,10 +1100,10 @@ with lista_entregas:
     RENOMEAR = {
         "nome_da_entrega": "Entrega",
         "sigla": "Projeto",
+        "data_inicio_str": "Data de Início",
         "previsao_da_conclusao_str": "Previsão de Conclusão",
         "responsaveis": "Responsáveis",
         "situacao": "Situação",
-        "anos_de_referencia": "Anos de Referência",
         "programa_str": "Programa",
         "progresso": "Progresso"
     }
@@ -1132,7 +1117,7 @@ with lista_entregas:
         "Projeto",
         "Programa",
         "Responsáveis",
-        "Anos de Referência",
+        "Data de Início",
         "Previsão de Conclusão",
         "Situação",
         "Progresso"

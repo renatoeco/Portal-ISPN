@@ -683,17 +683,9 @@ def dialog_editar_entregas():
                             
                             col1, col2 = st.columns(2)
 
-                            entrega_editada["previsao_da_conclusao"] = col1.date_input(
-                                "Previsão de conclusão",
-                                pd.to_datetime(entrega.get("previsao_da_conclusao"), format="%d/%m/%Y").date()
-                                if entrega.get("previsao_da_conclusao") else datetime.today(),
-                                format="DD/MM/YYYY"
-                            )
-                            entrega_editada["previsao_da_conclusao"] = entrega_editada["previsao_da_conclusao"].strftime("%d/%m/%Y")
-
                             data_inicio_raw = entrega.get("data_inicio")
 
-                            data_inicio_edit = col2.date_input(
+                            data_inicio_edit = col1.date_input(
                                 "Data de início",
                                 value=(
                                     pd.to_datetime(data_inicio_raw, format="%d/%m/%Y", errors="coerce").date()
@@ -706,6 +698,14 @@ def dialog_editar_entregas():
                                 data_inicio_edit.strftime("%d/%m/%Y")
                                 if data_inicio_edit else None
                             )
+
+                            entrega_editada["previsao_da_conclusao"] = col2.date_input(
+                                "Previsão de conclusão",
+                                pd.to_datetime(entrega.get("previsao_da_conclusao"), format="%d/%m/%Y").date()
+                                if entrega.get("previsao_da_conclusao") else datetime.today(),
+                                format="DD/MM/YYYY"
+                            )
+                            entrega_editada["previsao_da_conclusao"] = entrega_editada["previsao_da_conclusao"].strftime("%d/%m/%Y")
 
                             col1, col2 = st.columns(2)
 
