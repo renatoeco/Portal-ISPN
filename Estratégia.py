@@ -779,11 +779,12 @@ def buscar_entregas_relacionadas_por_id(
                 continue
 
             # -------------------------
-            # FILTRO POR PROGRAMA
+            # FILTRO POR PROGRAMA 
             # -------------------------
             if programas:
-                programa_id = normalizar_id(projeto.get("programa"))
-                if programa_id not in programas:
+                programas_projeto = normalizar_lista_ids(projeto.get("programas", []))
+
+                if not any(p in programas for p in programas_projeto):
                     continue
 
             # -------------------------
@@ -901,7 +902,7 @@ def carregar_projetos_com_entregas():
             {
                 "entregas": 1,
                 "sigla": 1,
-                "programa": 1  
+                "programas": 1  
             }
         )
     )
@@ -1000,16 +1001,17 @@ with st.form("filtros_entregas", border=False):
         for p in lista_programas
     }
 
-    programas_ids_com_entregas = {
-        str(proj.get("programa"))
-        for proj in projetos_ispn.find(
-            {
-                "entregas": {"$exists": True, "$ne": []},
-                "programa": {"$exists": True, "$ne": None}
-            },
-            {"programa": 1}
-        )
-    }
+    programas_ids_com_entregas = set()
+
+    for proj in projetos_ispn.find(
+        {
+            "entregas": {"$exists": True, "$ne": []},
+            "programas": {"$exists": True, "$ne": []}
+        },
+        {"programas": 1}
+    ):
+        for p in proj.get("programas", []):
+            programas_ids_com_entregas.add(str(p))
 
     programas_opcoes = {
         mapa_programas[pid]: pid
