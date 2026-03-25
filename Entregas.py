@@ -676,7 +676,21 @@ def carregar_entregas():
     registros = []
 
     for projeto in projetos_ispn.find():
-        programa_nome = programas_dict.get(projeto.get("programa"), "")
+
+        programas_ids = projeto.get("programas", [])
+
+        def mapear_programas(lista_ids):
+            """
+            Converte lista de ObjectIds em nomes de programas.
+            Retorna sempre lista.
+            """
+            if isinstance(lista_ids, list):
+                return [programas_dict.get(i, "") for i in lista_ids if i in programas_dict]
+            elif lista_ids:
+                return [programas_dict.get(lista_ids, "")]
+            return []
+
+        programas_nomes = mapear_programas(programas_ids)
         nome_projeto = projeto.get("sigla") or projeto.get("sigla", "")
 
         for entrega in projeto.get("entregas", []):
@@ -711,7 +725,8 @@ def carregar_entregas():
                 ),
                 "situacao": entrega.get("situacao"),
                 "anos_de_referencia": ", ".join(entrega.get("anos_de_referencia", [])),
-                "programa": programa_nome,
+                "programa": programas_nomes,  # lista
+                "programa_str": ", ".join(programas_nomes),  # string para exibição
                 "responsaveis_ids": [ObjectId(r) for r in entrega.get("responsaveis", [])],
 
                 "lancamentos_entregas": entrega.get("lancamentos_entregas", []),
@@ -738,6 +753,7 @@ def carregar_entregas():
             "situacao",
             "anos_de_referencia",
             "programa",
+            "programa_str",
             "responsaveis_ids",
             "lancamentos_entregas",
             "progresso",
@@ -840,7 +856,7 @@ def grafico_cronograma(df, titulo):
             "sigla",
             "previsao_hover",
             "responsaveis",
-            "programa"
+            "programa_str"
         ],
         height=altura_total,
         title=titulo
@@ -1032,12 +1048,12 @@ with st.form("filtros_entregas", border=False):
         )
 
     # -------- Programas --------
-    programas_opcoes = sorted(
-        df_entregas["programa"]
-        .dropna()
-        .unique()
-        .tolist()
-    )
+    programas_opcoes = sorted({
+        prog
+        for lista in df_entregas["programa"]
+        for prog in (lista if isinstance(lista, list) else [])
+        if prog
+    })
 
     with col4:
         filtro_programas = st.multiselect(
@@ -1076,7 +1092,9 @@ if filtro_status:
 
 if filtro_programas:
     df_filtrado = df_filtrado[
-        df_filtrado["programa"].isin(filtro_programas)
+        df_filtrado["programa"].apply(
+            lambda lista: any(p in filtro_programas for p in lista)
+        )
     ]
 
 # DataFrame usado nas abas
@@ -1101,7 +1119,7 @@ with lista_entregas:
         "responsaveis": "Responsáveis",
         "situacao": "Situação",
         "anos_de_referencia": "Anos de Referência",
-        "programa": "Programa",
+        "programa_str": "Programa",
         "progresso": "Progresso"
     }
 
