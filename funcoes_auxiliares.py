@@ -192,7 +192,7 @@ def convert_objectid(obj):
 
 
 # Função do diálogo para gerenciar entregas
-@st.dialog("Editar Entregas", width="large")
+@st.dialog("Editar Entregas", width="large", on_dismiss="rerun")
 def dialog_editar_entregas():
 
     pagina_atual = st.session_state.get("pagina_anterior")
@@ -506,7 +506,7 @@ def dialog_editar_entregas():
                 )
                 
                 acoes_relacionados = st.multiselect(
-                    "Contribui com quais ações estratégicas do programa?",
+                    "Contribui com quais ações estratégicas do(s) programa(s)?",
                     options=acoes_programa_options,
                     format_func=lambda x: mapa_acoes_programa.get(x, ""),
                     placeholder="",
@@ -555,7 +555,7 @@ def dialog_editar_entregas():
 
                         st.success("Entrega adicionada com sucesso!")
                         time.sleep(2)
-                        st.rerun()
+                        st.rerun(scope="fragment")
                         
 
         # ============================
@@ -810,7 +810,7 @@ def dialog_editar_entregas():
                             ]
 
                             entrega_editada["acoes_relacionadas"] = st.multiselect(
-                                "Contribui com quais ações estratégicas do programa?",
+                                "Contribui com quais ações estratégicas do(s) programa(s)?",
                                 options=acoes_programa_options,
                                 default=acoes_programa_default,
                                 format_func=lambda x: mapa_acoes_programa.get(x, ""),
@@ -853,7 +853,7 @@ def dialog_editar_entregas():
                                     )
                                     st.success("Entrega atualizada!")
                                     time.sleep(2)
-                                    st.rerun()
+                                    st.rerun(scope="fragment")
 
                                 pode_excluir = entrega_pode_ser_excluida(
                                     entrega,
@@ -878,7 +878,7 @@ def dialog_editar_entregas():
 
                                         st.success("Entrega excluída com sucesso.")
                                         time.sleep(2)
-                                        st.rerun()
+                                        st.rerun(scope="fragment")
 
 
     if mostrar_lancamentos:
@@ -1033,7 +1033,7 @@ def dialog_editar_entregas():
 
                     st.success("Lançamento salvo com sucesso!")
                     time.sleep(2)
-                    st.rerun()
+                    st.rerun(scope="fragment")
                     
             st.markdown("### Lançamentos cadastrados:")
             for entrega_idx, entrega in enumerate(entregas_existentes):
@@ -1099,4 +1099,4 @@ def dialog_editar_entregas():
 
                                 st.success("Lançamento atualizado!")
                                 time.sleep(2)
-                                st.rerun()
+                                st.rerun(scope="fragment")

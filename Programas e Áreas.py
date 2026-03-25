@@ -36,6 +36,28 @@ dados_programas = list(programas_areas.find())
 # Carrega todos os doadores
 dados_doadores = list(doadores.find())
 
+
+######################################################################################################
+# FUNÇÃO PARA NORMALIZAR LISTAS DE OBJECT IDS
+######################################################################################################
+
+
+def normalizar_lista_ids(lista):
+    """
+    Converte lista com ObjectId, dict {'$oid': ...} ou str
+    para lista de strings
+    """
+    ids = []
+    for item in lista or []:
+        if isinstance(item, ObjectId):
+            ids.append(str(item))
+        elif isinstance(item, dict) and "$oid" in item:
+            ids.append(str(item["$oid"]))
+        else:
+            ids.append(str(item))
+    return ids
+
+
 # ----------------------------------------------------
 # BASE GLOBAL DE ENTREGAS (somente ações estratégicas)
 # ----------------------------------------------------
@@ -46,11 +68,11 @@ for proj in dados_projetos_ispn:
 
     codigo_projeto = proj.get("codigo", "")
     sigla_projeto = proj.get("sigla", "")
-    programa_id = str(proj.get("programa"))
+    # Agora um projeto pode ter vários programas
+    programas_ids = normalizar_lista_ids(proj.get("programas", []))
 
     for entrega in proj.get("entregas", []):
 
-        # Só entregas vinculadas a alguma ação estratégica
         if not entrega.get("acoes_relacionadas"):
             continue
 
@@ -59,7 +81,7 @@ for proj in dados_projetos_ispn:
         entregas_base.append({
             "projeto_codigo": codigo_projeto,
             "projeto_sigla": sigla_projeto,
-            "programa_id": programa_id,
+            "programas_ids": programas_ids,  # <-- lista agora
             "situacao": entrega.get("situacao", ""),
             "anos_referencia": anos_ref,
             "entrega": entrega
@@ -127,20 +149,7 @@ def formatar_valor(valor_bruto, moeda_bruta):
     except Exception:
         return f"{moeda} 0"
     
-def normalizar_lista_ids(lista):
-    """
-    Converte lista com ObjectId, dict {'$oid': ...} ou str
-    para lista de strings
-    """
-    ids = []
-    for item in lista or []:
-        if isinstance(item, ObjectId):
-            ids.append(str(item))
-        elif isinstance(item, dict) and "$oid" in item:
-            ids.append(str(item["$oid"]))
-        else:
-            ids.append(str(item))
-    return ids
+
 
 # id para nome de programa
 mapa_id_para_nome_programa = {
@@ -896,24 +905,10 @@ for i, aba in enumerate(abas):
             key=f"situacao_{i}"
         )
 
-        projetos_do_programa = []
-
-        for projeto_doc in dados_projetos_ispn:
-
-            # Programa
-            if str(projeto_doc.get("programa")) != str(id_programa):
-                continue
-
-            projetos_do_programa = [
-                projeto_doc
-                for projeto_doc in dados_projetos_ispn
-                if str(projeto_doc.get("programa")) == str(id_programa)
-            ]
-
-
-            # Verifica se existe ao menos UMA entrega válida
-            entregas = projeto_doc.get("entregas", [])
-            projeto_valido = False
+        projetos_do_programa = [
+            p for p in dados_projetos_ispn
+            if str(id_programa) in normalizar_lista_ids(p.get("programas", []))
+        ]
 
         # Ordena por código
         projetos_do_programa_ordenados = sorted(
@@ -1034,7 +1029,7 @@ for i, aba in enumerate(abas):
             siglas_programa = sorted({
                 e["projeto_sigla"]
                 for e in entregas_base
-                if e["programa_id"] == str(id_programa) and e["projeto_sigla"]
+                if str(id_programa) in e["programas_ids"] and e["projeto_sigla"]
             })
 
             with col1:
@@ -1049,7 +1044,7 @@ for i, aba in enumerate(abas):
             situacoes_programa = sorted({
                 e["situacao"]
                 for e in entregas_base
-                if e["programa_id"] == str(id_programa) and e["situacao"]
+                if str(id_programa) in e["programas_ids"] and e["situacao"]
             })
 
             with col2:
@@ -1064,7 +1059,7 @@ for i, aba in enumerate(abas):
             anos_programa = sorted({
                 ano
                 for e in entregas_base
-                if e["programa_id"] == str(id_programa)
+                if str(id_programa) in e["programas_ids"]
                 for ano in e["anos_referencia"]
             })
 
@@ -1123,7 +1118,7 @@ for i, aba in enumerate(abas):
 
             projetos_com_entregas = []
 
-            for p in db.projetos_ispn.find({"programa": programa_id}):
+            for p in db.projetos_ispn.find({"programas": programa_id}):
 
                 sigla_proj = p.get("sigla", "")
 
