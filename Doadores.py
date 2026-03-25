@@ -79,6 +79,9 @@ st.session_state["pagina_anterior"] = PAGINA_ID
 ######################################################################################################
 
 
+
+
+
 @st.dialog("Gerenciar doadores", width="large")
 def gerenciar_doadores():
 
@@ -177,6 +180,12 @@ def gerenciar_doadores():
                     st.rerun()
 
 
+def mapear_programas(lista_ids):
+    if isinstance(lista_ids, list):
+        return [mapa_programa.get(pid, "Não encontrado") for pid in lista_ids]
+    return []
+
+
 ######################################################################################################
 # MAIN
 ######################################################################################################
@@ -200,6 +209,13 @@ mapa_doador = {d["_id"]: d.get("nome_doador", "Sem nome") for d in doadores_docs
 mapa_tipo_doador = {d["_id"]: d.get("tipo_doador", "Não informado") for d in doadores_docs}
 mapa_programa = {p["_id"]: p["nome_programa_area"] for p in db["programas_areas"].find()}
 
+df["programa_nome"] = df["programas"].apply(mapear_programas)
+
+df["programa_nome"] = df["programas"].apply(
+    lambda lista: ", ".join([mapa_programa.get(pid, "Não encontrado") for pid in lista])
+    if isinstance(lista, list) else ""
+)
+
 # --- 3. Aplicar os mapeamentos ao df ---
 df["nome_doador"] = df["doador"].map(mapa_doador)
 
@@ -209,7 +225,6 @@ df["nome_doador"] = df["nome_doador"].fillna("Doador não cadastrado")
 
 df["tipo_de_doador"] = df["tipo_de_doador"].fillna("Não informado")
 
-df["programa_nome"] = df["programa"].map(mapa_programa)
 
 # Conversão e limpeza do valor
 df["valor"] = (
