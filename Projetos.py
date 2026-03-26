@@ -2219,6 +2219,16 @@ with tab_entregas:
                 data_inicio = pd.to_datetime(data_inicio)
                 data_fim = pd.to_datetime(data_fim)
 
+                # ===============================================================
+                # ORDENAÇÃO
+                # ===============================================================
+
+                ordenacao = st.radio(
+                    "Ordenar por:",
+                    options=["Data de início", "Previsão de Conclusão"],
+                    horizontal=True
+                )
+
             # ====================
             # Botão para abrir o diálogo de Gerenciar entregas
             # ====================
@@ -2252,6 +2262,23 @@ with tab_entregas:
             df_filtrado = df_filtrado[
                 df_filtrado["Previsão de Conclusão"] <= pd.to_datetime(data_fim)
             ]
+
+        # ===============================================================
+        # APLICAR ORDENAÇÃO
+        # ===============================================================
+
+        if ordenacao == "Data de início":
+            df_filtrado = df_filtrado.sort_values(
+                by="Data de início",
+                ascending=True,
+                na_position="last"
+            )
+        else:
+            df_filtrado = df_filtrado.sort_values(
+                by="Previsão de Conclusão",
+                ascending=True,
+                na_position="last"
+            )
 
         # ===============================================================
         # EXIBIÇÃO DA TABELA
