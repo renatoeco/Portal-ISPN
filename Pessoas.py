@@ -2610,13 +2610,16 @@ if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_pess
             st.write('')
             st.write('')
         else:
+            
+            st.write('')
+            st.markdown('<h3 style="font-size: 1.5em;">Contratos com vencimento nos próximos 90 dias:</h3>', unsafe_allow_html=True)
+            st.write('')
+            st.write('')
+            st.write('')
+
             for item in contratos_90_dias:
 
-                st.write('')
-                st.markdown('<h3 style="font-size: 1.5em;">Contratos com vencimento nos próximos 90 dias:</h3>', unsafe_allow_html=True)
-                st.write('')
-                st.write('')
-                st.write('')
+                
 
                 col1, col2, col3 = st.columns([1, 1, 3])
 
