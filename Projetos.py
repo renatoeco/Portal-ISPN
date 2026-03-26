@@ -863,26 +863,6 @@ def dialog_editar_projeto():
             format="DD/MM/YYYY"
         )
 
-
-
-
-
-
-        # data_inicio = col2.date_input(
-        #     "Data de início",
-        #     value=pd.to_datetime(projeto_info.get("data_inicio_contrato"), format="%d/%m/%Y", errors="coerce").date()
-        #     if projeto_info.get("data_inicio_contrato") else "datetime.date.today()",
-        #     format="DD/MM/YYYY"
-        # )
-
-        # data_fim = col3.date_input(
-        #     "Data de fim",
-        #     value=pd.to_datetime(projeto_info.get("data_fim_contrato"), format="%d/%m/%Y", errors="coerce").date()
-        #     if projeto_info.get("data_fim_contrato") else "datetime.date.today()",
-        #     format="DD/MM/YYYY"
-        # )
-
-
         # Moeda
         moeda_options = ["", "Dólares", "Reais", "Euros"]
         moeda_atual = projeto_info.get("moeda", "")
@@ -2154,11 +2134,10 @@ with tab_entregas:
             ]
             dados_entregas.append({
                 "Entregas": entrega.get("nome_da_entrega", "-"),
+                "Data de início": entrega.get("data_inicio", "-"),
                 "Previsão de Conclusão": entrega.get("previsao_da_conclusao", "-"),
                 "Responsáveis": ", ".join(responsaveis_nomes) if responsaveis_nomes else "-",
                 "Situação": entrega.get("situacao", "-"),
-                "Anos de Referência": ", ".join(entrega.get("anos_de_referencia", [])),
-                #"Anotações": entrega.get("anotacoes", "-")
             })
 
         # Converter para DataFrame e exibir como tabela
@@ -2195,6 +2174,13 @@ with tab_entregas:
         else:
             data_inicio_default = pd.to_datetime(datetime.date.today())
 
+        # Converter data de início para datetime
+        df_entregas["Data de início"] = pd.to_datetime(
+            df_entregas["Data de início"],
+            format="%d/%m/%Y",
+            errors="coerce"
+        )
+
         # Converter previsão para datetime
         df_entregas["Previsão de Conclusão"] = pd.to_datetime(
             df_entregas["Previsão de Conclusão"],
@@ -2214,18 +2200,17 @@ with tab_entregas:
                     width=250
                 )
 
+                # Campos de data SEM valor padrão (ficam vazios com placeholder)
                 data_inicio = st.date_input(
                     "Entregas a partir de:",
-                    value=data_inicio_default.date() if pd.notna(data_inicio_default) else datetime.date.today(),
+                    value=None,
                     format="DD/MM/YYYY",
                     width=250
                 )
 
                 data_fim = st.date_input(
                     "Até:",
-                    value=df_entregas["Previsão de Conclusão"].max().date()
-                    if df_entregas["Previsão de Conclusão"].notna().any()
-                    else datetime.date.today(),
+                    value=None,
                     format="DD/MM/YYYY",
                     width=250
                 )
@@ -2251,16 +2236,22 @@ with tab_entregas:
 
                         dialog_editar_entregas()
 
-        # Aplicar filtros
+        # Aplicar filtros de situação
         df_filtrado = df_entregas.copy()
 
         if filtro_situacao:
             df_filtrado = df_filtrado[df_filtrado["Situação"].isin(filtro_situacao)]
 
-        df_filtrado = df_filtrado[
-            (df_filtrado["Previsão de Conclusão"] >= data_inicio) &
-            (df_filtrado["Previsão de Conclusão"] <= data_fim)
-        ]
+        # Aplicar filtro de datas 
+        if data_inicio:
+            df_filtrado = df_filtrado[
+                df_filtrado["Previsão de Conclusão"] >= pd.to_datetime(data_inicio)
+            ]
+
+        if data_fim:
+            df_filtrado = df_filtrado[
+                df_filtrado["Previsão de Conclusão"] <= pd.to_datetime(data_fim)
+            ]
 
         # ===============================================================
         # EXIBIÇÃO DA TABELA
@@ -2270,6 +2261,9 @@ with tab_entregas:
         
         # Criar cópia para exibição (evita quebrar o filtro)
         df_exibir = df_filtrado.copy()
+
+        df_exibir["Data de início"] = df_exibir["Data de início"].dt.strftime("%d/%m/%Y")
+        df_exibir["Data de início"] = df_exibir["Data de início"].fillna("")
 
         # Converter datetime para string (formato brasileiro)
         df_exibir["Previsão de Conclusão"] = df_exibir["Previsão de Conclusão"].dt.strftime("%d/%m/%Y")
