@@ -695,7 +695,7 @@ def carregar_entregas():
 
         for entrega in projeto.get("entregas", []):
 
-            data_inicio_raw = entrega.get("data_de_inicio")
+            data_inicio_raw = entrega.get("data_inicio")
             data_fim_raw = entrega.get("previsao_da_conclusao")
 
             data_inicio = None
@@ -808,8 +808,14 @@ def grafico_cronograma(df, titulo):
         df_plot["situacao"].isin(["Prevista", "Atrasada"])
     ]
 
+    # Considera apenas entregas com data_inicio e data_fim válidas
+    df_plot = df_plot[
+        df_plot["data_inicio"].notna() &
+        df_plot["previsao_da_conclusao"].notna()
+    ]
+
     if df_plot.empty:
-        st.info("Nenhuma entrega com anos de referência.")
+        st.caption("Nenhuma entrega com data de início.")
         return
 
     df_plot["Inicio"] = df_plot["data_inicio"]
@@ -831,6 +837,7 @@ def grafico_cronograma(df, titulo):
 
     altura_total = max(300, len(df_plot) * 45)
 
+    df_plot["inicio_hover"] = df_plot["data_inicio_str"]
     df_plot["previsao_hover"] = df_plot["previsao_da_conclusao_str"]
 
     fig = px.timeline(
@@ -842,6 +849,7 @@ def grafico_cronograma(df, titulo):
         custom_data=[
             "nome_da_entrega",
             "sigla",
+            "inicio_hover",
             "previsao_hover",
             "responsaveis",
             "programa_str"
@@ -854,9 +862,10 @@ def grafico_cronograma(df, titulo):
         hovertemplate=
         "<b>Entrega:</b> %{customdata[0]}<br>"
         "<b>Projeto:</b> %{customdata[1]}<br>"
-        "<b>Previsão de Conclusão:</b> %{customdata[2]}<br>"
-        "<b>Responsáveis:</b> %{customdata[3]}<br>"
-        "<b>Programa:</b> %{customdata[4]}<br>"
+        "<b>Data de início:</b> %{customdata[2]}<br>"
+        "<b>Previsão de Conclusão:</b> %{customdata[3]}<br>"
+        "<b>Responsáveis:</b> %{customdata[4]}<br>"
+        "<b>Programa:</b> %{customdata[5]}<br>"
         "<extra></extra>"
     )
 
@@ -869,13 +878,12 @@ def grafico_cronograma(df, titulo):
     fig.update_xaxes(
         range=[xmin, xmax],
 
-        # Formato brasileiro de data
-        tickformat="%d/%m/%Y",
+        # Intervalo maior (menos poluição)
+        dtick="M1",  # 1 mês (melhor que D30)
 
-        # Define ticks automaticamente (baseado no zoom)
-        tickmode="auto",
+        # Formato mais limpo
+        tickformat="%b/%Y",  # Ex: Jan/2026
 
-        # Hover mais bonito
         hoverformat="%d/%m/%Y"
     )
 
@@ -1194,6 +1202,7 @@ with lista_entregas:
 
 with cronograma_entregas:
 
+    st.caption("Somente entregas com data de início cadastrada são exibidas no cronograma.")
     grafico_cronograma(
         df_entregas_filtrado,
         "Cronograma de Entregas"
