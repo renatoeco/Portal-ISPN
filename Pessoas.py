@@ -369,7 +369,7 @@ def verificar_contratos_vencidos(pessoa):
 
 
 # Define um diálogo (modal) para gerenciar colaboradores
-@st.dialog("Gerenciar colaboradores", width='large')
+@st.dialog("Gerenciar colaboradores", width='large', on_dismiss="rerun")
 def gerenciar_pessoas():
 
     # -------------------------------------------------------------------------
@@ -903,7 +903,7 @@ def gerenciar_pessoas():
 
                         st.success("Informações atualizadas com sucesso!", icon=":material/check_circle:")
                         time.sleep(2)
-                        st.rerun()
+                        st.rerun(scope="fragment")
 
 
         # ABA CONTRATOS ###############################################################################
@@ -976,7 +976,7 @@ def gerenciar_pessoas():
                     )
                     st.success("Data atualizada!", width=250, icon=":material/check:")
                     time.sleep(2)
-                    st.rerun()
+                    st.rerun(scope="fragment")
                     
             st.write("")
             st.write("")
@@ -1035,6 +1035,8 @@ def gerenciar_pessoas():
                     )
 
                     st.success("Novo contrato adicionado com sucesso!")
+                    time.sleep(2)
+                    st.rerun(scope="fragment")
 
             # CONTRATOS ------------------------------------------------------------
 
@@ -1168,6 +1170,8 @@ def gerenciar_pessoas():
                                     }
                                 )
                                 st.success("Contrato atualizado com sucesso!")
+                                time.sleep(2)
+                                st.rerun(scope="fragment")
                             except Exception as e:
                                 st.error(f"Erro ao salvar no banco: {e}")
 
@@ -1505,7 +1509,8 @@ def gerenciar_pessoas():
                     )
 
                     st.success("Informações de férias atualizadas com sucesso!")
-                    st.rerun()
+                    time.sleep(2)
+                    st.rerun(scope="fragment")
 
 
         # ABA ANOTAÇÕES ############################################################################### 
@@ -1536,7 +1541,8 @@ def gerenciar_pessoas():
                             {"$set": {"anotacoes": anotacoes}}
                         )
                         st.success("Nova anotação adicionada com sucesso!")
-                        # st.experimental_rerun()
+                        time.sleep(2)
+                        st.rerun(scope="fragment")
                     else:
                         st.warning("O campo da anotação não pode estar vazio.")
 
@@ -1611,6 +1617,8 @@ def gerenciar_pessoas():
                                 {"$set": {"anotacoes": anotacoes}}
                             )
                             st.success("Anotação atualizada com sucesso!")
+                            time.sleep(2)
+                            st.rerun(scope="fragment")
 
                         # Botão deletar
                         if linha_botoes.button("Deletar anotação", key=f"deletar_{container_key}", icon=":material/delete:"):
@@ -1635,6 +1643,8 @@ def gerenciar_pessoas():
                                     )
                                     st.success("Anotação apagada com sucesso!")
                                     st.session_state[delete_key] = False
+                                    time.sleep(2)
+                                    st.rerun(scope="fragment")
 
                                 except Exception as e:
                                     st.error(f"Erro ao apagar anotação: {e}")
@@ -1643,6 +1653,8 @@ def gerenciar_pessoas():
                             # Botão "Não"
                             if botoes_confirmacao.button("Não", key=f"cancelar_delete_{container_key}", icon=":material/close:"):
                                 st.session_state[delete_key] = False
+                                time.sleep(2)
+                                st.rerun(scope="fragment")
 
 
                     else:
@@ -2062,7 +2074,7 @@ def gerenciar_pessoas():
                     pessoas.insert_one(novo_documento)
                     st.success(f"Colaborador(a) **{nome}** cadastrado(a) com sucesso!", icon=":material/thumb_up:")
                     time.sleep(2)
-                    st.rerun()  # Recarrega a página para atualizar dados
+                    st.rerun(scope="fragment")  
 
 
 # Função para converter datas (str -> datetime.date)
