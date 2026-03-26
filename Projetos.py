@@ -1834,7 +1834,7 @@ with tab_indicadores:
     # ====================
     # Função do diálogo de indicadores
     # ====================
-    @st.dialog("Gerenciar indicadores")
+    @st.dialog("Gerenciar indicadores", on_dismiss="rerun")
     def dialog_indicadores():
 
         # Aumentar largura do diálogo com css
@@ -1915,7 +1915,7 @@ with tab_indicadores:
                     st.success("Lançamento salvo com sucesso!")
                     time.sleep(2)
                     st.cache_data.clear()
-                    st.rerun()
+                    st.rerun(scope="fragment")
 
         # ------------------------- ABA EDITAR -------------------------
         with tab_edit:
@@ -1986,7 +1986,7 @@ with tab_indicadores:
                         )
                         st.success("Lançamento atualizado com sucesso!")
                         st.cache_data.clear()
-                        st.rerun()
+                        st.rerun(scope="fragment")
 
         # ------------------------- ABA EXCLUIR -------------------------
         with tab_delete:
@@ -2034,7 +2034,7 @@ with tab_indicadores:
                         colecao_lancamentos.delete_one({"_id": lanc_id})
                         st.success("Lançamento excluído com sucesso!")
                         st.cache_data.clear()
-                        st.rerun()
+                        st.rerun(scope="fragment")
 
     # ====================
     # Botão para abrir o diálogo de Gerenciar indicadores
