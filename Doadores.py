@@ -82,7 +82,7 @@ st.session_state["pagina_anterior"] = PAGINA_ID
 
 
 
-@st.dialog("Gerenciar doadores", width="large")
+@st.dialog("Gerenciar doadores", width="large", on_dismiss="rerun")
 def gerenciar_doadores():
 
     TIPOS_DOADOR = [
@@ -122,7 +122,7 @@ def gerenciar_doadores():
                         })
                         st.success(f"Doador '{nome_limpo}' adicionado com sucesso!")
                         time.sleep(2)
-                        st.rerun()
+                        st.rerun(scope="fragment")
                 else:
                     st.warning("O nome do doador é obrigatório.")
 
@@ -177,7 +177,7 @@ def gerenciar_doadores():
                     )
                     st.success("Doador atualizado com sucesso!")
                     time.sleep(2)
-                    st.rerun()
+                    st.rerun(scope="fragment")
 
 
 def mapear_programas(lista_ids):
