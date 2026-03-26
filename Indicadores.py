@@ -598,7 +598,7 @@ def gerenciar_indicadores():
                 
 
 
-@st.dialog("Gerenciar lançamentos", width="large")   
+@st.dialog("Gerenciar lançamentos", width="large", on_dismiss="rerun")   
 def gerenciar_lancamentos():
     tab_add, tab_edit, tab_delete = st.tabs([":material/add: Adicionar", ":material/edit: Editar", ":material/delete: Excluir"])
 
@@ -798,7 +798,7 @@ def gerenciar_lancamentos():
                         st.success("Lançamento salvo com sucesso.")
                         time.sleep(2)
                         st.cache_data.clear()
-                        st.rerun()
+                        st.rerun(scope="fragment")
 
                 else:
                     st.info("Por favor, selecione as opções acima para prosseguir.")
@@ -958,7 +958,7 @@ def gerenciar_lancamentos():
                             )
                             st.success("Lançamento atualizado com sucesso!")
                             st.cache_data.clear()
-                            st.rerun()
+                            st.rerun(scope="fragment")
 
     # ------------------------- ABA EXCLUIR -------------------------
     with tab_delete:
@@ -1071,7 +1071,7 @@ def gerenciar_lancamentos():
                             lancamentos.delete_one({"_id": lanc_id_delete})
                             st.success("Lançamento excluído com sucesso!")
                             st.cache_data.clear()
-                            st.rerun()
+                            st.rerun(scope="fragment")
 
 
 def mapear_programas(lista_ids):
