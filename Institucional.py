@@ -124,7 +124,7 @@ st.session_state["pagina_anterior"] = PAGINA_ID
 ###########################################################################################################
 
 # Cria uma caixa de diálogo no Streamlit com abas para edição de informações institucionais
-@st.dialog("Editar Informações Institucionais", width="large")
+@st.dialog("Editar Informações Institucionais", width="large", on_dismiss="rerun")
 def editar_info_institucional_dialog():
 
     # Cria quatro abas para editar diferentes seções institucionais
@@ -143,7 +143,7 @@ def editar_info_institucional_dialog():
                 institucional.insert_one({"frase_forca": nova_frase})
             st.success("Frase atualizada com sucesso!")
             time.sleep(2)
-            st.rerun()
+            st.rerun(scope="fragment")
 
     # Aba para edição da missão institucional
     with tab2:
@@ -158,7 +158,7 @@ def editar_info_institucional_dialog():
                 institucional.insert_one({"missao": nova_missao})
             st.success("Missão atualizada com sucesso!")
             time.sleep(2)
-            st.rerun()
+            st.rerun(scope="fragment")
 
     # Aba para edição da visão de futuro
     with tab3:
@@ -179,7 +179,7 @@ def editar_info_institucional_dialog():
                 institucional.insert_one({"visao_texto": nova_visao_texto})
             st.success("Visão atualizada com sucesso!")
             time.sleep(2)
-            st.rerun()
+            st.rerun(scope="fragment")
 
     # Aba para edição dos valores institucionais
     with tab4:
@@ -198,7 +198,7 @@ def editar_info_institucional_dialog():
                 )
                 st.success("Título dos valores atualizado com sucesso!")
                 time.sleep(2)
-                st.rerun()
+                st.rerun(scope="fragment")
             else:
                 st.error("Documento não encontrado.")
 
@@ -238,7 +238,7 @@ def editar_info_institucional_dialog():
             )
             st.success("Valor atualizado com sucesso!")
             time.sleep(2)
-            st.rerun()
+            st.rerun(scope="fragment")
 
         # Excluir valor existente
         if valor_selecionado and st.button("Excluir valor", key="excluir_valor"):
@@ -254,7 +254,7 @@ def editar_info_institucional_dialog():
             )
             st.success("Valor excluído com sucesso!")
             time.sleep(2)
-            st.rerun()
+            st.rerun(scope="fragment")
 
         # Adicionar novo valor
         if not valor_selecionado and st.button("Adicionar valor", key="adicionar_valor", icon=":material/add:"):
@@ -278,7 +278,7 @@ def editar_info_institucional_dialog():
                 st.success("Novo valor adicionado com sucesso!")
 
             time.sleep(2)
-            st.rerun()
+            st.rerun(scope="fragment")
 
     # Aba para edição da Teoria da Mudança
     with tab5:
@@ -331,7 +331,7 @@ def editar_info_institucional_dialog():
 
             # Espera 2 segundos e recarrega a página
             time.sleep(2)
-            st.rerun()        
+            st.rerun(scope="fragment")        
 
 
     # Aba para edição da Estratégia
@@ -357,7 +357,7 @@ def editar_info_institucional_dialog():
                 )
                 st.success("Título da página atualizado com sucesso!")
                 time.sleep(2)
-                st.rerun()
+                st.rerun(scope="fragment")
             else:
                 st.error("Documento não encontrado.")
 
@@ -394,7 +394,7 @@ def editar_info_institucional_dialog():
             )
             st.success("Estratégia atualizada com sucesso!")
             time.sleep(2)
-            st.rerun()
+            st.rerun(scope="fragment")
 
         # Excluir estratégia
         if estrategia_selecionada and st.button("Excluir estratégia", key="excluir_estrategia", icon=":material/delete:"):
@@ -410,7 +410,7 @@ def editar_info_institucional_dialog():
             )
             st.success("Estratégia excluída com sucesso!")
             time.sleep(2)
-            st.rerun()
+            st.rerun(scope="fragment")
 
         # Adicionar nova estratégia
         if not estrategia_selecionada and st.button("Adicionar estratégia", key="adicionar_estrategia", icon=":material/add:"):
@@ -441,7 +441,7 @@ def editar_info_institucional_dialog():
                 st.success("Nova estratégia adicionada com sucesso!")
 
             time.sleep(2)
-            st.rerun()
+            st.rerun(scope="fragment")
 
 
 
