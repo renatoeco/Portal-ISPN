@@ -186,7 +186,7 @@ moedas = {
 }
 
 
-@st.dialog("Gerenciar programa", width="large")
+@st.dialog("Gerenciar programa", width="large", on_dismiss="rerun")
 def gerenciar_programa_dialog(programa):
 
     # Busca o documento completo do programa
@@ -301,7 +301,8 @@ def gerenciar_programa_dialog(programa):
                         }}
                     )
                     st.success("Informações atualizadas com sucesso!")
-                    st.rerun()
+                    time.sleep(2)
+                    st.rerun(scope="fragment")
 
     # ======================================================
     # ABA 2 - AÇÕES ESTRATÉGICAS
@@ -355,7 +356,7 @@ def gerenciar_programa_dialog(programa):
 
                     st.success("Nova ação adicionada com sucesso!")
                     time.sleep(2)
-                    st.rerun()
+                    st.rerun(scope="fragment")
 
         # ---------------- EDITAR AÇÃO EXISTENTE ----------------
         if acoes_estrategicas:
@@ -438,8 +439,8 @@ def gerenciar_programa_dialog(programa):
                             )
 
                             st.success("Ação estratégica atualizada com sucesso!")
-                            time.sleep(1)
-                            st.rerun()
+                            time.sleep(2)
+                            st.rerun(scope="fragment")
 
                     else:
                         # ---------------- MODO VISUALIZAÇÃO ----------------
