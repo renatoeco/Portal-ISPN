@@ -196,7 +196,7 @@ def editar_titulo_pagina_resultados_mp_dialog():
 
 
 # Função do diálogo para editar resultados de médio prazo
-@st.dialog("Editar Informações do Resultado", width="large")
+@st.dialog("Editar Informações do Resultado", width="large", on_dismiss="rerun")
 def editar_titulo_de_cada_resultado_mp_dialog(resultado_idx):
     # Recupera os dados do banco
     doc = estrategia.find_one({"resultados_medio_prazo": {"$exists": True}})
@@ -239,7 +239,7 @@ def editar_titulo_de_cada_resultado_mp_dialog(resultado_idx):
                 )
                 st.success("Título do resultado atualizado com sucesso!")
                 time.sleep(2)
-                st.rerun()
+                st.rerun(scope="fragment")
 
         # -------------------------- #
         # ABA 2 - METAS
@@ -268,7 +268,7 @@ def editar_titulo_de_cada_resultado_mp_dialog(resultado_idx):
                 )
                 st.success("Nova meta adicionada com sucesso!")
                 time.sleep(2)
-                st.rerun()
+                st.rerun(scope="fragment")
                     
         # -------------------------- #
         # ABA 3 - AÇÕES ESTRATÉGICAS
@@ -295,7 +295,7 @@ def editar_titulo_de_cada_resultado_mp_dialog(resultado_idx):
 
                     st.success("Nova ação estratégica adicionada com sucesso!")
                     time.sleep(2)
-                    st.rerun()
+                    st.rerun(scope="fragment")
             
             st.write("")
         
@@ -321,7 +321,7 @@ def editar_titulo_de_cada_resultado_mp_dialog(resultado_idx):
                         )
                         st.success("Ação estratégica atualizada com sucesso!")
                         time.sleep(2)
-                        st.rerun()
+                        st.rerun(scope="fragment")
                     
     else:
         
@@ -346,7 +346,7 @@ def editar_titulo_de_cada_resultado_mp_dialog(resultado_idx):
                 )
                 st.success("Nova meta adicionada com sucesso!")
                 time.sleep(2)
-                st.rerun()
+                st.rerun(scope="fragment")
                 
         st.write("")
 
@@ -383,7 +383,7 @@ def editar_titulo_de_cada_resultado_mp_dialog(resultado_idx):
                     )
                     st.success("Meta atualizada com sucesso!")
                     time.sleep(2)
-                    st.rerun()
+                    st.rerun(scope="fragment")
 
      
 @st.dialog("Editar eixo da estratégia")
@@ -471,7 +471,7 @@ def editar_titulo_de_cada_resultado_lp_dialog(resultado_idx):
         st.rerun()
 
 
-@st.dialog("Editar objetivo estratégico", width="large")
+@st.dialog("Editar objetivo estratégico", width="large", on_dismiss="rerun")
 def editar_objetivo_estrategico_dialog(obj_idx):
 
     doc = estrategia.find_one(
@@ -509,7 +509,7 @@ def editar_objetivo_estrategico_dialog(obj_idx):
 
             st.success("Título atualizado com sucesso!")
             time.sleep(2)
-            st.rerun()
+            st.rerun(scope="fragment")
             
     with aba2:
 
@@ -547,7 +547,7 @@ def editar_objetivo_estrategico_dialog(obj_idx):
 
             st.success("Meta adicionada!")
             time.sleep(2)
-            st.rerun()
+            st.rerun(scope="fragment")
             
     with aba3:
 
@@ -582,7 +582,7 @@ def editar_objetivo_estrategico_dialog(obj_idx):
 
                 st.success("Indicador adicionado!")
                 time.sleep(2)
-                st.rerun()
+                st.rerun(scope="fragment")
 
         st.write("")
 
@@ -619,7 +619,7 @@ def editar_objetivo_estrategico_dialog(obj_idx):
 
                     st.success("Indicador atualizado!")
                     time.sleep(2)
-                    st.rerun()
+                    st.rerun(scope="fragment")
             
     with aba4:
 
@@ -658,7 +658,7 @@ def editar_objetivo_estrategico_dialog(obj_idx):
 
                 st.success("Ação estratégica adicionada!")
                 time.sleep(2)
-                st.rerun()
+                st.rerun(scope="fragment")
 
         st.write("")
 
@@ -695,7 +695,7 @@ def editar_objetivo_estrategico_dialog(obj_idx):
 
                     st.success("Ação estratégica atualizada!")
                     time.sleep(2)
-                    st.rerun()
+                    st.rerun(scope="fragment")
 
 
 def _safe_key(text):
