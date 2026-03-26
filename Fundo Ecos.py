@@ -1752,7 +1752,7 @@ def cadastrar_proponente():
                         st.rerun()
 
 
-@st.dialog("Gerenciar projetos", width="large")
+@st.dialog("Gerenciar projetos", width="large", on_dismiss="rerun")
 def gerenciar_projetos():
 
     st.html("<span class='big-dialog'></span>")
@@ -1772,8 +1772,8 @@ def gerenciar_projetos():
         if novo:
             colecao.insert_one(novo)
             st.success("Projeto adicionado com sucesso.")
-            time.sleep(1)
-            st.rerun()
+            time.sleep(2)
+            st.rerun(scope="fragment")
 
     # --- Editar ---
     with abas[1]:
@@ -1810,13 +1810,8 @@ def gerenciar_projetos():
                 if atualizado:
                     colecao.update_one({"_id": ObjectId(selecionado_id)}, {"$set": atualizado})
                     st.success("Projeto atualizado com sucesso.")
-                    time.sleep(1)
-                    st.rerun()
-
-
-
-
-
+                    time.sleep(2)
+                    st.rerun(scope="fragment")
 
     # ---------------------- Excluir ----------------------
     with abas[2]:
@@ -1844,8 +1839,8 @@ def gerenciar_projetos():
                 if st.button(f"Excluir projeto"):
                     colecao.delete_one({"_id": ObjectId(selecionado_id)})
                     st.success("Projeto excluído com sucesso.")
-                    time.sleep(1)
-                    st.rerun()
+                    time.sleep(2)
+                    st.rerun(scope="fragment")
 
 
 @st.cache_data(ttl=600, show_spinner=False)
