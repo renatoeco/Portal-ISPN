@@ -888,6 +888,10 @@ def dialog_editar_projeto():
 
     orcamento_existente = projeto_info.get("orcamento_por_ano", {})
 
+    # Se vier None, float, NaN, etc → vira dict vazio
+    if not isinstance(orcamento_existente, dict):
+        orcamento_existente = {}
+
     # ==============================================================
     # INTERFACE DO DIÁLOGO DE EDITAR PROJETO
     # ==============================================================
