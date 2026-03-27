@@ -105,7 +105,7 @@ def main():
 # Aba 1 - Proposições ////////////////////////////////////////////////////////////////
    with aba1:
 
-    @st.dialog("Gerenciar PLs", width="large")
+    @st.dialog("Gerenciar PLs", width="large", on_dismiss="rerun")
     def dial_gerenciar_pls():
 
         # Cria as abas: Adicionar, Editar e Excluir PLs
@@ -189,7 +189,7 @@ def main():
                             feedback.success("PL adicionado com sucesso!")
                             time.sleep(2)
                             feedback.empty()
-                            st.rerun()
+                            st.rerun(scope="fragment")
 
                     except Exception as e:
                         feedback.error(f"Erro ao adicionar PL: {str(e)}")
@@ -253,7 +253,7 @@ def main():
                         )
                         st.success(f"'{pl_selecionado.get('Proposições') or pl_selecionado.get('Proposição') or 'PL'}' atualizado com sucesso!")
                         time.sleep(2)
-                        st.rerun()
+                        st.rerun(scope="fragment")
             else:
                 st.warning("Nenhuma proposição encontrada no banco de dados.")
 
@@ -283,7 +283,7 @@ def main():
                     colecao_alvo.delete_one({"_id": pl_selecionado['_id']})
                     st.success(f"'{pl_selecionado.get('Proposições') or pl_selecionado.get('Proposição') or 'PL'}' excluído com sucesso!")
                     time.sleep(2)
-                    st.rerun()
+                    st.rerun(scope="fragment")
 
             else:
                 st.write("Nenhum PL encontrado no banco de dados.")
@@ -301,7 +301,7 @@ def main():
 
 # Aba 2 - Pessoas ////////////////////////////////////////////////////////////////
     with aba2: 
-        @st.dialog("Gerenciar e-mails", width="small")
+        @st.dialog("Gerenciar e-mails", width="small", on_dismiss="rerun")
         def dial_gerenciar_pessoas():
 
             # Cria as abas: Adicionar, Editar e Excluir PLs
@@ -332,7 +332,7 @@ def main():
                                 st.success("E-mail cadastrado com sucesso!")
                                 
                                 time.sleep(2)  
-                                st.rerun()
+                                st.rerun(scope="fragment")
                                 
                         except Exception as e:
                             f"Erro ao adicionar PL: {str(e)}"
@@ -378,7 +378,7 @@ def main():
 
                             # Aguarda e atualiza a interface
                             time.sleep(2)
-                            st.rerun()
+                            st.rerun(scope="fragment")
                             
                         else:
                             st.warning("O campo de e-mail não pode estar vazio!")
@@ -400,7 +400,7 @@ def main():
                         
                         st.success("E-mail excluído com sucesso!")  
                         time.sleep(3)
-                        st.rerun() 
+                        st.rerun(scope="fragment") 
                         
                 else:
                     # Caso não haja PLs para excluir, exibe uma mensagem

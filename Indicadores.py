@@ -598,7 +598,7 @@ def gerenciar_indicadores():
                 
 
 
-@st.dialog("Gerenciar lançamentos", width="large")   
+@st.dialog("Gerenciar lançamentos", width="large", on_dismiss="rerun")   
 def gerenciar_lancamentos():
     tab_add, tab_edit, tab_delete = st.tabs([":material/add: Adicionar", ":material/edit: Editar", ":material/delete: Excluir"])
 
@@ -798,7 +798,7 @@ def gerenciar_lancamentos():
                         st.success("Lançamento salvo com sucesso.")
                         time.sleep(2)
                         st.cache_data.clear()
-                        st.rerun()
+                        st.rerun(scope="fragment")
 
                 else:
                     st.info("Por favor, selecione as opções acima para prosseguir.")
@@ -958,7 +958,7 @@ def gerenciar_lancamentos():
                             )
                             st.success("Lançamento atualizado com sucesso!")
                             st.cache_data.clear()
-                            st.rerun()
+                            st.rerun(scope="fragment")
 
     # ------------------------- ABA EXCLUIR -------------------------
     with tab_delete:
@@ -1071,7 +1071,19 @@ def gerenciar_lancamentos():
                             lancamentos.delete_one({"_id": lanc_id_delete})
                             st.success("Lançamento excluído com sucesso!")
                             st.cache_data.clear()
-                            st.rerun()
+                            st.rerun(scope="fragment")
+
+
+def mapear_programas(lista_ids):
+    """
+    Converte lista de ObjectIds de programas para nomes legíveis.
+    Sempre retorna lista (mesmo se vier vazio ou None).
+    """
+    if isinstance(lista_ids, list):
+        return [map_programa_nome.get(i, "") for i in lista_ids if i in map_programa_nome]
+    elif lista_ids:  # caso legado (1 valor só)
+        return [map_programa_nome.get(lista_ids, "")]
+    return []
 
 
 ######################################################################################################
@@ -1102,7 +1114,9 @@ if "programa" not in df_proj_info.columns:
     df_proj_info["programa"] = ""
 
 map_programa_nome = {p["_id"]: p["nome_programa_area"] for p in programas}
-df_proj_info["programa"] = df_proj_info["programa"].map(map_programa_nome).fillna("")
+
+# Aplica corretamente
+df_proj_info["programa"] = df_proj_info["programa"].apply(mapear_programas)
 
 # Inicializa session_state se não existir
 if "filtros_indicadores" not in st.session_state:
@@ -1175,12 +1189,22 @@ with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
 
         col4, col5, col6 = st.columns(3)
         with col4:
+
+            # Explode lista de programas em valores únicos
+            todos_programas = sorted({
+                prog
+                for lista in df_base["programa"]
+                for prog in (lista if isinstance(lista, list) else [])
+                if prog
+            })
+
             programa_sel = st.multiselect(
                 "Filtrar por programa",
-                sorted(df_base["programa"].unique()),
+                todos_programas,
                 key="filtro_programa",
                 placeholder=""
             )
+            
         with col5:
             bioma_sel = st.multiselect(
                 "Filtrar por bioma",
@@ -1218,6 +1242,14 @@ with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
         if selecao:
             if campo == "tipo":
                 df_filtrado = df_filtrado[df_filtrado["tipo"].isin(selecao)]
+
+            elif campo == "programa":
+                df_filtrado = df_filtrado[
+                    df_filtrado["programa"].apply(
+                        lambda lista: any(p in selecao for p in lista)
+                    )
+                ]
+
             else:
                 df_filtrado = df_filtrado[df_filtrado[campo].isin(selecao)]
 

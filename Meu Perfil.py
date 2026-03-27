@@ -3,7 +3,9 @@ import pandas as pd
 import datetime
 import time
 from funcoes_auxiliares import conectar_mongo_portal_ispn
-import streamlit_shadcn_ui as ui
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 
 # Configura a página do Streamlit para layout mais amplo
@@ -74,6 +76,166 @@ st.session_state["pagina_anterior"] = PAGINA_ID
 
 
 ######################################################################################################
+# FUNÇÕES
+######################################################################################################
+
+
+def linha(label, valor, col_label=2, col_valor=4):
+    with st.container():
+        c1, c2 = st.columns([col_label, col_valor])
+        c1.markdown(f"**{label}**")
+        c2.markdown(mostrar(valor))
+
+
+def mostrar(valor):
+    return valor if valor not in [None, "", []] else "—"
+
+
+def obter_valor_aninhado(doc, campo):
+    """
+    Permite comparar campos simples e aninhados, ex:
+    banco.nome_banco
+    """
+    partes = campo.split(".")
+    valor = doc
+    for p in partes:
+        if isinstance(valor, dict):
+            valor = valor.get(p)
+        else:
+            return None
+    return valor
+
+
+def detectar_alteracoes(doc_antigo, update_dict, labels_campos):
+    """
+    Retorna lista de alterações:
+    [
+        {
+            "campo": "Telefone",
+            "antes": "xx",
+            "depois": "yy"
+        }
+    ]
+    """
+    alteracoes = []
+
+    for campo, novo_valor in update_dict.items():
+        valor_antigo = obter_valor_aninhado(doc_antigo, campo)
+
+        # Normaliza None / vazio
+        if valor_antigo in ["", None]:
+            valor_antigo = None
+        if novo_valor in ["", None]:
+            novo_valor = None
+
+        if valor_antigo != novo_valor:
+            alteracoes.append({
+                "campo": labels_campos.get(campo, campo),
+                "antes": valor_antigo if valor_antigo is not None else "—",
+                "depois": novo_valor if novo_valor is not None else "—"
+            })
+
+    return alteracoes
+
+
+def flatten_banco(prefixo, banco_dict):
+    return {
+        f"{prefixo}.nome_banco": banco_dict.get("nome_banco"),
+        f"{prefixo}.agencia": banco_dict.get("agencia"),
+        f"{prefixo}.conta": banco_dict.get("conta"),
+        f"{prefixo}.tipo_conta": banco_dict.get("tipo_conta"),
+    }
+
+
+def emails_gestao_pessoas(dados_pessoas):
+    return [
+        p.get("e_mail")
+        for p in dados_pessoas
+        if p.get("tipo de usuário") == "gestao_pessoas" and p.get("e_mail")
+    ]
+
+
+def enviar_email(destinatarios, assunto, corpo):
+    if not destinatarios:
+        return
+
+    # Dados de autenticação do secrets.toml
+    remetente = st.secrets["senhas"]["endereco_email"]
+    senha = st.secrets["senhas"]["senha_email"]
+
+    # Cria a mensagem MIME
+    msg = MIMEText(corpo, "html", "utf-8")
+    msg["Subject"] = assunto
+    msg["From"] = remetente
+    msg["To"] = ", ".join(destinatarios)
+
+    # Tenta enviar via SMTP SSL
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(remetente, senha)
+            server.sendmail(remetente, destinatarios, msg.as_string())
+
+        return True
+    
+    except Exception as e:
+        st.error(f"Erro ao enviar e-mail: {e}")
+        return False
+
+
+# Função auxiliar para evitar repetição
+def exibir_banco(prefixo, banco_dict):
+    """
+    Exibe os dados do banco com prefixo (PF/PJ) no label.
+    """
+    banco_dict = banco_dict or {}
+
+    # Verifica se tem algum dado preenchido
+    if any(banco_dict.get(campo) for campo in ["nome_banco", "agencia", "conta", "tipo_conta"]):
+
+        sufixo = f"{prefixo}" if prefixo else ""
+
+        linha(f"Banco ({sufixo}):", banco_dict.get("nome_banco"))
+        linha(f"Agência ({sufixo}):", banco_dict.get("agencia"))
+        linha(f"Tipo de conta ({sufixo}):", banco_dict.get("tipo_conta"))
+        linha(f"Número da conta ({sufixo}):", banco_dict.get("conta"))
+
+        #st.write("")
+
+
+def input_banco(prefixo, banco_dict):
+        """
+        Cria inputs de banco com prefixo no label e retorna os valores.
+        prefixo: "" | "PF" | "PJ"
+        """
+        banco_dict = banco_dict or {}
+
+        sufixo = f" ({prefixo})" if prefixo else ""
+
+        nome_banco = st.text_input(f"Banco{sufixo}", value=banco_dict.get("nome_banco", ""))
+        agencia = st.text_input(f"Agência{sufixo}", value=banco_dict.get("agencia", ""))
+
+        tipo_conta_atual = banco_dict.get("tipo_conta", "")
+        opcoes_conta = ["", "Conta Corrente", "Conta Poupança", "Conta Salário"]
+        index_conta = opcoes_conta.index(tipo_conta_atual) if tipo_conta_atual in opcoes_conta else 0
+
+        tipo_conta = st.selectbox(
+            f"Tipo de conta{sufixo}",
+            options=opcoes_conta,
+            index=index_conta,
+            key=f"tipo_conta_{prefixo or 'pf_unico'}"
+        )
+
+        conta = st.text_input(f"Número da conta{sufixo}", value=banco_dict.get("conta", ""))
+
+        return {
+            "nome_banco": nome_banco,
+            "agencia": agencia,
+            "conta": conta,
+            "tipo_conta": tipo_conta
+        }
+        
+
+######################################################################################################
 # TRATAMENTO DOS DADOS
 ######################################################################################################
 
@@ -83,7 +245,27 @@ dados_pessoas = list(pessoas.find())
 dados_programas = list(programas_areas.find())
 dados_projetos_ispn = list(projetos_ispn.find())
 
-
+labels_campos = {
+    "nome_completo": "Nome completo",
+    "telefone": "Telefone",
+    "e_mail": "E-mail",
+    "CPF": "CPF",
+    "RG": "RG",
+    "gênero": "Gênero",
+    "raca": "Raça",
+    "data_nascimento": "Data de nascimento",
+    "escolaridade": "Escolaridade",
+    "banco_pf.nome_banco": "Banco PF",
+    "banco_pf.agencia": "Agência PF",
+    "banco_pf.conta": "Conta PF",
+    "banco_pf.tipo_conta": "Tipo de conta PF",
+    "banco_pj.nome_banco": "Banco PJ",
+    "banco_pj.agencia": "Agência PJ",
+    "banco_pj.conta": "Conta PJ",
+    "banco_pj.tipo_conta": "Tipo de conta PJ",
+    "cnpj": "CNPJ",
+    "nome_empresa": "Nome da empresa"
+}
 
 # PESSOA
 
@@ -120,20 +302,11 @@ id_para_nome_projeto = {
 
 lista_programas_areas = sorted(nome_para_id_programa.keys())
 
-# # Lista de coordenadores existentes (id, nome, programa)
-# coordenadores_possiveis = [
-#     {
-#         "id": pessoa["_id"],
-#         "nome": pessoa.get("nome_completo", ""),
-#         "programa": pessoa.get("programa_area", "")
-#     }
-#     for pessoa in dados_pessoas
-#     if "coordenador(a)" in pessoa.get("tipo de usuário", "").lower()
-# ]
-
 # PROJETOS
 # Filtra só os projetos em que a sigla não está vazia
 dados_projetos_ispn = [projeto for projeto in dados_projetos_ispn if projeto["sigla"] != ""]
+
+
 
 
 ######################################################################################################
@@ -168,228 +341,259 @@ if pessoa_logada:
 
             col1, col2, col3 = st.columns(3, gap="large")
 
-            # Pessoais
-
-            with col1:
-
-                sub1, sub2 = st.columns([2,3])
-
-                # Nome completo
-                sub1.write(f"**Nome completo:**")
-                sub2.write(pessoa_logada.get('nome_completo',''))
+            # ======================
+            # COLUNA 1 – DADOS PESSOAIS
+            # ======================
             
-                # Data de nascimento
-                sub1.write(f"**Data de nascimento:**")
-                sub2.write(pessoa_logada.get('data_nascimento',''))
-
-                # CPF
-                sub1.write(f"**CPF:**")
-                sub2.write(pessoa_logada.get('CPF',''))
-
-                # RG
-                sub1.write(f"**RG:**")
-                sub2.write(pessoa_logada.get('RG',''))
-
-                # Gênero
-                sub1.write(f"**Gênero:**")
-                sub2.write(pessoa_logada.get('gênero',''))
-
-                # Raça
-                sub1.write(f"**Raça:**")
-                sub2.write(pessoa_logada.get('raca',''))
-
-                # Escolaridade
-                sub1.write(f"**Escolaridade:**")
-                sub2.write(pessoa_logada.get('escolaridade',''))
-
-                # Telefone
-                sub1.write(f"**Telefone:**")
-                sub2.write(pessoa_logada.get('telefone',''))
-
-                # E-mail
-                sub1.write(f"**E-mail:**")
-                sub2.write(pessoa_logada.get('e_mail',''))
+            with col1:
+                linha("Nome completo:", pessoa_logada.get("nome_completo"))
+                linha("Data de nascimento:", pessoa_logada.get("data_nascimento"))
+                linha("CPF:", pessoa_logada.get("CPF"))
+                linha("RG:", pessoa_logada.get("RG"))
+                linha("Gênero:", pessoa_logada.get("gênero"))
+                linha("Raça:", pessoa_logada.get("raca"))
+                linha("Escolaridade:", pessoa_logada.get("escolaridade"))
+                linha("Telefone:", pessoa_logada.get("telefone"))
+                linha("E-mail:", pessoa_logada.get("e_mail"))
 
 
+            # ======================
+            # COLUNA 2 – DADOS BANCÁRIOS
+            # ======================
+            
             with col2:
+                tipo = pessoa_logada.get("tipo_contratacao")
 
-                sub1, sub2 = st.columns([2,3])   
+                # ======================
+                # PF → banco único
+                # ======================
+                if tipo not in ["PJ1", "PJ2"]:
+                    banco = pessoa_logada.get("banco") or {}
+                    exibir_banco("", banco)
+                    
+                # ======================
+                # PJ → dois bancos
+                # ======================
+                else:
+                    banco_pf = pessoa_logada.get("banco_pf") or {}
+                    banco_pj = pessoa_logada.get("banco_pj") or {}
 
-                # Banco
-                sub1.write(f"**Banco:**")
-                sub2.write(pessoa_logada.get('banco',{}).get('nome_banco',''))
-
-                # Agência
-                sub1.write(f"**Agência:**")
-                sub2.write(pessoa_logada.get('banco',{}).get('agencia',''))
-                
-                # Tipo de conta
-                sub1.write(f"**Tipo de conta:**")
-                sub2.write(pessoa_logada.get('banco',{}).get('tipo_conta',''))
-                
-                # Conta
-                sub1.write(f"**Conta:**")
-                sub2.write(pessoa_logada.get('banco',{}).get('conta',''))
+                    exibir_banco("PF", banco_pf)
+                    exibir_banco("PJ", banco_pj)
 
 
+            # ======================
+            # COLUNA 3 – DADOS PROFISSIONAIS
+            # ======================
+            
             with col3:
+                linha("Escritório:", pessoa_logada.get("escritorio"))
+                linha("Cargo:", pessoa_logada.get("cargo"))
 
-                sub1, sub2 = st.columns([2,3])    
-                
-                # Escritório
-                sub1.write(f"**Escritório:**")
-                sub2.write(pessoa_logada.get('escritorio',''))
-
-                # Cargo
-                sub1.write(f"**Cargo:**")
-                sub2.write(pessoa_logada.get('cargo',''))
-
-                # Programa/Área
-                sub1.write(f"**Programa/Área:**")
-                sub2.write(id_para_nome_programa.get(pessoa_logada.get('programa_area'),''))
+                # Programa / Área
+                programas = pessoa_logada.get("programa_area", [])
+                nomes_programas = [
+                    id_para_nome_programa.get(pid, "")
+                    for pid in programas
+                    if pid in id_para_nome_programa
+                ]
+                linha("Programa / Área:", ", ".join(nomes_programas))
 
                 # Coordenador
-                sub1.write(f"**Coordenador:**")
                 coord_atual = next(
                     (c for c in dados_pessoas if str(c["_id"]) == str(pessoa_logada.get("coordenador"))),
                     None
                 )
-                sub2.write(coord_atual['nome_completo'] if coord_atual else '')
+                linha("Coordenador:", coord_atual.get("nome_completo") if coord_atual else None)
 
-                # Tipo de contratação
-                sub1.write(f"**Tipo de contratação:**")
-                sub2.write(pessoa_logada.get('tipo_contratacao',''))
+                linha("Tipo de contratação:", pessoa_logada.get("tipo_contratacao"))
 
-                # ===============================
-                # CAMPOS ADICIONAIS SE FOR PJ
-                
+                # Campos extras se PJ
                 if pessoa_logada.get("tipo_contratacao") in ["PJ1", "PJ2"]:
+                    linha("CNPJ:", pessoa_logada.get("cnpj"))
+                    linha("Nome da empresa:", pessoa_logada.get("nome_empresa"))
                     
-                    # CNPJ
-                    sub1.write(f"**CNPJ:**")
-                    sub2.write(pessoa_logada.get('cnpj',''))                    
-                    
-                    # Nome da empresa
-                    sub1.write(f"**Nome da empresa:**")
-                    sub2.write(pessoa_logada.get('nome_empresa',''))
-
-
-
 
         # ---------------- MODO EDIÇÃO ----------------
         else:
 
-            col1, col2, col3 = st.columns(3, gap="large")
+            with st.form("form_edicao_dados_pessoais", border=False):
 
-            # Coluna 1 – Pessoais
-            with col1:
-                nome = st.text_input("Nome completo", value=pessoa_logada.get("nome_completo", ""))
+                col1, col2, col3 = st.columns(3, gap="large")
 
-                data_nascimento_str = pessoa_logada.get("data_nascimento", "")
-                data_nascimento_val = datetime.datetime.strptime(data_nascimento_str, "%d/%m/%Y").date() if data_nascimento_str else None
-                data_nascimento = st.date_input("Data de nascimento", value=data_nascimento_val, format="DD/MM/YYYY")
+                # Coluna 1 – Pessoais
+                with col1:
+                    nome = st.text_input("Nome completo", value=pessoa_logada.get("nome_completo", ""))
 
-                cpf = st.text_input("CPF", value=pessoa_logada.get("CPF", ""))
-                rg = st.text_input("RG", value=pessoa_logada.get("RG", ""))
+                    data_nascimento_str = pessoa_logada.get("data_nascimento", "")
+                    data_nascimento_val = datetime.datetime.strptime(data_nascimento_str, "%d/%m/%Y").date() if data_nascimento_str else None
+                    data_nascimento = st.date_input("Data de nascimento", value=data_nascimento_val, format="DD/MM/YYYY")
 
-                lista_generos = ['Masculino', 'Feminino', 'Não binário', 'Outro']
-                genero_index = lista_generos.index(pessoa_logada.get("gênero", "Masculino")) if pessoa_logada.get("gênero") in lista_generos else 0
-                genero = st.selectbox("Gênero", lista_generos, index=genero_index)
+                    cpf = st.text_input("CPF", value=pessoa_logada.get("CPF", ""))
+                    rg = st.text_input("RG", value=pessoa_logada.get("RG", ""))
 
-                lista_raca = ["Amarelo", "Branco", "Índigena", "Pardo", "Preto", ""]
-                valor_raca = pessoa_logada.get("raca", "")
-                index_raca = lista_raca.index(valor_raca) if valor_raca in lista_raca else 0
-                raca = st.selectbox("Raça", lista_raca, index=index_raca)
+                    lista_generos = ['Masculino', 'Feminino', 'Não binário', 'Outro']
+                    genero_index = lista_generos.index(pessoa_logada.get("gênero", "Masculino")) if pessoa_logada.get("gênero") in lista_generos else 0
+                    genero = st.selectbox("Gênero", lista_generos, index=genero_index)
 
-                lista_escolaridade = ["Ensino fundamental", "Ensino médio", "Curso técnico", "Graduação", "Pós-graduação", "Mestrado", "Doutorado", ""]
-                valor_escolaridade = pessoa_logada.get("escolaridade", "")
-                index_escolaridade = lista_escolaridade.index(valor_escolaridade) if valor_escolaridade in lista_escolaridade else 0
-                escolaridade = st.selectbox("Escolaridade", lista_escolaridade, index=index_escolaridade)
+                    lista_raca = ["Amarelo", "Branco", "Índigena", "Pardo", "Preto", ""]
+                    valor_raca = pessoa_logada.get("raca", "")
+                    index_raca = lista_raca.index(valor_raca) if valor_raca in lista_raca else 0
+                    raca = st.selectbox("Raça", lista_raca, index=index_raca)
 
-                telefone = st.text_input("Telefone", value=pessoa_logada.get("telefone", ""))
-                email = st.text_input("E-mail", value=pessoa_logada.get("e_mail", ""))
+                    lista_escolaridade = ["Ensino fundamental", "Ensino médio", "Curso técnico", "Graduação", "Pós-graduação", "Mestrado", "Doutorado", ""]
+                    valor_escolaridade = pessoa_logada.get("escolaridade", "")
+                    index_escolaridade = lista_escolaridade.index(valor_escolaridade) if valor_escolaridade in lista_escolaridade else 0
+                    escolaridade = st.selectbox("Escolaridade", lista_escolaridade, index=index_escolaridade)
 
-            # Coluna 2 – Dados bancários
-            with col2:
-                nome_banco = st.text_input("Banco", value=pessoa_logada.get("banco", {}).get("nome_banco", ""))
-                agencia = st.text_input("Agência", value=pessoa_logada.get("banco", {}).get("agencia", ""))
+                    telefone = st.text_input("Telefone", value=pessoa_logada.get("telefone", ""))
+                    email = st.text_input("E-mail", value=pessoa_logada.get("e_mail", ""))
 
-                tipo_conta_atual = pessoa_logada.get("banco", {}).get("tipo_conta", "")
-                opcoes_conta = ["", "Conta Corrente", "Conta Poupança", "Conta Salário"]
-                index_conta = opcoes_conta.index(tipo_conta_atual) if tipo_conta_atual in opcoes_conta else 0
-                tipo_conta = st.selectbox("Tipo de conta", options=opcoes_conta, index=index_conta)
+                # Coluna 2 – Dados bancários
+                with col2:
+                    
+                    tipo = pessoa_logada.get("tipo_contratacao")
+                    
+                    # ======================
+                    # PF → banco único
+                    # ======================
+                    if tipo not in ["PJ1", "PJ2"]:
 
-                conta = st.text_input("Conta", value=pessoa_logada.get("banco", {}).get("conta", ""))
+                        banco_atual = pessoa_logada.get("banco") or {}
+                        banco_editado = input_banco("", banco_atual)
 
-            # Coluna 3 – Profissionais
-            with col3:
-                lista_escritorio = ["Brasília", "Santa Inês", ""]
-                valor_escritorio = pessoa_logada.get("escritorio", "")
-                index_escritorio = lista_escritorio.index(valor_escritorio) if valor_escritorio in lista_escritorio else 0
-                escritorio = st.selectbox("Escritório", lista_escritorio, index=index_escritorio, disabled=True)
+                    # ======================
+                    # PJ → dois bancos
+                    # ======================
+                    else:
 
-                cargo = st.text_input("Cargo", value=pessoa_logada.get("cargo", ""), disabled=True)
+                        banco_pf_atual = pessoa_logada.get("banco_pf") or pessoa_logada.get("banco") or {}
+                        banco_pj_atual = pessoa_logada.get("banco_pj") or {}
 
-                programa_area_nome_atual = id_para_nome_programa.get(pessoa_logada.get("programa_area"), "")
-                programa_area_nome = st.text_input("Programa / Área", value=programa_area_nome_atual, disabled=True)
+                        banco_pf_editado = input_banco("PF", banco_pf_atual)
+                        banco_pj_editado = input_banco("PJ", banco_pj_atual)
+                        
+                # Coluna 3 – Profissionais
+                with col3:
+                    lista_escritorio = ["Brasília", "Santa Inês", ""]
+                    valor_escritorio = pessoa_logada.get("escritorio", "")
+                    index_escritorio = lista_escritorio.index(valor_escritorio) if valor_escritorio in lista_escritorio else 0
+                    escritorio = st.selectbox("Escritório", lista_escritorio, index=index_escritorio, disabled=True)
 
-                coordenador_atual_id = pessoa_logada.get("coordenador")
-                coord_atual = next((c for c in dados_pessoas if str(c["_id"]) == str(coordenador_atual_id)), None)
-                nome_coordenador_default = coord_atual['nome_completo'] if coord_atual else ""
-                nome_coordenador = st.text_input("Coordenador", value=nome_coordenador_default, disabled=True)
+                    cargo = st.text_input("Cargo", value=pessoa_logada.get("cargo", ""), disabled=True)
 
-                tipo_contratacao = st.text_input("Tipo de contratação", value=pessoa_logada.get("tipo_contratacao", ""), disabled=True)
+                    # Lista de ObjectIds já salvos
+                    programas_ids = pessoa_logada.get("programa_area", [])
 
-                # Campos extras se PJ
-                if tipo_contratacao in ["PJ1", "PJ2"]:
-                    cnpj = st.text_input("CNPJ", value=pessoa_logada.get("cnpj", ""), disabled=True)
-                    nome_empresa = st.text_input("Nome da empresa", value=pessoa_logada.get("nome_empresa", ""), disabled=True)
+                    # Converte IDs -> nomes para valor padrão do multiselect
+                    programas_nomes_atuais = [
+                        id_para_nome_programa.get(pid, "")
+                        for pid in programas_ids
+                        if pid in id_para_nome_programa
+                    ]
 
+                    # Multiselect
+                    programas_selecionados = st.multiselect(
+                        "Programa / Área",
+                        options=sorted(nome_para_id_programa.keys()),
+                        default=programas_nomes_atuais,
+                        disabled=True
+                    )
 
+                    coordenador_atual_id = pessoa_logada.get("coordenador")
+                    coord_atual = next((c for c in dados_pessoas if str(c["_id"]) == str(coordenador_atual_id)), None)
+                    nome_coordenador_default = coord_atual['nome_completo'] if coord_atual else ""
+                    nome_coordenador = st.text_input("Coordenador", value=nome_coordenador_default, disabled=True)
 
+                    tipo_contratacao = st.text_input("Tipo de contratação", value=pessoa_logada.get("tipo_contratacao", ""), disabled=True)
 
-            # Prepara o dicionário de atualização
-            update_dict = {
-                "tipo_contratacao": tipo_contratacao,
-                "nome_completo": nome,
-                "telefone": telefone,
-                "e_mail": email,
-                "CPF": cpf,
-                "RG": rg,
-                "gênero": genero,
-                "raca": raca,
-                "data_nascimento": data_nascimento.strftime("%d/%m/%Y") if data_nascimento else None,
-                "escolaridade": escolaridade,
-                "cargo": cargo,
-                "escritorio": escritorio,
-                "banco.nome_banco": nome_banco,
-                "banco.agencia": agencia,
-                "banco.conta": conta,
-                "banco.tipo_conta": tipo_conta
-            }
+                    # Campos extras se PJ
+                    if tipo_contratacao in ["PJ1", "PJ2"]:
+                        cnpj = st.text_input("CNPJ", value=pessoa_logada.get("cnpj", ""), disabled=True)
+                        nome_empresa = st.text_input("Nome da empresa", value=pessoa_logada.get("nome_empresa", ""), disabled=True)
 
-
-
-            # Botão de salvar as alterações
-            st.write('')
-            if st.button("Salvar alterações", icon=":material/save:", type="primary"):
-
-                # Só adiciona CNPJ e nome da empresa se for PJ1 ou PJ2
-                if tipo_contratacao in ["PJ1", "PJ2"]:
-                    update_dict["cnpj"] = cnpj
-                    update_dict["nome_empresa"] = nome_empresa
-
-                # Atualiza no MongoDB
-                pessoas.update_one({"_id": pessoa_logada["_id"]}, {"$set": update_dict})
-
-                st.success("Alterações salvas com sucesso!")
+                # Prepara o dicionário de atualização
+                update_dict = {
+                    "tipo_contratacao": tipo_contratacao,
+                    "nome_completo": nome,
+                    "telefone": telefone,
+                    "e_mail": email,
+                    "CPF": cpf,
+                    "RG": rg,
+                    "gênero": genero,
+                    "raca": raca,
+                    "data_nascimento": data_nascimento.strftime("%d/%m/%Y") if data_nascimento else None,
+                    "escolaridade": escolaridade,
+                    "cargo": cargo,
+                    "escritorio": escritorio,
+                }
                 
-                time.sleep(2)
-                st.rerun()
+                # ======================
+                # BANCOS
+                # ======================
+                if tipo_contratacao not in ["PJ1", "PJ2"]:
+                    update_dict_flat = flatten_banco("banco", banco_editado)
+                else:
+                    update_dict_flat = {
+                        **flatten_banco("banco_pf", banco_pf_editado),
+                        **flatten_banco("banco_pj", banco_pj_editado),
+                    }
 
+                update_dict_completo = {**update_dict, **update_dict_flat}
 
+                # Botão de salvar as alterações
+                st.write('')
+                st.write('')
 
+                st.caption("Ao salvar as alterações, será enviado um e-mail de notificação para o DP.")
 
+                salvar = st.form_submit_button(
+                    "Salvar alterações",
+                    type="primary",
+                    icon=":material/save:"
+                )
+
+                if salvar:
+
+                    if tipo_contratacao in ["PJ1", "PJ2"]:
+                        update_dict["cnpj"] = cnpj
+                        update_dict["nome_empresa"] = nome_empresa
+
+                    # Detecta alterações antes de salvar
+                    alteracoes = detectar_alteracoes(
+                        pessoa_logada,
+                        update_dict_completo,
+                        labels_campos
+                    )
+
+                    pessoas.update_one(
+                        {"_id": pessoa_logada["_id"]},
+                        {"$set": update_dict_completo}
+                    )
+
+                    # Se houver alterações, envia e-mail
+                    if alteracoes:
+                        assunto = f"Jataí - Alteração de dados cadastrais de {pessoa_logada.get('nome_completo')}"
+
+                        corpo = f"""
+                        <p>{pessoa_logada.get('nome_completo')} fez as seguintes alterações nos seus dados cadastrais:</p>
+                        """
+
+                        for i, alt in enumerate(alteracoes, start=1):
+                            corpo += f"""
+                            <p>
+                                <strong>{i}. {alt['campo']}</strong><br>
+                                <strong>Antes:</strong> {alt['antes']}<br>
+                                <strong>Depois:</strong> {alt['depois']}
+                            </p>
+                            """
+
+                        destinatarios = emails_gestao_pessoas(dados_pessoas)
+                        enviar_email(destinatarios, assunto, corpo)
+
+                    st.success("Alterações salvas com sucesso!")
+                    time.sleep(2)
+                    st.rerun()
 
 
     # ============ ABA CONTRATOS ============

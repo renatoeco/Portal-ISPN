@@ -492,15 +492,21 @@ def mostrar_detalhes(codigo_proj: str):
 
             lat_long_str = projeto.get('lat_long_principal', '')
 
-            if lat_long_str:
-                lat_str, lon_str = lat_long_str.split(",")
-                lat, lon = float(lat_str.strip()), float(lon_str.strip())
+            if lat_long_str and "," in lat_long_str:
+                try:
+                    partes = [p.strip() for p in lat_long_str.split(",")]
 
-                # Cria DataFrame
-                df = pd.DataFrame({"lat": [lat], "lon": [lon]})
+                    if len(partes) == 2:
+                        lat, lon = float(partes[0]), float(partes[1])
 
-                # Plota o mapa
-                st.map(df, zoom=6)   
+                        df = pd.DataFrame({"lat": [lat], "lon": [lon]})
+                        st.map(df, zoom=6)
+                    else:
+                        st.warning("Coordenadas inválidas (formato incorreto).")
+                except Exception:
+                    st.warning("Erro ao interpretar latitude/longitude.")
+            else:
+                st.caption("Coordenadas não informadas.") 
                 
         # ---------------------------------------------------------
         #  TABELA COMPLETA DE REGIÕES DE ATUAÇÃO
@@ -1746,7 +1752,7 @@ def cadastrar_proponente():
                         st.rerun()
 
 
-@st.dialog("Gerenciar projetos", width="large")
+@st.dialog("Gerenciar projetos", width="large", on_dismiss="rerun")
 def gerenciar_projetos():
 
     st.html("<span class='big-dialog'></span>")
@@ -1766,8 +1772,8 @@ def gerenciar_projetos():
         if novo:
             colecao.insert_one(novo)
             st.success("Projeto adicionado com sucesso.")
-            time.sleep(1)
-            st.rerun()
+            time.sleep(2)
+            st.rerun(scope="fragment")
 
     # --- Editar ---
     with abas[1]:
@@ -1804,13 +1810,8 @@ def gerenciar_projetos():
                 if atualizado:
                     colecao.update_one({"_id": ObjectId(selecionado_id)}, {"$set": atualizado})
                     st.success("Projeto atualizado com sucesso.")
-                    time.sleep(1)
-                    st.rerun()
-
-
-
-
-
+                    time.sleep(2)
+                    st.rerun(scope="fragment")
 
     # ---------------------- Excluir ----------------------
     with abas[2]:
@@ -1838,8 +1839,8 @@ def gerenciar_projetos():
                 if st.button(f"Excluir projeto"):
                     colecao.delete_one({"_id": ObjectId(selecionado_id)})
                     st.success("Projeto excluído com sucesso.")
-                    time.sleep(1)
-                    st.rerun()
+                    time.sleep(2)
+                    st.rerun(scope="fragment")
 
 
 @st.cache_data(ttl=600, show_spinner=False)
@@ -2278,7 +2279,7 @@ with geral:
     col1, col2, col3 = st.columns(3)
 
     col1.metric(
-        "Valor total em US$ corrigido até 2024",
+        "Valor total em US$ corrigido até 2025",
         f"{valor_total_dolar_corrigido:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
     )
 
@@ -2296,7 +2297,10 @@ with geral:
     st.write("")
     st.write("")
  
-    # Gráfico  
+
+
+
+    # Gráfico  -------------------------------------------------------------------------------------------------------
 
     # Garantir que os campos são string
     df_filtrado["Ano"] = df_filtrado["Ano"].astype(str)
@@ -2330,11 +2334,43 @@ with geral:
     todos_anos_doador = pd.MultiIndex.from_product([anos_todos, doadores], names=["Ano", "Doador"])
     dados_completos = dados.set_index(["Ano", "Doador"]).reindex(todos_anos_doador, fill_value=0).reset_index()
 
-    
-    paleta_cores = diverging.Spectral_r[::2] + diverging.curl[::2]
-    paleta_cores = paleta_cores[:15]  # garante 15 cores únicas
-    
-    # Criar gráfico
+    paleta_cores = [
+    # =====================
+    # MÉDIAS (prioridade 1)
+    # =====================
+    "#9F7AEA",  # violeta
+    "#3B82F6",  # azul
+    "#06B6D4",  # ciano
+    "#22C55E",  # verde
+    "#EAB308",  # amarelo
+    "#FB923C",  # laranja
+    "#EF4444",  # vermelho
+
+    # =====================
+    # ESCURAS (prioridade 2)
+    # =====================
+    "#4C1D95",  # violeta
+    "#1E3A8A",  # azul
+    "#155E75",  # ciano
+    "#166534",  # verde
+    "#A16207",  # amarelo
+    "#C2410C",  # laranja
+    "#991B1B",  # vermelho
+
+    # =====================
+    # CLARAS (ajustadas)
+    # =====================
+    "#C4B5FD",  # violeta (antes muito clara)
+    "#93C5FD",  # azul
+    "#67E8F9",  # ciano
+    "#86EFAC",  # verde
+    "#FDE047",  # amarelo
+    "#FDBA74",  # laranja
+    "#FCA5A5",  # vermelho
+]
+
+
+
     fig = px.bar(
         dados_completos,
         x="Ano",
@@ -2345,7 +2381,17 @@ with geral:
         title="Número de apoios por doador e ano",
         labels={"apoios": "Número de apoios", "Ano": ""},
         height=600,
-        category_orders={"Ano": anos_todos}  # ordem cronológica
+        category_orders={"Ano": anos_todos}
+    )
+
+
+    fig.update_traces(
+        marker=dict(
+            line=dict(
+                width=1,
+                color="white"
+            )
+        )
     )
 
     # Estética

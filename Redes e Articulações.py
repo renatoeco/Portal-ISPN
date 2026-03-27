@@ -96,7 +96,7 @@ def mostrar_detalhes(rede_doc):
     # Aba 1: Informações gerais
     # =====================
     with tabs[0]:
-        modo_edicao = st.toggle("Editar", value=False)
+        modo_edicao = st.toggle("Editar", value=False, disabled=usuario_visitante)
 
         if not modo_edicao:
             # Exibição simples
@@ -231,9 +231,9 @@ def mostrar_detalhes(rede_doc):
         # ---------------- EXPANDER PARA ADICIONAR ANOTAÇÃO ----------------
         with st.expander("Adicionar nova anotação", expanded=False, icon=":material/add_notes:"):
             nova_data = datetime.now().date()
-            novo_texto = st.text_area("Texto da anotação", key="nova_anotacao", height="content")
+            novo_texto = st.text_area("Texto da anotação", key="nova_anotacao", height="content", disabled=usuario_visitante)
 
-            if st.button("Adicionar anotação", key="btn_add_anotacao", icon=":material/add_notes:"):
+            if st.button("Adicionar anotação", key="btn_add_anotacao", icon=":material/add_notes:", disabled=usuario_visitante):
                 if novo_texto.strip():
                     nova_entry = {
                         "data_anotacao": datetime.now().strftime("%d/%m/%Y %H:%M"),
@@ -468,6 +468,11 @@ def cadastro_rede():
 ######################################################################################################
 # MAIN
 ######################################################################################################
+
+
+# Verifica se o usuário é visitante
+usuario_visitante = "visitante" in st.session_state.get("tipo_usuario", [])
+
 
 
 st.header("Redes e Articulações")

@@ -1,9 +1,9 @@
 import streamlit as st
 import pandas as pd 
-from funcoes_auxiliares import conectar_mongo_portal_ispn
+from funcoes_auxiliares import conectar_mongo_portal_ispn, altura_dataframe
 from bson import ObjectId
 from pymongo import MongoClient
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 import re
 import time
 from urllib.parse import quote
@@ -157,6 +157,29 @@ def parse_itinerario(itinerario_texto):
 
     return viagens
 
+
+# Função para a aba de Relatórios pendentes
+def obter_fim_viagem_datetime(itinerario_texto):
+    if not isinstance(itinerario_texto, str) or not itinerario_texto.strip():
+        return pd.NaT
+
+    trechos = parse_itinerario(itinerario_texto)
+
+    if not trechos:
+        return pd.NaT
+
+    data_fim = trechos[-1].get("Data")
+
+    if not data_fim:
+        return pd.NaT
+
+    return pd.to_datetime(
+        data_fim,
+        format="%d-%m-%Y",
+        errors="coerce"
+    )
+
+
 # Função para transformar as diarias em uma lista de dicionários
 def parse_diarias(diarias_texto):
     diarias = []
@@ -213,8 +236,6 @@ def get_usuario_normalizado(pessoas, id_usuario) -> dict:
     return usuario
 
 
-
-
 # Função para mostrar os detalhes da SAV no diálogo
 @st.dialog("Detalhes da Viagem", width='large')
 def mostrar_detalhes_sav(row):
@@ -249,7 +270,7 @@ def mostrar_detalhes_sav(row):
 
     col1, col2, col3 = st.columns([1, 1, 1])
 
-    col3.link_button("Editar a Solicitação", icon=":material/edit:", use_container_width=True, url=link_edicao)
+    col3.link_button("Editar a Solicitação", icon=":material/edit:", url=link_edicao)
 
 
     # INFORMAÇÕES
@@ -263,11 +284,11 @@ def mostrar_detalhes_sav(row):
 
     # Exibir os detalhes do itinerário como tabela
     st.write("**Itinerário:**")
-    st.dataframe(df_trechos, use_container_width=True, hide_index=True)
+    st.dataframe(df_trechos, hide_index=True)
 
     # Exibir os detalhes das diárias como tabela
     st.write("**Diárias:**")
-    st.dataframe(df_diarias, use_container_width=False, hide_index=True)
+    st.dataframe(df_diarias,  hide_index=True)
 
     st.write(f"**Custo pago pelo anfitrião:** {row['A viagem tem algum custo pago pelo anfitrião?']}")
 
@@ -303,7 +324,6 @@ def mostrar_detalhes_sav(row):
     st.write('')
 
 
-
 @st.dialog("Detalhes do Relatório", width='large')
 def mostrar_detalhes_rvs(row, df_rvss):
 
@@ -320,7 +340,7 @@ def mostrar_detalhes_rvs(row, df_rvss):
 
     # Botão para editar o relatório
     col1, col2, col3 = st.columns([1, 1, 1])
-    col3.link_button("Editar o Relatório", icon=":material/edit:", use_container_width=True, url=link_edicao)
+    col3.link_button("Editar o Relatório", icon=":material/edit:", url=link_edicao)
 
     # INFORMAÇÕES
     if row["Código da viagem:"].startswith("TRC"):
@@ -393,7 +413,6 @@ def carregar_internos():
     return df_usuarios_internos
 
 
-
 # Cerregar usuários externos no banco de dados ------------------------------
 def carregar_externos():
     # criar um dataframe com os usuários externos
@@ -405,8 +424,8 @@ def carregar_externos():
     return df_usuarios_externos
 
 
-
 # Carregar SAVs internas no google sheets ------------------------------
+@st.cache_data(show_spinner=False, ttl=300)
 def carregar_savs_int():
 
     sheet = client.open_by_key(sheet_id)
@@ -426,7 +445,6 @@ def carregar_savs_int():
     df_savs = df_savs.replace({r'\$': r'\$'}, regex=True)
 
     return df_savs
-
 
 
 # Carregar RVSs internos no google sheets ------------------------------
@@ -452,64 +470,9 @@ def carregar_rvss_int():
     return df_rvss
 
 
-
-# Carregar SAVs externas no google sheets ------------------------------
-# def carregar_savs_ext():
-
-#     # Abrir a planilha de SAVs externas
-#     sheet = client.open_by_key(sheet_id)
-
-#     # Ler todos os valores da planilha
-#     values_savs = sheet.worksheet("SAVs EXTERNAS Portal").get_all_values()
-
-#     # Criar DataFrame de SAVs. A primeira linha é usada como cabeçalho
-#     df_savs = pd.DataFrame(values_savs[1:], columns=values_savs[0])
-
-#     # Converter as colunas de data para datetime
-#     df_savs["Submission Date"] = pd.to_datetime(df_savs["Submission Date"])  # Garantir que é datetime
-#     df_savs["Submission Date"] = df_savs["Submission Date"].dt.strftime("%d/%m/%Y")  # Converter para string no formato brasileiro
-
-#     # Filtar SAVs com o prefixo "EXT-"
-#     df_savs = df_savs[df_savs['Código da viagem:'].str.upper().str.startswith('EXT-')]
-   
-#     # Substitui o caractere $ por \$ para que o Streamlit possa exibir corretamente
-#     df_savs = df_savs.replace({'\$': '\\$'}, regex=True)
-
-#     # Renomeia as colunas para que tenham nomes mais legíveis
-#     df_savs.rename(columns={'Insira aqui os seus deslocamentos. Cada trecho em uma nova linha:': 'Itinerário:',
-#                             'Nome do ponto focal no ISPN (a pessoa que está convidando)': 'Ponto focal:'}, inplace=True)
-
-#     return df_savs
-
-
-# # Carregar RVSs externos no google sheets ------------------------------
-# # @st.cache_data(show_spinner=False)
-# def carregar_rvss_ext():
-
-#     # Abrir a planilha de RVSs externas
-#     sheet = client.open_by_key(sheet_id)
-
-#     # Ler todos os valores da planilha
-#     # values_rvss = sheet.worksheet("TESTE RENATO SAVs").get_all_values()
-#     values_rvss = sheet.worksheet("RVSs EXTERNOS Portal").get_all_values()
-
-#     # Criar DataFrame de RVSs. A primeira linha é usada como cabeçalho
-#     df_rvss = pd.DataFrame(values_rvss[1:], columns=values_rvss[0])
-
-#     # Filtar SAVs com o prefixo "EXT-"
-#     df_rvss = df_rvss[df_rvss['Código da viagem:'].str.upper().str.startswith('EXT-')]
-
-#     # Converter as colunas de data para datetime
-#     df_rvss["Submission Date"] = pd.to_datetime(df_rvss["Submission Date"])  # Garantir que é datetime
-#     df_rvss["Submission Date"] = df_rvss["Submission Date"].dt.strftime("%d/%m/%Y")  # Converter para string no formato brasileiro
-
-#     df_rvss = df_rvss.replace({'\$': '\\$'}, regex=True)
-
-#     return df_rvss
-
-
 # Carregar SAVs de terceiros no google sheets ------------------------------
 # @st.cache_data(show_spinner=False)
+@st.cache_data(show_spinner=False, ttl=300)
 def carregar_savs_trc():
 
     # Abrir a planilha de SAVs de terceiros
@@ -565,9 +528,136 @@ def carregar_rvss_trc():
     return df_rvss_terceiros
 
 
+# Carregar SAVs Externas no google sheets ------------------------------
+@st.cache_data(show_spinner=False, ttl=300)
+def carregar_savs_ext():
+    sheet = client.open_by_key(sheet_id)
+
+    values = sheet.worksheet("SAVs EXTERNAS Portal").get_all_values()
+
+    df = pd.DataFrame(values[1:], columns=values[0])
+
+    df["Submission Date"] = pd.to_datetime(df["Submission Date"])
+    df["Submission Date"] = df["Submission Date"].dt.strftime("%d/%m/%Y")
+
+    df = df[
+        df["Código da viagem:"]
+        .astype(str)
+        .str.upper()
+        .str.startswith("EXT-")
+    ]
+
+    return df
 
 
-@st.dialog("Cadastrar viajante externo", width="large")
+# Carregar RVSs Externas no google sheets ------------------------------
+def carregar_rvss_ext():
+    sheet = client.open_by_key(sheet_id)
+
+    values = sheet.worksheet("RVSs EXTERNOS Portal").get_all_values()
+
+    df = pd.DataFrame(values[1:], columns=values[0])
+
+    df["Submission Date"] = pd.to_datetime(df["Submission Date"])
+    df["Submission Date"] = df["Submission Date"].dt.strftime("%d/%m/%Y")
+
+    df = df[
+        df["Código da viagem:"]
+        .astype(str)
+        .str.upper()
+        .str.startswith("EXT-")
+    ]
+
+    return df
+
+
+def terceiro_esta_impedido(cpf_viajante, df_savs_trc, df_rvss_trc):
+    """
+    Retorna True se o viajante externo (CPF) tiver
+    viagem finalizada sem relatório entregue.
+    """
+
+    cpf_viajante = "".join(filter(str.isdigit, str(cpf_viajante)))
+
+    df_savs_trc = df_savs_trc.copy()
+    df_savs_trc["CPF:"] = (
+        df_savs_trc["CPF:"]
+        .astype(str)
+        .str.replace(r"\D", "", regex=True)
+    )
+
+    df_viajante = df_savs_trc[
+        df_savs_trc["CPF:"] == cpf_viajante
+    ]
+
+    if df_viajante.empty:
+        return False
+
+    codigos_com_rvs = (
+        df_rvss_trc["Código da viagem:"]
+        .astype(str)
+        .str.strip()
+        .str.upper()
+        .unique()
+    )
+
+    for _, row in df_viajante.iterrows():
+
+        codigo = str(row["Código da viagem:"]).strip().upper()
+
+        if codigo in codigos_com_rvs:
+            continue
+
+        fim_viagem = obter_fim_viagem_datetime(row["Itinerário:"])
+
+        if pd.isna(fim_viagem):
+            continue
+
+        if fim_viagem.date() < date.today():
+            return True
+
+    return False
+
+
+def usuario_esta_impedido(df_savs_usuario, df_rvss):
+
+    codigos_com_rvs = (
+        df_rvss["Código da viagem:"]
+        .astype(str)
+        .str.strip()
+        .str.upper()
+        .unique()
+    )
+
+    for _, row in df_savs_usuario.iterrows():
+
+        codigo = str(row["Código da viagem:"]).strip().upper()
+
+        if codigo in codigos_com_rvs:
+            continue
+
+        trechos = parse_itinerario(row["Itinerário:"])
+        if not trechos:
+            continue
+
+        data_final = trechos[-1].get("Data")
+
+        fim_viagem = pd.to_datetime(
+            data_final,
+            format="%d-%m-%Y",
+            errors="coerce"
+        )
+
+        if pd.isna(fim_viagem):
+            continue
+
+        if fim_viagem.date() < date.today():
+            return True
+
+    return False
+
+
+@st.dialog("Cadastrar viajante externo", width="medium")
 def cadastrar_externo():
     with st.form("cadastrar_externo"):
         # Criação de duas colunas para organização dos campos no formulário
@@ -629,7 +719,7 @@ def cadastrar_externo():
         st.write('')
 
 
-        if st.form_submit_button("Cadastrar viajante externo", icon=":material/person_add:", type="primary"):
+        if st.form_submit_button("Cadastrar viajante externo", icon=":material/person_add:", type="primary", disabled=usuario_visitante):
             # Verifica se há erros nos campos
             erros = []
 
@@ -697,7 +787,19 @@ def cadastrar_externo():
 
 
 
-# Usuário interno: 
+
+
+# ################################################################################
+# TRATAMENTO DOS DADOS
+# ################################################################################
+
+
+# Verifica se o usuário é visitante
+usuario_visitante = "visitante" in st.session_state.get("tipo_usuario", [])
+
+
+
+
 # carrega SAVs e RVSs internas
 df_savs = carregar_savs_int()
 df_rvss = carregar_rvss_int()
@@ -711,38 +813,85 @@ linha_botoes = st.container(horizontal=True, horizontal_alignment="right")
 
 # Botão para atualizar a página
 if linha_botoes.button("Atualizar página", icon=":material/refresh:", width=200):
-    # Limpa o session_state e o cache, e recarrega a página
-    st.session_state.status_usuario = ""
+    # Limpa o cache, e recarrega a página
     st.cache_data.clear()
     st.rerun()  
-    
-    
-st.write("")
-
-# Abas da home
-minhas_viagens, nova_sav, terceiros = st.tabs([":material/flight_takeoff: Minhas Viagens", ":material/add: Nova Solicitação de Viagem", ":material/group: Solicitações para Terceiros"])
 
 
+
+
+# TRATAMENTO DO df_savs  ---------------------------------
+
+# Limpar a coluna CPF: quero apenas os números
+df_savs['CPF:'] = df_savs['CPF:'].str.replace(r'[^\d]+', '', regex=True)
+
+# Capturar a data da viagem
+df_savs['Data da viagem:'] = df_savs['Itinerário:'].str[6:16].replace('-', '/', regex=True)
+
+destinos = r'Cidade de chegada: (.*?)(?:,|$)'
+
+# Aplicar a regex para cada linha da coluna
+df_savs["Destinos:"] = df_savs["Itinerário:"].apply(lambda x: ' > '.join(re.findall(destinos, x)))
+
+
+
+
+# Controle de permissão para mostrar a aba de pendências
+
+# Labels das abas (com ícones)
+abas_labels = [
+    ":material/flight_takeoff: Minhas Viagens",
+    ":material/add: Nova Solicitação de Viagem",
+    ":material/group: Solicitações para Terceiros",
+]
+
+# Perfis com acesso à aba Pendências
+PERFIS_COM_ACESSO_PENDENCIAS = {
+    "admin",
+    "coordenador",
+    "gestao_viagens"
+}
+
+# tipo_usuario é sempre lista
+tipo_usuario = st.session_state.get("tipo_usuario", [])
+
+tem_acesso_pendencias = bool(
+    set(tipo_usuario) & PERFIS_COM_ACESSO_PENDENCIAS
+)
+
+# Adiciona a aba Pendências somente se tiver acesso
+if tem_acesso_pendencias:
+    abas_labels.append(":material/assignment_late: Pendências")
+
+# Cria as abas
+tabs = st.tabs(abas_labels)
+
+# Desempacota
+minhas_viagens = tabs[0]
+nova_sav = tabs[1]
+terceiros = tabs[2]
+pendencias = tabs[3] if tem_acesso_pendencias else None
+
+df_minhas_savs = df_savs[
+    df_savs['CPF:'].astype(str) == st.session_state.cpf
+]
+
+st.session_state.status_usuario = (
+    "impedido"
+    if usuario_esta_impedido(df_minhas_savs, df_rvss)
+    else "liberado"
+)
+
+
+# #######################################################################
 # ABA MINHAS VIAGENS
+# #######################################################################
 
 with minhas_viagens:
 
-    # TRATAMENTO DO df_savs  ---------------------------------
-
-    # Limpar a coluna CPF: quero apenas os números
-    df_savs['CPF:'] = df_savs['CPF:'].str.replace(r'[^\d]+', '', regex=True)
-
     # Filtar SAVs com o CPF do usuário
-    # df_savs = df_savs[df_savs['CPF:'].astype(str) == str(usuario['cpf'])]
-    df_savs = df_savs[df_savs['CPF:'].astype(str) == st.session_state.cpf]
+    df_minhas_savs = df_savs[df_savs['CPF:'].astype(str) == st.session_state.cpf]
 
-    # Capturar a data da viagem
-    df_savs['Data da viagem:'] = df_savs['Itinerário:'].str[6:16].replace('-', '/', regex=True)
-
-    destinos = r'Cidade de chegada: (.*?)(?:,|$)'
-    
-    # Aplicar a regex para cada linha da coluna
-    df_savs["Destinos:"] = df_savs["Itinerário:"].apply(lambda x: ' > '.join(re.findall(destinos, x)))
 
     # -------------------------------------
 
@@ -756,11 +905,8 @@ with minhas_viagens:
     col4.write('**Solicitações**')
     col5.write('**Relatórios**')
 
-    # Iniciar a variável na session_state que vai identificar se o usuário está impedido ou não de enviar relatório (se tem algum pendente)
-    st.session_state.status_usuario = ""
-
     # Iterar sobre a lista de viagens
-    for index, row in df_savs[::-1].iterrows():
+    for index, row in df_minhas_savs[::-1].iterrows():
 
         # Preparar o link personalizado para o relatório -----------------------------------------------------
 
@@ -805,7 +951,7 @@ with minhas_viagens:
         col1.write(row['Código da viagem:'])
         col2.write(row['Data da viagem:'])
         col3.write(row['Destinos:'])
-        col4.button('Detalhes', key=f"detalhes_{index}", on_click=mostrar_detalhes_sav, args=(row,), use_container_width=True, icon=":material/info:")
+        col4.button('Detalhes', key=f"detalhes_{index}", on_click=mostrar_detalhes_sav, args=(row,), width="stretch", icon=":material/info:")
         
 
         # Botão dinâmico sobre o relatório --------------------------------------------
@@ -817,27 +963,22 @@ with minhas_viagens:
         # Se não tem nenhum relatório com esse código de SAV
         else:
             status_relatorio = "pendente"
-
-            # Se a data_final da viagem menor do que hoje, o usuário está impedido
-            if pd.to_datetime(data_final, dayfirst=True).timestamp() < pd.to_datetime(date.today()).timestamp():
             
-                # Impede o usuário de enviar uma nova solicitação se tiver relatório pendente
-                st.session_state.status_usuario = "impedido"
-                
-        # Se o relatório foi entregue, vê o relatório  
         if status_relatorio == "entregue":
-            col5.button('Relatório entregue', key=f"entregue_{index}", on_click=mostrar_detalhes_rvs, args=(row, df_rvss), use_container_width=True, icon=":material/check:", type="primary")
+            col5.button('Relatório entregue', key=f"entregue_{index}", on_click=mostrar_detalhes_rvs, args=(row, df_rvss), width="stretch", icon=":material/check:", type="primary")
         
         # Se não foi entregue, botão para enviar
         if status_relatorio == "pendente":
             # Se não foi entregue, botão para enviar
-            col5.link_button('Enviar relatório', use_container_width=True, icon=":material/description:", url=jotform_rvs_url)
+            col5.link_button('Enviar relatório', width="stretch", icon=":material/description:", url=jotform_rvs_url)
 
         st.divider()  # Separador entre cada linha da tabela
 
 
-
+# #######################################################################
 # ABA DE NOVA SOLICITAÇÃO
+# #######################################################################
+
 
 with nova_sav:
 
@@ -902,6 +1043,13 @@ with nova_sav:
         col2.subheader('Após enviar, role a página até o topo :material/keyboard_double_arrow_up:')
 
 
+
+
+# #######################################################################
+# ABA DE NOVA SOLICITAÇÃO PARA TERCEIROS
+# #######################################################################
+
+
 with terceiros:
 
     id_usuario = st.session_state.get("id_usuario")
@@ -926,6 +1074,12 @@ with terceiros:
     if viajante_nome != "":
 
         viajante = df_usuarios_externos[df_usuarios_externos['nome_completo'] == viajante_nome].iloc[0].to_dict()
+
+        impedido = terceiro_esta_impedido(
+            viajante["cpf"],
+            df_savs_terceiros,
+            df_rvss_terceiros
+        )
 
         # Monta a URL do JotForm para solicitação de SAV para Terceiros
 
@@ -967,10 +1121,28 @@ with terceiros:
         col2.write('')
         col2.write('')
 
-        # Mensagem de manutenção.
-        # col2.write('Site em manutenção. Tente novamente mais tarde.')
+        if impedido:
+            st.write("")
+            st.markdown("""
+                <div style="text-align: center;">
+                    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded" rel="stylesheet">
+                    <span class="material-symbols-rounded" style="font-size:58px; color:red;">
+                        warning
+                    </span>
+                </div>
+                <div style="text-align: center; color: red; font-size: 18px;">
+                    Este viajante possui <strong>relatórios pendentes</strong> de viagens anteriores.<br>
+                    É necessário enviar os relátorios antes de solicitar uma nova viagem.
+                </div>
+            """, unsafe_allow_html=True)
 
-        col2.markdown(f"<a href='{jotform_sav_url}' target='_blank'>>> Clique aqui criar uma nova SAV para Terceiros</a>", unsafe_allow_html=True)
+        else:
+            col2.markdown(
+                f"<a href='{jotform_sav_url}' target='_blank'>>> Clique aqui criar uma nova SAV para Terceiros</a>",
+                unsafe_allow_html=True
+            )
+
+        #col2.markdown(f"<a href='{jotform_sav_url}' target='_blank'>>> Clique aqui criar uma nova SAV para Terceiros</a>", unsafe_allow_html=True)
 
     else:
 
@@ -992,9 +1164,6 @@ with terceiros:
     # Limpar a coluna CPF do responsável pela SAV quero apenas os números
     df_savs_terceiros['CPF do responsável pela SAV:'] = df_savs_terceiros['CPF do responsável pela SAV:'].str.replace(r'[^\d]+', '', regex=True)
 
-    # Filtar SAVs com o CPF do usuário
-    df_savs_terceiros = df_savs_terceiros[df_savs_terceiros['CPF do responsável pela SAV:'].astype(str) == str(usuario['cpf'])]
-
     # Capturar a data da viagem
     df_savs_terceiros['Data da viagem:'] = df_savs_terceiros['Itinerário:'].str[6:16].replace('-', '/', regex=True)
 
@@ -1003,6 +1172,10 @@ with terceiros:
     
     # Aplicar a regex para cada linha da coluna
     df_savs_terceiros["Destinos:"] = df_savs_terceiros["Itinerário:"].apply(lambda x: ' > '.join(re.findall(destinos, x)))
+
+    # Filtar SAVs com o CPF do usuário
+    df_savs_terceiros_meus = df_savs_terceiros[df_savs_terceiros['CPF do responsável pela SAV:'].astype(str) == str(usuario['cpf'])].copy()
+
 
 
     # Criar cabeçalho da "tabela"
@@ -1016,7 +1189,7 @@ with terceiros:
     col6.write('Relatórios')
 
     # Iterar sobre a lista de viagens
-    for index, row in df_savs_terceiros[::-1].iterrows():
+    for index, row in df_savs_terceiros_meus[::-1].iterrows():
 
         # Preparar o link personalizado para o relatório -----------------------------------------------------
 
@@ -1063,7 +1236,7 @@ with terceiros:
         col2.write(row['Data da viagem:'])
         col3.write(row['Nome do(a) viajante:'])
         col4.write(row['Destinos:'])
-        col5.button('Detalhes', key=f"detalhes_terc_{index}", on_click=mostrar_detalhes_sav, args=(row,), use_container_width=True, icon=":material/info:")
+        col5.button('Detalhes', key=f"detalhes_terc_{index}", on_click=mostrar_detalhes_sav, args=(row,), width="stretch", icon=":material/info:")
         
 
         # Botão dinâmico sobre o relatório --------------------------------------------
@@ -1081,14 +1254,283 @@ with terceiros:
 
         # Se o relatório foi entregue, vê o relatório  
         if status_relatorio == "entregue":
-            col6.button('Relatório entregue', key=f"entregue_ter_{index}", on_click=mostrar_detalhes_rvs, args=(row, df_rvss_terceiros), use_container_width=True, icon=":material/check:", type="primary")
+            col6.button('Relatório entregue', key=f"entregue_ter_{index}", on_click=mostrar_detalhes_rvs, args=(row, df_rvss_terceiros), width="stretch", icon=":material/check:", type="primary")
         
         # Se não foi entregue, botão para enviar
         # else:
         elif status_relatorio == "pendente":
             # Se não foi entregue, botão para enviar
-            col6.link_button('Enviar relatório', use_container_width=True, icon=":material/description:", url=jotform_rvs_terceiros_url)
+            col6.link_button('Enviar relatório', width="stretch", icon=":material/description:", url=jotform_rvs_terceiros_url)
 
         st.divider()  # Separador entre cada linha da tabela
 
 
+
+
+
+
+
+# #######################################################################
+# ABA DE PENDÊNCIAS
+# #######################################################################
+
+if not usuario_visitante:
+
+    # ABA DE PENDÊNCIAS
+    with pendencias:
+
+        st.subheader("Relatórios pendentes de viagens terminadas há mais de 15 dias")
+        st.write("")
+
+        col_savs_int, col_savs_ext, col_savs_trc = st.columns(3, gap="medium")
+
+        # ===============================
+        # SAVs INTERNAS SEM RVS
+        # ===============================
+        with col_savs_int:
+            st.markdown("#### SAVs Internas")
+
+            if "Código da viagem:" in df_savs.columns and "Código da viagem:" in df_rvss.columns:
+
+                # Normalização completa dos códigos
+                savs_codigos = (
+                    df_savs["Código da viagem:"]
+                    .astype(str)
+                    .str.strip()
+                    .str.upper()
+                )
+
+                rvss_codigos = (
+                    df_rvss["Código da viagem:"]
+                    .astype(str)
+                    .str.strip()
+                    .str.upper()
+                )
+
+                # Filtra SAVs que NÃO possuem RVS
+                df_savs_pendentes = df_savs[
+                    ~savs_codigos.isin(rvss_codigos)
+                ].copy()
+
+                # Capturar a data de fim da viagem
+                df_savs_pendentes["Fim da viagem"] = df_savs_pendentes[
+                    "Itinerário:"
+                ].apply(obter_fim_viagem_datetime)
+
+
+                # Limite de 15 dias para considerar os Relatórios atrasados.
+                data_limite = pd.Timestamp.today().normalize() - pd.Timedelta(days=15)
+
+                # Filtra Relatórios atrasados
+                df_savs_pendentes_atrasadas = df_savs_pendentes[
+                    df_savs_pendentes["Fim da viagem"] < data_limite
+                ].copy()
+
+
+                if df_savs_pendentes_atrasadas.empty:
+                    st.info("Não há SAVs internas com RVS em atraso superior a 15 dias.")
+                else:
+
+                    st.write(
+                        f"{df_savs_pendentes_atrasadas.shape[0]} relatórios atrasados"
+                    )
+
+                    df_exibicao = df_savs_pendentes_atrasadas[
+                        [
+                            "Código da viagem:",
+                            "Nome completo:",
+                            "Fim da viagem"
+                        ]
+                    ]
+
+                    st.dataframe(
+                        df_exibicao,
+                        height=altura_dataframe(df_exibicao, linhas_adicionais=0),
+                        hide_index=True,
+                        use_container_width=True,
+                        column_config={
+                            "Fim da viagem": st.column_config.DateColumn(
+                                format="DD/MM/YYYY"
+                            )
+                        }
+                    )
+
+
+
+
+
+            else:
+                st.error("Coluna 'Código da viagem:' não encontrada.")
+
+
+
+
+        # ===============================
+        # SAVs PARA TERCEIROS SEM RVS
+        # ===============================
+        with col_savs_ext:
+            st.markdown("#### SAVs para Terceiros")
+
+
+            if (
+                "Código da viagem:" in df_savs_terceiros.columns
+                and "Código da viagem:" in df_rvss_terceiros.columns
+            ):
+
+                # Normalização completa dos códigos
+                savs_codigos = (
+                    df_savs_terceiros["Código da viagem:"]
+                    .astype(str)
+                    .str.strip()
+                    .str.upper()
+                )
+
+                rvss_codigos = (
+                    df_rvss_terceiros["Código da viagem:"]
+                    .astype(str)
+                    .str.strip()
+                    .str.upper()
+                )
+
+                # Filtra SAVs que NÃO possuem RVS
+                df_savs_pendentes = df_savs_terceiros[
+                    ~savs_codigos.isin(rvss_codigos)
+                ].copy()
+
+                # Capturar a data de fim da viagem
+                df_savs_pendentes["Fim da viagem"] = df_savs_pendentes[
+                    "Itinerário:"
+                ].apply(obter_fim_viagem_datetime)
+
+                # Limite de 15 dias
+                data_limite = pd.Timestamp.today().normalize() - pd.Timedelta(days=15)
+
+                # Filtra atrasadas
+                df_savs_pendentes_atrasadas = df_savs_pendentes[
+                    df_savs_pendentes["Fim da viagem"] < data_limite
+                ].copy()
+
+                # SEMPRE mostra a contagem
+                st.write(
+                    f"{df_savs_pendentes_atrasadas.shape[0]} relatórios atrasados"
+                )
+
+                # Só mostra o dataframe se houver registros
+                if not df_savs_pendentes_atrasadas.empty:
+
+
+                    df_exibicao = df_savs_pendentes_atrasadas[
+                        [
+                            "Código da viagem:",
+                            "Responsável pela SAV:",
+                            "Fim da viagem"
+                        ]
+                    ]
+
+                    st.dataframe(
+                        df_exibicao,
+                        height=altura_dataframe(df_exibicao, linhas_adicionais=0),
+                        hide_index=True,
+                        use_container_width=True,
+                        column_config={
+                            "Fim da viagem": st.column_config.DateColumn(
+                                format="DD/MM/YYYY"
+                            )
+                        }
+                    )
+
+
+            else:
+                st.error("Coluna 'Código da viagem:' não encontrada.")
+
+
+
+
+
+
+        # ===============================
+        # SAVs EXTERNAS SEM RVS
+        # ===============================
+        with col_savs_trc:
+            st.markdown("#### SAVs Externas")
+
+            # Carregamento CONDICIONAL (somente para quem vê a aba)
+            df_savs_externas = carregar_savs_ext()
+
+            # Renomeia a coluna para Itinerário:
+            df_savs_externas = df_savs_externas.rename(
+                columns={
+                    "Insira aqui os seus deslocamentos. Cada trecho em uma nova linha:": "Itinerário:"
+                }
+            )
+
+            df_rvss_externas = carregar_rvss_ext()
+
+            if (
+                "Código da viagem:" in df_savs_externas.columns
+                and "Código da viagem:" in df_rvss_externas.columns
+            ):
+
+                # Normalização dos códigos
+                savs_codigos = (
+                    df_savs_externas["Código da viagem:"]
+                    .astype(str)
+                    .str.strip()
+                    .str.upper()
+                )
+
+                rvss_codigos = (
+                    df_rvss_externas["Código da viagem:"]
+                    .astype(str)
+                    .str.strip()
+                    .str.upper()
+                )
+
+                # SAVs sem RVS
+                df_savs_pendentes = df_savs_externas[
+                    ~savs_codigos.isin(rvss_codigos)
+                ].copy()
+
+                # Fim da viagem (datetime)
+                df_savs_pendentes["Fim da viagem"] = df_savs_pendentes[
+                    "Itinerário:"
+                ].apply(obter_fim_viagem_datetime)
+
+                # Limite de 15 dias
+                data_limite = pd.Timestamp.today().normalize() - pd.Timedelta(days=15)
+
+                # Apenas atrasadas
+                df_savs_pendentes_atrasadas = df_savs_pendentes[
+                    df_savs_pendentes["Fim da viagem"] < data_limite
+                ].copy()
+
+                # SEMPRE mostrar a contagem
+                st.write(
+                    f"{df_savs_pendentes_atrasadas.shape[0]} relatórios atrasados"
+                )
+
+                # Mostrar tabela somente se houver registros
+                if not df_savs_pendentes_atrasadas.empty:
+
+                    df_exibicao = df_savs_pendentes_atrasadas[
+                        [
+                            "Código da viagem:",
+                            "Nome completo:",
+                            "Fim da viagem"
+                        ]
+                    ]
+
+                    st.dataframe(
+                        df_exibicao,
+                        height=altura_dataframe(df_exibicao, linhas_adicionais=0),
+                        hide_index=True,
+                        use_container_width=True,
+                        column_config={
+                            "Fim da viagem": st.column_config.DateColumn(
+                                format="DD/MM/YYYY"
+                            )
+                        }
+                    )
+
+            else:
+                st.error("Coluna 'Código da viagem:' não encontrada.")

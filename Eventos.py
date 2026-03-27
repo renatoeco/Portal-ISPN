@@ -1,13 +1,11 @@
 import streamlit as st
 import pandas as pd 
 from funcoes_auxiliares import conectar_mongo_portal_ispn
-# from bson import ObjectId
-from pymongo import MongoClient
+from streamlit_calendar import calendar
 from datetime import datetime
 import re
-# import time
-# from urllib.parse import quote
-# import streamlit.components.v1 as components
+import time
+import streamlit_antd_components as sac
 import gspread
 from google.oauth2.service_account import Credentials
 
@@ -22,6 +20,11 @@ st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
 st.header("Eventos")
 st.write('')
 
+STATUS_EVENTOS = ["Previsto", "Confirmado", "Cancelado"]
+CORES_STATUS = {
+    "Previsto": "#F4D03F",     # amarelo
+    "Confirmado": "#2ECC71",   # verde
+}
 
 
 
@@ -34,17 +37,7 @@ st.write('')
 
 db = conectar_mongo_portal_ispn()
 estatistica = db["estatistica"]  # Coleção de estatísticas
-
-
-# BANCO DE DADOS ISPN VIAGENS -----------------
-
-# @st.cache_resource
-# def get_mongo_client():
-#     MONGODB_URI = st.secrets['senhas']['senha_mongo_portal_viagens']
-#     return MongoClient(MONGODB_URI)
-
-# cliente = get_mongo_client()
-# banco_de_dados = cliente["plataforma_sav"]
+eventos = db["eventos"]
 
 
 ###########################################################################################################
@@ -95,7 +88,7 @@ st.session_state["pagina_anterior"] = PAGINA_ID
 
 
 # Função para criar o cliente do Google Sheets
-@st.cache_resource
+@st.cache_resource(show_spinner=False)
 def get_gsheet_client():
     # Escopo necessário para acessar os dados do Google Sheets
     scope = ["https://www.googleapis.com/auth/spreadsheets"]
@@ -117,16 +110,12 @@ client = get_gsheet_client()
 sheet_id = st.secrets.ids.id_planilha_recebimento_eventos
 
 
-
-
-
-
 # ##################################################################
 # FUNÇÕES AUXILIARES
 # ##################################################################
 
 # Carregar Eventos no google sheets ------------------------------
-@st.cache_data
+@st.cache_data(show_spinner=False)
 def carregar_eventos():
 
     sheet = client.open_by_key(sheet_id)
@@ -135,6 +124,17 @@ def carregar_eventos():
 
     # Criar DataFrame de Eventos. A primeira linha é usada como cabeçalho
     df_eventos = pd.DataFrame(values_eventos[1:], columns=values_eventos[0])
+
+    # --------------------------------------------------
+    # NORMALIZAR CPF (garantir 11 dígitos com zeros à esquerda)
+    # --------------------------------------------------
+
+    df_eventos["CPF"] = (
+        df_eventos["CPF"]
+        .astype(str)
+        .str.replace(r"\D", "", regex=True)  # remove pontos e traços
+        .str.zfill(11)                       # garante 11 dígitos
+    )
 
     # Converter as colunas de data para datetime
     df_eventos["Submission Date"] = pd.to_datetime(df_eventos["Submission Date"])  # Garantir que é datetime
@@ -150,6 +150,169 @@ def carregar_eventos():
     return df_eventos
 
 
+def montar_eventos_calendario(df_eventos):
+    eventos_cal = []
+
+    for _, row in df_eventos.iterrows():
+        status = row["Status"]
+
+        # Ignorar eventos cancelados
+        if status == "Cancelado":
+            continue
+
+        data_str = row["Data do evento"]
+        if not data_str or " a " not in data_str:
+            continue
+
+        try:
+            # Datas estão no formato “DD-MM-YYYY a DD-MM-YYYY”
+            inicio_str, fim_str = data_str.split(" a ")
+            inicio_date = datetime.strptime(inicio_str, "%d-%m-%Y").date()
+            fim_date = datetime.strptime(fim_str, "%d-%m-%Y").date()
+
+            # FullCalendar usa end EXCLUSIVO → somar 1 dia
+            fim_date = fim_date + pd.Timedelta(days=1)
+
+            inicio_iso = inicio_date.isoformat()
+            fim_iso = fim_date.isoformat()
+
+        except:
+            continue
+
+        eventos_cal.append({
+            "title": f"{row['Atividade:']} ({row['Código do evento:']})",
+            "start": inicio_iso,
+            "end": fim_iso,
+            "allDay": True,
+            "backgroundColor": CORES_STATUS.get(status, "#95A5A6"),
+            "borderColor": CORES_STATUS.get(status, "#95A5A6"),
+        })
+
+    return eventos_cal
+
+
+def sincronizar_status_evento(codigo_evento, key_status):
+    novo_status = st.session_state.get(key_status)
+
+    if not novo_status:
+        return
+
+    codigo_evento = str(codigo_evento).strip()
+
+    # Atualiza MongoDB
+    eventos.update_one(
+        {"codigo": codigo_evento},
+        {"$set": {"status": novo_status}}
+    )
+
+    # Atualiza DataFrame em memória
+    df_eventos.loc[
+        df_eventos["Código do evento:"].astype(str).str.strip() == codigo_evento,
+        "Status"
+    ] = novo_status
+
+    st.session_state["status_atualizado"] = True
+
+
+def calendario_eventos():
+
+    eventos_cal = montar_eventos_calendario(df_eventos)
+
+    if not eventos_cal:
+        st.info("Nenhum evento previsto ou confirmado para exibir.")
+        return
+
+    calendar_options = {
+        "headerToolbar": {
+            "left": "today prev,next",
+            "center": "title",
+            "right": "dayGridMonth,dayGridWeek,listWeek"
+        },
+        "initialView": "dayGridMonth",  
+        "selectable": False,    
+        "editable": False,
+        "height": 550
+    }
+
+    with st.container():
+        calendar(
+            events=eventos_cal,
+            options=calendar_options,
+        )
+
+
+def sincronizar_eventos_novos(df_eventos, eventos_collection):
+    """
+    Verifica se existem códigos de eventos no Google Sheets
+    que ainda não estão cadastrados no MongoDB.
+    Se existirem, cadastra com status = 'previsto'.
+    """
+
+    # 1. Códigos vindos do Google Sheets
+    codigos_sheet = set(
+        df_eventos["Código do evento:"]
+        .dropna()
+        .astype(str)
+        .str.strip()
+    )
+
+    if not codigos_sheet:
+        return
+
+    # 2. Códigos já existentes no MongoDB
+    codigos_mongo = set(
+        eventos_collection.distinct("codigo")
+    )
+
+    # 3. Descobrir códigos novos
+    codigos_novos = codigos_sheet - codigos_mongo
+
+    if not codigos_novos:
+        return  # Não há eventos novos → não faz nada
+
+    # 4. Montar documentos para inserção
+    documentos = [
+        {
+            "codigo": codigo,
+            "status": "Previsto",
+        }
+        for codigo in codigos_novos
+    ]
+
+    # 5. Inserir de uma vez (mais performático)
+    eventos_collection.insert_many(documentos)
+
+
+def pode_editar_status(evento_cpf):
+    cpf_usuario = (
+        str(st.session_state.get("cpf", ""))
+        .replace(".", "")
+        .replace("-", "")
+        .zfill(11)
+    )
+
+    tipos_usuario = set(st.session_state.get("tipo_usuario", []))
+
+    # Perfis com permissão global
+    if tipos_usuario & {"admin", "coordenador(a)", "gestao_pessoas"}:
+        return True
+
+    # Solicitante do evento
+    if cpf_usuario == evento_cpf:
+        return True
+
+    return False
+
+
+def atualizar_status_evento(codigo_evento, novo_status):
+    result = eventos.update_one(
+        {"codigo": str(codigo_evento).strip()},
+        {"$set": {"status": novo_status}}
+    )
+
+    if result.matched_count == 0:
+        st.error("Evento não encontrado no banco.")
+
 
 # FUNÇÃO PARA O DIÁLOGO DE DETALHES DO EVENTO  ---------------------------------------------
 
@@ -163,8 +326,15 @@ def detalhes_evento(codigo):
         # Código do evento
         st.subheader(f"**Código:** {evento["Código do evento:"]}")
 
+        cpf_usuario = (
+            str(st.session_state.get("cpf", ""))
+            .replace(".", "")
+            .replace("-", "")
+            .zfill(11)
+        )
+
         # Botão de editar
-        if evento['CPF'] == st.session_state.cpf:
+        if evento['CPF'] == cpf_usuario:
                 
 
             url = f"https://jotform.com/edit/{evento['Submission ID']}"
@@ -220,7 +390,7 @@ def detalhes_evento(codigo):
     mostrar_campo("2) Será necessária hospedagem para os(as) participantes?", 
                 evento.get("2) Será necessária hospedagem para os(as) participantes?"))
     
-    mostrar_campo("Relacione os(as) participantes com hospedagem:", evento.get("Relacione os(as) participantes com hospedagem:"))
+    mostrar_campo("Quantos participantes precisarão de hospedagem?", evento.get("Quantos participantes precisarão de hospedagem?"))
 
     mostrar_campo("3) Será necessário transporte para os(as) participantes?", 
                 evento.get("3) Será necessário transporte para os(as) participantes?"))
@@ -264,74 +434,133 @@ def detalhes_evento(codigo):
     mostrar_campo("Última edição da solicitação:", evento.get("Last Update Date"))
 
 
-
-
 # FUNÇÕES PARA RENDERIZAR AS ABAS DE EVENTOS  ---------------------------------------------
 
 def todos_os_eventos():
 
     st.write('')
 
-    largura_colunas = [2, 2, 5, 3, 3, 3]
+    largura_colunas = [2, 2, 5, 3, 3, 3, 3]
 
     # Cabeçalho das colunas
 
-    col1, col2, col3, col4, col5, col6 = st.columns(largura_colunas)
+    col1, col2, col3, col4, col5, col6, col7 = st.columns(largura_colunas)
 
     col1.write('**Código:**')
     col2.write('**Solicitado em:**')
     col3.write('**Atividade**:')
-    col5.write('**Nome do(a) solicitante**:')
-    col4.write('**Data do evento**:')
-    col6.write('')
+    col4.write('**Nome do(a) solicitante**:')
+    col5.write('**Data do evento:**')
+    col6.write('**Status:**')
+    col7.write('')
+
     st.write('')
 
     # Para cada linha da tabela, lança 6 colunas, com um botão de detalhes na última coluna
     for index, row in df_eventos.iterrows():
-        col1, col2, col3, col4, col5, col6 = st.columns(largura_colunas)
+        col1, col2, col3, col4, col5, col6, col7 = st.columns(largura_colunas)
 
         col1.write(row['Código do evento:'])
         col2.write(row['Data da solicitação:'])
         col3.write(row['Atividade:'])
-        col5.write(row['Técnico(a) responsável:'])
-        col4.write(row['Data do evento'])
+        col4.write(row['Técnico(a) responsável:'])
+        col5.write(row['Data do evento'])
 
-        # Botão de detalhes
-        col6.button("Detalhes", key=f"detalhes_todos_{index}", icon=":material/list:", width="stretch", on_click=detalhes_evento, args=(row["Código do evento:"],))
+        pode_editar = pode_editar_status(row["CPF"])
+
+        status_atual = row["Status"]
+        key_status = f"status_todos_{row['Código do evento:']}"
+
+        modo_edicao = st.session_state.get("modo_edicao", False)
+
+        if pode_editar and modo_edicao:
+            col6.selectbox(
+                label="Status do evento",
+                options=STATUS_EVENTOS,
+                index=STATUS_EVENTOS.index(status_atual),
+                key=key_status,
+                label_visibility="collapsed",
+                on_change=sincronizar_status_evento,
+                args=(row["Código do evento:"], key_status)
+            )
+        else:
+            col6.write(status_atual)
+
+        col7.button(
+            "Detalhes",
+            key=f"detalhes_todos_{index}",
+            icon=":material/list:",
+            width="stretch",
+            on_click=detalhes_evento,
+            args=(row["Código do evento:"],)
+        )
 
 
 def meus_eventos():
     st.write('')
 
+    cpf_usuario = (
+        str(st.session_state.get("cpf", ""))
+        .replace(".", "")
+        .replace("-", "")
+        .zfill(11)
+    )
+
     # Filtrar somente os eventos do usuário
-    df_meus_eventos = df_eventos[df_eventos["CPF"] == st.session_state["cpf"]]
-    largura_colunas = [2, 2, 5, 3, 3, 3]
+    df_meus_eventos = df_eventos[df_eventos["CPF"] == cpf_usuario]
+
+    largura_colunas = [2, 2, 5, 3, 3, 3, 3]
 
     # Cabeçalho das colunas
 
-    col1, col2, col3, col4, col5, col6 = st.columns(largura_colunas)
+    col1, col2, col3, col4, col5, col6, col7 = st.columns(largura_colunas)
 
     col1.write('**Código:**')
     col2.write('**Solicitado em:**')
     col3.write('**Atividade**:')
-    col5.write('**Nome do(a) solicitante**:')
-    col4.write('**Data do evento**:')
-    col6.write('')
+    col4.write('**Nome do(a) solicitante**:')
+    col5.write('**Data do evento:**')
+    col6.write('**Status:**')
+    col7.write('')
     st.write('')
 
     # Para cada linha da tabela, lança 6 colunas, com um botão de detalhes na última coluna
     for index, row in df_meus_eventos.iterrows():
-        col1, col2, col3, col4, col5, col6 = st.columns(largura_colunas)
+        col1, col2, col3, col4, col5, col6, col7 = st.columns(largura_colunas)
 
         col1.write(row['Código do evento:'])
         col2.write(row['Data da solicitação:'])
         col3.write(row['Atividade:'])
-        col5.write(row['Técnico(a) responsável:'])
-        col4.write(row['Data do evento'])
+        col4.write(row['Técnico(a) responsável:'])
+        col5.write(row['Data do evento'])
+        pode_editar = pode_editar_status(row["CPF"])
 
-        # Botão de detalhes
-        col6.button("Detalhes", key=f"detalhes_meus_{index}", icon=":material/list:", width="stretch", on_click=detalhes_evento, args=(row["Código do evento:"],))
+        status_atual = row["Status"]
+        key_status = f"status_meus_{row['Código do evento:']}"
 
+        modo_edicao = st.session_state.get("modo_edicao", False)
+
+        if pode_editar and modo_edicao:
+            col6.selectbox(
+                label="Status do evento",
+                options=STATUS_EVENTOS,
+                index=STATUS_EVENTOS.index(status_atual),
+                key=key_status,
+                label_visibility="collapsed",
+                on_change=sincronizar_status_evento,
+                args=(row["Código do evento:"], key_status)
+            )
+        else:
+            col6.write(status_atual)
+
+        col7.button(
+            "Detalhes",
+            key=f"detalhes_meus_{index}",
+            icon=":material/list:",
+            width="stretch",
+            on_click=detalhes_evento,
+            args=(row["Código do evento:"],)
+        )
 
 
 def nova_solicitacao():
@@ -348,24 +577,77 @@ def nova_solicitacao():
         label="Clique aqui para enviar uma nova solicitação",
         url=url_com_parametro,
         type="secondary",
-        icon=":material/docs:"
+        icon=":material/docs:",
+        disabled=usuario_visitante
     )
 
+def usuario_pode_editar_algum_evento():
 
-def cronograma_eventos():
-    st.write("Cronograma de Eventos")
+    tipos_usuario = set(st.session_state.get("tipo_usuario", []))
 
+    cpf_usuario = (
+        str(st.session_state.get("cpf", ""))
+        .replace(".", "")
+        .replace("-", "")
+        .zfill(11)
+    )
+
+    if tipos_usuario & {"admin", "coordenador(a)", "gestao_pessoas"}:
+        return True
+
+    if cpf_usuario in set(df_eventos["CPF"]):
+        return True
+
+    return False
+
+def render_toggle_edicao(key_toggle):
+
+    container = st.container(horizontal=True, horizontal_alignment="right")
+
+    if usuario_pode_editar_algum_evento():
+
+        valor = container.toggle(
+            "Modo de edição",
+            value=st.session_state.get("modo_edicao", False),
+            key=key_toggle
+        )
+
+        st.session_state["modo_edicao"] = valor
 
 
 # ##################################################################
 # CARREGAMENTO E TRATAMENTO DOS DADOS
 # ##################################################################
 
+# Verifica se o usuário é visitante
+usuario_visitante = "visitante" in st.session_state.get("tipo_usuario", [])
+
+
 df_eventos = carregar_eventos()
+
+sincronizar_eventos_novos(df_eventos, eventos)
+
+# --------------------------------------------------
+# BUSCAR STATUS DOS EVENTOS NO MONGODB
+# --------------------------------------------------
+
+# Criar um dicionário {codigo: status}
+mapa_status = {
+    doc["codigo"]: doc.get("status")
+    for doc in eventos.find({}, {"codigo": 1, "status": 1, "_id": 0})
+}
+
+# Criar coluna Status no dataframe
+df_eventos["Status"] = (
+    df_eventos["Código do evento:"]
+    .astype(str)
+    .str.strip()
+    .map(mapa_status)
+    .fillna("Previsto")
+)
 
 # /???????????
 # st.write(df_eventos.columns)
-
 
 # Renomear as colunas
 df_eventos = df_eventos.rename(columns={
@@ -386,22 +668,9 @@ def extrair_datas(texto):
 df_eventos["Data do evento"] = df_eventos["Datas e horário do evento:"].apply(extrair_datas)
 
 
-
-
-
-
-
-
-
 # ##################################################################
 # INTERFACE
 # ##################################################################
-
-
-
-# # ??????????????????
-# st.write(df_eventos)
-# st.write(st.session_state)
 
 
 with st.container(horizontal=True, horizontal_alignment="right"):
@@ -411,34 +680,70 @@ with st.container(horizontal=True, horizontal_alignment="right"):
         st.cache_resource.clear()
         st.rerun()
 
-# Roteamento de tipo de usuário. admin e gestao_eventos podem ver a aba Todos os eventos
-if set(st.session_state.tipo_usuario) & {"admin", "gestao_eventos"}:
-
-    tabs = st.tabs(["Todos os eventos", "Minhas solicitações", "Nova Solicitação"])
-
-    # Aba Todos os eventos
-    with tabs[0]:
-        todos_os_eventos()
-
-    # Aba Meus eventos
-    with tabs[1]:
-        meus_eventos()
-
-    # Aba Nova Solicitação
-    with tabs[2]:
-        nova_solicitacao()
-
-else:
-    tabs = st.tabs(["Meus eventos", "Nova Solicitação"])
+st.write("")
 
 
 
-    # Aba Meus eventos
-    with tabs[0]:
-        st.write("Meus eventos")
+#with st.expander("Calendário de eventos", expanded=False):
+st.write("")
+st.write("")
 
-    # Aba Nova Solicitação
-    with tabs[1]:
-        st.write("Nova Solicitação")
+#calendario_eventos()
 
+st.write("")
+st.write("")
 
+tab = sac.tabs([
+    sac.TabsItem(label='Calendário', icon='calendar'),
+    sac.TabsItem(label='Todos os eventos', icon='list'),
+    sac.TabsItem(label='Minhas solicitações', icon='person'),
+    sac.TabsItem(label='Nova solicitação', icon='plus'),
+], align='start')
+
+if tab == 'Calendário':
+    calendario_eventos()
+    
+elif tab == 'Todos os eventos':
+    render_toggle_edicao("toggle_meus") 
+    todos_os_eventos()
+
+elif tab == 'Minhas solicitações':
+    render_toggle_edicao("toggle_meus") 
+    meus_eventos()
+
+elif tab == 'Nova solicitação':
+    nova_solicitacao()
+    
+# tabs = st.tabs(["Todos os eventos", "Minhas solicitações", "Nova Solicitação"])
+
+# with tabs[0]:
+    
+#     render_toggle_edicao("toggle_todos")
+#     st.write("")
+    
+#     todos_os_eventos()
+
+# # Aba Meus eventos
+# with tabs[1]:
+    
+#     render_toggle_edicao("toggle_meus") 
+#     st.write("")
+    
+#     meus_eventos()
+
+# # Aba Nova Solicitação
+# with tabs[2]:
+#     nova_solicitacao()
+        
+if st.session_state.get("status_atualizado"):
+    placeholder = st.empty()
+
+    placeholder.success(
+        "Status atualizado",
+        icon=":material/check:"
+    )
+
+    time.sleep(2)
+
+    placeholder.empty()
+    st.session_state["status_atualizado"] = False

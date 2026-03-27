@@ -36,7 +36,8 @@ if "entrega_selecionada_tabela_key" not in st.session_state:
 
 if "entrega" not in st.session_state:
     st.session_state["entrega"] = False
-    
+
+
 # Mapa id_indicador -> nome
 df_indicadores = pd.DataFrame(list(indicadores.find({}, {"nome_indicador": 1})))
 df_indicadores["_id"] = df_indicadores["_id"].astype(str)
@@ -84,7 +85,6 @@ if navegou_para_esta_pagina:
 st.session_state["pagina_anterior"] = PAGINA_ID
 
 
-
 # ##########################################################
 # Funções
 # ##########################################################
@@ -124,12 +124,14 @@ def renderizar_novo_registro(idx):
     ano_lancamento = st.selectbox(
         "Ano do registro",
         options=anos_disponiveis,
-        index=anos_disponiveis.index(ano_atual) 
+        index=anos_disponiveis.index(ano_atual),
+        disabled=usuario_visitante 
     )
 
     anotacoes_lancamento = st.text_area(
         "Anotações",
-        placeholder=""
+        placeholder="",
+        disabled=usuario_visitante 
     )
 
     st.divider()
@@ -185,25 +187,29 @@ def renderizar_novo_registro(idx):
             valor = col1.number_input(
                 "Valor",
                 step=0.01,
-                key=f"valor_{key_base}"
+                key=f"valor_{key_base}",
+                disabled=usuario_visitante 
             )
 
         elif nome_legivel == indicador_texto:
             valor = col1.text_input(
                 "Valor",
-                key=f"valor_{key_base}"
+                key=f"valor_{key_base}",
+                disabled=usuario_visitante
             )
 
         else:
             valor = col1.number_input(
                 "Valor",
                 step=1,
-                key=f"valor_{key_base}"
+                key=f"valor_{key_base}",
+                disabled=usuario_visitante
             )
 
         observacoes = col2.text_input(
             "Observações",
-            key=f"obs_{key_base}"
+            key=f"obs_{key_base}",
+                disabled=usuario_visitante
         )
 
         valores_indicadores[indicador_id] = {
@@ -216,7 +222,7 @@ def renderizar_novo_registro(idx):
     # =========================
     # SALVAR
     # =========================
-    if st.button("Salvar lançamento", icon=":material/save:"):
+    if st.button("Salvar lançamento", icon=":material/save:", disabled=usuario_visitante):
 
         if not ano_lancamento:
             st.warning("Informe o ano do lançamento.")
@@ -323,6 +329,16 @@ def dialog_registros_entregas():
     responsaveis_ids = df_entregas.loc[idx, "responsaveis_ids"]
 
     # ===============================
+    # Verificação de registros associados
+    # ===============================
+    qtde_registros = db["registros_entregas"].count_documents({
+        "projeto_id": ObjectId(projeto_id),
+        "nome_da_entrega": nome_entrega
+    })
+
+    tem_registros = qtde_registros > 0
+
+    # ===============================
     # Cabeçalho
     # ===============================
     st.markdown(f"## {nome_entrega}")
@@ -331,10 +347,6 @@ def dialog_registros_entregas():
     col1, col2, col3, col4 = st.columns([1, 1, 1.5, 2.5])
 
     usuarios_coordenadores = set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)"}
-
-
-
-
 
     # ==========================================================
     # Usuários coordenadores (edição habilitada)
@@ -391,7 +403,7 @@ def dialog_registros_entregas():
             )
 
         # st.write("")
-        with st.container(horizontal_alignment="right"):
+        with st.container(horizontal_alignment="right", horizontal=True):
             if st.button("Salvar alterações", icon=":material/save:", width=250):
 
                 nova_situacao = st.session_state[f"entrega_situacao_{idx}"]
@@ -427,8 +439,33 @@ def dialog_registros_entregas():
                 time.sleep(3)
                 st.rerun()
 
+            if not tem_registros:
+                if st.button(
+                    "Excluir entrega",
+                    icon=":material/delete:",
+                    type="secondary",
+                    width=250,
+                    key=f"excluir_entrega_{idx}"
+                ):
+                    # Confirmação simples
+                    projetos_ispn.update_one(
+                        {"_id": ObjectId(projeto_id)},
+                        {
+                            "$pull": {
+                                "entregas": {
+                                    "nome_da_entrega": nome_entrega
+                                }
+                            }
+                        }
+                    )
 
+                    # Remove do DataFrame local
+                    df_entregas.drop(index=idx, inplace=True)
+                    df_entregas.reset_index(drop=True, inplace=True)
 
+                    st.success("Entrega excluída com sucesso.", icon=":material/check:")
+                    time.sleep(2)
+                    st.rerun()
 
     # ==========================================================
     # Usuários comuns (somente leitura)
@@ -451,6 +488,9 @@ def dialog_registros_entregas():
     st.markdown("### Registros de entrega")
 
     tab_ver_registros, tab_novo_registro = st.tabs(["Ver registros", "Novo registro"])
+
+    if "editar_lancamento_id" not in st.session_state:
+        st.session_state["editar_lancamento_id"] = None
 
     # Aba de listagem dos registros de entrega
     with tab_ver_registros:
@@ -480,12 +520,7 @@ def dialog_registros_entregas():
             with col5:
                 st.markdown("")
        
-
             st.divider()
-
-            if "lancamento_em_edicao" not in st.session_state:
-                st.session_state["lancamento_em_edicao"] = None
-
 
             # --------------------------------
             # Registros
@@ -531,16 +566,18 @@ def dialog_registros_entregas():
                                     st.write("")
 
                 with col5:
-                    if st.button("Editar",key=f"editar_lanc_{lancamento.get('_id')}", icon=":material/edit:"):
+                    editar = st.toggle(
+                        ":material/edit: Editar",
+                        value=st.session_state["editar_lancamento_id"] == str(lancamento["_id"]),
+                        key=f"toggle_editar_lanc_{lancamento['_id']}"
+                    )
 
-                        st.session_state["lancamento_em_edicao"] = {
-                            "entrega_idx": idx,
-                            "lancamento_id": str(lancamento["_id"]),
-                            "ano": lancamento.get("ano"),
-                            "anotacoes": lancamento.get("anotacoes", "")
-                        }
+                    if editar:
+                        st.session_state["editar_lancamento_id"] = str(lancamento["_id"])
+                    elif st.session_state["editar_lancamento_id"] == str(lancamento["_id"]):
+                        st.session_state["editar_lancamento_id"] = None
 
-                if (st.session_state["lancamento_em_edicao"] and st.session_state["lancamento_em_edicao"]["lancamento_id"] == str(lancamento["_id"])):
+                if st.session_state["editar_lancamento_id"] == str(lancamento["_id"]):
 
                     with st.container(border=True):
 
@@ -576,14 +613,11 @@ def dialog_registros_entregas():
                             #col_a, col_b = st.columns(2)
                             with st.container(border=False, horizontal=True):
                                 
-                                salvar = st.form_submit_button("Salvar", type="primary", icon=":material/save:")
-
-                                
-                                cancelar = st.form_submit_button("Cancelar", icon=":material/close:")
-
-                        if cancelar:
-                            st.session_state["lancamento_em_edicao"] = None
-                            st.rerun()
+                                salvar = st.form_submit_button(
+                                    "Salvar",
+                                    type="primary",
+                                    icon=":material/save:"
+                                )
 
                         if salvar:
                             projetos_ispn.update_one(
@@ -602,12 +636,15 @@ def dialog_registros_entregas():
                             lancamento["anotacoes"] = anotacoes
 
                             st.success("Registro atualizado com sucesso.")
-                            st.session_state["lancamento_em_edicao"] = None
+                            st.session_state["editar_lancamento_id"] = None
+                            time.sleep(2)
                             st.rerun()
 
                 st.divider()
 
     with tab_novo_registro:
+
+        
 
         renderizar_novo_registro(idx)
 
@@ -639,20 +676,42 @@ def carregar_entregas():
     registros = []
 
     for projeto in projetos_ispn.find():
-        programa_nome = programas_dict.get(projeto.get("programa"), "")
-        nome_projeto = projeto.get("nome_do_projeto") or projeto.get("sigla", "")
+
+        programas_ids = projeto.get("programas", [])
+
+        def mapear_programas(lista_ids):
+            """
+            Converte lista de ObjectIds em nomes de programas.
+            Retorna sempre lista.
+            """
+            if isinstance(lista_ids, list):
+                return [programas_dict.get(i, "") for i in lista_ids if i in programas_dict]
+            elif lista_ids:
+                return [programas_dict.get(lista_ids, "")]
+            return []
+
+        programas_nomes = mapear_programas(programas_ids)
+        nome_projeto = projeto.get("sigla") or projeto.get("sigla", "")
 
         for entrega in projeto.get("entregas", []):
 
-            data_raw = entrega.get("previsao_da_conclusao")
+            data_inicio_raw = entrega.get("data_inicio")
+            data_fim_raw = entrega.get("previsao_da_conclusao")
 
-            if not data_raw:
-                continue  # pula entregas sem data
+            data_inicio = None
+            data_fim = None
 
             try:
-                data_conclusao = datetime.strptime(data_raw, "%d/%m/%Y")
-            except ValueError:
-                continue  # pula datas inválidas
+                if data_inicio_raw:
+                    data_inicio = datetime.strptime(data_inicio_raw, "%d/%m/%Y")
+            except:
+                pass
+
+            try:
+                if data_fim_raw:
+                    data_fim = datetime.strptime(data_fim_raw, "%d/%m/%Y")
+            except:
+                pass
 
             registros.append({
                 "projeto_id": projeto["_id"],
@@ -660,21 +719,21 @@ def carregar_entregas():
                 "nome_da_entrega": entrega.get("nome_da_entrega"),
                 "entrega_id": entrega["_id"],
                 
-                "nome_do_projeto": nome_projeto,
+                "sigla": nome_projeto,
 
-                # PARA O GRÁFICO
-                "previsao_da_conclusao": data_conclusao,
+                "data_inicio": data_inicio,
+                "data_inicio_str": data_inicio.strftime("%d/%m/%Y") if data_inicio else "",
 
-                # PARA A TABELA (JSON-safe)
-                "previsao_da_conclusao_str": data_conclusao.strftime("%d/%m/%Y"),
+                "previsao_da_conclusao": data_fim,
+                "previsao_da_conclusao_str": data_fim.strftime("%d/%m/%Y") if data_fim else "",
 
                 "responsaveis": resolver_responsaveis(
                     entrega.get("responsaveis", []),
                     pessoas
                 ),
                 "situacao": entrega.get("situacao"),
-                "anos_de_referencia": ", ".join(entrega.get("anos_de_referencia", [])),
-                "programa": programa_nome,
+                "programa": programas_nomes,  # lista
+                "programa_str": ", ".join(programas_nomes),  # string para exibição
                 "responsaveis_ids": [ObjectId(r) for r in entrega.get("responsaveis", [])],
 
                 "lancamentos_entregas": entrega.get("lancamentos_entregas", []),
@@ -694,13 +753,15 @@ def carregar_entregas():
             "projeto_id",
             "nome_da_entrega",
             "entrega_id",
-            "nome_do_projeto",
+            "sigla",
             "previsao_da_conclusao",
             "previsao_da_conclusao_str",
             "responsaveis",
             "situacao",
-            "anos_de_referencia",
+            "data_inicio",
+            "data_inicio_str",
             "programa",
+            "programa_str",
             "responsaveis_ids",
             "lancamentos_entregas",
             "progresso",
@@ -714,6 +775,10 @@ def carregar_entregas():
         ]
 
     df = pd.DataFrame(registros)
+    
+    # Converte colunas para datetime (resolve o erro do .dt)
+    df["data_inicio"] = pd.to_datetime(df["data_inicio"], errors="coerce")
+    df["previsao_da_conclusao"] = pd.to_datetime(df["previsao_da_conclusao"], errors="coerce")
 
     # GARANTIA DE ESQUEMA
     for col in COLUNAS_PADRAO:
@@ -731,33 +796,49 @@ def carregar_entregas():
 
 
 def grafico_cronograma(df, titulo):
-    
+
     if df.empty:
         st.info("Nenhuma entrega encontrada.")
         return
 
-    hoje = datetime.today()
     df_plot = df.copy()
-    
+
+    # Considera apenas entregas ativas
     df_plot = df_plot[
         df_plot["situacao"].isin(["Prevista", "Atrasada"])
     ]
 
-    # Cria as colunas primeiro
-    df_plot["Inicio"] = df_plot["previsao_da_conclusao"] - pd.Timedelta(days=5)
+    # Considera apenas entregas com data_inicio e data_fim válidas
+    df_plot = df_plot[
+        df_plot["data_inicio"].notna() &
+        df_plot["previsao_da_conclusao"].notna()
+    ]
+
+    if df_plot.empty:
+        st.caption("Nenhuma entrega com data de início.")
+        return
+
+    df_plot["Inicio"] = df_plot["data_inicio"]
     df_plot["Fim"] = df_plot["previsao_da_conclusao"]
     
-    xmin = min(df_plot["Inicio"].min(), hoje)
-    xmax = max(df_plot["Fim"].max(), hoje)
+    # ==================================================
+    # LIMITES DO EIXO X (ANO MAIS ANTIGO → MAIS RECENTE)
+    # ==================================================
 
+    xmin = df_plot["Inicio"].min()
+    xmax = df_plot["Fim"].max()
 
-    # Agora sim pode formatar a data
-    df_plot["previsao_conclusao_hover"] = df_plot["Fim"].dt.strftime("%d/%m/%Y")
+    # ==================================================
+    # HOVER
+    # ==================================================
 
-    # Ordena
-    df_plot = df_plot.sort_values("Fim", ascending=False)
+    # Ordena visualmente
+    df_plot = df_plot.sort_values("Inicio", ascending=False)
 
     altura_total = max(300, len(df_plot) * 45)
+
+    df_plot["inicio_hover"] = df_plot["data_inicio_str"]
+    df_plot["previsao_hover"] = df_plot["previsao_da_conclusao_str"]
 
     fig = px.timeline(
         df_plot,
@@ -766,12 +847,13 @@ def grafico_cronograma(df, titulo):
         y="nome_da_entrega",
         color="situacao",
         custom_data=[
-        "nome_da_entrega",
-        "nome_do_projeto",
-        "previsao_conclusao_hover",
-        "responsaveis",
-        "programa"
-    ],
+            "nome_da_entrega",
+            "sigla",
+            "inicio_hover",
+            "previsao_hover",
+            "responsaveis",
+            "programa_str"
+        ],
         height=altura_total,
         title=titulo
     )
@@ -780,12 +862,12 @@ def grafico_cronograma(df, titulo):
         hovertemplate=
         "<b>Entrega:</b> %{customdata[0]}<br>"
         "<b>Projeto:</b> %{customdata[1]}<br>"
-        "<b>Previsão de Conclusão:</b> %{customdata[2]}<br>"
-        "<b>Responsáveis:</b> %{customdata[3]}<br>"
-        "<b>Programa:</b> %{customdata[4]}<br>"
+        "<b>Data de início:</b> %{customdata[2]}<br>"
+        "<b>Previsão de Conclusão:</b> %{customdata[3]}<br>"
+        "<b>Responsáveis:</b> %{customdata[4]}<br>"
+        "<b>Programa:</b> %{customdata[5]}<br>"
         "<extra></extra>"
     )
-
 
     fig.update_yaxes(
         categoryorder="array",
@@ -795,22 +877,62 @@ def grafico_cronograma(df, titulo):
 
     fig.update_xaxes(
         range=[xmin, xmax],
-        tickformat="%d/%m/%Y",
-        tickangle=-45,
-        #title="Previsão de Conclusão"
-    )
 
+        # Intervalo maior (menos poluição)
+        dtick="M1",  # 1 mês (melhor que D30)
+
+        # Formato mais limpo
+        tickformat="%b/%Y",  # Ex: Jan/2026
+
+        hoverformat="%d/%m/%Y"
+    )
 
     fig.update_layout(
         margin=dict(l=180, r=40, t=60, b=40)
     )
 
-    st.plotly_chart(fig, width="stretch")
+    st.plotly_chart(fig)
+
+
+def verificar_entregas_atrasadas():
+    hoje = datetime.now().date()
+
+    projetos = projetos_ispn.find({"entregas": {"$exists": True}})
+
+    for projeto in projetos:
+        entregas = projeto.get("entregas", [])
+        alterou = False
+
+        for entrega in entregas:
+            if entrega.get("situacao") == "Prevista":
+
+                data_str = entrega.get("previsao_da_conclusao")
+
+                if not data_str:
+                    continue
+
+                try:
+                    data_prevista = datetime.strptime(
+                        data_str, "%d/%m/%Y"
+                    ).date()
+                except ValueError:
+                    continue
+
+                if hoje > data_prevista:
+                    entrega["situacao"] = "Atrasada"
+                    alterou = True
+
+        if alterou:
+            projetos_ispn.update_one(
+                {"_id": projeto["_id"]},
+                {"$set": {"entregas": entregas}}
+            )
 
 
 # ##########################################################
 # INTERFACE
 # ##########################################################
+
 
 st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
 
@@ -819,8 +941,26 @@ st.header("Entregas")
 
 st.write("")
 
+# ==========================================================
+# VERIFICAÇÃO DE ENTREGAS ATRASADAS
+# ==========================================================
+
+if "verificacao_entregas_data" not in st.session_state:
+    st.session_state["verificacao_entregas_data"] = None
+
+if st.session_state["verificacao_entregas_data"] != hoje:
+
+    verificar_entregas_atrasadas()
+
+    st.session_state["verificacao_entregas_data"] = hoje
+    st.session_state["verificacao_entregas_rodou"] = True
+
+else:
+    st.session_state["verificacao_entregas_rodou"] = False
+
 # Montagem do df_entregas
 df_entregas = carregar_entregas()
+
 # Converter as coluans de id para string
 df_entregas["responsaveis_ids"] = df_entregas["responsaveis_ids"].apply(lambda x: [str(i) for i in x])
 
@@ -835,6 +975,130 @@ if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)"}:
         if st.button("Gerenciar entregas", icon=":material/edit:", width=300):
             dialog_editar_entregas()
 
+st.write("")
+st.write("")
+st.write("")
+
+# ==========================================================
+# FILTROS
+# ==========================================================
+
+with st.form("filtros_entregas", border=False):
+
+    col1, col2, col3 = st.columns(3)
+
+    # -------- Projetos --------
+    projetos_opcoes = sorted(
+        df_entregas["sigla"]
+        .dropna()
+        .unique()
+        .tolist()
+    )
+
+    with col1:
+        filtro_projetos = st.multiselect(
+            "Projetos",
+            options=projetos_opcoes,
+            placeholder=""
+        )
+
+    # -------- Status --------
+    status_opcoes = sorted(
+        df_entregas["situacao"]
+        .dropna()
+        .unique()
+        .tolist()
+    )
+
+    with col2:
+        filtro_status = st.multiselect(
+            "Situação",
+            options=status_opcoes,
+            placeholder=""
+        )
+
+    # -------- Programas --------
+    programas_opcoes = sorted({
+        prog
+        for lista in df_entregas["programa"]
+        for prog in (lista if isinstance(lista, list) else [])
+        if prog
+    })
+
+    with col3:
+        filtro_programas = st.multiselect(
+            "Programa",
+            options=programas_opcoes,
+            placeholder=""
+        )
+
+    col1, col2 = st.columns(2)
+
+        # -------- Datas de Início e Fim --------
+
+    with col1:
+        filtro_data_inicio = st.date_input(
+            "Data de início",
+            value=None,
+            format="DD/MM/YYYY"
+        )
+
+    with col2:
+        filtro_data_fim = st.date_input(
+            "Previsão de conclusão",
+            value=None,
+            format="DD/MM/YYYY"
+        )
+
+    aplicar = st.form_submit_button(
+        "Aplicar filtros",
+        icon=":material/filter_alt:"
+    )
+
+# ==========================================================
+# APLICAÇÃO DOS FILTROS
+# ==========================================================
+
+df_filtrado = df_entregas.copy()
+
+if filtro_projetos:
+    df_filtrado = df_filtrado[
+        df_filtrado["sigla"].isin(filtro_projetos)
+    ]
+
+if filtro_status:
+    df_filtrado = df_filtrado[
+        df_filtrado["situacao"].isin(filtro_status)
+    ]
+
+if filtro_programas:
+    df_filtrado = df_filtrado[
+        df_filtrado["programa"].apply(
+            lambda lista: any(p in filtro_programas for p in lista)
+        )
+    ]
+
+if filtro_data_inicio:
+    df_filtrado = df_filtrado[
+        df_filtrado["data_inicio"].notna() &
+        (df_filtrado["data_inicio"] >= pd.to_datetime(filtro_data_inicio))
+    ]
+
+if filtro_data_fim:
+    df_filtrado = df_filtrado[
+        df_filtrado["previsao_da_conclusao"].notna() &
+        (df_filtrado["previsao_da_conclusao"] <= pd.to_datetime(filtro_data_fim))
+    ]
+
+# DataFrame usado nas abas
+df_entregas_filtrado = df_filtrado.copy()
+
+st.write("")
+
+
+# Verifica se o usuário é visitante
+usuario_visitante = "visitante" in st.session_state.get("tipo_usuario", [])
+
 
 lista_entregas, cronograma_entregas = st.tabs(["Entregas","Cronograma"])
 
@@ -843,14 +1107,16 @@ with lista_entregas:
     # Renomeando as colunas
     RENOMEAR = {
         "nome_da_entrega": "Entrega",
-        "nome_do_projeto": "Projeto",
+        "sigla": "Projeto",
+        "data_inicio_str": "Data de Início",
         "previsao_da_conclusao_str": "Previsão de Conclusão",
         "responsaveis": "Responsáveis",
         "situacao": "Situação",
-        "anos_de_referencia": "Anos de Referência",
-        "programa": "Programa",
+        "programa_str": "Programa",
         "progresso": "Progresso"
     }
+
+    df_entregas_lista = df_entregas_filtrado.copy()
 
     df_entregas_lista = df_entregas_lista.rename(columns=RENOMEAR)
 
@@ -859,7 +1125,7 @@ with lista_entregas:
         "Projeto",
         "Programa",
         "Responsáveis",
-        "Anos de Referência",
+        "Data de Início",
         "Previsão de Conclusão",
         "Situação",
         "Progresso"
@@ -886,19 +1152,18 @@ with lista_entregas:
             idx = linhas[0]
 
             linha_visivel = df_visivel.iloc[idx]
-            linha_completa = df_completo.iloc[idx]  # 🔴 AQUI
+            linha_completa = df_completo.iloc[idx]  # AQUI
 
             st.session_state["entrega_selecionada"] = {
                 "entrega": linha_visivel["Entrega"],
                 "entrega_id": linha_completa["entrega_id"],
                 "indice": idx,
-                "projeto_id": linha_completa["projeto_id"]  # ✅ EXISTE
+                "projeto_id": linha_completa["projeto_id"]  # EXISTE
             }
 
             st.session_state["abrir_dialogo_entrega"] = True
 
         return handle_selecao_entrega
-
 
 
     key_df = f"df_entregas_lista"
@@ -935,17 +1200,10 @@ with lista_entregas:
         st.session_state["abrir_dialogo_entrega"] = False
 
 
-
 with cronograma_entregas:
-   
 
+    st.caption("Somente entregas com data de início cadastrada são exibidas no cronograma.")
     grafico_cronograma(
-        df_entregas,
+        df_entregas_filtrado,
         "Cronograma de Entregas"
     )
-    
-
-
-
-
-
