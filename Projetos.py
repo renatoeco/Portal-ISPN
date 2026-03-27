@@ -215,6 +215,19 @@ def map_programa_area(lista_ids):
     return ", ".join(sorted(nomes)) if nomes else "Não informado"
 
 
+def gerar_anos_intervalo(data_inicio, data_fim):
+    """
+    Retorna lista de anos entre duas datas (inclusive).
+    """
+    if not data_inicio or not data_fim:
+        return []
+    
+    ano_inicio = data_inicio.year
+    ano_fim = data_fim.year
+    
+    return list(range(ano_inicio, ano_fim + 1))
+
+
 ######################################################################################################
 # CONEXÃO COM O BANCO DE DADOS MONGODB
 ######################################################################################################
@@ -421,8 +434,12 @@ def dialog_cadastrar_projeto():
             dados_uc = doc["ucs"]
 
     with st.form("form_cadastrar_projeto", border=False):
+        
+        st.subheader("Dados do projeto")
+        st.write("")
+        
         # --- Colunas ---
-        col1, col2, col3 = st.columns([1,1,1])
+        col1, col2 = st.columns(2)
 
         # --- Código ---
         codigo = col1.text_input("Código", value="")
@@ -431,9 +448,9 @@ def dialog_cadastrar_projeto():
         sigla = col2.text_input("Sigla", value="")
 
         # --- Nome do projeto ---
-        nome_do_projeto = col3.text_input("Nome do Projeto", value="")
-
-
+        nome_do_projeto = st.text_input("Nome do Projeto", value="")
+        
+        col1, col2, col3 = st.columns(3)
 
         # --- Status ---
         status_options = ["", "Em andamento", "Finalizado", "Cancelado"]
@@ -442,17 +459,7 @@ def dialog_cadastrar_projeto():
         # --- Datas ---
         data_inicio = col2.date_input("Data de início", value=datetime.date.today(), format="DD/MM/YYYY")
         data_fim = col3.date_input("Data de fim", value=datetime.date.today(), format="DD/MM/YYYY")
-
-        # --- Moeda ---
-        moeda_options = ["", "Dólares", "Reais", "Euros"]
-        moeda = col1.selectbox("Moeda", options=moeda_options, index=0)
-
-        # --- Valor ---
-        valor = col2.number_input("Valor", value=0.00, step=0.01, min_value=0.0, format="%.2f")
-
-        # --- Contrapartida ---
-        contrapartida = col3.number_input("Contrapartida", value=0.00, step=0.01, min_value=0.0, format="%.2f")
-
+        
         # -----------------------------------
         # Pessoas ativas (para coordenador e gestores)
         # -----------------------------------
@@ -463,6 +470,8 @@ def dialog_cadastrar_projeto():
 
         # --- Coordenador ---
         coordenador_options = [""] + pessoas_options
+        
+        col1, col2, col3 = st.columns(3)
 
         coordenador = col1.selectbox(
             "Coordenador",
@@ -472,25 +481,25 @@ def dialog_cadastrar_projeto():
                 .values[0],
             index=0
         )
+        
+        # --- Programa / Área ---
+        programa_options = [""] + list(mapa_programa.keys())
+        programas_selecionados = col2.multiselect(
+            "Programa / Área",
+            options=programa_options,
+            format_func=lambda x: "" if x == "" else mapa_programa[x],
+            placeholder=""
+        )
 
         # --- Doador ---
         doador_options = [""] + list(mapa_doador.keys())
-        doador = col2.selectbox(
+        doador = col3.selectbox(
             "Doador",
             options=doador_options,
             format_func=lambda x: "" if x=="" else mapa_doador[x],
             index=0
         )
 
-        # --- Programa / Área ---
-        programa_options = [""] + list(mapa_programa.keys())
-        programas_selecionados = col3.multiselect(
-            "Programa / Área",
-            options=programa_options,
-            format_func=lambda x: "" if x == "" else mapa_programa[x],
-            placeholder=""
-        )
-        
         gestores = st.multiselect(
             "Gestores(as) do projeto",
             options=pessoas_options,
@@ -503,12 +512,71 @@ def dialog_cadastrar_projeto():
         # --- Objetivo Geral ---
         objetivo_geral = st.text_area("Objetivo Geral", value="")
 
+        # =========================================================
+        # INFORMAÇÕES FINANCEIRAS
+        # =========================================================
+        
         st.divider()
+        
+        st.subheader("Informações financeiras")
+        st.write("")
 
+        col1, col2, col3 = st.columns(3)
+
+        # --- Moeda ---
+        moeda_options = ["", "Dólares", "Reais", "Euros"]
+        moeda = col1.selectbox("Moeda", options=moeda_options, index=0)
+
+        # --- Valor ---
+        valor = col2.number_input(
+            "Valor",
+            value=0.00,
+            step=0.01,
+            min_value=0.0,
+            format="%.2f"
+        )
+
+        # --- Contrapartida ---
+        contrapartida = col3.number_input(
+            "Contrapartida",
+            value=0.00,
+            step=0.01,
+            min_value=0.0,
+            format="%.2f"
+        )
+        
+        # -----------------------------------
+        # ORÇAMENTO POR ANO
+        # -----------------------------------
+
+        anos_projeto = gerar_anos_intervalo(data_inicio, data_fim)
+
+        orcamento_por_ano = {}
+
+        if anos_projeto:
+            cols = st.columns(len(anos_projeto))
+
+            for i, ano in enumerate(anos_projeto):
+                valor_ano = cols[i].number_input(
+                    f"Orçamento de {ano}",
+                    min_value=0.0,
+                    value=0.0,
+                    step=0.01,
+                    format="%.2f",
+                    key=f"orcamento_{ano}"
+                )
+                orcamento_por_ano[str(ano)] = valor_ano
+        else:
+            st.warning("Defina as datas para lançar o orçamento por ano.")
+        
+        st.divider()
         
         ######################################################################
         # REGIÕES DE ATUAÇÃO
         ######################################################################
+
+        st.subheader("Regiões de atuação")
+        st.write("")
 
         # Criar dicionário código_uf -> sigla
         codigo_uf_para_sigla = {
@@ -644,20 +712,34 @@ def dialog_cadastrar_projeto():
             options=list(bacia_micro_codigo_para_label.values()),
             placeholder=""
         )
-
+ 
         st.write('')
 
         # --- Botão de salvar ---
         submit = st.form_submit_button("Cadastrar", icon=":material/save:", width=200, type="primary")
         if submit:
+            
             # --- Validar unicidade de sigla e código ---
             sigla_existente = (df_projetos_ispn["sigla"] == sigla).any()
             codigo_existente = (df_projetos_ispn["codigo"] == codigo).any()
 
             if sigla_existente:
                 st.warning(f"A sigla '{sigla}' já está cadastrada em outro projeto. Escolha outra.")
+                
             elif codigo_existente:
                 st.warning(f"O código '{codigo}' já está cadastrado em outro projeto. Escolha outro.")
+                
+            # Validação: pelo menos um ano preenchido
+            elif all(v == 0 for v in orcamento_por_ano.values()):
+                st.warning("Preencha pelo menos um ano no orçamento.")
+
+            # Validação: soma dos anos igual ao valor total
+            elif round(sum(orcamento_por_ano.values()), 2) != round(valor, 2):
+                st.warning(
+                    f"A soma dos orçamentos ({float_to_br(sum(orcamento_por_ano.values()))}) "
+                    f"deve ser igual ao valor total ({float_to_br(valor)})."
+                )
+             
             else:
                 # --- Criar ObjectIds ---
                 projeto_id = bson.ObjectId()
@@ -714,6 +796,11 @@ def dialog_cadastrar_projeto():
                     "data_fim_contrato": data_fim.strftime("%d/%m/%Y"),
                     "objetivo_geral": objetivo_geral,
                     "regioes_atuacao": regioes_atuacao,  
+                    "orcamento_por_ano": {
+                        ano: float_to_br(v)
+                        for ano, v in orcamento_por_ano.items()
+                        if v > 0
+                    },
                 }
 
                 # --- Inserir no MongoDB ---
@@ -799,7 +886,7 @@ def dialog_editar_projeto():
 
     projeto_info = df_projetos_ispn[df_projetos_ispn["sigla"] == projeto_selecionado].iloc[0]
 
-    # aba1, aba2 = st.tabs(["Informações gerais", "Entregas"])
+    orcamento_existente = projeto_info.get("orcamento_por_ano", {})
 
     # ==============================================================
     # INTERFACE DO DIÁLOGO DE EDITAR PROJETO
@@ -809,9 +896,15 @@ def dialog_editar_projeto():
     st.write("")
 
     with st.form("form_editar_projeto", border=False):
+        
+        #######################################################################
+        # DADOS DO PROJETO
+        #######################################################################
+        
+        st.subheader("Dados do projeto")
+        st.write("")
 
         col1, col2 = st.columns(2)
-        
         
         # Código
         codigo = col1.text_input("Código", value=projeto_info.get("codigo", ""))
@@ -821,8 +914,6 @@ def dialog_editar_projeto():
         
         # Nome do projeto
         nome_do_projeto = st.text_input("Nome do Projeto", value=projeto_info.get("nome_do_projeto", ""))
-
-
 
         col1, col2, col3 = st.columns(3)
 
@@ -862,21 +953,7 @@ def dialog_editar_projeto():
             ),
             format="DD/MM/YYYY"
         )
-
-        # Moeda
-        moeda_options = ["", "Dólares", "Reais", "Euros"]
-        moeda_atual = projeto_info.get("moeda", "")
-        index_atual = moeda_options.index(moeda_atual) if moeda_atual in moeda_options else 0
-        moeda = col1.selectbox("Moeda", options=moeda_options, index=index_atual)
         
-        # Valor (converte do banco para float antes de exibir)
-        valor_atual = br_to_float(projeto_info.get("valor", "0"))
-        valor = col2.number_input("Valor", value=valor_atual, step=0.01, min_value=0.0, format="%.2f")
-
-        # Contrapartida (também convertida para float para usar number_input)
-        contrapartida_atual = br_to_float(projeto_info.get("valor_da_contrapartida_em_r$", "0"))
-        contrapartida = col3.number_input("Contrapartida em R$", value=contrapartida_atual, step=0.01, min_value=0.0, format="%.2f")
-
         # -----------------------------------
         # Pessoas ativas (base para selects)
         # -----------------------------------
@@ -986,13 +1063,77 @@ def dialog_editar_projeto():
             value=str(projeto_info.get("objetivo_geral", "")) if pd.notna(projeto_info.get("objetivo_geral")) else ""
         )
 
+        #######################################################################
+        # INFORMAÇÕES FINANCEIRAS
+        #######################################################################
+        
         st.divider()
+        
+        st.subheader("Informações Financeiras")
+        st.write("")
 
+        col1, col2, col3 = st.columns(3)
+
+        # Moeda
+        moeda_options = ["", "Dólares", "Reais", "Euros"]
+        moeda_atual = projeto_info.get("moeda", "")
+        index_atual = moeda_options.index(moeda_atual) if moeda_atual in moeda_options else 0
+
+        moeda = col1.selectbox(
+            "Moeda",
+            options=moeda_options,
+            index=index_atual
+        )
+
+        # Valor
+        valor_atual = br_to_float(projeto_info.get("valor", "0"))
+
+        valor = col2.number_input(
+            "Valor",
+            value=valor_atual,
+            step=0.01,
+            min_value=0.0,
+            format="%.2f"
+        )
+
+        # Contrapartida
+        contrapartida_atual = br_to_float(
+            projeto_info.get("valor_da_contrapartida_em_r$", "0")
+        )
+
+        contrapartida = col3.number_input(
+            "Contrapartida em R$",
+            value=contrapartida_atual,
+            step=0.01,
+            min_value=0.0,
+            format="%.2f"
+        )
+        anos_projeto = gerar_anos_intervalo(data_inicio, data_fim)
+
+        orcamento_por_ano = {}
+
+        if anos_projeto:
+            cols = st.columns(len(anos_projeto))
+
+            for i, ano in enumerate(anos_projeto):
+                valor_inicial = br_to_float(orcamento_existente.get(str(ano), "0"))
+
+                valor_ano = cols[i].number_input(
+                    f"Orçamento de {ano}",
+                    min_value=0.0,
+                    value=valor_inicial,
+                    step=0.01,
+                    format="%.2f",
+                    key=f"edit_orcamento_{ano}"
+                )
+
+                orcamento_por_ano[str(ano)] = valor_ano
 
         ######################################################################
         # REGIÕES DE ATUAÇÃO
         ######################################################################
 
+        st.divider()
 
         # --- Carrega dados do Mongo ---
         doc_ufs = colecao_ufs.find_one({"ufs": {"$exists": True}})
@@ -1075,6 +1216,9 @@ def dialog_editar_projeto():
         bacia_micro_default = [r["codigo"] for r in regioes if r["tipo"] == "bacia_micro"]
         bacia_meso_default = [r["codigo"] for r in regioes if r["tipo"] == "bacia_meso"]
         bacia_macro_default = [r["codigo"] for r in regioes if r["tipo"] == "bacia_macro"]
+        
+        st.subheader("Regiões de atuação")
+        st.write("")
 
         # ----------------------- ESTADOS, MUNICÍPIOS E BIOMAS -----------------------
         col1, col2, col3 = st.columns(3)
@@ -1100,7 +1244,6 @@ def dialog_editar_projeto():
             placeholder=""
         )
 
-
         # ----------------------- UNIDADES DE CONSERVAÇÃO -----------------------
 
         col1, col2 = st.columns(2)
@@ -1112,17 +1255,14 @@ def dialog_editar_projeto():
             placeholder=""
         )
 
-
         # ----------------------- TERRAS INDÍGENAS -----------------------
         
-    
         tis_selecionadas = col2.multiselect(
             "Terras Indígenas",
             options=list(ti_codigo_para_label.values()),  # lista de labels
             default=[ti_codigo_para_label[c] for c in ti_default if c in ti_codigo_para_label],
             placeholder=""
         )
-        
 
         # ----------------------- ASSENTAMENTOS -----------------------
         
@@ -1135,7 +1275,6 @@ def dialog_editar_projeto():
             placeholder=""
         )
 
-
         # ----------------------- QUILOMBOS -----------------------
         quilombos_selecionados = col2.multiselect(
             "Quilombos",
@@ -1143,8 +1282,6 @@ def dialog_editar_projeto():
             default=[quilombo_codigo_para_label[c] for c in quilombo_default],
             placeholder=""
         )
-
-
 
         # ----------------------- BACIAS HIDROGRÁFICAS -----------------------
         col1, col2, col3 = st.columns(3)
@@ -1171,9 +1308,8 @@ def dialog_editar_projeto():
             placeholder=""
         )
 
-
         st.write('')
-
+        
         # Botão de salvar
         submit = st.form_submit_button("Salvar", icon=":material/save:", type="primary", width=200)
         if submit:
@@ -1194,6 +1330,18 @@ def dialog_editar_projeto():
                 st.warning(f"A sigla '{sigla}' já está cadastrada em outro projeto. Escolha outra.")
             elif codigo_existente:
                 st.warning(f"O código '{codigo}' já está cadastrado em outro projeto. Escolha outro.")
+                
+            # Validação: pelo menos um ano preenchido
+            elif all(v == 0 for v in orcamento_por_ano.values()):
+                st.warning("Preencha pelo menos um ano no orçamento.")
+
+            # Validação: soma dos anos igual ao valor total
+            elif round(sum(orcamento_por_ano.values()), 2) != round(valor, 2):
+                st.warning(
+                    f"A soma dos orçamentos ({float_to_br(sum(orcamento_por_ano.values()))}) "
+                    f"deve ser igual ao valor total ({float_to_br(valor)})."
+                )
+                
             else:
 
                 # Função auxiliar
@@ -1236,7 +1384,12 @@ def dialog_editar_projeto():
                     "data_inicio_contrato": data_inicio.strftime("%d/%m/%Y"),
                     "data_fim_contrato": data_fim.strftime("%d/%m/%Y"),
                     "objetivo_geral": objetivo_geral,
-                    "regioes_atuacao": regioes_atuacao
+                    "regioes_atuacao": regioes_atuacao,
+                    "orcamento_por_ano": {
+                        ano: float_to_br(v)
+                        for ano, v in orcamento_por_ano.items()
+                        if v > 0
+                    },
                 }
 
                 projetos_ispn.update_one({"_id": projeto_info["_id"]}, {"$set": update_doc})
