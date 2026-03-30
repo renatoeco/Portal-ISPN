@@ -155,49 +155,36 @@ with aba_visitas:
     # Converter datas
     df["data"] = pd.to_datetime(df["data"], format="%d/%m/%Y")
 
-    # ============================================================
-    # GRÁFICO 1 — Total de Sessões por Dia
-    # ============================================================
-    # df_sessoes = pd.DataFrame(doc["total_sessoes"]).copy()
-    # df_sessoes["data"] = pd.to_datetime(df_sessoes["data"], format="%d/%m/%Y")
+    # ------------------------------------------
+    # FILTRO DE PERÍODO
+    # ------------------------------------------
+    filtro_periodo = st.selectbox(
+        "Período",
+        ["Últimos 30 dias", "Últimos 12 meses", "Todo o período"],
+        width=200
+    )
 
-    # sessoes_por_dia = df_sessoes.groupby("data")["numero_de_sessoes"].sum().reset_index()
+    # Garante que a comparação seja só por data (sem horário)
+    hoje = pd.Timestamp.today().normalize()
 
-    # fig_sessoes = px.bar(
-    #     sessoes_por_dia,
-    #     x="data",
-    #     y="numero_de_sessoes",
-    #     title="Total de Acessos por Dia",
-    #     text="numero_de_sessoes"
-    # )
-
-    # fig_sessoes.update_traces(
-    #     textposition="inside",
-    #     texttemplate="%{y}"
-    # )
-
-    # fig_sessoes.update_xaxes(
-    #     tickmode="array",
-    #     tickvals=sessoes_por_dia["data"],
-    #     ticktext=[d.strftime("%d/%m/%Y") for d in sessoes_por_dia["data"]],
-    #     tickangle=-45
-    # )
-
-    # fig_sessoes.update_yaxes(dtick=5)
-
-    # fig_sessoes.update_layout(
-    #     xaxis_title=None,
-    #     yaxis_title="Número de sessões"
-    # )
-
-
-    # st.plotly_chart(fig_sessoes)
+    if filtro_periodo == "Últimos 30 dias":
+        data_inicio = hoje - pd.Timedelta(days=30)
+    elif filtro_periodo == "Últimos 12 meses":
+        data_inicio = hoje - pd.DateOffset(months=12)
+    else:
+        data_inicio = None
+        
+    if data_inicio is not None:
+        df = df[df["data"] >= data_inicio]
 
     # ------------------------------------------
     # Sessões por dia
     # ------------------------------------------
     df_sessoes = pd.DataFrame(doc["total_sessoes"]).copy()
     df_sessoes["data"] = pd.to_datetime(df_sessoes["data"], format="%d/%m/%Y")
+    
+    if data_inicio is not None:
+        df_sessoes = df_sessoes[df_sessoes["data"] >= data_inicio]
 
     sessoes_por_dia = (
         df_sessoes
