@@ -387,7 +387,7 @@ else:
             st.Page("Websites.py", title="Websites", icon=":material/web_traffic:"),
             st.Page("Meu Perfil.py", title="Meu Perfil", icon=":material/person:"),
             st.Page("Administracao.py", title="Administração", icon=":material/settings:"),
-            st.Page("Kanban.py", title="Kanban", icon=":material/view_apps:")
+            # st.Page("Kanban.py", title="Kanban", icon=":material/view_apps:")
 
         ])
 
@@ -418,7 +418,7 @@ else:
             st.Page("Manuais.py", title="Políticas e Manuais", icon=":material/menu_book:"),
             st.Page("Websites.py", title="Websites", icon=":material/web_traffic:"),
             st.Page("Meu Perfil.py", title="Meu Perfil", icon=":material/person:"),
-            st.Page("Kanban.py", title="Kanban", icon=":material/view_apps:")
+            # st.Page("Kanban.py", title="Kanban", icon=":material/view_apps:")
         ])
 
         pg.run()
