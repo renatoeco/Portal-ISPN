@@ -572,6 +572,7 @@ def dialog_editar_projeto():
 
     if df_filtrado.empty:
         st.error("Projeto não encontrado.")
+        st.stop()  
 
     projeto_info = df_filtrado.iloc[0]
 
@@ -1297,7 +1298,7 @@ def gerenciar_pessoas(pessoa_sel):
 
     
         # Cria abas
-        aba_info, aba_contratos, aba_previdencia, aba_ferias, aba_anotacoes  = st.tabs([":material/info: Informações gerais", ":material/contract: Contratos", ":material/finance_mode: Previdência", ":material/beach_access: Férias e Recessos", ":material/notes: Anotações"])
+        aba_info, aba_contratos, aba_anotacoes  = st.tabs([":material/info: Informações gerais", ":material/contract: Projetos e Contratos", ":material/notes: Anotações"])
     
         # ABA INFORMAÇÕES GERAIS ################################################################
         with aba_info:
@@ -2013,317 +2014,6 @@ def gerenciar_pessoas(pessoa_sel):
                             except Exception as e:
                                 st.error(f"Erro ao salvar no banco: {e}")
 
-        # ABA PREVIDÊNCIA ############################################################################### 
-        with aba_previdencia:
-
-            # Obtém a lista de contribuições do banco, ou cria lista vazia se não existir
-            previdencia = pessoa.get("previdencia", []) if pessoa else []
-
-            # Expander para adicionar nova contribuição -----------------------------------------------------------
-            with st.expander("Adicionar nova contribuição", expanded=True, icon=":material/add_circle:"):
-
-                # Usa colunas para organizar campos lado a lado
-                cols = st.columns(2)
-
-                # Campo para escolher data da contribuição, valor padrão é hoje
-                nova_data = cols[0].date_input(
-                    "Data da contribuição",
-                    value=datetime.date.today(),
-                    format="DD/MM/YYYY",
-                    key="data_nova_contribuicao"
-                )
-
-                # Campo para valor da contribuição com duas casas decimais, mínimo 0.0
-                valor_contribuicao = cols[1].number_input(
-                    "Valor subsidiado pelo ISPN",
-                    min_value=0.0,
-                    format="%.2f",
-                    key="valor_nova_contribuicao"
-                )
-
-                # Inicializa flag de controle se não existir
-                if "contribuicao_adicionada" not in st.session_state:
-                    st.session_state.contribuicao_adicionada = False
-
-                # Botão para adicionar contribuição
-                if st.button("Adicionar contribuição", icon=":material/savings:", key="botao_add_contribuicao"):
-                    if valor_contribuicao > 0:
-                        # Cria dicionário da nova contribuição formatando a data
-                        nova_contribuicao = {
-                            "data_contribuicao": nova_data.strftime("%d/%m/%Y"),
-                            "valor": valor_contribuicao,
-                        }
-                        previdencia.append(nova_contribuicao)
-                        pessoas.update_one(
-                            {"_id": ObjectId(pessoa["_id"])},
-                            {"$set": {"previdencia": previdencia}}
-                        )
-                        st.success("Nova contribuição adicionada com sucesso!")
-                        st.session_state.contribuicao_adicionada = True  # ativa o botão de enviar e-mail
-
-                # Mostrar quote e botão de enviar e-mail somente se a contribuição foi adicionada
-                if st.session_state.contribuicao_adicionada:
-
-
-                    pessoa_nome = pessoa.get("nome_completo", "Usuário").split()[0]
-                    valor_contribuicao_str = format(valor_contribuicao, ",.2f").replace(",", "X").replace(".", ",").replace("X", ".")
-
-                    st.write(f"Deseja enviar um email para **{pessoa_nome}** com a confirmação do registro e do valor?")
-
-
-                    st.markdown(f"""
-                    > Olá {pessoa_nome}. Sua contribuição à previdência privada foi registrada.  
-                    > Sua próxima nota fiscal deve ser emitida com o acréscimo de R$ {valor_contribuicao_str}.  
-                    > Att.  
-                    > DP do ISPN  
-                    """)
-
-                    # Botão de enviar e-mail
-                    if st.button("Enviar e-mail", key="botao_enviar_email_dialog", icon=":material/email:"):
-                        destinatario = pessoa.get("e_mail")
-                        nome = pessoa.get("nome_completo", "").split()[0]
-
-                        if not destinatario:
-                            st.warning("O e-mail do destinatário não está disponível.")
-                        else:
-                            try:
-                                enviar_email(destinatario, nome, valor_contribuicao)
-                                st.success(f"E-mail enviado com sucesso para {destinatario}!")
-                                st.session_state.contribuicao_adicionada = False  # opcional: desativa botão após envio
-                            except Exception as e:
-                                st.error(f"Erro ao enviar e-mail: {e}")
-
-            # LISTA DE CONTRIBUIÇÕES  -------------------------------------------------------------------------------------
-            st.write("")
-            st.write("**Contribuições registradas:**")
-
-            # Prepara lista de contribuições com datas convertidas para ordenação
-            contrib_ordenadas = []
-            for idx, c in enumerate(previdencia):
-                data_str = c.get("data_contribuicao", "")
-                try:
-                    # Tenta converter string da data para datetime
-                    data_dt = datetime.datetime.strptime(data_str, "%d/%m/%Y")
-                except:
-                    # Em caso de erro, usa valor mínimo para ordenar no fim
-                    data_dt = datetime.datetime.min
-                contrib_ordenadas.append((idx, data_dt, c))
-            # Ordena contribuições por data da mais recente para a mais antiga
-            contrib_ordenadas.sort(key=lambda x: x[1], reverse=True)
-
-            # Para cada contribuição ordenada, cria um container próprio para visualização/edição
-            for original_idx, _, contribuicao in contrib_ordenadas:
-                # Keys únicas para controle dos widgets (toggle, botões)
-                container_key = f"contrib_{pessoa['_id']}_{original_idx}"
-                toggle_key = f"toggle_edicao_contribuicao_{container_key}"
-                delete_key = f"delete_confirm_{container_key}"
-
-                # Container com borda para destacar a contribuição
-                with st.container(border=True):
-                    # Toggle para alternar entre modo edição e visualização
-                    modo_edicao = st.toggle("Editar", key=toggle_key, value=False)
-
-
-                    # MODO EDIÇÃO DA CONTRIBUIÇÃO
-                    if modo_edicao:
-                        # Modo edição: campos editáveis para data e valor
-
-                        # Tenta converter string da data para tipo date, com fallback para hoje
-                        data_valor = contribuicao.get("data_contribuicao")
-                        data_dt = datetime.date.today()
-                        if isinstance(data_valor, str) and data_valor:
-                            try:
-                                data_dt = datetime.datetime.strptime(data_valor, "%d/%m/%Y").date()
-                            except:
-                                pass
-
-                        with st.container(horizontal=True):
-
-                            # Campo para editar data da contribuição
-                            nova_data = st.date_input(
-                                "Data da contribuição",
-                                value=data_dt,
-                                format="DD/MM/YYYY",
-                                key=f"data_{container_key}"
-                            )
-
-                            # Campo para editar valor da contribuição, valor inicial do registro atual
-                            novo_valor = st.number_input(
-                                "Valor subsidiado pelo ISPN",
-                                value=float(contribuicao.get("valor", 0)),
-                                min_value=0.0,
-                                format="%.2f",
-                                key=f"valor_{container_key}"
-                            )
-
-                        # Container horizontal para botões salvar e deletar
-                        linha_botoes = st.container(horizontal=True)
-
-                        # Botão para salvar alterações feitas
-                        if linha_botoes.button("Salvar alterações", key=f"salvar_{container_key}", icon=":material/save:"):
-                            # Atualiza os dados na lista
-                            previdencia[original_idx]["data_contribuicao"] = nova_data.strftime("%d/%m/%Y")
-                            previdencia[original_idx]["valor"] = novo_valor
-                            # Atualiza o banco de dados com as alterações
-                            pessoas.update_one(
-                                {"_id": ObjectId(pessoa["_id"])},
-                                {"$set": {"previdencia": previdencia}}
-                            )
-                            st.success("Contribuição atualizada com sucesso!")
-
-                        # Botão para iniciar processo de exclusão
-                        if linha_botoes.button("Deletar contribuição", key=f"deletar_{container_key}", icon=":material/delete:"):
-                            st.session_state[delete_key] = True
-
-                        # Se o usuário indicou que quer deletar, mostra confirmação
-                        if st.session_state.get(delete_key, False):
-                            st.warning("Você tem certeza que deseja apagar essa contribuição?")
-
-                            botoes_confirmacao = st.container(horizontal=True)
-
-                            # Botão confirma exclusão
-                            if botoes_confirmacao.button("Sim, quero apagar", key=f"confirmar_delete_{container_key}", icon=":material/check:"):
-                                try:
-                                    # Remove a contribuição da lista
-                                    previdencia.pop(original_idx)
-                                    # Atualiza o banco removendo-a
-                                    pessoas.update_one(
-                                        {"_id": ObjectId(pessoa["_id"])},
-                                        {"$set": {"previdencia": previdencia}}
-                                    )
-                                    st.success("Contribuição apagada com sucesso!")
-                                    st.session_state[delete_key] = False
-                                except Exception as e:
-                                    st.error(f"Erro ao apagar contribuição: {e}")
-                                    st.session_state[delete_key] = False
-
-                            # Botão cancela exclusão
-                            if botoes_confirmacao.button("Não", key=f"cancelar_delete_{container_key}", icon=":material/close:"):
-                                st.session_state[delete_key] = False
-
-
-                    # MODO VISUALIZAÇÃO DA CONTRIBUIÇÃO
-                    else:
-                        # Modo visualização: exibe data, usuário e valor da contribuição organizados em colunas
-                        col1, col2 = st.columns([1, 3])
-                        with col1:
-                            st.write(f"**Data:** {contribuicao.get('data_contribuicao', '')}")
-                        with col2:
-                            st.write(f"**Valor:** R$ {format(contribuicao.get('valor', 0), ',.2f').replace(',', 'X').replace('.', ',').replace('X', '.')}")
-
-
-        # ABA FÉRIAS ###############################################################################
-        with aba_ferias:
-
-            # ------------------------------------------------------------------
-            # PRÉ-CARREGA DADOS DO BANCO (SOMENTE SE EXISTIREM)
-            # ------------------------------------------------------------------
-            ferias_db = pessoa.get("férias", {}) if pessoa else {}
-
-            niver_ferias_db = ferias_db.get("niver_ferias")
-            abono_inicial_db = ferias_db.get("abono_inicial")
-
-            # Só inicializa se EXISTIR no banco
-            if niver_ferias_db:
-                if "dia_niver" not in st.session_state:
-                    st.session_state.dia_niver = niver_ferias_db.get("dia", "")
-
-                if "mes_niver" not in st.session_state:
-                    mes_num = niver_ferias_db.get("mes")
-                    if mes_num:
-                        nomes_meses = {
-                            1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
-                            5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
-                            9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
-                        }
-                        st.session_state.mes_niver = (mes_num, nomes_meses[mes_num])
-
-            if "dias_residuais" not in st.session_state:
-                st.session_state.dias_residuais = abono_inicial_db
-
-
-            # ------------------------------------------------------------------
-            # FORMULÁRIO
-            # ------------------------------------------------------------------
-            with st.form("form_ferias_colaborador", border=False):
-
-                st.write(
-                    '**Dia e mês** do "aniversário das férias" '
-                    '(quando o colaborador será abonado com novos dias):'
-                )
-
-                # Dia (vazio + 1..31)
-                lista_dias = [""] + list(range(1, 32))
-
-                # Mês (vazio + tuplas)
-                lista_meses = [""] + [
-                    (1, "Janeiro"), (2, "Fevereiro"), (3, "Março"),
-                    (4, "Abril"), (5, "Maio"), (6, "Junho"),
-                    (7, "Julho"), (8, "Agosto"), (9, "Setembro"),
-                    (10, "Outubro"), (11, "Novembro"), (12, "Dezembro")
-                ]
-
-                with st.container(horizontal=True):
-
-                    # DIA
-                    dia = st.selectbox(
-                        "Dia",
-                        lista_dias,
-                        key="dia_niver",
-                        width=120
-                    )
-
-                    # MÊS
-                    mes = st.selectbox(
-                        "Mês",
-                        lista_meses,
-                        format_func=lambda x: "" if x == "" else x[1],
-                        key="mes_niver",
-                        width=250
-                    )
-
-                st.write("")
-                st.write("")
-
-                st.write(
-                    '**Número de dias** que serão abonados no primeiro ciclo:')
-                st.caption('O primeiro cico é o período entre o início da contratação e o primeiro aniversário de férias):')
-                st.caption('Se o primeiro ciclo corresponde a um ano completo, coloque 22 (PJ) ou 30 (CLT).')
-
-
-                dias_residuais = st.number_input(
-                    "Abono inicial:",
-                    min_value=-30,
-                    max_value=30,
-                    key="dias_residuais",
-                    width=120
-                )
-
-                st.write("")
-
-                # ------------------------------------------------------------------
-                # BOTÃO SALVAR
-                # ------------------------------------------------------------------
-                if st.form_submit_button("Salvar", type="secondary", icon=":material/save:"):
-
-                    pessoas.update_one(
-                        {"_id": pessoa["_id"]},
-                        {
-                            "$set": {
-                                "férias.niver_ferias": {
-                                    "dia": dia if dia != "" else None,
-                                    "mes": mes[0] if mes != "" else None
-                                },
-                                "férias.abono_inicial": dias_residuais,
-                                "férias.ciclo_1_abonado": False
-                            }
-                        }
-                    )
-
-                    st.success("Informações de férias atualizadas com sucesso!")
-                    time.sleep(2)
-                    st.rerun(scope="fragment")
-
 
         # ABA ANOTAÇÕES ############################################################################### 
         with aba_anotacoes:
@@ -3028,7 +2718,7 @@ for i, aba in enumerate(abas):
 
         if projetos_do_programa_ordenados:
             dados_projetos = {
-                "Código": [],
+                "Sigla": [],
                 "Nome do projeto": [],
                 "Início": [],
                 "Fim": [],
@@ -3038,7 +2728,8 @@ for i, aba in enumerate(abas):
             }
 
             for projeto in projetos_do_programa_ordenados:
-                dados_projetos["Código"].append(projeto.get("codigo", ""))
+                # Usa a sigla como identificador principal (resolve problema de busca)
+                dados_projetos["Sigla"].append(projeto.get("sigla", ""))
                 dados_projetos["Nome do projeto"].append(projeto.get("nome_do_projeto", "Sem nome"))
                 dados_projetos["Início"].append(projeto.get("data_inicio_contrato", "Não informado"))
                 dados_projetos["Fim"].append(projeto.get("data_fim_contrato", "Não informado"))
@@ -3066,10 +2757,6 @@ for i, aba in enumerate(abas):
             else:
                 st.write(f"{quantidade} {plural} ao programa **{titulo_programa}**:")
                 
-            # Padroniza nomes iguais ao modelo que você já usa
-            df_projetos_show = df_projetos.rename(columns={
-                "Código": "Sigla",  # vamos usar sigla como identificador
-            })
             
             def criar_callback_projeto_programa(df_visivel, key_df):
 
@@ -3103,19 +2790,19 @@ for i, aba in enumerate(abas):
                 or "admin" in tipos_usuario
             )
 
-            df_original = df_projetos_show.copy()
+            df_original = df_projetos.copy()
 
             key_df = f"df_projetos_programa_{id_programa}"
 
             if pode_editar:
 
                 callback = criar_callback_projeto_programa(
-                    df_projetos_show,
+                    df_projetos,
                     key_df
                 )
 
                 st.dataframe(
-                    df_projetos_show,
+                    df_projetos,
                     hide_index=True,
                     selection_mode="single-row",
                     on_select=callback,
@@ -3125,7 +2812,7 @@ for i, aba in enumerate(abas):
             else:
                 # Usuário comum → somente visualização
                 st.dataframe(
-                    df_projetos_show,
+                    df_projetos,
                     hide_index=True
                 )
             
@@ -3171,9 +2858,9 @@ for i, aba in enumerate(abas):
                 df_projetos,
                 x_start="Início",
                 x_end="Fim",
-                y="Código",
+                y="Sigla",
                 color="Situação",
-                hover_data=["Código"],
+                hover_data=["Sigla"],
                 height=altura
             )
 
