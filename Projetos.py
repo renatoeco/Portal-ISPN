@@ -729,14 +729,13 @@ def dialog_cadastrar_projeto():
             elif codigo_existente:
                 st.warning(f"O código '{codigo}' já está cadastrado em outro projeto. Escolha outro.")
                 
-            # Validação: pelo menos um ano preenchido
-            elif all(v == 0 for v in orcamento_por_ano.values()):
-                st.warning("Preencha pelo menos um ano no orçamento.")
+            # Soma dos valores preenchidos
+            soma_orcamento = sum(orcamento_por_ano.values())
 
-            # Validação: soma dos anos igual ao valor total
-            elif round(sum(orcamento_por_ano.values()), 2) != round(valor, 2):
+            # Se houver algum valor preenchido, valida
+            if soma_orcamento > 0 and round(soma_orcamento, 2) != round(valor, 2):
                 st.warning(
-                    f"A soma dos orçamentos ({float_to_br(sum(orcamento_por_ano.values()))}) "
+                    f"A soma dos orçamentos ({float_to_br(soma_orcamento)}) "
                     f"deve ser igual ao valor total ({float_to_br(valor)})."
                 )
              
@@ -1335,14 +1334,14 @@ def dialog_editar_projeto():
             elif codigo_existente:
                 st.warning(f"O código '{codigo}' já está cadastrado em outro projeto. Escolha outro.")
                 
-            # Validação: pelo menos um ano preenchido
-            elif all(v == 0 for v in orcamento_por_ano.values()):
-                st.warning("Preencha pelo menos um ano no orçamento.")
 
-            # Validação: soma dos anos igual ao valor total
-            elif round(sum(orcamento_por_ano.values()), 2) != round(valor, 2):
+            # Soma dos valores preenchidos
+            soma_orcamento = sum(orcamento_por_ano.values())
+
+            # Se houver algum valor preenchido, valida
+            if soma_orcamento > 0 and round(soma_orcamento, 2) != round(valor, 2):
                 st.warning(
-                    f"A soma dos orçamentos ({float_to_br(sum(orcamento_por_ano.values()))}) "
+                    f"A soma dos orçamentos ({float_to_br(soma_orcamento)}) "
                     f"deve ser igual ao valor total ({float_to_br(valor)})."
                 )
                 
@@ -1704,6 +1703,30 @@ with st.container(horizontal=True):
 
     coordenador_projeto_id = str(projeto.get("coordenador")) if projeto.get("coordenador") else None
     programa_projeto_id = str(projeto.get("programa")) if projeto.get("programa") else None
+
+    # --------------------------------------------------
+    # ORÇAMENTO POR ANO (TRANSFORMAR EM DATAFRAME)
+    # --------------------------------------------------
+
+    orcamento_dict = projeto.get("orcamento_por_ano", {})
+
+    # Garantir que é dict
+    if not isinstance(orcamento_dict, dict):
+        orcamento_dict = {}
+
+    dados_orcamento = []
+
+    for ano, valor in orcamento_dict.items():
+        dados_orcamento.append({
+            "Ano": ano,
+            "Orçamento": valor
+        })
+
+    df_orcamento = pd.DataFrame(dados_orcamento)
+
+    # Ordenar por ano
+    if not df_orcamento.empty:
+        df_orcamento = df_orcamento.sort_values(by="Ano")
     
     # --------------------------------------------------
     # COORDENADOR DO PROGRAMA
@@ -1768,7 +1791,7 @@ st.subheader(
 
 st.write('')
 
-col1, col2 = st.columns(2)
+col1, col2, col3 = st.columns(3)
 
 
 # Valor e contrapartida
@@ -1788,6 +1811,17 @@ col2.metric(
 )
 col2.write('')
 
+# ---------------------------
+# ORÇAMENTO POR ANO
+# ---------------------------
+
+col3.write('')
+
+if df_orcamento.empty:
+    col3.write("_Sem orçamento por ano cadastrado_")
+else:
+    col3.write("**Orçamento por ano:**")
+    col3.dataframe(df_orcamento, hide_index=True)
 
 st.write('')
 
@@ -2460,7 +2494,7 @@ with tab_entregas:
             df_exibir["Previsão de Conclusão"] = df_exibir["Previsão de Conclusão"].fillna("")
 
             ui.table(data=df_exibir)
-            
+
         render_entregas_fragment(
             entregas=entregas,
             df_pessoas=df_pessoas,
