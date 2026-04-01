@@ -645,19 +645,19 @@ def dialog_cadastrar_projeto():
 
         ufs_selecionadas = col1.multiselect(
             "Estados",
-            options=list(uf_codigo_para_label.values()),
+            options=sorted(uf_codigo_para_label.values()),
             placeholder=""
         )
 
         municipios_selecionadas = col2.multiselect(
             "Municípios",
-            options=list(municipios_codigo_para_label.values()),
+            options=sorted(municipios_codigo_para_label.values()),
             placeholder=""
         )
 
         biomas_selecionados = col3.multiselect(
             "Biomas",
-            options=list(biomas_codigo_para_label.values()),
+            options=sorted(biomas_codigo_para_label.values()),
             placeholder=""
         )
 
@@ -666,14 +666,14 @@ def dialog_cadastrar_projeto():
 
         tis_selecionadas = col1.multiselect(
             "Terras Indígenas",
-            options=list(ti_codigo_para_label.values()),
+            options=sorted(ti_codigo_para_label.values()),
             placeholder=""
         )
 
         # ----------------------- UNIDADES DE CONSERVAÇÃO -----------------------
         ucs_selecionadas = col2.multiselect(
             "Unidades de Conservação",
-            options=list(uc_codigo_para_label.values()),
+            options=sorted(uc_codigo_para_label.values()),
             placeholder=""
         )
 
@@ -681,14 +681,14 @@ def dialog_cadastrar_projeto():
         col1, col2 = st.columns(2)
         assentamentos_selecionados = col1.multiselect(
             "Assentamentos",
-            options=list(assent_codigo_para_label.values()),
+            options=sorted(assent_codigo_para_label.values()),
             placeholder=""
         )
 
         # ----------------------- QUILOMBOS -----------------------
         quilombos_selecionados = col2.multiselect(
             "Quilombos",
-            options=list(quilombo_codigo_para_label.values()),
+            options=sorted(quilombo_codigo_para_label.values()),
             placeholder=""
         )
 
@@ -697,19 +697,19 @@ def dialog_cadastrar_projeto():
 
         bacias_macro_sel = col1.multiselect(
             "Bacias Hidrográficas - Nível 2",
-            options=list(bacia_macro_codigo_para_label.values()),
+            options=sorted(bacia_macro_codigo_para_label.values()),
             placeholder=""
         )
 
         bacias_meso_sel = col2.multiselect(
             "Bacias Hidrográficas - Nível 3",
-            options=list(bacia_meso_codigo_para_label.values()),
+            options=sorted(bacia_meso_codigo_para_label.values()),
             placeholder=""
         )
 
         bacias_micro_sel = col3.multiselect(
             "Bacias Hidrográficas - Nível 4",
-            options=list(bacia_micro_codigo_para_label.values()),
+            options=sorted(bacia_micro_codigo_para_label.values()),
             placeholder=""
         )
  
@@ -1229,21 +1229,21 @@ def dialog_editar_projeto():
 
         ufs_selecionadas = col1.multiselect(
             "Estados",
-            options=list(uf_codigo_para_label.values()),
+            options=sorted(uf_codigo_para_label.values()),
             default=[uf_codigo_para_label[c] for c in ufs_default if c in uf_codigo_para_label],
             placeholder=""
         )
 
         municipios_selecionadas = col2.multiselect(
             "Municípios",
-            options=list(municipios_codigo_para_label.values()),
+            options=sorted(municipios_codigo_para_label.values()),
             default=[municipios_codigo_para_label[c] for c in muni_default if c in municipios_codigo_para_label],
             placeholder=""
         )
 
         biomas_selecionados = col3.multiselect(
             "Biomas",
-            options=list(biomas_codigo_para_label.values()),
+            options=sorted(biomas_codigo_para_label.values()),
             default=[biomas_codigo_para_label[c] for c in biomas_default if c in biomas_codigo_para_label],
             placeholder=""
         )
@@ -1254,7 +1254,7 @@ def dialog_editar_projeto():
 
         ucs_selecionadas = col1.multiselect(
             "Unidades de Conservação",
-            options=list(uc_codigo_para_label.values()),
+            options=sorted(uc_codigo_para_label.values()),
             default=[uc_codigo_para_label[c] for c in uc_default if c in uc_codigo_para_label],
             placeholder=""
         )
@@ -1263,7 +1263,7 @@ def dialog_editar_projeto():
         
         tis_selecionadas = col2.multiselect(
             "Terras Indígenas",
-            options=list(ti_codigo_para_label.values()),  # lista de labels
+            options=sorted(ti_codigo_para_label.values()),  # lista de labels
             default=[ti_codigo_para_label[c] for c in ti_default if c in ti_codigo_para_label],
             placeholder=""
         )
@@ -1274,7 +1274,7 @@ def dialog_editar_projeto():
         
         assentamentos_selecionados = col1.multiselect(
             "Assentamentos",
-            options=list(assent_codigo_para_label.values()),
+            options=sorted(assent_codigo_para_label.values()),
             default=[assent_codigo_para_label[c] for c in assent_default],
             placeholder=""
         )
@@ -1282,7 +1282,7 @@ def dialog_editar_projeto():
         # ----------------------- QUILOMBOS -----------------------
         quilombos_selecionados = col2.multiselect(
             "Quilombos",
-            options=list(quilombo_codigo_para_label.values()),
+            options=sorted(quilombo_codigo_para_label.values()),
             default=[quilombo_codigo_para_label[c] for c in quilombo_default],
             placeholder=""
         )
@@ -1292,7 +1292,7 @@ def dialog_editar_projeto():
         
         bacias_macro_sel = col1.multiselect(
             "Bacias Hidrográficas - Nível 2",
-            options=list(bacia_macro_codigo_para_label.values()),
+            options=sorted(bacia_macro_codigo_para_label.values()),
             default=[bacia_macro_codigo_para_label[c] for c in bacia_macro_default],
             placeholder=""
         )
@@ -1300,14 +1300,14 @@ def dialog_editar_projeto():
 
         bacias_meso_sel = col2.multiselect(
             "Bacias Hidrográficas - Nível 3",
-            options=list(bacia_meso_codigo_para_label.values()),
+            options=sorted(bacia_meso_codigo_para_label.values()),
             default=[bacia_meso_codigo_para_label[c] for c in bacia_meso_default],
             placeholder=""
         )
         
         bacias_micro_sel = col3.multiselect(
             "Bacias Hidrográficas - Nível 4",
-            options=list(bacia_micro_codigo_para_label.values()),
+            options=sorted(bacia_micro_codigo_para_label.values()),
             default=[bacia_micro_codigo_para_label[c] for c in bacia_micro_default],
             placeholder=""
         )
