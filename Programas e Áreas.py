@@ -1508,13 +1508,14 @@ def dialog_editar_projeto():
             programas_objids = [bson.ObjectId(p) for p in programas_selecionados] if programas_selecionados else []
 
 
-            # --- Validar unicidade de sigla e código ---
-            sigla_existente = (df_projetos_ispn["sigla"] == sigla).any()
-            codigo_existente = (df_projetos_ispn["codigo"] == codigo).any()
+            # Checar duplicidade de sigla
+            sigla_existente = ((df_projetos_ispn["sigla"] == sigla) & (df_projetos_ispn["_id"] != projeto_info["_id"])).any()
+
+            # Checar duplicidade de código
+            codigo_existente = ((df_projetos_ispn["codigo"] == codigo) & (df_projetos_ispn["_id"] != projeto_info["_id"])).any()
 
             if sigla_existente:
                 st.warning(f"A sigla '{sigla}' já está cadastrada em outro projeto. Escolha outra.")
-                
             elif codigo_existente:
                 st.warning(f"O código '{codigo}' já está cadastrado em outro projeto. Escolha outro.")
                 
