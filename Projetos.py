@@ -106,6 +106,7 @@ indicadores_float = [
     "Valor mobilizado de novos recursos"
 ]
 indicador_texto = "Espécies"
+
 # Lista de nomes legíveis na ordem definida
 ordem_indicadores = [
     "Número de organizações apoiadas",
@@ -174,8 +175,6 @@ def parse_valor(valor):
     return 0.0
 
 
-
-
 # Função para limpar e formatar o valor com notação de moeda (duas casas decimais)
 def formatar_valor(row):
     moeda = moedas.get(row['moeda'].lower(), '')
@@ -189,6 +188,26 @@ def formatar_valor(row):
     except:
         return f"{moeda} 0,00"
 
+
+def formatar_contrapartida(row):
+    """
+    Formata a contrapartida usando a MESMA moeda do projeto.
+    """
+    moeda = moedas.get(row['moeda'].lower(), '')
+    
+    try:
+        valor = row['valor_contrapartida'] if row['valor_contrapartida'] else 0
+        
+        # Converter string BR para float
+        valor_num = float(str(valor).replace('.', '').replace(',', '.'))
+        
+        # Formatação BR
+        valor_formatado = f"{valor_num:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        
+        return f"{moeda} {valor_formatado}"
+    
+    except:
+        return f"{moeda} 0,00"
 
 # Converter objectid para string
 def convert_objectid(obj):
@@ -334,6 +353,9 @@ df_projetos_ispn["programa_nome"] = df_projetos_ispn["programas"].apply(map_prog
 
 # --- 4. Criar a coluna 'valor_com_moeda' ---
 df_projetos_ispn['valor_com_moeda'] = df_projetos_ispn.apply(formatar_valor, axis=1)
+
+# --- NOVO: Criar coluna de contrapartida com moeda ---
+df_projetos_ispn['contrapartida_com_moeda'] = df_projetos_ispn.apply(formatar_contrapartida, axis=1)
 
 # --- 5. Converter datas para datetime
 df_projetos_ispn['data_inicio_contrato'] = pd.to_datetime(
@@ -785,7 +807,7 @@ def dialog_cadastrar_projeto():
                     "nome_do_projeto": nome_do_projeto,
                     "moeda": moeda,
                     "valor": float_to_br(valor),
-                    "valor_da_contrapartida_em_r$": float_to_br(contrapartida),
+                    "valor_contrapartida": float_to_br(contrapartida),
                     "coordenador": coordenador_objid,
                     "doador": doador_objid,
                     "programas": programas_objids,
@@ -1101,11 +1123,11 @@ def dialog_editar_projeto():
 
         # Contrapartida
         contrapartida_atual = br_to_float(
-            projeto_info.get("valor_da_contrapartida_em_r$", "0")
+            projeto_info.get("valor_contrapartida", "0")
         )
 
         contrapartida = col3.number_input(
-            "Contrapartida em R$",
+            "Contrapartida",
             value=contrapartida_atual,
             step=0.01,
             min_value=0.0,
@@ -1378,7 +1400,7 @@ def dialog_editar_projeto():
                     "nome_do_projeto": nome_do_projeto,
                     "moeda": moeda,
                     "valor": float_to_br(valor),
-                    "valor_da_contrapartida_em_r$": float_to_br(contrapartida),
+                    "valor_contrapartida": float_to_br(contrapartida),
                     "coordenador": coordenador_objid,
                     "doador": doador_objid,
                     "programas": programas_objids,
@@ -1803,11 +1825,11 @@ col1.write('')
 
 col2.write('')
 col2.metric(
-"**Contrapartida:**",
-"R$ " + str(df_projetos_ispn.loc[
-    df_projetos_ispn['sigla'] == projeto_selecionado,
-    'valor_da_contrapartida_em_r$'
-].values[0])
+    "**Contrapartida:**",
+    df_projetos_ispn.loc[
+        df_projetos_ispn['sigla'] == projeto_selecionado,
+        'contrapartida_com_moeda'
+    ].values[0]
 )
 col2.write('')
 

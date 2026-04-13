@@ -943,7 +943,7 @@ def dialog_cadastrar_projeto():
                     "nome_do_projeto": nome_do_projeto,
                     "moeda": moeda,
                     "valor": float_to_br(valor),
-                    "valor_da_contrapartida_em_r$": float_to_br(contrapartida),
+                    "valor_contrapartida": float_to_br(contrapartida),
                     "coordenador": coordenador_objid,
                     "doador": doador_objid,
                     "programas": programas_objids,
@@ -1282,11 +1282,11 @@ def dialog_editar_projeto():
 
         # Contrapartida
         contrapartida_atual = br_to_float(
-            projeto_info.get("valor_da_contrapartida_em_r$", "0")
+            projeto_info.get("valor_contrapartida", "0")
         )
 
         contrapartida = col3.number_input(
-            "Contrapartida em R$",
+            "Contrapartida",
             value=contrapartida_atual,
             step=0.01,
             min_value=0.0,
@@ -1562,7 +1562,7 @@ def dialog_editar_projeto():
                     "nome_do_projeto": nome_do_projeto,
                     "moeda": moeda,
                     "valor": float_to_br(valor),
-                    "valor_da_contrapartida_em_r$": float_to_br(contrapartida),
+                    "valor_contrapartida": float_to_br(contrapartida),
                     "coordenador": coordenador_objid,
                     "doador": doador_objid,
                     "programas": programas_objids,
