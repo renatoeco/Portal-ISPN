@@ -372,6 +372,11 @@ def dialog_editar_entregas():
     mapa_objetivos = {}
     eixos_da_estrategia = []
     mapa_acoes_programa = {}
+    mapa_resultados_programa = {}
+
+    for doc in dados_programas:
+        for r in doc.get("resultados_programa", []):
+            mapa_resultados_programa[str(r["_id"])] = r.get("titulo", "")
 
     for doc in dados_estrategia:
         for resultado in doc.get("resultados_medio_prazo", {}).get("resultados_mp", []):
@@ -415,7 +420,8 @@ def dialog_editar_entregas():
 
 
 
-    acoes_programa_options = sorted(mapa_acoes_programa.keys(),key=lambda x: mapa_acoes_programa[x])            
+    acoes_programa_options = sorted(mapa_acoes_programa.keys(),key=lambda x: mapa_acoes_programa[x])  
+    resultados_programa_options = sorted(mapa_resultados_programa.keys(), key=lambda x: mapa_resultados_programa[x])          
     metas_mp_options = sorted(mapa_metas_mp.keys(), key=lambda x: mapa_metas_mp[x])
     acoes_mp_options = sorted(mapa_acoes_mp.keys(), key=lambda x: mapa_acoes_mp[x])
     acoes_lp_options = sorted(mapa_acoes_lp.keys(),key=lambda x: mapa_acoes_lp[x])
@@ -521,6 +527,14 @@ def dialog_editar_entregas():
                     key="nova_objetivos"
                 )
                 
+                resultados_programa_relacionados = st.multiselect(
+                    "Contribui com quais resultados do(s) programa(s)?",
+                    options=resultados_programa_options,
+                    format_func=lambda x: mapa_resultados_programa.get(x, ""),
+                    placeholder="",
+                    key="nova_resultados_programa"
+                )
+                
                 acoes_relacionados = st.multiselect(
                     "Contribui com quais ações estratégicas do(s) programa(s)?",
                     options=acoes_programa_options,
@@ -558,6 +572,7 @@ def dialog_editar_entregas():
                             "acoes_resultados_medio_prazo": [ObjectId(a) for a in acoes_medio_prazo_relacionadas],
                             "acoes_resultados_longo_prazo": [ObjectId(a) for a in acoes_lp_relacionadas],
                             "objetivos_estrategicos_relacionados": [ObjectId(o) for o in objetivos_relacionados],
+                            "resultados_programa_relacionados": [ObjectId(r) for r in resultados_programa_relacionados],
                             "eixos_relacionados": [ObjectId(e) for e in eixos_relacionados],
                             "acoes_relacionadas": [ObjectId(a) for a in acoes_relacionados],
                             "metas_resultados_medio_prazo": [ObjectId(m) for m in metas_mp_relacionadas],
@@ -675,6 +690,18 @@ def dialog_editar_entregas():
                         else:
                             st.markdown("**Objetivos estratégicos:** -")
                             
+                        st.write("")
+                        
+                        resultados_prog = entrega.get("resultados_programa_relacionados", [])
+
+                        if resultados_prog:
+                            st.markdown("**Resultados do programa:**")
+                            for r in resultados_prog:
+                                nome = mapa_resultados_programa.get(str(r), "Não encontrado")
+                                st.markdown(f"- {nome}")
+                        else:
+                            st.markdown("**Resultados do programa:** -")
+                        
                         st.write("")
 
                         # Ações estratégicas do programa
@@ -844,6 +871,21 @@ def dialog_editar_entregas():
                                 ObjectId(o) for o in entrega_editada["objetivos_estrategicos_relacionados"]
                             ]
                             
+                            resultados_prog_default = [
+                                str(r) for r in entrega.get("resultados_programa_relacionados", [])
+                            ]
+
+                            entrega_editada["resultados_programa_relacionados"] = st.multiselect(
+                                "Contribui com quais resultados do(s) programa(s)?",
+                                options=resultados_programa_options,
+                                default=resultados_prog_default,
+                                format_func=lambda x: mapa_resultados_programa.get(x, ""),
+                                placeholder=""
+                            )
+
+                            entrega_editada["resultados_programa_relacionados"] = [
+                                ObjectId(r) for r in entrega_editada["resultados_programa_relacionados"]
+                            ]
 
                             entrega_editada["acoes_relacionadas"] = [
                                 ObjectId(a) for a in entrega_editada["acoes_relacionadas"]

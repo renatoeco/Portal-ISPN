@@ -198,6 +198,7 @@ def gerenciar_programa_dialog(programa):
     nome_atual = programa_doc.get("nome_programa_area", "")
     coordenador_id_atual = str(programa_doc.get("coordenador_id", ""))
     acoes_estrategicas = programa_doc.get("acoes_estrategicas", [])
+    resultados_programa = programa_doc.get("resultados_programa", [])
 
     dados_estrategia = list(estrategia.find({}))
 
@@ -234,7 +235,11 @@ def gerenciar_programa_dialog(programa):
 
 
     # ------------------- Aba principal -------------------
-    aba_principal, aba_acoes = st.tabs(["Informações Gerais", "Ações Estratégicas"])
+    aba_principal, aba_acoes, aba_resultados = st.tabs([
+        "Informações Gerais",
+        "Ações Estratégicas",
+        "Resultados do programa"
+    ])
 
     # ======================================================
     # ABA 1 - INFORMAÇÕES GERAIS
@@ -468,6 +473,156 @@ def gerenciar_programa_dialog(programa):
                             for r in lp_atual:
                                 st.markdown(f"- {mapa_lp.get(r, '')}")
 
+    # ======================================================
+    # ABA 3 - RESULTADOS DO PROGRAMA
+    # ======================================================
+    with aba_resultados:
+
+        # ---------------- EXPANDER PARA ADICIONAR RESULTADO ----------------
+        with st.expander("Adicionar novo resultado", expanded=False, icon=":material/add_notes:"):
+
+            with st.form(key=f"form_add_resultado_{programa['id']}", clear_on_submit=True, border=False):
+
+                novo_resultado = st.text_input("Título do resultado")
+
+                eixo_sel = st.multiselect(
+                    "Contribui com quais eixos da estratégia?",
+                    options=opcoes_eixos,
+                    format_func=lambda x: mapa_eixos.get(x, ""),
+                    placeholder=""
+                )
+
+                resultados_mp_sel = st.multiselect(
+                    "Contribui com quais resultados de médio prazo?",
+                    options=opcoes_mp,
+                    format_func=lambda x: mapa_mp.get(x, ""),
+                    placeholder=""
+                )
+
+                resultados_lp_sel = st.multiselect(
+                    "Contribui com quais resultados de longo prazo?",
+                    options=opcoes_lp,
+                    format_func=lambda x: mapa_lp.get(x, ""),
+                    placeholder=""
+                )
+
+                st.write("")
+
+                adicionar = st.form_submit_button("Adicionar resultado", icon=":material/add:")
+
+                if adicionar and novo_resultado.strip():
+
+                    nova_entrada = {
+                        "_id": ObjectId(),
+                        "titulo": novo_resultado.strip(),
+                        "eixo_relacionado": [ObjectId(i) for i in eixo_sel],
+                        "resultados_medio_prazo_relacionados": [ObjectId(i) for i in resultados_mp_sel],
+                        "resultados_longo_prazo_relacionados": [ObjectId(i) for i in resultados_lp_sel],
+                    }
+
+                    programas_areas.update_one(
+                        {"_id": ObjectId(programa["id"])},
+                        {"$push": {"resultados_programa": nova_entrada}}
+                    )
+
+                    st.success("Resultado adicionado com sucesso!")
+                    time.sleep(2)
+                    st.rerun(scope="fragment")
+            
+                # ---------------- LISTA DE RESULTADOS ----------------
+                if resultados_programa:
+
+                    st.write("")
+                    st.write("**Resultados cadastrados:**")
+
+                    for resultado in resultados_programa:
+
+                        resultado_id = str(resultado["_id"])
+                        descricao = resultado.get("titulo", "")
+
+                        eixo_atual = [str(i) for i in resultado.get("eixo_relacionado", [])]
+                        mp_atual = [str(i) for i in resultado.get("resultados_medio_prazo_relacionados", [])]
+                        lp_atual = [str(i) for i in resultado.get("resultados_longo_prazo_relacionados", [])]
+
+                        with st.expander(descricao or "Sem título"):
+
+                            toggle_edicao = st.toggle(
+                                "Editar resultado",
+                                key=f"toggle_resultado_{resultado_id}",
+                                value=False
+                            )
+
+                            st.write("")
+
+                            if toggle_edicao:
+
+                                nova_descricao = st.text_area(
+                                    "Título",
+                                    value=descricao,
+                                    key=f"desc_{resultado_id}"
+                                )
+
+                                eixo_sel = st.multiselect(
+                                    "Contribui com quais eixos da estratégia?",
+                                    options=opcoes_eixos,
+                                    default=eixo_atual,
+                                    format_func=lambda x: mapa_eixos.get(x, ""),
+                                    key=f"eixo_res_{resultado_id}"
+                                )
+
+                                mp_sel = st.multiselect(
+                                    "Contribui com quais resultados de médio prazo?",
+                                    options=opcoes_mp,
+                                    default=mp_atual,
+                                    format_func=lambda x: mapa_mp.get(x, ""),
+                                    key=f"mp_res_{resultado_id}"
+                                )
+
+                                lp_sel = st.multiselect(
+                                    "Contribui com quais resultados de longo prazo?",
+                                    options=opcoes_lp,
+                                    default=lp_atual,
+                                    format_func=lambda x: mapa_lp.get(x, ""),
+                                    key=f"lp_res_{resultado_id}"
+                                )
+
+                                if st.button("Salvar alterações", key=f"salvar_res_{resultado_id}"):
+
+                                    programas_areas.update_one(
+                                        {
+                                            "_id": ObjectId(programa["id"]),
+                                            "resultados_programa._id": ObjectId(resultado_id)
+                                        },
+                                        {
+                                            "$set": {
+                                                "resultados_programa.$.descricao": nova_descricao,
+                                                "resultados_programa.$.eixo_relacionado": [ObjectId(i) for i in eixo_sel],
+                                                "resultados_programa.$.resultados_medio_prazo_relacionados": [ObjectId(i) for i in mp_sel],
+                                                "resultados_programa.$.resultados_longo_prazo_relacionados": [ObjectId(i) for i in lp_sel],
+                                            }
+                                        }
+                                    )
+
+                                    st.success("Resultado atualizado!")
+                                    time.sleep(2)
+                                    st.rerun(scope="fragment")
+
+                            else:
+                                # VISUALIZAÇÃO
+                                if eixo_atual:
+                                    st.markdown("**Eixos relacionados:**")
+                                    for e in eixo_atual:
+                                        st.markdown(f"- {mapa_eixos.get(e, '')}")
+
+                                if mp_atual:
+                                    st.markdown("**Resultados de médio prazo:**")
+                                    for r in mp_atual:
+                                        st.markdown(f"- {mapa_mp.get(r, '')}")
+
+                                if lp_atual:
+                                    st.markdown("**Resultados de longo prazo:**")
+                                    for r in lp_atual:
+                                        st.markdown(f"- {mapa_lp.get(r, '')}")
 
 def gerar_anos_intervalo(data_inicio, data_fim):
     """
