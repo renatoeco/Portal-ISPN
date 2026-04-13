@@ -215,6 +215,25 @@ def get_usuario_normalizado(pessoas, id_usuario) -> dict:
 
     if not usuario_doc:
         return {}
+    
+    # ----------------------------------------------------------
+    # DEFINIÇÃO SEGURA DOS DADOS BANCÁRIOS
+    # ----------------------------------------------------------
+
+    tipo_contratacao = usuario_doc.get("tipo_contratacao")
+
+    # Inicializa como dicionário vazio para evitar NoneType
+    banco_doc = {}
+
+    if tipo_contratacao == "CLT":
+        banco_doc = usuario_doc.get("banco") or {}
+
+    elif tipo_contratacao in ["PJ1", "PJ2"]:
+        banco_doc = usuario_doc.get("banco_pf") or {}
+
+    # Garantia extra: se ainda for None, vira dict vazio
+    if not isinstance(banco_doc, dict):
+        banco_doc = {}
 
     usuario = {
         "nome_completo": usuario_doc.get("nome_completo"),
@@ -224,12 +243,12 @@ def get_usuario_normalizado(pessoas, id_usuario) -> dict:
         "data_nascimento": usuario_doc.get("data_nascimento"),
         "genero": usuario_doc.get("gênero"),
         "email": usuario_doc.get("e_mail"),
-        "email_coordenador": None,  # pode buscar depois
+        "email_coordenador": None,
         "banco": {
-            "nome": usuario_doc.get("banco", {}).get("nome_banco"),
-            "agencia": usuario_doc.get("banco", {}).get("agencia"),
-            "conta": usuario_doc.get("banco", {}).get("conta"),
-            "tipo": usuario_doc.get("banco", {}).get("tipo_conta"),
+            "nome": banco_doc.get("nome_banco"),
+            "agencia": banco_doc.get("agencia"),
+            "conta": banco_doc.get("conta"),
+            "tipo": banco_doc.get("tipo_conta"),
         }
     }
 
