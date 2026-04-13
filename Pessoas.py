@@ -468,7 +468,7 @@ def gerenciar_pessoas():
 
     
         # Cria abas
-        aba_info, aba_contratos, aba_previdencia, aba_ferias, aba_anotacoes  = st.tabs([":material/info: Informações gerais", ":material/contract: Contratos", ":material/finance_mode: Previdência", ":material/beach_access: Férias e Recessos", ":material/notes: Anotações"])
+        aba_info, aba_contratos, aba_previdencia, aba_ferias, aba_anotacoes  = st.tabs([":material/info: Informações gerais", ":material/contract: Projetos e Contratos", ":material/finance_mode: Previdência", ":material/beach_access: Férias e Recessos", ":material/notes: Anotações"])
     
         # ABA INFORMAÇÕES GERAIS ################################################################
         with aba_info:
@@ -1005,16 +1005,13 @@ def gerenciar_pessoas():
 
 
 
-                cols = st.columns(3)
+                cols = st.columns(2)
                 inicio_contrato = cols[0].date_input("Data de início do contrato:", format="DD/MM/YYYY", value="today")
                 fim_contrato = cols[1].date_input("Data de fim do contrato:", format="DD/MM/YYYY", value=None)
-                data_reajuste = cols[2].selectbox("Mês de reajuste:", meses_pt)
 
                 anotacoes_contrato = st.text_area("Anotações sobre o contrato:")
 
                 # lista_status_contrato = ["Em vigência", "Encerrado", "Cancelado", "Fonte de recurso temporária", ""]
-
-                #data_reajuste = col3.date_input("Data de reajuste:", format="DD/MM/YYYY")
 
                 if st.button("Adicionar contrato", icon=":material/note_add:"):
                     novo_contrato = {
@@ -1022,7 +1019,6 @@ def gerenciar_pessoas():
                         "data_fim": fim_contrato.strftime("%d/%m/%Y") if fim_contrato else "",
                         "status_contrato": status_contrato,
                         "projeto_pagador": projetos_pagadores_edit,
-                        "data_reajuste": data_reajuste,                  
                         "anotacoes_contrato": anotacoes_contrato        
                     }
 
@@ -1097,20 +1093,11 @@ def gerenciar_pessoas():
                                 key=f"fim_{contrato_key}"
                             ).strftime("%d/%m/%Y")
 
-                            # Mês reajuste
-                            contrato["data_reajuste"] = st.selectbox(
-                                "Mês de reajuste",
-                                options=meses_pt,
-                                index=meses_pt.index(contrato.get("data_reajuste", "Janeiro"))
-                                if contrato.get("data_reajuste") in meses_pt else 0,
-                                key=f"reajuste_{contrato_key}"
-                            )
 
                         else:
                             st.write("**Status:**", contrato.get("status_contrato", ""))
                             st.write("**Data de início:**", contrato.get("data_inicio", ""))
                             st.write("**Data de fim:**", contrato.get("data_fim", ""))
-                            st.write("**Mês de reajuste:**", contrato.get("data_reajuste", ""))
 
                     # ---------------- COLUNA 2 ----------------
                     with col2:
@@ -2159,10 +2146,17 @@ if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_pess
 # Roteamento de usuários
 if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_pessoas"}:
 
-    aba_pessoas, aba_contratos, aba_reajustes, aba_aniversariantes, aba_visitantes = st.tabs([
+    # aba_pessoas, aba_contratos, aba_reajustes, aba_aniversariantes, aba_visitantes = st.tabs([
+    #     ":material/person: Colaboradores",
+    #     ":material/contract: Contratos",
+    #     ":material/payments: Reajustes do mês",
+    #     ":material/cake: Aniversariantes do mês",
+    #     ":material/visibility: Visitantes"
+    # ])
+    
+    aba_pessoas, aba_contratos, aba_aniversariantes, aba_visitantes = st.tabs([
         ":material/person: Colaboradores",
         ":material/contract: Contratos",
-        ":material/payments: Reajustes do mês",
         ":material/cake: Aniversariantes do mês",
         ":material/visibility: Visitantes"
     ])
@@ -2799,44 +2793,38 @@ if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_pess
             st.caption("Nenhum contrato válido encontrado.")
 
 
-    # ABA REAJUSTES ---------------------------------------------------------------------------------------------------
-    with aba_reajustes:
+    # # ABA REAJUSTES ---------------------------------------------------------------------------------------------------
+    # with aba_reajustes:
 
-            mes_atual_str = meses_pt[datetime.date.today().month - 1]
+    #         mes_atual_str = meses_pt[datetime.date.today().month - 1]
 
-            st.markdown(f'<h3 style="font-size: 1.5em;">Contratos com reajuste em {mes_atual_str}:</h3>', unsafe_allow_html=True)
-            st.write(f"")
-            st.write(f"")
+    #         st.markdown(f'<h3 style="font-size: 1.5em;">Contratos com reajuste em {mes_atual_str}:</h3>', unsafe_allow_html=True)
+    #         st.write(f"")
+    #         st.write(f"")
 
-            encontrados = False  # Flag para saber se achou algum contrato
+    #         encontrados = False  # Flag para saber se achou algum contrato
 
-            for pessoa in dados_pessoas:
-                nome = pessoa.get("nome_completo", "Sem nome")
-                contratos = pessoa.get("contratos", [])
+    #         for pessoa in dados_pessoas:
+    #             nome = pessoa.get("nome_completo", "Sem nome")
+    #             contratos = pessoa.get("contratos", [])
 
-                # Filtrar contratos "Em vigência" com reajuste no mês atual
-                contratos_reajuste = [
-                    c for c in contratos
-                    if c.get("status_contrato") == "Em vigência" and c.get("data_reajuste") == mes_atual_str
-                ]
+    #             for contrato in contratos_reajuste:
+    #                 projetos_ids = contrato.get("projeto_pagador", [])
+    #                 if projetos_ids:
+    #                     for projeto_id in projetos_ids:
+    #                         projeto = next(
+    #                             (p for p in dados_projetos_ispn if p["_id"] == projeto_id),
+    #                             None
+    #                         )
+    #                         if projeto:
+    #                             st.write(f"**{nome}** - {projeto.get('sigla', projeto.get('nome_do_projeto',''))}")
+    #                             encontrados = True
+    #                 else:
+    #                     st.write(f"**{nome}** - Projeto pagador não informado")
+    #                     encontrados = True
 
-                for contrato in contratos_reajuste:
-                    projetos_ids = contrato.get("projeto_pagador", [])
-                    if projetos_ids:
-                        for projeto_id in projetos_ids:
-                            projeto = next(
-                                (p for p in dados_projetos_ispn if p["_id"] == projeto_id),
-                                None
-                            )
-                            if projeto:
-                                st.write(f"**{nome}** - {projeto.get('sigla', projeto.get('nome_do_projeto',''))}")
-                                encontrados = True
-                    else:
-                        st.write(f"**{nome}** - Projeto pagador não informado")
-                        encontrados = True
-
-            if not encontrados:
-                st.caption("Nenhum contrato com reajuste no mês atual.")
+    #         if not encontrados:
+    #             st.caption("Nenhum contrato com reajuste no mês atual.")
 
 
 # ABA ANIVERSARIANTES ---------------------------------------------------------------------------------------------------
