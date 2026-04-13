@@ -909,7 +909,12 @@ st.session_state.status_usuario = (
 with minhas_viagens:
 
     # Filtar SAVs com o CPF do usuário
-    df_minhas_savs = df_savs[df_savs['CPF:'].astype(str) == st.session_state.cpf]
+
+    cpf_numeros = ''.join(filter(str.isdigit, st.session_state.cpf))
+
+    df_minhas_savs = df_savs[
+        df_savs['CPF:'].astype(str).str.replace(r'\D', '', regex=True) == cpf_numeros
+    ]
 
 
     # -------------------------------------
