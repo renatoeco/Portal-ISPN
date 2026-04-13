@@ -738,7 +738,7 @@ def cadastrar_externo():
         st.write('')
 
 
-        if st.form_submit_button("Cadastrar viajante externo", icon=":material/person_add:", type="primary", disabled=usuario_visitante):
+        if st.form_submit_button("Cadastrar viajante externo", icon=":material/person_add:", type="primary"):
             # Verifica se há erros nos campos
             erros = []
 
@@ -813,8 +813,8 @@ def cadastrar_externo():
 # ################################################################################
 
 
-# Verifica se o usuário é visitante
-usuario_visitante = "visitante" in st.session_state.get("tipo_usuario", [])
+# # Verifica se o usuário é visitante
+# usuario_visitante = "visitante" in st.session_state.get("tipo_usuario", [])
 
 
 
@@ -867,7 +867,7 @@ abas_labels = [
 # Perfis com acesso à aba Pendências
 PERFIS_COM_ACESSO_PENDENCIAS = {
     "admin",
-    "coordenador",
+    "coordenador(a)",
     "gestao_viagens"
 }
 
@@ -1296,8 +1296,7 @@ with terceiros:
 
 
 # Se o tipo de usuário for admin, coordenador(a) ou gestao_viagens
-if st.session_state.tipo_usuario in ["admin", "coordenador", "gestao_viagens"]:
-
+if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_viagens"}:
 
     # ABA DE PENDÊNCIAS
     with pendencias:
