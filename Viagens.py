@@ -1293,7 +1293,11 @@ with terceiros:
 # ABA DE PENDÊNCIAS
 # #######################################################################
 
-if not usuario_visitante:
+
+
+# Se o tipo de usuário for admin, coordenador(a) ou gestao_viagens
+if st.session_state.tipo_usuario in ["admin", "coordenador", "gestao_viagens"]:
+
 
     # ABA DE PENDÊNCIAS
     with pendencias:
