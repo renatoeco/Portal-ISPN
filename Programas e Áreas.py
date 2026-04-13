@@ -887,16 +887,6 @@ def dialog_cadastrar_projeto():
             elif codigo_existente:
                 st.warning(f"O código '{codigo}' já está cadastrado em outro projeto. Escolha outro.")
                 
-            # Soma dos valores preenchidos
-            soma_orcamento = sum(orcamento_por_ano.values())
-
-            # Se houver algum valor preenchido, valida
-            if soma_orcamento > 0 and round(soma_orcamento, 2) != round(valor, 2):
-                st.warning(
-                    f"A soma dos orçamentos ({float_to_br(soma_orcamento)}) "
-                    f"deve ser igual ao valor total ({float_to_br(valor)})."
-                )
-             
             else:
                 # --- Criar ObjectIds ---
                 projeto_id = bson.ObjectId()
@@ -1518,16 +1508,6 @@ def dialog_editar_projeto():
                 st.warning(f"A sigla '{sigla}' já está cadastrada em outro projeto. Escolha outra.")
             elif codigo_existente:
                 st.warning(f"O código '{codigo}' já está cadastrado em outro projeto. Escolha outro.")
-                
-            # Soma dos valores preenchidos
-            soma_orcamento = sum(orcamento_por_ano.values())
-
-            # Se houver algum valor preenchido, valida
-            if soma_orcamento > 0 and round(soma_orcamento, 2) != round(valor, 2):
-                st.warning(
-                    f"A soma dos orçamentos ({float_to_br(soma_orcamento)}) "
-                    f"deve ser igual ao valor total ({float_to_br(valor)})."
-                )
                 
             else:
 
