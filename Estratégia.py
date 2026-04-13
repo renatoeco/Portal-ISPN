@@ -439,37 +439,148 @@ def editar_titulo_pagina_resultados_lp_dialog():
         st.rerun()
             
             
-@st.dialog("Editar resultado de longo prazo", width="large")
+@st.dialog("Editar resultado de longo prazo", width="large", on_dismiss="rerun")
 def editar_titulo_de_cada_resultado_lp_dialog(resultado_idx):
-    # Buscar documento
+
+    # ----------------------------------------------------
+    # BUSCAR DOCUMENTO
+    # ----------------------------------------------------
     doc = estrategia.find_one({"resultados_longo_prazo": {"$exists": True}})
     if not doc:
         st.error("Nenhum documento encontrado com 'resultados_longo_prazo'.")
         return
 
     resultados_lp = doc.get("resultados_longo_prazo", {}).get("resultados_lp", [])
+
     if resultado_idx is None or resultado_idx >= len(resultados_lp):
         st.error("Índice de resultado inválido.")
         return
 
     resultado = resultados_lp[resultado_idx]
 
-    # Campos principais
-    novo_titulo = st.text_area("Título do resultado", value=resultado.get("titulo", ""), height="content")
+    # ----------------------------------------------------
+    # ABAS (MESMA ESTRUTURA DO MP)
+    # ----------------------------------------------------
+    aba1, aba2 = st.tabs(["Título", "Ações Estratégicas"])
 
-    # Botão de salvar
-    if st.button("Salvar alterações", icon=":material/save:", use_container_width=False):
+    # ====================================================
+    # ABA 1 - TÍTULO
+    # ====================================================
+    with aba1:
 
-        estrategia.update_one(
-            {"_id": doc["_id"]},
-            {"$set": {
-                f"resultados_longo_prazo.resultados_lp.{resultado_idx}.titulo": novo_titulo,
-            }}
+        st.subheader("Editar Título do Resultado")
+
+        novo_titulo = st.text_area(
+            "Título do resultado",
+            value=resultado.get("titulo", ""),
+            height="content"
         )
-        st.success("Resultado atualizado com sucesso!")
-        time.sleep(2)
-        st.rerun()
 
+        if st.button(
+            "Salvar Título",
+            key=f"salvar_titulo_lp_{resultado_idx}",
+            icon=":material/save:"
+        ):
+
+            resultados_lp[resultado_idx]["titulo"] = novo_titulo
+
+            # garante _id
+            if "_id" not in resultados_lp[resultado_idx]:
+                resultados_lp[resultado_idx]["_id"] = str(ObjectId())
+
+            estrategia.update_one(
+                {"_id": doc["_id"]},
+                {"$set": {"resultados_longo_prazo.resultados_lp": resultados_lp}}
+            )
+
+            st.success("Título atualizado com sucesso!")
+            time.sleep(2)
+            st.rerun(scope="fragment")
+
+    # ====================================================
+    # ABA 2 - AÇÕES ESTRATÉGICAS
+    # ====================================================
+    with aba2:
+
+        acoes = resultado.get("acoes_estrategicas", [])
+
+        # --------------------------
+        # ADICIONAR NOVA AÇÃO
+        # --------------------------
+        with st.expander(
+            "Adicionar nova ação estratégica",
+            expanded=False,
+            icon=":material/add_notes:"
+        ):
+
+            novo_titulo_acao = st.text_area(
+                "Título da nova ação estratégica",
+                key=f"nova_acao_lp_{resultado_idx}"
+            )
+
+            if st.button(
+                "Adicionar ação estratégica",
+                key=f"btn_add_acao_lp_{resultado_idx}",
+                icon=":material/add:"
+            ):
+
+                nova_acao = {
+                    "_id": str(ObjectId()),
+                    "nome_acao_estrategica": novo_titulo_acao,
+                }
+
+                resultados_lp[resultado_idx].setdefault(
+                    "acoes_estrategicas", []
+                ).append(nova_acao)
+
+                estrategia.update_one(
+                    {"_id": doc["_id"]},
+                    {"$set": {"resultados_longo_prazo.resultados_lp": resultados_lp}}
+                )
+
+                st.success("Nova ação estratégica adicionada!")
+                time.sleep(2)
+                st.rerun(scope="fragment")
+
+        st.write("")
+
+        # --------------------------
+        # EDITAR AÇÕES EXISTENTES
+        # --------------------------
+        for a_idx, acao in enumerate(acoes):
+
+            titulo_acao = acao.get(
+                "nome_acao_estrategica",
+                f"Ação Estratégica {a_idx + 1}"
+            )
+
+            with st.expander(titulo_acao):
+
+                novo_nome_acao = st.text_area(
+                    "Título da ação estratégica",
+                    value=titulo_acao,
+                    key=f"acao_lp_{resultado_idx}_{a_idx}"
+                )
+
+                if st.button(
+                    "Salvar",
+                    key=f"salvar_acao_lp_{resultado_idx}_{a_idx}",
+                    icon=":material/save:"
+                ):
+
+                    resultados_lp[resultado_idx]["acoes_estrategicas"][a_idx].update({
+                        "nome_acao_estrategica": novo_nome_acao
+                    })
+
+                    estrategia.update_one(
+                        {"_id": doc["_id"]},
+                        {"$set": {"resultados_longo_prazo.resultados_lp": resultados_lp}}
+                    )
+
+                    st.success("Ação estratégica atualizada!")
+                    time.sleep(2)
+                    st.rerun(scope="fragment")
+        
 
 @st.dialog("Editar objetivo estratégico", width="large", on_dismiss="rerun")
 def editar_objetivo_estrategico_dialog(obj_idx):
@@ -482,8 +593,12 @@ def editar_objetivo_estrategico_dialog(obj_idx):
 
     objetivo = objetivos[obj_idx]
 
-    aba1, aba2, aba3, aba4 = st.tabs(
-        ["Título", "Metas", "Indicadores", "Ações Estratégicas", ]
+    # aba1, aba2, aba3, aba4 = st.tabs(
+    #     ["Título", "Metas", "Indicadores", "Ações Estratégicas", ]
+    # )
+    
+    aba1, aba2, aba3 = st.tabs(
+        ["Título", "Indicadores", "Ações Estratégicas", ]
     )
     
     with aba1:
@@ -511,45 +626,45 @@ def editar_objetivo_estrategico_dialog(obj_idx):
             time.sleep(2)
             st.rerun(scope="fragment")
             
-    with aba2:
+    # with aba2:
 
-        metas = objetivo.get("metas", [])
+    #     metas = objetivo.get("metas", [])
 
-        st.subheader("Adicionar meta")
+    #     st.subheader("Adicionar meta")
 
-        novo_nome = st.text_input(
-            "Título da meta",
-            key=f"nova_meta_{obj_idx}"
-        )
+    #     novo_nome = st.text_input(
+    #         "Título da meta",
+    #         key=f"nova_meta_{obj_idx}"
+    #     )
 
-        novo_objetivo = st.text_input(
-            "Objetivo da meta",
-            key=f"nova_meta_obj_{obj_idx}"
-        )
+    #     novo_objetivo = st.text_input(
+    #         "Objetivo da meta",
+    #         key=f"nova_meta_obj_{obj_idx}"
+    #     )
 
-        if st.button("Adicionar meta", icon=":material/add:"):
+    #     if st.button("Adicionar meta", icon=":material/add:"):
 
-            nova_meta = {
-                "_id": str(ObjectId()),
-                "meta_obj": novo_nome,
-                "objetivo": novo_objetivo,
-                "alcancado": ""
-            }
+    #         nova_meta = {
+    #             "_id": str(ObjectId()),
+    #             "meta_obj": novo_nome,
+    #             "objetivo": novo_objetivo,
+    #             "alcancado": ""
+    #         }
 
-            objetivo.setdefault("metas", []).append(nova_meta)
+    #         objetivo.setdefault("metas", []).append(nova_meta)
 
-            estrategia.update_one(
-                {"_id": doc["_id"]},
-                {"$set": {
-                    "objetivos_estrategicos_institucionais.obj_estrat_inst": objetivos
-                }}
-            )
+    #         estrategia.update_one(
+    #             {"_id": doc["_id"]},
+    #             {"$set": {
+    #                 "objetivos_estrategicos_institucionais.obj_estrat_inst": objetivos
+    #             }}
+    #         )
 
-            st.success("Meta adicionada!")
-            time.sleep(2)
-            st.rerun(scope="fragment")
+    #         st.success("Meta adicionada!")
+    #         time.sleep(2)
+    #         st.rerun(scope="fragment")
             
-    with aba3:
+    with aba2:
 
         indicadores_obj = objetivo.get("indicadores", [])
 
@@ -621,7 +736,7 @@ def editar_objetivo_estrategico_dialog(obj_idx):
                     time.sleep(2)
                     st.rerun(scope="fragment")
             
-    with aba4:
+    with aba3:
 
         acoes = objetivo.get("acoes_estrategicas", [])
 
@@ -764,15 +879,21 @@ def buscar_entregas_relacionadas_por_id(
         for entrega in projeto.get("entregas", []):
 
             eixos_ids = normalizar_lista_ids(entrega.get("eixos_relacionados", []))
-            acoes_ids = normalizar_lista_ids(entrega.get("acoes_resultados_medio_prazo", []))
+            acoes_mp_ids = normalizar_lista_ids(entrega.get("acoes_resultados_medio_prazo", []))
+            acoes_lp_ids = normalizar_lista_ids(entrega.get("acoes_resultados_longo_prazo", []))
             resultados_lp_ids = normalizar_lista_ids(
                 entrega.get("resultados_longo_prazo_relacionados", [])
             )
 
             relacionada = (
                 (eixo_id and eixo_id in eixos_ids)
-                or (acoes_rm_relacionados and acoes_rm_relacionados in acoes_ids)
-                or (resultado_lp_id and resultado_lp_id in resultados_lp_ids)
+                or
+                (
+                    (acoes_rm_relacionados and acoes_rm_relacionados in acoes_mp_ids)
+                    or (acoes_rm_relacionados and acoes_rm_relacionados in acoes_lp_ids)
+                )
+                or
+                (resultado_lp_id and resultado_lp_id in resultados_lp_ids)
             )
 
             if not relacionada:
@@ -1635,32 +1756,46 @@ with aba_res_lp:
 
                 st.divider()
 
+
                 # ====================================================
-                # ENTREGAS PLANEJADAS / REALIZADAS (PRIMEIRO)
+                # AÇÕES ESTRATÉGICAS / ENTREGAS (IGUAL AO MP)
                 # ====================================================
+                st.markdown("##### :material/package_2: Entregas por ação estratégica:")
                 st.write("")
-                st.markdown("**:material/package_2: Entregas Planejadas / Realizadas:**")
 
-                entregas_lp = buscar_entregas_relacionadas_por_id(
-                    projetos_db=projetos_com_entregas,
-                    responsaveis_dict=responsaveis_dict,
-                    resultado_lp_id=str(resultado["_id"]),
-                    programas=st.session_state.get("filtro_programas", []),
-                    anos_referencia=st.session_state.get("filtro_anos_referencia", []),
-                    projetos=st.session_state.get("filtro_projetos", [])
-                )
+                acoes_estrategicas = resultado.get("acoes_estrategicas", [])
 
-
-                if entregas_lp:
-                    exibir_entregas_como_tabela(
-                        entregas_lp,
-                        key_prefix="tabela_entregas_lp",
-                        key_suffix=f"{idx}_{_safe_key(titulo_result_lp)}"
-                    )
+                if not acoes_estrategicas:
+                    st.caption("Nenhuma ação estratégica cadastrada para este resultado.")
                 else:
-                    st.caption(
-                        "Nenhuma entrega registrada para este resultado de longo prazo."
-                    )
+                    for idx_acao, acao in enumerate(acoes_estrategicas):
+
+                        nome_acao = acao.get(
+                            "nome_acao_estrategica",
+                            f"Ação {idx_acao + 1}"
+                        )
+
+                        st.write(f"**{nome_acao}**")
+
+                        entregas_vinculadas = buscar_entregas_relacionadas_por_id(
+                            projetos_db=projetos_com_entregas,
+                            responsaveis_dict=responsaveis_dict,
+                            acoes_rm_relacionados=str(acao["_id"]),  # reutiliza mesmo parâmetro
+                            programas=st.session_state.get("filtro_programas", []),
+                            anos_referencia=st.session_state.get("filtro_anos_referencia", []),
+                            projetos=st.session_state.get("filtro_projetos", [])
+                        )
+
+                        if entregas_vinculadas:
+                            exibir_entregas_como_tabela(
+                                entregas_vinculadas,
+                                key_prefix="tabela_entrega_lp_por_acao",
+                                key_suffix=f"{idx}_{idx_acao}"
+                            )
+                        else:
+                            st.caption("Nenhuma entrega vinculada a esta ação estratégica.")
+
+                        st.divider()
                 
     else:
         st.caption("Nenhum resultado de longo prazo encontrado no banco de dados.")

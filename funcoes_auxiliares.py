@@ -367,8 +367,9 @@ def dialog_editar_entregas():
     #mapa_resultados_mp = {}
     mapa_metas_mp = {}
     mapa_acoes_mp = {}
-    mapa_resultados_lp = {}
+    mapa_acoes_lp = {}
     mapa_eixos = {}
+    mapa_objetivos = {}
     eixos_da_estrategia = []
     mapa_acoes_programa = {}
 
@@ -385,11 +386,17 @@ def dialog_editar_entregas():
     
     for doc in dados_estrategia:
         for r in doc.get("resultados_longo_prazo", {}).get("resultados_lp", []):
-            mapa_resultados_lp[str(r["_id"])] = r["titulo"]
+
+            for acao in r.get("acoes_estrategicas", []):
+                mapa_acoes_lp[str(acao["_id"])] = acao["nome_acao_estrategica"]
 
     for doc in dados_estrategia:
         for eixo in doc.get("estrategia", {}).get("eixos_da_estrategia", []):
             mapa_eixos[str(eixo["_id"])] = eixo["titulo"]
+            
+    for doc in dados_estrategia:
+        for obj in doc.get("objetivos_estrategicos_institucionais", {}).get("obj_estrat_inst", []):
+            mapa_objetivos[str(obj["_id"])] = obj["titulo"]
             
     for doc in dados_estrategia:
         if "estrategia" in doc:
@@ -411,8 +418,9 @@ def dialog_editar_entregas():
     acoes_programa_options = sorted(mapa_acoes_programa.keys(),key=lambda x: mapa_acoes_programa[x])            
     metas_mp_options = sorted(mapa_metas_mp.keys(), key=lambda x: mapa_metas_mp[x])
     acoes_mp_options = sorted(mapa_acoes_mp.keys(), key=lambda x: mapa_acoes_mp[x])
-    resultados_lp_options = sorted(mapa_resultados_lp.keys(),key=lambda x: mapa_resultados_lp[x])
+    acoes_lp_options = sorted(mapa_acoes_lp.keys(),key=lambda x: mapa_acoes_lp[x])
     eixos_options = sorted(mapa_eixos.keys(), key=lambda x: mapa_eixos[x])
+    objetivos_options = sorted(mapa_objetivos.keys(), key=lambda x: mapa_objetivos[x])
         
     #  Criar lista de opções (nome + _id) ordenadas alfabeticamente
     df_pessoas_ordenado = df_pessoas.sort_values("nome_completo", ascending=True)
@@ -489,20 +497,28 @@ def dialog_editar_entregas():
                     key="nova_metasmp"
                 )
 
-                resultados_longo_prazo_relacionados = st.multiselect(
-                    "Contribui com quais resultados de longo prazo?",
-                    options=resultados_lp_options,
-                    format_func=lambda x: mapa_resultados_lp.get(x, ""),
+                acoes_lp_relacionadas = st.multiselect(
+                    "Contribui com quais ações estratégicas dos resultados de longo prazo?",
+                    options=acoes_lp_options,
+                    format_func=lambda x: mapa_acoes_lp.get(x, ""),
                     placeholder="",
-                    key="nova_rlpr"
+                    key="nova_acoes_lp"
                 )
 
                 eixos_relacionados = st.multiselect(
-                    "Contribui com quais eixos da estratégia do Fundo Ecos?",
+                    "Contribui com quais eixos da estratégia Promoção de Paisagens Produtivas Ecossociais?",
                     options=eixos_options,
                     format_func=lambda x: mapa_eixos.get(x, ""),
                     placeholder="",
                     key="nova_eixos"
+                )
+                
+                objetivos_relacionados = st.multiselect(
+                    "Contribui com quais objetivos estratégicos organizacionais?",
+                    options=objetivos_options,
+                    format_func=lambda x: mapa_objetivos.get(x, ""),
+                    placeholder="",
+                    key="nova_objetivos"
                 )
                 
                 acoes_relacionados = st.multiselect(
@@ -540,7 +556,8 @@ def dialog_editar_entregas():
                             "progresso": int(progresso_nova_entrega),
                             "data_inicio": data_inicio.strftime("%d/%m/%Y"),
                             "acoes_resultados_medio_prazo": [ObjectId(a) for a in acoes_medio_prazo_relacionadas],
-                            "resultados_longo_prazo_relacionados": [ObjectId(r) for r in resultados_longo_prazo_relacionados],
+                            "acoes_resultados_longo_prazo": [ObjectId(a) for a in acoes_lp_relacionadas],
+                            "objetivos_estrategicos_relacionados": [ObjectId(o) for o in objetivos_relacionados],
                             "eixos_relacionados": [ObjectId(e) for e in eixos_relacionados],
                             "acoes_relacionadas": [ObjectId(a) for a in acoes_relacionados],
                             "metas_resultados_medio_prazo": [ObjectId(m) for m in metas_mp_relacionadas],
@@ -623,14 +640,14 @@ def dialog_editar_entregas():
                         st.write("")
 
                         # Resultados de longo prazo
-                        resultados_longo_entrega = entrega.get("resultados_longo_prazo_relacionados", [])
-                        if resultados_longo_entrega:
-                            st.markdown("**Resultados de longo prazo:**")
-                            for r in resultados_longo_entrega:
-                                nome = mapa_resultados_lp.get(str(r), "Não encontrado")
+                        acoes_lp_entrega = entrega.get("acoes_resultados_longo_prazo", [])
+                        if acoes_lp_entrega:
+                            st.markdown("**Ações estratégicas dos resultados de longo prazo:**")
+                            for a in acoes_lp_entrega:
+                                nome = mapa_acoes_lp.get(str(a), "Não encontrado")
                                 st.markdown(f"- {nome}")
                         else:
-                            st.markdown("**Resultados de longo prazo:** -")
+                            st.markdown("**Ações estratégicas dos resultados de longo prazo:** -")
 
 
                         st.write("")
@@ -646,8 +663,21 @@ def dialog_editar_entregas():
                             st.markdown("**Eixos estratégicos:** -")
                             
                         st.write("")
+                        
+                        # Objetivos estratégicos organizacionais
+                        objetivos_entrega = entrega.get("objetivos_estrategicos_relacionados", [])
 
-                        # Ações estratégicas
+                        if objetivos_entrega:
+                            st.markdown("**Objetivos estratégicos organizacionais:**")
+                            for o in objetivos_entrega:
+                                nome = mapa_objetivos.get(str(o), "Não encontrado")
+                                st.markdown(f"- {nome}")
+                        else:
+                            st.markdown("**Objetivos estratégicos:** -")
+                            
+                        st.write("")
+
+                        # Ações estratégicas do programa
                         acoes = entrega.get("acoes_relacionadas", [])
                         if acoes:
                             st.markdown("**Ações estratégicas do programa:**")
@@ -768,29 +798,26 @@ def dialog_editar_entregas():
                                 ObjectId(m) for m in entrega_editada["metas_resultados_medio_prazo"]
                             ]
 
-
-                            
-                            resultados_lp_default = [
-                                str(r) for r in entrega.get("resultados_longo_prazo_relacionados", [])
+                            acoes_lp_default = [
+                                str(a) for a in entrega.get("acoes_resultados_longo_prazo", [])
                             ]
 
-                            entrega_editada["resultados_longo_prazo_relacionados"] = st.multiselect(
-                                "Contribui com quais resultados de longo prazo?",
-                                options=resultados_lp_options,
-                                default=resultados_lp_default,
-                                format_func=lambda x: mapa_resultados_lp.get(x, ""),
+                            entrega_editada["acoes_resultados_longo_prazo"] = st.multiselect(
+                                "Contribui com quais ações estratégicas dos resultados de longo prazo?",
+                                options=acoes_lp_options,
+                                default=acoes_lp_default,
+                                format_func=lambda x: mapa_acoes_lp.get(x, ""),
                                 placeholder=""
                             )
 
-                            entrega_editada["resultados_longo_prazo_relacionados"] = [
-                                ObjectId(r) for r in entrega_editada["resultados_longo_prazo_relacionados"]
+                            entrega_editada["acoes_resultados_longo_prazo"] = [
+                                ObjectId(a) for a in entrega_editada["acoes_resultados_longo_prazo"]
                             ]
-
 
                             eixos_default = [str(e) for e in entrega.get("eixos_relacionados", [])]
 
                             entrega_editada["eixos_relacionados"] = st.multiselect(
-                                "Contribui com quais eixos da estratégia do Fundo Ecos?",
+                                "Contribui com quais eixos da estratégia Promoção de Paisagens Produtivas Ecossociais?",
                                 options=eixos_options,
                                 default=eixos_default,
                                 format_func=lambda x: mapa_eixos.get(x, ""),
@@ -800,6 +827,23 @@ def dialog_editar_entregas():
                             entrega_editada["eixos_relacionados"] = [
                                 ObjectId(e) for e in entrega_editada["eixos_relacionados"]
                             ]
+                            
+                            objetivos_default = [
+                                str(o) for o in entrega.get("objetivos_estrategicos_relacionados", [])
+                            ]
+
+                            entrega_editada["objetivos_estrategicos_relacionados"] = st.multiselect(
+                                "Contribui com quais objetivos estratégicos organizacionais?",
+                                options=objetivos_options,
+                                default=objetivos_default,
+                                format_func=lambda x: mapa_objetivos.get(x, ""),
+                                placeholder=""
+                            )
+
+                            entrega_editada["objetivos_estrategicos_relacionados"] = [
+                                ObjectId(o) for o in entrega_editada["objetivos_estrategicos_relacionados"]
+                            ]
+                            
 
                             entrega_editada["acoes_relacionadas"] = [
                                 ObjectId(a) for a in entrega_editada["acoes_relacionadas"]

@@ -645,19 +645,19 @@ def dialog_cadastrar_projeto():
 
         ufs_selecionadas = col1.multiselect(
             "Estados",
-            options=list(uf_codigo_para_label.values()),
+            options=sorted(uf_codigo_para_label.values()),
             placeholder=""
         )
 
         municipios_selecionadas = col2.multiselect(
             "Municípios",
-            options=list(municipios_codigo_para_label.values()),
+            options=sorted(municipios_codigo_para_label.values()),
             placeholder=""
         )
 
         biomas_selecionados = col3.multiselect(
             "Biomas",
-            options=list(biomas_codigo_para_label.values()),
+            options=sorted(biomas_codigo_para_label.values()),
             placeholder=""
         )
 
@@ -666,14 +666,14 @@ def dialog_cadastrar_projeto():
 
         tis_selecionadas = col1.multiselect(
             "Terras Indígenas",
-            options=list(ti_codigo_para_label.values()),
+            options=sorted(ti_codigo_para_label.values()),
             placeholder=""
         )
 
         # ----------------------- UNIDADES DE CONSERVAÇÃO -----------------------
         ucs_selecionadas = col2.multiselect(
             "Unidades de Conservação",
-            options=list(uc_codigo_para_label.values()),
+            options=sorted(uc_codigo_para_label.values()),
             placeholder=""
         )
 
@@ -681,14 +681,14 @@ def dialog_cadastrar_projeto():
         col1, col2 = st.columns(2)
         assentamentos_selecionados = col1.multiselect(
             "Assentamentos",
-            options=list(assent_codigo_para_label.values()),
+            options=sorted(assent_codigo_para_label.values()),
             placeholder=""
         )
 
         # ----------------------- QUILOMBOS -----------------------
         quilombos_selecionados = col2.multiselect(
             "Quilombos",
-            options=list(quilombo_codigo_para_label.values()),
+            options=sorted(quilombo_codigo_para_label.values()),
             placeholder=""
         )
 
@@ -697,19 +697,19 @@ def dialog_cadastrar_projeto():
 
         bacias_macro_sel = col1.multiselect(
             "Bacias Hidrográficas - Nível 2",
-            options=list(bacia_macro_codigo_para_label.values()),
+            options=sorted(bacia_macro_codigo_para_label.values()),
             placeholder=""
         )
 
         bacias_meso_sel = col2.multiselect(
             "Bacias Hidrográficas - Nível 3",
-            options=list(bacia_meso_codigo_para_label.values()),
+            options=sorted(bacia_meso_codigo_para_label.values()),
             placeholder=""
         )
 
         bacias_micro_sel = col3.multiselect(
             "Bacias Hidrográficas - Nível 4",
-            options=list(bacia_micro_codigo_para_label.values()),
+            options=sorted(bacia_micro_codigo_para_label.values()),
             placeholder=""
         )
  
@@ -729,14 +729,13 @@ def dialog_cadastrar_projeto():
             elif codigo_existente:
                 st.warning(f"O código '{codigo}' já está cadastrado em outro projeto. Escolha outro.")
                 
-            # Validação: pelo menos um ano preenchido
-            elif all(v == 0 for v in orcamento_por_ano.values()):
-                st.warning("Preencha pelo menos um ano no orçamento.")
+            # Soma dos valores preenchidos
+            soma_orcamento = sum(orcamento_por_ano.values())
 
-            # Validação: soma dos anos igual ao valor total
-            elif round(sum(orcamento_por_ano.values()), 2) != round(valor, 2):
+            # Se houver algum valor preenchido, valida
+            if soma_orcamento > 0 and round(soma_orcamento, 2) != round(valor, 2):
                 st.warning(
-                    f"A soma dos orçamentos ({float_to_br(sum(orcamento_por_ano.values()))}) "
+                    f"A soma dos orçamentos ({float_to_br(soma_orcamento)}) "
                     f"deve ser igual ao valor total ({float_to_br(valor)})."
                 )
              
@@ -1229,21 +1228,21 @@ def dialog_editar_projeto():
 
         ufs_selecionadas = col1.multiselect(
             "Estados",
-            options=list(uf_codigo_para_label.values()),
+            options=sorted(uf_codigo_para_label.values()),
             default=[uf_codigo_para_label[c] for c in ufs_default if c in uf_codigo_para_label],
             placeholder=""
         )
 
         municipios_selecionadas = col2.multiselect(
             "Municípios",
-            options=list(municipios_codigo_para_label.values()),
+            options=sorted(municipios_codigo_para_label.values()),
             default=[municipios_codigo_para_label[c] for c in muni_default if c in municipios_codigo_para_label],
             placeholder=""
         )
 
         biomas_selecionados = col3.multiselect(
             "Biomas",
-            options=list(biomas_codigo_para_label.values()),
+            options=sorted(biomas_codigo_para_label.values()),
             default=[biomas_codigo_para_label[c] for c in biomas_default if c in biomas_codigo_para_label],
             placeholder=""
         )
@@ -1254,7 +1253,7 @@ def dialog_editar_projeto():
 
         ucs_selecionadas = col1.multiselect(
             "Unidades de Conservação",
-            options=list(uc_codigo_para_label.values()),
+            options=sorted(uc_codigo_para_label.values()),
             default=[uc_codigo_para_label[c] for c in uc_default if c in uc_codigo_para_label],
             placeholder=""
         )
@@ -1263,7 +1262,7 @@ def dialog_editar_projeto():
         
         tis_selecionadas = col2.multiselect(
             "Terras Indígenas",
-            options=list(ti_codigo_para_label.values()),  # lista de labels
+            options=sorted(ti_codigo_para_label.values()),  # lista de labels
             default=[ti_codigo_para_label[c] for c in ti_default if c in ti_codigo_para_label],
             placeholder=""
         )
@@ -1274,7 +1273,7 @@ def dialog_editar_projeto():
         
         assentamentos_selecionados = col1.multiselect(
             "Assentamentos",
-            options=list(assent_codigo_para_label.values()),
+            options=sorted(assent_codigo_para_label.values()),
             default=[assent_codigo_para_label[c] for c in assent_default],
             placeholder=""
         )
@@ -1282,7 +1281,7 @@ def dialog_editar_projeto():
         # ----------------------- QUILOMBOS -----------------------
         quilombos_selecionados = col2.multiselect(
             "Quilombos",
-            options=list(quilombo_codigo_para_label.values()),
+            options=sorted(quilombo_codigo_para_label.values()),
             default=[quilombo_codigo_para_label[c] for c in quilombo_default],
             placeholder=""
         )
@@ -1292,7 +1291,7 @@ def dialog_editar_projeto():
         
         bacias_macro_sel = col1.multiselect(
             "Bacias Hidrográficas - Nível 2",
-            options=list(bacia_macro_codigo_para_label.values()),
+            options=sorted(bacia_macro_codigo_para_label.values()),
             default=[bacia_macro_codigo_para_label[c] for c in bacia_macro_default],
             placeholder=""
         )
@@ -1300,14 +1299,14 @@ def dialog_editar_projeto():
 
         bacias_meso_sel = col2.multiselect(
             "Bacias Hidrográficas - Nível 3",
-            options=list(bacia_meso_codigo_para_label.values()),
+            options=sorted(bacia_meso_codigo_para_label.values()),
             default=[bacia_meso_codigo_para_label[c] for c in bacia_meso_default],
             placeholder=""
         )
         
         bacias_micro_sel = col3.multiselect(
             "Bacias Hidrográficas - Nível 4",
-            options=list(bacia_micro_codigo_para_label.values()),
+            options=sorted(bacia_micro_codigo_para_label.values()),
             default=[bacia_micro_codigo_para_label[c] for c in bacia_micro_default],
             placeholder=""
         )
@@ -1335,14 +1334,14 @@ def dialog_editar_projeto():
             elif codigo_existente:
                 st.warning(f"O código '{codigo}' já está cadastrado em outro projeto. Escolha outro.")
                 
-            # Validação: pelo menos um ano preenchido
-            elif all(v == 0 for v in orcamento_por_ano.values()):
-                st.warning("Preencha pelo menos um ano no orçamento.")
 
-            # Validação: soma dos anos igual ao valor total
-            elif round(sum(orcamento_por_ano.values()), 2) != round(valor, 2):
+            # Soma dos valores preenchidos
+            soma_orcamento = sum(orcamento_por_ano.values())
+
+            # Se houver algum valor preenchido, valida
+            if soma_orcamento > 0 and round(soma_orcamento, 2) != round(valor, 2):
                 st.warning(
-                    f"A soma dos orçamentos ({float_to_br(sum(orcamento_por_ano.values()))}) "
+                    f"A soma dos orçamentos ({float_to_br(soma_orcamento)}) "
                     f"deve ser igual ao valor total ({float_to_br(valor)})."
                 )
                 
@@ -1704,6 +1703,30 @@ with st.container(horizontal=True):
 
     coordenador_projeto_id = str(projeto.get("coordenador")) if projeto.get("coordenador") else None
     programa_projeto_id = str(projeto.get("programa")) if projeto.get("programa") else None
+
+    # --------------------------------------------------
+    # ORÇAMENTO POR ANO (TRANSFORMAR EM DATAFRAME)
+    # --------------------------------------------------
+
+    orcamento_dict = projeto.get("orcamento_por_ano", {})
+
+    # Garantir que é dict
+    if not isinstance(orcamento_dict, dict):
+        orcamento_dict = {}
+
+    dados_orcamento = []
+
+    for ano, valor in orcamento_dict.items():
+        dados_orcamento.append({
+            "Ano": ano,
+            "Orçamento": valor
+        })
+
+    df_orcamento = pd.DataFrame(dados_orcamento)
+
+    # Ordenar por ano
+    if not df_orcamento.empty:
+        df_orcamento = df_orcamento.sort_values(by="Ano")
     
     # --------------------------------------------------
     # COORDENADOR DO PROGRAMA
@@ -1768,7 +1791,7 @@ st.subheader(
 
 st.write('')
 
-col1, col2 = st.columns(2)
+col1, col2, col3 = st.columns(3)
 
 
 # Valor e contrapartida
@@ -1788,6 +1811,17 @@ col2.metric(
 )
 col2.write('')
 
+# ---------------------------
+# ORÇAMENTO POR ANO
+# ---------------------------
+
+col3.write('')
+
+if df_orcamento.empty:
+    col3.write("_Sem orçamento por ano cadastrado_")
+else:
+    col3.write("**Orçamento por ano:**")
+    col3.dataframe(df_orcamento, hide_index=True)
 
 st.write('')
 
@@ -2271,192 +2305,202 @@ with tab_entregas:
             st.write("_Não há entregas cadastradas para este projeto._")
 
     else:
-        # Criar dicionário de ObjectId -> nome_completo dos responsáveis
-        df_pessoas_ordenado = df_pessoas.sort_values("nome_completo", ascending=True)
-        responsaveis_dict = {
-            str(row["_id"]): row["nome_completo"]
-            for _, row in df_pessoas_ordenado.iterrows()
-        }
 
-        # Montar lista com apenas as colunas desejadas
-        dados_entregas = []
-        for entrega in entregas:
-            responsaveis_ids = [
-                str(r.get("$oid")) if isinstance(r, dict) else str(r)
-                for r in entrega.get("responsaveis", [])
-            ]
-            responsaveis_nomes = [
-                responsaveis_dict.get(rid, f"ID não encontrado: {rid}")
-                for rid in responsaveis_ids
-            ]
-            dados_entregas.append({
-                "Entregas": entrega.get("nome_da_entrega", "-"),
-                "Data de início": entrega.get("data_inicio", "-"),
-                "Previsão de Conclusão": entrega.get("previsao_da_conclusao", "-"),
-                "Responsáveis": ", ".join(responsaveis_nomes) if responsaveis_nomes else "-",
-                "Situação": entrega.get("situacao", "-"),
-            })
-
-        # Converter para DataFrame e exibir como tabela
-        df_entregas = pd.DataFrame(dados_entregas)
-
-        # ===============================================================
-        # FILTROS e BOTÃO PARA GERENCIAR ENTREGAS
-        # ===============================================================
-
-        # Opções únicas para filtros
-        situacoes = sorted(df_entregas["Situação"].dropna().unique().tolist())
-        
-        # Buscar menor previsão de conclusão diretamente do MongoDB
-        pipeline = [
-            {"$unwind": "$entregas"},
-            {"$match": {"entregas.previsao_da_conclusao": {"$ne": None, "$ne": ""}}},
-            {
-                "$group": {
-                    "_id": None,
-                    "min_data": {"$min": "$entregas.previsao_da_conclusao"}
-                }
+        @st.fragment
+        def render_entregas_fragment(entregas, df_pessoas, pode_gerenciar_projeto, projeto_id):
+            
+            # Criar dicionário de responsáveis
+            df_pessoas_ordenado = df_pessoas.sort_values("nome_completo", ascending=True)
+            responsaveis_dict = {
+                str(row["_id"]): row["nome_completo"]
+                for _, row in df_pessoas_ordenado.iterrows()
             }
-        ]
 
-        resultado = list(projetos_ispn.aggregate(pipeline))
+            # Montar lista
+            dados_entregas = []
+            for entrega in entregas:
+                responsaveis_ids = [
+                    str(r.get("$oid")) if isinstance(r, dict) else str(r)
+                    for r in entrega.get("responsaveis", [])
+                ]
+                responsaveis_nomes = [
+                    responsaveis_dict.get(rid, f"ID não encontrado: {rid}")
+                    for rid in responsaveis_ids
+                ]
 
-        # Definir data_inicio padrão
-        if resultado and resultado[0].get("min_data"):
-            data_inicio_default = pd.to_datetime(
-                resultado[0]["min_data"],
+                dados_entregas.append({
+                    "Entregas": entrega.get("nome_da_entrega", "-"),
+                    "Data de início": entrega.get("data_inicio", "-"),
+                    "Previsão de Conclusão": entrega.get("previsao_da_conclusao", "-"),
+                    "Responsáveis": ", ".join(responsaveis_nomes) if responsaveis_nomes else "-",
+                    "Situação": entrega.get("situacao", "-"),
+                })
+
+            df_entregas = pd.DataFrame(dados_entregas)
+
+            # ===============================================================
+            # FILTROS e BOTÃO PARA GERENCIAR ENTREGAS
+            # ===============================================================
+
+            # Opções únicas para filtros
+            situacoes = sorted(df_entregas["Situação"].dropna().unique().tolist())
+            
+            # Buscar menor previsão de conclusão diretamente do MongoDB
+            pipeline = [
+                {"$unwind": "$entregas"},
+                {"$match": {"entregas.previsao_da_conclusao": {"$ne": None, "$ne": ""}}},
+                {
+                    "$group": {
+                        "_id": None,
+                        "min_data": {"$min": "$entregas.previsao_da_conclusao"}
+                    }
+                }
+            ]
+
+            resultado = list(projetos_ispn.aggregate(pipeline))
+
+            # Definir data_inicio padrão
+            if resultado and resultado[0].get("min_data"):
+                data_inicio_default = pd.to_datetime(
+                    resultado[0]["min_data"],
+                    format="%d/%m/%Y",
+                    errors="coerce"
+                )
+            else:
+                data_inicio_default = pd.to_datetime(datetime.date.today())
+
+            # Converter data de início para datetime
+            df_entregas["Data de início"] = pd.to_datetime(
+                df_entregas["Data de início"],
                 format="%d/%m/%Y",
                 errors="coerce"
             )
-        else:
-            data_inicio_default = pd.to_datetime(datetime.date.today())
 
-        # Converter data de início para datetime
-        df_entregas["Data de início"] = pd.to_datetime(
-            df_entregas["Data de início"],
-            format="%d/%m/%Y",
-            errors="coerce"
-        )
-
-        # Converter previsão para datetime
-        df_entregas["Previsão de Conclusão"] = pd.to_datetime(
-            df_entregas["Previsão de Conclusão"],
-            format="%d/%m/%Y",
-            errors="coerce"
-        )
-
-        with st.container(horizontal=True):
+            # Converter previsão para datetime
+            df_entregas["Previsão de Conclusão"] = pd.to_datetime(
+                df_entregas["Previsão de Conclusão"],
+                format="%d/%m/%Y",
+                errors="coerce"
+            )
 
             with st.container(horizontal=True):
 
-                filtro_situacao = st.multiselect(
-                    "Situação:",
-                    options=situacoes,
-                    default=[],
-                    placeholder="",
-                    width=250
+                with st.container(horizontal=True):
+
+                    filtro_situacao = st.multiselect(
+                        "Situação:",
+                        options=situacoes,
+                        default=[],
+                        placeholder="",
+                        width=250
+                    )
+
+                    # Campos de data SEM valor padrão (ficam vazios com placeholder)
+                    data_inicio = st.date_input(
+                        "Entregas a partir de:",
+                        value=None,
+                        format="DD/MM/YYYY",
+                        width=250
+                    )
+
+                    data_fim = st.date_input(
+                        "Até:",
+                        value=None,
+                        format="DD/MM/YYYY",
+                        width=250
+                    )
+
+                    # Converter para datetime
+                    data_inicio = pd.to_datetime(data_inicio)
+                    data_fim = pd.to_datetime(data_fim)
+
+                    # ===============================================================
+                    # ORDENAÇÃO
+                    # ===============================================================
+
+                    ordenacao = st.radio(
+                        "Ordenar por:",
+                        options=["Data de início", "Previsão de Conclusão"],
+                        horizontal=True
+                    )
+
+                # ====================
+                # Botão para abrir o diálogo de Gerenciar entregas
+                # ====================
+                if pode_gerenciar_projeto:
+                    with st.container(horizontal_alignment="right"):
+                        st.write('')    
+                        if st.button("Gerenciar entregas", icon=":material/edit:", width=300):
+
+                            # SINCRONIZAÇÃO EXPLÍCITA
+                            st.session_state["projeto_selecionado_entregas"] = (
+                                st.session_state.get("projeto_selecionado_projetos")
+                            )
+
+                            st.session_state["pagina_anterior"] = "pagina_projetos"
+
+                            dialog_editar_entregas()
+
+            # Aplicar filtros de situação
+            df_filtrado = df_entregas.copy()
+
+            if filtro_situacao:
+                df_filtrado = df_filtrado[df_filtrado["Situação"].isin(filtro_situacao)]
+
+            # Aplicar filtro de datas 
+            if data_inicio:
+                df_filtrado = df_filtrado[
+                    df_filtrado["Previsão de Conclusão"] >= pd.to_datetime(data_inicio)
+                ]
+
+            if data_fim:
+                df_filtrado = df_filtrado[
+                    df_filtrado["Previsão de Conclusão"] <= pd.to_datetime(data_fim)
+                ]
+
+            # ===============================================================
+            # APLICAR ORDENAÇÃO
+            # ===============================================================
+
+            if ordenacao == "Data de início":
+                df_filtrado = df_filtrado.sort_values(
+                    by="Data de início",
+                    ascending=True,
+                    na_position="last"
+                )
+            else:
+                df_filtrado = df_filtrado.sort_values(
+                    by="Previsão de Conclusão",
+                    ascending=True,
+                    na_position="last"
                 )
 
-                # Campos de data SEM valor padrão (ficam vazios com placeholder)
-                data_inicio = st.date_input(
-                    "Entregas a partir de:",
-                    value=None,
-                    format="DD/MM/YYYY",
-                    width=250
-                )
+            # ===============================================================
+            # EXIBIÇÃO DA TABELA
+            # ===============================================================
 
-                data_fim = st.date_input(
-                    "Até:",
-                    value=None,
-                    format="DD/MM/YYYY",
-                    width=250
-                )
+            st.write('')
+            
+            # Criar cópia para exibição (evita quebrar o filtro)
+            df_exibir = df_filtrado.copy()
 
-                # Converter para datetime
-                data_inicio = pd.to_datetime(data_inicio)
-                data_fim = pd.to_datetime(data_fim)
+            df_exibir["Data de início"] = df_exibir["Data de início"].dt.strftime("%d/%m/%Y")
+            df_exibir["Data de início"] = df_exibir["Data de início"].fillna("")
 
-                # ===============================================================
-                # ORDENAÇÃO
-                # ===============================================================
+            # Converter datetime para string (formato brasileiro)
+            df_exibir["Previsão de Conclusão"] = df_exibir["Previsão de Conclusão"].dt.strftime("%d/%m/%Y")
 
-                ordenacao = st.radio(
-                    "Ordenar por:",
-                    options=["Data de início", "Previsão de Conclusão"],
-                    horizontal=True
-                )
+            # Substituir NaT por vazio (opcional, mas recomendado)
+            df_exibir["Previsão de Conclusão"] = df_exibir["Previsão de Conclusão"].fillna("")
 
-            # ====================
-            # Botão para abrir o diálogo de Gerenciar entregas
-            # ====================
-            if pode_gerenciar_projeto:
-                with st.container(horizontal_alignment="right"):
-                    st.write('')    
-                    if st.button("Gerenciar entregas", icon=":material/edit:", width=300):
+            ui.table(data=df_exibir)
 
-                        # SINCRONIZAÇÃO EXPLÍCITA
-                        st.session_state["projeto_selecionado_entregas"] = (
-                            st.session_state.get("projeto_selecionado_projetos")
-                        )
-
-                        st.session_state["pagina_anterior"] = "pagina_projetos"
-
-                        dialog_editar_entregas()
-
-        # Aplicar filtros de situação
-        df_filtrado = df_entregas.copy()
-
-        if filtro_situacao:
-            df_filtrado = df_filtrado[df_filtrado["Situação"].isin(filtro_situacao)]
-
-        # Aplicar filtro de datas 
-        if data_inicio:
-            df_filtrado = df_filtrado[
-                df_filtrado["Previsão de Conclusão"] >= pd.to_datetime(data_inicio)
-            ]
-
-        if data_fim:
-            df_filtrado = df_filtrado[
-                df_filtrado["Previsão de Conclusão"] <= pd.to_datetime(data_fim)
-            ]
-
-        # ===============================================================
-        # APLICAR ORDENAÇÃO
-        # ===============================================================
-
-        if ordenacao == "Data de início":
-            df_filtrado = df_filtrado.sort_values(
-                by="Data de início",
-                ascending=True,
-                na_position="last"
-            )
-        else:
-            df_filtrado = df_filtrado.sort_values(
-                by="Previsão de Conclusão",
-                ascending=True,
-                na_position="last"
-            )
-
-        # ===============================================================
-        # EXIBIÇÃO DA TABELA
-        # ===============================================================
-
-        st.write('')
-        
-        # Criar cópia para exibição (evita quebrar o filtro)
-        df_exibir = df_filtrado.copy()
-
-        df_exibir["Data de início"] = df_exibir["Data de início"].dt.strftime("%d/%m/%Y")
-        df_exibir["Data de início"] = df_exibir["Data de início"].fillna("")
-
-        # Converter datetime para string (formato brasileiro)
-        df_exibir["Previsão de Conclusão"] = df_exibir["Previsão de Conclusão"].dt.strftime("%d/%m/%Y")
-
-        # Substituir NaT por vazio (opcional, mas recomendado)
-        df_exibir["Previsão de Conclusão"] = df_exibir["Previsão de Conclusão"].fillna("")
-
-        ui.table(data=df_exibir)
-
+        render_entregas_fragment(
+            entregas=entregas,
+            df_pessoas=df_pessoas,
+            pode_gerenciar_projeto=pode_gerenciar_projeto,
+            projeto_id=projeto_id
+        )
 
 # ##########################################################
 # Anotações

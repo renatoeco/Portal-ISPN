@@ -228,8 +228,27 @@ def calendario_eventos():
             "center": "title",
             "right": "dayGridMonth,dayGridWeek,listWeek"
         },
-        "initialView": "dayGridMonth",  
-        "selectable": False,    
+
+        # Tradução automática do FullCalendar
+        "locale": "pt-br",
+
+        # Tradução manual dos botões (opcional, mas recomendado)
+        "buttonText": {
+            "today": "Hoje",
+            "month": "Mês",
+            "week": "Semana",
+            "list": "Lista"
+        },
+
+        # Textos de tooltip (opcional)
+        "buttonHints": {
+            "today": "Ir para o mês atual",
+            "prev": "Mês anterior",
+            "next": "Próximo mês"
+        },
+
+        "initialView": "dayGridMonth",
+        "selectable": False,
         "editable": False,
         "height": 550
     }
