@@ -2381,72 +2381,29 @@ with tab_entregas:
             errors="coerce"
         )
 
-        with st.container(horizontal=True):
 
-            with st.container(horizontal=True):
+        # ====================
+        # Botão para abrir o diálogo de Gerenciar entregas
+        # ====================
+        if pode_gerenciar_projeto:
+            with st.container(horizontal_alignment="right"):
+                st.write('')    
+                if st.button("Gerenciar entregas", icon=":material/edit:", width=300):
 
-                filtro_situacao = st.multiselect(
-                    "Situação:",
-                    options=situacoes,
-                    default=[],
-                    placeholder="",
-                    width=250
-                )
+                    # SINCRONIZAÇÃO EXPLÍCITA
+                    st.session_state["projeto_selecionado_entregas"] = (
+                        st.session_state.get("projeto_selecionado_projetos")
+                    )
 
-                # Campos de data SEM valor padrão (ficam vazios com placeholder)
-                data_inicio = st.date_input(
-                    "Entregas a partir de:",
-                    value=None,
-                    format="DD/MM/YYYY",
-                    width=250
-                )
+                    st.session_state["pagina_anterior"] = "pagina_projetos"
 
-                data_fim = st.date_input(
-                    "Até:",
-                    value=None,
-                    format="DD/MM/YYYY",
-                    width=250
-                )
+                    dialog_editar_entregas()
 
-                # Converter para datetime
-                data_inicio = pd.to_datetime(data_inicio)
-                data_fim = pd.to_datetime(data_fim)
-
-                # ===============================================================
-                # ORDENAÇÃO
-                # ===============================================================
-
-                ordenacao = st.radio(
-                    "Ordenar por:",
-                    options=["Data de início", "Previsão de Conclusão"],
-                    horizontal=True
-                )
-
-            # ====================
-            # Botão para abrir o diálogo de Gerenciar entregas
-            # ====================
-            if pode_gerenciar_projeto:
-                with st.container(horizontal_alignment="right"):
-                    st.write('')    
-                    if st.button("Gerenciar entregas", icon=":material/edit:", width=300):
-
-                        # SINCRONIZAÇÃO EXPLÍCITA
-                        st.session_state["projeto_selecionado_entregas"] = (
-                            st.session_state.get("projeto_selecionado_projetos")
-                        )
-
-                        st.session_state["pagina_anterior"] = "pagina_projetos"
-
-                        dialog_editar_entregas()
+                st.write('')    
+                
 
         @st.fragment
-        def render_tabela_entregas(
-            df_entregas,
-            filtro_situacao,
-            data_inicio,
-            data_fim,
-            ordenacao
-        ):
+        def render_tabela_entregas(df_entregas, situacoes):
             """
             Fragment responsável EXCLUSIVAMENTE pela renderização da tabela de entregas.
 
@@ -2461,74 +2418,111 @@ with tab_entregas:
             - ordenacao: string indicando critério de ordenação
             """
 
-            # ===============================================================
-            # CÓPIA DO DATAFRAME (evita efeitos colaterais)
-            # ===============================================================
-            df_filtrado = df_entregas.copy()
+            with st.container(horizontal=True):
+
+                with st.container(horizontal=True):
+
+
+                    filtro_situacao = st.multiselect(
+                        "Situação:",
+                        options=situacoes,
+                        default=[],
+                        placeholder="",
+                        width=250
+                    )
+
+                    # Campos de data SEM valor padrão (ficam vazios com placeholder)
+                    data_inicio = st.date_input(
+                        "Entregas a partir de:",
+                        value=None,
+                        format="DD/MM/YYYY",
+                        width=250
+                    )
+
+                    data_fim = st.date_input(
+                        "Até:",
+                        value=None,
+                        format="DD/MM/YYYY",
+                        width=250
+                    )
+
+                    # Converter para datetime
+                    data_inicio = pd.to_datetime(data_inicio)
+                    data_fim = pd.to_datetime(data_fim)
+
+                    # ===============================================================
+                    # ORDENAÇÃO
+                    # ===============================================================
+
+                    ordenacao = st.radio(
+                        "Ordenar por:",
+                        options=["Data de início", "Previsão de Conclusão"],
+                        horizontal=True
+                    )
+
+                    st.write("")
+                    
+            # Converter datas
+            data_inicio = pd.to_datetime(data_inicio) if data_inicio else None
+            data_fim = pd.to_datetime(data_fim) if data_fim else None
 
             # ===============================================================
-            # APLICAR FILTRO DE SITUAÇÃO
+            # FILTRAGEM
             # ===============================================================
+
+            df_filtrado = df_entregas.copy()
+
             if filtro_situacao:
                 df_filtrado = df_filtrado[
                     df_filtrado["Situação"].isin(filtro_situacao)
                 ]
 
-            # ===============================================================
-            # APLICAR FILTRO DE DATA (PREVISÃO DE CONCLUSÃO)
-            # ===============================================================
-            if data_inicio:
+            if data_inicio is not None:
                 df_filtrado = df_filtrado[
-                    df_filtrado["Previsão de Conclusão"] >= pd.to_datetime(data_inicio)
+                    df_filtrado["Previsão de Conclusão"] >= data_inicio
                 ]
 
-            if data_fim:
+            if data_fim is not None:
                 df_filtrado = df_filtrado[
-                    df_filtrado["Previsão de Conclusão"] <= pd.to_datetime(data_fim)
+                    df_filtrado["Previsão de Conclusão"] <= data_fim
                 ]
 
             # ===============================================================
-            # APLICAR ORDENAÇÃO
+            # ORDENAÇÃO
             # ===============================================================
-            if ordenacao == "Data de início":
-                df_filtrado = df_filtrado.sort_values(
-                    by="Data de início",
-                    ascending=True,
-                    na_position="last"
-                )
-            else:
-                df_filtrado = df_filtrado.sort_values(
-                    by="Previsão de Conclusão",
-                    ascending=True,
-                    na_position="last"
-                )
+
+            df_filtrado = df_filtrado.sort_values(
+                by=ordenacao,
+                ascending=True,
+                na_position="last"
+            )
 
             # ===============================================================
-            # PREPARAR DATAFRAME PARA EXIBIÇÃO
-            # (formatação de datas para padrão brasileiro)
+            # FORMATAÇÃO
             # ===============================================================
+
             df_exibir = df_filtrado.copy()
 
-            # Formatar "Data de início"
-            df_exibir["Data de início"] = df_exibir["Data de início"].dt.strftime("%d/%m/%Y")
-            df_exibir["Data de início"] = df_exibir["Data de início"].fillna("")
+            df_exibir["Data de início"] = (
+                df_exibir["Data de início"]
+                .dt.strftime("%d/%m/%Y")
+                .fillna("")
+            )
 
-            # Formatar "Previsão de Conclusão"
-            df_exibir["Previsão de Conclusão"] = df_exibir["Previsão de Conclusão"].dt.strftime("%d/%m/%Y")
-            df_exibir["Previsão de Conclusão"] = df_exibir["Previsão de Conclusão"].fillna("")
+            df_exibir["Previsão de Conclusão"] = (
+                df_exibir["Previsão de Conclusão"]
+                .dt.strftime("%d/%m/%Y")
+                .fillna("")
+            )
 
             # ===============================================================
-            # EXIBIÇÃO DA TABELA
+            # TABELA
             # ===============================================================
+
             ui.table(data=df_exibir)
                 
-        render_tabela_entregas(
-            df_entregas,
-            filtro_situacao,
-            data_inicio,
-            data_fim,
-            ordenacao
-        )
+        render_tabela_entregas(df_entregas, situacoes)
+
 
 # ##########################################################
 # Anotações
