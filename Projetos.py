@@ -1397,7 +1397,7 @@ def dialog_editar_projeto():
                 }
 
                 projetos_ispn.update_one({"_id": projeto_info["_id"]}, {"$set": update_doc})
-                st.success("Projeto atualizado com sucesso!")
+                st.success("Projeto atualizado com sucesso!", icon=":material/check:")
                 time.sleep(2)
                 st.rerun()
 
