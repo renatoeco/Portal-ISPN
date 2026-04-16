@@ -2344,7 +2344,7 @@ with aba_pessoas:
     tipos_usuario = set(st.session_state.get("tipo_usuario", []))
 
     pode_editar_pessoas = bool(
-        tipos_usuario & {"admin", "coordenador(a)", "gestao_pessoas"}
+        tipos_usuario & {"admin", "gestao_pessoas"}
     )
 
 
