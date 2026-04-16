@@ -591,7 +591,7 @@ if pessoa_logada:
                         destinatarios = emails_gestao_pessoas(dados_pessoas)
                         enviar_email(destinatarios, assunto, corpo)
 
-                    st.success("Alterações salvas com sucesso!")
+                    st.success("Alterações salvas com sucesso!", icon=":material/check:")
                     time.sleep(2)
                     st.rerun()
 
