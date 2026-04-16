@@ -369,8 +369,8 @@ def verificar_contratos_vencidos(pessoa):
 
 
 # Define um diálogo (modal) para gerenciar colaboradores
-@st.dialog("Gerenciar colaboradores", width='large', on_dismiss="rerun")
-def gerenciar_pessoas():
+@st.dialog("Gerenciar colaborador", width='large', on_dismiss="rerun")
+def gerenciar_pessoas(pessoa_id=None):
 
     # -------------------------------------------------------------------------
     # Inicializações de session_state
@@ -420,15 +420,27 @@ def gerenciar_pessoas():
         # if "coordenador" in p  # só inclui quem tem o campo 'coordenador'
     ])
 
-    # INÍCIO
-    # SelectBox do nome do colaborador
-    with st.container(horizontal=True, horizontal_alignment="center"):
-        nome_selecionado = st.selectbox(
-            "Selecione o(a) colaborador(a):",
-            nomes_existentes,
-            index=0,
-            width=400
+    # -------------------------------------------------------------------------
+    # DEFINIÇÃO DA PESSOA (COM OU SEM SELECTBOX)
+    # -------------------------------------------------------------------------
+
+    nome_selecionado = None
+
+    # Se veio um ID → NÃO mostra selectbox
+    if pessoa_id:
+
+        pessoa = next(
+            (p for p in dados_pessoas if str(p["_id"]) == str(pessoa_id)),
+            None
         )
+
+        if pessoa:
+            nome_selecionado = pessoa.get("nome_completo")
+
+    # Se NÃO veio ID → entra direto no modo "adicionar colaborador"
+    else:
+        nome_selecionado = "--Adicionar colaborador--"
+        pessoa = None
 
     # -------------------------------------------------------------------------
     # Processamento do colaborador selecionado
@@ -2138,7 +2150,7 @@ container_botoes = st.container(horizontal=True, horizontal_alignment="right")
 if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_pessoas"}:
 
     # Botão para abrir o diálogo de gerenciamento de colaboradores
-    container_botoes.button("Gerenciar colaboradores", on_click=gerenciar_pessoas, icon=":material/group:")
+    container_botoes.button("Cadastrar colaborador", on_click=gerenciar_pessoas, icon=":material/person_add:")
     st.write('')
 
 
@@ -2277,13 +2289,105 @@ with aba_pessoas:
         colunas.append("Tipo de usuário")
         df_pessoas_exibir = df_pessoas_exibir[colunas]
 
-    # exibe sem alterar o dataframe original
-    st.dataframe(
-        df_pessoas_exibir
-            .rename(columns={"Projeto Pagador": "Projeto"})
-            .fillna(""),
-        hide_index=True
+    # ----------------------------------------------------------------------------------
+    # PREPARAÇÃO DO DATAFRAME
+    # ----------------------------------------------------------------------------------
+
+    df_tabela = df_pessoas_exibir.copy()
+
+    # Garante que não há NaN em colunas sensíveis (evita bugs de renderização)
+    df_tabela = df_tabela.fillna("")
+
+
+    # ----------------------------------------------------------------------------------
+    # CALLBACK DE SELEÇÃO
+    # ----------------------------------------------------------------------------------
+
+    def criar_callback_pessoas(df_visivel, key_df):
+
+        def handle_selecao():
+            estado = st.session_state.get(key_df, {})
+            linhas = estado.get("selection", {}).get("rows", [])
+
+            # Se nada selecionado → limpa estado
+            if not linhas:
+                st.session_state["pessoa_selecionada"] = None
+                return
+
+            # Índice da linha selecionada
+            idx = linhas[0]
+
+            # Nome da pessoa selecionada na tabela
+            nome = df_visivel.iloc[idx]["Nome"]
+
+            # Busca a pessoa original no Mongo (dados_pessoas)
+            pessoa_encontrada = next(
+                (p for p in dados_pessoas if p.get("nome_completo") == nome),
+                None
+            )
+
+            if pessoa_encontrada:
+                # Salva o ID no session_state
+                st.session_state["pessoa_selecionada"] = str(pessoa_encontrada["_id"])
+
+                # Flag para abrir dialog
+                st.session_state["abrir_dialog_pessoa"] = True
+
+        return handle_selecao
+
+
+    # ----------------------------------------------------------------------------------
+    # CONTROLE DE PERMISSÃO
+    # ----------------------------------------------------------------------------------
+
+    usuario_id = str(st.session_state.get("id_usuario"))
+    tipos_usuario = set(st.session_state.get("tipo_usuario", []))
+
+    pode_editar_pessoas = bool(
+        tipos_usuario & {"admin", "coordenador(a)", "gestao_pessoas"}
     )
+
+
+    # Key única do dataframe (importante pra seleção funcionar corretamente)
+    key_df = "df_pessoas_main"
+
+
+    # ----------------------------------------------------------------------------------
+    # RENDERIZAÇÃO DA TABELA
+    # ----------------------------------------------------------------------------------
+
+    if pode_editar_pessoas:
+
+        callback = criar_callback_pessoas(df_tabela, key_df)
+
+        st.dataframe(
+            df_tabela.rename(columns={"Projeto Pagador": "Projeto"}),
+            hide_index=True,
+            selection_mode="single-row",
+            on_select=callback,
+            key=key_df
+        )
+
+    else:
+        st.dataframe(
+            df_tabela.rename(columns={"Projeto Pagador": "Projeto"}),
+            hide_index=True
+        )
+
+
+    # ----------------------------------------------------------------------------------
+    # ABRIR DIALOG AUTOMATICAMENTE
+    # ----------------------------------------------------------------------------------
+
+    pessoa_sel = st.session_state.get("pessoa_selecionada")
+
+    if st.session_state.get("abrir_dialog_pessoa") and pessoa_sel:
+
+        # IMPORTANTE: agora passando o ID corretamente
+        gerenciar_pessoas(pessoa_sel)
+
+        # Reset da flag
+        st.session_state["abrir_dialog_pessoa"] = False
 
     # Gráficos 
     col1, col2 = st.columns(2)
