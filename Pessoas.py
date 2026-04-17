@@ -849,6 +849,8 @@ def gerenciar_pessoas(pessoa_id=None):
                         type="secondary",
                         icon=":material/save:"
                     ):
+                        
+                        status_antigo = pessoa.get("status")
 
                         dados_update = {
                             "nome_completo": nome,
@@ -896,6 +898,30 @@ def gerenciar_pessoas(pessoa_id=None):
                                 {"$set": dados_update}
                             )
 
+                            # -------------------------------
+                            # NOTIFICAÇÃO: STATUS INATIVO
+                            # -------------------------------
+
+                            if status_antigo == "ativo" and status == "inativo":
+
+                                destinatarios = emails_gestao_pessoas(dados_pessoas)
+
+                                assunto = "Jataí - Colaborador inativado"
+
+                                corpo = f"""
+                                <p>O status de um colaborador foi alterado para <strong>inativo</strong>.</p>
+
+                                <ul>
+                                    <li><strong>Nome:</strong> {nome}</li>
+                                    <li><strong>E-mail:</strong> {email}</li>
+                                    <li><strong>Cargo:</strong> {cargo}</li>
+                                </ul>
+
+                                <p>Att.<br>Sistema Jataí</p>
+                                """
+
+                                enviar_email_notificacao(destinatarios, assunto, corpo)
+
                         else:
 
                             dados_update["banco"] = {
@@ -912,6 +938,30 @@ def gerenciar_pessoas(pessoa_id=None):
                                     "$unset": {"cnpj": "", "nome_empresa": "", "banco_pj": "", "banco_pf": ""}
                                 }
                             )
+
+                            # -------------------------------
+                            # NOTIFICAÇÃO: STATUS INATIVO
+                            # -------------------------------
+
+                            if status_antigo == "ativo" and status == "inativo":
+
+                                destinatarios = emails_gestao_pessoas(dados_pessoas)
+
+                                assunto = "Colaborador inativado"
+
+                                corpo = f"""
+                                <p>O status de um colaborador foi alterado para <strong>inativo</strong>.</p>
+
+                                <ul>
+                                    <li><strong>Nome:</strong> {nome}</li>
+                                    <li><strong>E-mail:</strong> {email}</li>
+                                    <li><strong>Cargo:</strong> {cargo}</li>
+                                </ul>
+
+                                <p>Att.<br>Sistema Jataí</p>
+                                """
+
+                                enviar_email_notificacao(destinatarios, assunto, corpo)
 
                         st.success("Informações atualizadas com sucesso!", icon=":material/check_circle:")
                         time.sleep(2)
@@ -2072,6 +2122,30 @@ def gerenciar_pessoas(pessoa_id=None):
                     # Insere o novo colaborador no banco
                     pessoas.insert_one(novo_documento)
                     st.success(f"Colaborador(a) **{nome}** cadastrado(a) com sucesso!", icon=":material/thumb_up:")
+
+                    # -------------------------------
+                    # NOTIFICAÇÃO: NOVO COLABORADOR
+                    # -------------------------------
+
+                    destinatarios = emails_gestao_pessoas(dados_pessoas)
+
+                    assunto = "Jataí - Novo colaborador cadastrado"
+
+                    corpo = f"""
+                    <p>Um novo colaborador foi cadastrado no sistema.</p>
+
+                    <ul>
+                        <li><strong>Nome:</strong> {nome}</li>
+                        <li><strong>E-mail:</strong> {email}</li>
+                        <li><strong>Programa/Área:</strong> {", ".join(programas_selecionados)}</li>
+                        <li><strong>Tipo de contratação:</strong> {tipo_contratacao}</li>
+                    </ul>
+
+                    <p>Att.<br>Sistema Jataí</p>
+                    """
+
+                    enviar_email_notificacao(destinatarios, assunto, corpo)
+
                     time.sleep(2)
                     st.rerun(scope="fragment")  
 
@@ -2136,6 +2210,44 @@ def contratos_ativos(contratos):
         ativos.append(c)
 
     return ativos
+
+
+def emails_gestao_pessoas(dados_pessoas):
+    """
+    Retorna lista de e-mails de usuários com perfil 'gestao_pessoas'
+    """
+    return [
+        p.get("e_mail")
+        for p in dados_pessoas
+        if "admin" in str(p.get("tipo de usuário", "")) and p.get("e_mail")
+    ]
+
+
+def enviar_email_notificacao(destinatarios, assunto, corpo):
+    """
+    Envia e-mail HTML para múltiplos destinatários
+    """
+
+    if not destinatarios:
+        return False
+
+    remetente = st.secrets["senhas"]["endereco_email"]
+    senha = st.secrets["senhas"]["senha_email"]
+
+    msg = MIMEText(corpo, "html", "utf-8")
+    msg["Subject"] = assunto
+    msg["From"] = remetente
+    msg["To"] = ", ".join(destinatarios)
+
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(remetente, senha)
+            server.sendmail(remetente, destinatarios, msg.as_string())
+        return True
+
+    except Exception as e:
+        st.error(f"Erro ao enviar e-mail: {e}")
+        return False
 
 
 ######################################################################################################
