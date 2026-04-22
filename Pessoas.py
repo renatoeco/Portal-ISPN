@@ -2219,7 +2219,7 @@ def emails_gestao_pessoas(dados_pessoas):
     return [
         p.get("e_mail")
         for p in dados_pessoas
-        if "admin" in str(p.get("tipo de usuário", "")) and p.get("e_mail")
+        if "gestao_pessoas" in str(p.get("tipo de usuário", "")) and p.get("e_mail")
     ]
 
 
