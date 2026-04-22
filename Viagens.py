@@ -691,7 +691,9 @@ def cadastrar_externo():
         cpf_input = col1.text_input("CPF")
 
         # Campo para a data de nascimento
-        data_nascimento_input = col1.date_input("Data de Nascimento", value=None, format="DD/MM/YYYY")
+        data_nascimento_input = col1.date_input("Data de Nascimento", value=None, format="DD/MM/YYYY", min_value=date(1900, 1, 1))
+
+
         # Converte para string somente se tiver valor
         if data_nascimento_input:
             data_nascimento_str = data_nascimento_input.strftime("%d/%m/%Y")
