@@ -3511,197 +3511,199 @@ for i, aba in enumerate(abas):
             st.plotly_chart(fig, key=f"timeline_projetos_{i}")
 
         st.divider()
-
-        # AÇÕES ESTRATÉGICAS DO PROGRAMA ################################################################
         
-        st.markdown("#### **Ações Estratégicas do Programa**")
+        if set(st.session_state.get("tipo_usuario", [])) & {"admin", "coordenador(a)"}:
 
-        # ===============================
-        # FILTROS DE ENTREGAS DO PROGRAMA
-        # ===============================
+            # AÇÕES ESTRATÉGICAS DO PROGRAMA ################################################################
+            
+            st.markdown("#### **Ações Estratégicas do Programa**")
 
-        with st.form(f"filtros_entregas_programa_{id_programa}", border=False):
+            # ===============================
+            # FILTROS DE ENTREGAS DO PROGRAMA
+            # ===============================
 
-            col1, col2, col3 = st.columns(3)
+            with st.form(f"filtros_entregas_programa_{id_programa}", border=False):
 
-            # Projetos (siglas) — apenas do programa
-            siglas_programa = sorted({
-                e["projeto_sigla"]
-                for e in entregas_base
-                if str(id_programa) in e["programas_ids"] and e["projeto_sigla"]
-            })
+                col1, col2, col3 = st.columns(3)
 
-            with col1:
-                filtro_entregas_projetos = st.multiselect(
-                    "Projeto",
-                    options=siglas_programa,
-                    default=st.session_state.get(f"filtro_entregas_projetos_{id_programa}", []),
-                    placeholder=""
+                # Projetos (siglas) — apenas do programa
+                siglas_programa = sorted({
+                    e["projeto_sigla"]
+                    for e in entregas_base
+                    if str(id_programa) in e["programas_ids"] and e["projeto_sigla"]
+                })
+
+                with col1:
+                    filtro_entregas_projetos = st.multiselect(
+                        "Projeto",
+                        options=siglas_programa,
+                        default=st.session_state.get(f"filtro_entregas_projetos_{id_programa}", []),
+                        placeholder=""
+                    )
+
+                # Situação
+                situacoes_programa = sorted({
+                    e["situacao"]
+                    for e in entregas_base
+                    if str(id_programa) in e["programas_ids"] and e["situacao"]
+                })
+
+                with col2:
+                    filtro_entregas_situacoes = st.multiselect(
+                        "Situação",
+                        options=situacoes_programa,
+                        default=st.session_state.get(f"filtro_entregas_situacoes_{id_programa}", []),
+                        placeholder=""
+                    )
+
+                # Ano de referência
+                anos_programa = sorted({
+                    ano
+                    for e in entregas_base
+                    if str(id_programa) in e["programas_ids"]
+                    for ano in e["anos_referencia"]
+                })
+
+                with col3:
+                    filtro_entregas_anos = st.multiselect(
+                        "Ano",
+                        options=anos_programa,
+                        default=st.session_state.get(f"filtro_entregas_anos_{id_programa}", []),
+                        placeholder=""
+                    )
+
+                aplicar = st.form_submit_button(
+                    "Aplicar filtros",
+                    icon=":material/filter_alt:"
                 )
 
-            # Situação
-            situacoes_programa = sorted({
-                e["situacao"]
-                for e in entregas_base
-                if str(id_programa) in e["programas_ids"] and e["situacao"]
-            })
+            if aplicar:
+                st.session_state[f"filtro_entregas_projetos_{id_programa}"] = filtro_entregas_projetos
+                st.session_state[f"filtro_entregas_situacoes_{id_programa}"] = filtro_entregas_situacoes
+                st.session_state[f"filtro_entregas_anos_{id_programa}"] = filtro_entregas_anos
+                st.rerun()
 
-            with col2:
-                filtro_entregas_situacoes = st.multiselect(
-                    "Situação",
-                    options=situacoes_programa,
-                    default=st.session_state.get(f"filtro_entregas_situacoes_{id_programa}", []),
-                    placeholder=""
-                )
+            # ===============================
+            # FILTROS DE ENTREGAS (ISOLADOS)
+            # ===============================
 
-            # Ano de referência
-            anos_programa = sorted({
-                ano
-                for e in entregas_base
-                if str(id_programa) in e["programas_ids"]
-                for ano in e["anos_referencia"]
-            })
-
-            with col3:
-                filtro_entregas_anos = st.multiselect(
-                    "Ano",
-                    options=anos_programa,
-                    default=st.session_state.get(f"filtro_entregas_anos_{id_programa}", []),
-                    placeholder=""
-                )
-
-            aplicar = st.form_submit_button(
-                "Aplicar filtros",
-                icon=":material/filter_alt:"
+            filtro_entregas_projetos = st.session_state.get(
+                f"filtro_entregas_projetos_{id_programa}", []
             )
 
-        if aplicar:
-            st.session_state[f"filtro_entregas_projetos_{id_programa}"] = filtro_entregas_projetos
-            st.session_state[f"filtro_entregas_situacoes_{id_programa}"] = filtro_entregas_situacoes
-            st.session_state[f"filtro_entregas_anos_{id_programa}"] = filtro_entregas_anos
-            st.rerun()
+            filtro_entregas_situacoes = st.session_state.get(
+                f"filtro_entregas_situacoes_{id_programa}", []
+            )
 
-        # ===============================
-        # FILTROS DE ENTREGAS (ISOLADOS)
-        # ===============================
-
-        filtro_entregas_projetos = st.session_state.get(
-            f"filtro_entregas_projetos_{id_programa}", []
-        )
-
-        filtro_entregas_situacoes = st.session_state.get(
-            f"filtro_entregas_situacoes_{id_programa}", []
-        )
-
-        filtro_entregas_anos = st.session_state.get(
-            f"filtro_entregas_anos_{id_programa}", []
-        )
+            filtro_entregas_anos = st.session_state.get(
+                f"filtro_entregas_anos_{id_programa}", []
+            )
 
 
-        # 1. Busca a estratégia do programa atual
-        estrategia_programa = db.programas_areas.find_one({
-            "nome_programa_area": titulo_programa
-        })
+            # 1. Busca a estratégia do programa atual
+            estrategia_programa = db.programas_areas.find_one({
+                "nome_programa_area": titulo_programa
+            })
 
-        if not estrategia_programa or not estrategia_programa.get("acoes_estrategicas"):
-            st.caption("Nenhuma ação estratégica cadastrada para este programa.")
-  
-        else:
+            if not estrategia_programa or not estrategia_programa.get("acoes_estrategicas"):
+                st.caption("Nenhuma ação estratégica cadastrada para este programa.")
+    
+            else:
 
-            st.write("")
+                st.write("")
 
-            acoes_estrategicas = estrategia_programa["acoes_estrategicas"]
+                acoes_estrategicas = estrategia_programa["acoes_estrategicas"]
 
-            # 2. Buscar todos os projetos do programa novamente (coleção projetos_ispn)
-            programa_id = ObjectId(programa.get("id"))
+                # 2. Buscar todos os projetos do programa novamente (coleção projetos_ispn)
+                programa_id = ObjectId(programa.get("id"))
 
-            projetos_com_entregas = []
+                projetos_com_entregas = []
 
-            for p in db.projetos_ispn.find({"programas": programa_id}):
+                for p in db.projetos_ispn.find({"programas": programa_id}):
 
-                sigla_proj = p.get("sigla", "")
+                    sigla_proj = p.get("sigla", "")
 
-                # -----------------------------
-                # FILTRO DE PROJETOS (SIGLA)
-                # -----------------------------
-                if filtro_entregas_projetos and sigla_proj not in filtro_entregas_projetos:
-                    continue
+                    # -----------------------------
+                    # FILTRO DE PROJETOS (SIGLA)
+                    # -----------------------------
+                    if filtro_entregas_projetos and sigla_proj not in filtro_entregas_projetos:
+                        continue
 
-                projetos_com_entregas.append(p)
+                    projetos_com_entregas.append(p)
 
-            # 3. Loop pelas ações estratégicas
-            for i, acao in enumerate(acoes_estrategicas):
-                nome_acao = acao["acao_estrategica"]
+                # 3. Loop pelas ações estratégicas
+                for i, acao in enumerate(acoes_estrategicas):
+                    nome_acao = acao["acao_estrategica"]
 
-                with st.expander(nome_acao, expanded=True):
+                    with st.expander(nome_acao, expanded=True):
 
-                    entregas_relacionadas = []
+                        entregas_relacionadas = []
 
-                    for projeto_doc in projetos_com_entregas:
+                        for projeto_doc in projetos_com_entregas:
 
-                        sigla_projeto = projeto_doc.get("sigla", "")
-                        codigo_projeto = projeto_doc.get("codigo", "")
-                        nome_projeto = projeto_doc.get("nome_do_projeto", "")
+                            sigla_projeto = projeto_doc.get("sigla", "")
+                            codigo_projeto = projeto_doc.get("codigo", "")
+                            nome_projeto = projeto_doc.get("nome_do_projeto", "")
 
-                        for entrega_doc in projeto_doc.get("entregas", []):
+                            for entrega_doc in projeto_doc.get("entregas", []):
 
-                            acao_id = str(acao["_id"])
+                                acao_id = str(acao["_id"])
 
-                            ids_acoes_da_entrega = normalizar_lista_ids(
-                                entrega_doc.get("acoes_relacionadas", [])
-                            )
+                                ids_acoes_da_entrega = normalizar_lista_ids(
+                                    entrega_doc.get("acoes_relacionadas", [])
+                                )
 
-                            if acao_id not in ids_acoes_da_entrega:
-                                continue
-
-                            # -----------------------------
-                            # APLICA FILTROS DE ENTREGA
-                            # -----------------------------
-
-                            # Filtro por projeto
-                            if filtro_entregas_projetos and sigla_projeto not in filtro_entregas_projetos:
-                                continue
-
-                            # Filtro por situação
-                            if filtro_entregas_situacoes:
-                                if entrega_doc.get("situacao") not in filtro_entregas_situacoes:
+                                if acao_id not in ids_acoes_da_entrega:
                                     continue
 
-                            # Filtro por ano
-                            if filtro_entregas_anos:
-                                anos_entrega = entrega_doc.get("anos_de_referencia", []) or []
-                                if not set(anos_entrega) & set(filtro_entregas_anos):
+                                # -----------------------------
+                                # APLICA FILTROS DE ENTREGA
+                                # -----------------------------
+
+                                # Filtro por projeto
+                                if filtro_entregas_projetos and sigla_projeto not in filtro_entregas_projetos:
                                     continue
-                            
-                            progresso = entrega_doc.get("progresso")
-                            progresso_formatado = (
-                                f"{progresso}%" if progresso not in [None, ""] else ""
+
+                                # Filtro por situação
+                                if filtro_entregas_situacoes:
+                                    if entrega_doc.get("situacao") not in filtro_entregas_situacoes:
+                                        continue
+
+                                # Filtro por ano
+                                if filtro_entregas_anos:
+                                    anos_entrega = entrega_doc.get("anos_de_referencia", []) or []
+                                    if not set(anos_entrega) & set(filtro_entregas_anos):
+                                        continue
+                                
+                                progresso = entrega_doc.get("progresso")
+                                progresso_formatado = (
+                                    f"{progresso}%" if progresso not in [None, ""] else ""
+                                )
+
+                                # -----------------------------
+                                # ENTREGA VÁLIDA → EXIBE
+                                # -----------------------------
+
+                                entregas_relacionadas.append({
+                                    "Projeto": sigla_projeto,
+                                    "Entrega": entrega_doc.get("nome_da_entrega", ""),
+                                    "Situação": entrega_doc.get("situacao", ""),
+                                    "Previsão": entrega_doc.get("previsao_da_conclusao", ""),
+                                    "Ano(s) de Referência": ", ".join(map(str, sorted(entrega_doc.get("anos_de_referencia", [])))),
+                                    "Progresso": progresso_formatado
+                                })
+
+                        if entregas_relacionadas:
+
+                            st.markdown("**Entregas:**")
+
+                            df_entregas = pd.DataFrame(entregas_relacionadas)
+
+                            ui.table(
+                                data=df_entregas,
+                                maxHeight=400,
+                                key=f"tabela_entregas_{id_programa}_{acao_id}"   # key só aqui
                             )
 
-                            # -----------------------------
-                            # ENTREGA VÁLIDA → EXIBE
-                            # -----------------------------
-
-                            entregas_relacionadas.append({
-                                "Projeto": sigla_projeto,
-                                "Entrega": entrega_doc.get("nome_da_entrega", ""),
-                                "Situação": entrega_doc.get("situacao", ""),
-                                "Previsão": entrega_doc.get("previsao_da_conclusao", ""),
-                                "Ano(s) de Referência": ", ".join(map(str, sorted(entrega_doc.get("anos_de_referencia", [])))),
-                                "Progresso": progresso_formatado
-                            })
-
-                    if entregas_relacionadas:
-
-                        st.markdown("**Entregas:**")
-
-                        df_entregas = pd.DataFrame(entregas_relacionadas)
-
-                        ui.table(
-                            data=df_entregas,
-                            maxHeight=400,
-                            key=f"tabela_entregas_{id_programa}_{acao_id}"   # key só aqui
-                        )
-
-                    else:
-                        st.caption("Nenhuma entrega vinculada a esta ação estratégica do programa.")
+                        else:
+                            st.caption("Nenhuma entrega vinculada a esta ação estratégica do programa.")
