@@ -691,7 +691,9 @@ def cadastrar_externo():
         cpf_input = col1.text_input("CPF")
 
         # Campo para a data de nascimento
-        data_nascimento_input = col1.date_input("Data de Nascimento", value=None, format="DD/MM/YYYY")
+        data_nascimento_input = col1.date_input("Data de Nascimento", value=None, format="DD/MM/YYYY", min_value=date(1900, 1, 1))
+
+
         # Converte para string somente se tiver valor
         if data_nascimento_input:
             data_nascimento_str = data_nascimento_input.strftime("%d/%m/%Y")
@@ -738,7 +740,7 @@ def cadastrar_externo():
         st.write('')
 
 
-        if st.form_submit_button("Cadastrar viajante externo", icon=":material/person_add:", type="primary", disabled=usuario_visitante):
+        if st.form_submit_button("Cadastrar viajante externo", icon=":material/person_add:", type="primary"):
             # Verifica se há erros nos campos
             erros = []
 
@@ -813,8 +815,8 @@ def cadastrar_externo():
 # ################################################################################
 
 
-# Verifica se o usuário é visitante
-usuario_visitante = "visitante" in st.session_state.get("tipo_usuario", [])
+# # Verifica se o usuário é visitante
+# usuario_visitante = "visitante" in st.session_state.get("tipo_usuario", [])
 
 
 
@@ -867,7 +869,7 @@ abas_labels = [
 # Perfis com acesso à aba Pendências
 PERFIS_COM_ACESSO_PENDENCIAS = {
     "admin",
-    "coordenador",
+    "coordenador(a)",
     "gestao_viagens"
 }
 
@@ -909,7 +911,12 @@ st.session_state.status_usuario = (
 with minhas_viagens:
 
     # Filtar SAVs com o CPF do usuário
-    df_minhas_savs = df_savs[df_savs['CPF:'].astype(str) == st.session_state.cpf]
+
+    cpf_numeros = ''.join(filter(str.isdigit, st.session_state.cpf))
+
+    df_minhas_savs = df_savs[
+        df_savs['CPF:'].astype(str).str.replace(r'\D', '', regex=True) == cpf_numeros
+    ]
 
 
     # -------------------------------------
@@ -1293,7 +1300,10 @@ with terceiros:
 # ABA DE PENDÊNCIAS
 # #######################################################################
 
-if not usuario_visitante:
+
+
+# Se o tipo de usuário for admin, coordenador(a) ou gestao_viagens
+if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_viagens"}:
 
     # ABA DE PENDÊNCIAS
     with pendencias:

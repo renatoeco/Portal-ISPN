@@ -751,16 +751,6 @@ def dialog_cadastrar_projeto():
             elif codigo_existente:
                 st.warning(f"O código '{codigo}' já está cadastrado em outro projeto. Escolha outro.")
                 
-            # Soma dos valores preenchidos
-            soma_orcamento = sum(orcamento_por_ano.values())
-
-            # Se houver algum valor preenchido, valida
-            if soma_orcamento > 0 and round(soma_orcamento, 2) != round(valor, 2):
-                st.warning(
-                    f"A soma dos orçamentos ({float_to_br(soma_orcamento)}) "
-                    f"deve ser igual ao valor total ({float_to_br(valor)})."
-                )
-             
             else:
                 # --- Criar ObjectIds ---
                 projeto_id = bson.ObjectId()
@@ -1356,17 +1346,6 @@ def dialog_editar_projeto():
             elif codigo_existente:
                 st.warning(f"O código '{codigo}' já está cadastrado em outro projeto. Escolha outro.")
                 
-
-            # Soma dos valores preenchidos
-            soma_orcamento = sum(orcamento_por_ano.values())
-
-            # Se houver algum valor preenchido, valida
-            if soma_orcamento > 0 and round(soma_orcamento, 2) != round(valor, 2):
-                st.warning(
-                    f"A soma dos orçamentos ({float_to_br(soma_orcamento)}) "
-                    f"deve ser igual ao valor total ({float_to_br(valor)})."
-                )
-                
             else:
 
                 # Função auxiliar
@@ -1418,7 +1397,7 @@ def dialog_editar_projeto():
                 }
 
                 projetos_ispn.update_one({"_id": projeto_info["_id"]}, {"$set": update_doc})
-                st.success("Projeto atualizado com sucesso!")
+                st.success("Projeto atualizado com sucesso!", icon=":material/check:")
                 time.sleep(2)
                 st.rerun()
 
@@ -2327,87 +2306,122 @@ with tab_entregas:
             st.write("_Não há entregas cadastradas para este projeto._")
 
     else:
+        
+        # Criar dicionário de responsáveis
+        df_pessoas_ordenado = df_pessoas.sort_values("nome_completo", ascending=True)
+        responsaveis_dict = {
+            str(row["_id"]): row["nome_completo"]
+            for _, row in df_pessoas_ordenado.iterrows()
+        }
 
-        @st.fragment
-        def render_entregas_fragment(entregas, df_pessoas, pode_gerenciar_projeto, projeto_id):
-            
-            # Criar dicionário de responsáveis
-            df_pessoas_ordenado = df_pessoas.sort_values("nome_completo", ascending=True)
-            responsaveis_dict = {
-                str(row["_id"]): row["nome_completo"]
-                for _, row in df_pessoas_ordenado.iterrows()
-            }
-
-            # Montar lista
-            dados_entregas = []
-            for entrega in entregas:
-                responsaveis_ids = [
-                    str(r.get("$oid")) if isinstance(r, dict) else str(r)
-                    for r in entrega.get("responsaveis", [])
-                ]
-                responsaveis_nomes = [
-                    responsaveis_dict.get(rid, f"ID não encontrado: {rid}")
-                    for rid in responsaveis_ids
-                ]
-
-                dados_entregas.append({
-                    "Entregas": entrega.get("nome_da_entrega", "-"),
-                    "Data de início": entrega.get("data_inicio", "-"),
-                    "Previsão de Conclusão": entrega.get("previsao_da_conclusao", "-"),
-                    "Responsáveis": ", ".join(responsaveis_nomes) if responsaveis_nomes else "-",
-                    "Situação": entrega.get("situacao", "-"),
-                })
-
-            df_entregas = pd.DataFrame(dados_entregas)
-
-            # ===============================================================
-            # FILTROS e BOTÃO PARA GERENCIAR ENTREGAS
-            # ===============================================================
-
-            # Opções únicas para filtros
-            situacoes = sorted(df_entregas["Situação"].dropna().unique().tolist())
-            
-            # Buscar menor previsão de conclusão diretamente do MongoDB
-            pipeline = [
-                {"$unwind": "$entregas"},
-                {"$match": {"entregas.previsao_da_conclusao": {"$ne": None, "$ne": ""}}},
-                {
-                    "$group": {
-                        "_id": None,
-                        "min_data": {"$min": "$entregas.previsao_da_conclusao"}
-                    }
-                }
+        # Montar lista
+        dados_entregas = []
+        for entrega in entregas:
+            responsaveis_ids = [
+                str(r.get("$oid")) if isinstance(r, dict) else str(r)
+                for r in entrega.get("responsaveis", [])
+            ]
+            responsaveis_nomes = [
+                responsaveis_dict.get(rid, f"ID não encontrado: {rid}")
+                for rid in responsaveis_ids
             ]
 
-            resultado = list(projetos_ispn.aggregate(pipeline))
+            dados_entregas.append({
+                "Entregas": entrega.get("nome_da_entrega", "-"),
+                "Data de início": entrega.get("data_inicio", "-"),
+                "Previsão de Conclusão": entrega.get("previsao_da_conclusao", "-"),
+                "Responsáveis": ", ".join(responsaveis_nomes) if responsaveis_nomes else "-",
+                "Situação": entrega.get("situacao", "-"),
+            })
 
-            # Definir data_inicio padrão
-            if resultado and resultado[0].get("min_data"):
-                data_inicio_default = pd.to_datetime(
-                    resultado[0]["min_data"],
-                    format="%d/%m/%Y",
-                    errors="coerce"
-                )
-            else:
-                data_inicio_default = pd.to_datetime(datetime.date.today())
+        df_entregas = pd.DataFrame(dados_entregas)
 
-            # Converter data de início para datetime
-            df_entregas["Data de início"] = pd.to_datetime(
-                df_entregas["Data de início"],
+        # ===============================================================
+        # FILTROS e BOTÃO PARA GERENCIAR ENTREGAS
+        # ===============================================================
+
+        # Opções únicas para filtros
+        situacoes = sorted(df_entregas["Situação"].dropna().unique().tolist())
+        
+        # Buscar menor previsão de conclusão diretamente do MongoDB
+        pipeline = [
+            {"$unwind": "$entregas"},
+            {"$match": {"entregas.previsao_da_conclusao": {"$ne": None, "$ne": ""}}},
+            {
+                "$group": {
+                    "_id": None,
+                    "min_data": {"$min": "$entregas.previsao_da_conclusao"}
+                }
+            }
+        ]
+
+        resultado = list(projetos_ispn.aggregate(pipeline))
+
+        # Definir data_inicio padrão
+        if resultado and resultado[0].get("min_data"):
+            data_inicio_default = pd.to_datetime(
+                resultado[0]["min_data"],
                 format="%d/%m/%Y",
                 errors="coerce"
             )
+        else:
+            data_inicio_default = pd.to_datetime(datetime.date.today())
 
-            # Converter previsão para datetime
-            df_entregas["Previsão de Conclusão"] = pd.to_datetime(
-                df_entregas["Previsão de Conclusão"],
-                format="%d/%m/%Y",
-                errors="coerce"
-            )
+        # Converter data de início para datetime
+        df_entregas["Data de início"] = pd.to_datetime(
+            df_entregas["Data de início"],
+            format="%d/%m/%Y",
+            errors="coerce"
+        )
+
+        # Converter previsão para datetime
+        df_entregas["Previsão de Conclusão"] = pd.to_datetime(
+            df_entregas["Previsão de Conclusão"],
+            format="%d/%m/%Y",
+            errors="coerce"
+        )
+
+
+        # ====================
+        # Botão para abrir o diálogo de Gerenciar entregas
+        # ====================
+        if pode_gerenciar_projeto:
+            with st.container(horizontal_alignment="right"):
+                st.write('')    
+                if st.button("Gerenciar entregas", icon=":material/edit:", width=300):
+
+                    # SINCRONIZAÇÃO EXPLÍCITA
+                    st.session_state["projeto_selecionado_entregas"] = (
+                        st.session_state.get("projeto_selecionado_projetos")
+                    )
+
+                    st.session_state["pagina_anterior"] = "pagina_projetos"
+
+                    dialog_editar_entregas()
+
+                st.write('')    
+                
+
+        @st.fragment
+        def render_tabela_entregas(df_entregas, situacoes):
+            """
+            Fragment responsável EXCLUSIVAMENTE pela renderização da tabela de entregas.
+
+            Tudo que estiver aqui será recarregado de forma isolada.
+            Filtros, botões e inputs devem ficar FORA desta função.
+
+            Parâmetros:
+            - df_entregas: DataFrame original com todas as entregas
+            - filtro_situacao: lista de situações selecionadas
+            - data_inicio: data inicial (ou None)
+            - data_fim: data final (ou None)
+            - ordenacao: string indicando critério de ordenação
+            """
 
             with st.container(horizontal=True):
 
                 with st.container(horizontal=True):
+
 
                     filtro_situacao = st.multiselect(
                         "Situação:",
@@ -2446,83 +2460,69 @@ with tab_entregas:
                         horizontal=True
                     )
 
-                # ====================
-                # Botão para abrir o diálogo de Gerenciar entregas
-                # ====================
-                if pode_gerenciar_projeto:
-                    with st.container(horizontal_alignment="right"):
-                        st.write('')    
-                        if st.button("Gerenciar entregas", icon=":material/edit:", width=300):
+                    st.write("")
+                    
+            # Converter datas
+            data_inicio = pd.to_datetime(data_inicio) if data_inicio else None
+            data_fim = pd.to_datetime(data_fim) if data_fim else None
 
-                            # SINCRONIZAÇÃO EXPLÍCITA
-                            st.session_state["projeto_selecionado_entregas"] = (
-                                st.session_state.get("projeto_selecionado_projetos")
-                            )
+            # ===============================================================
+            # FILTRAGEM
+            # ===============================================================
 
-                            st.session_state["pagina_anterior"] = "pagina_projetos"
-
-                            dialog_editar_entregas()
-
-            # Aplicar filtros de situação
             df_filtrado = df_entregas.copy()
 
             if filtro_situacao:
-                df_filtrado = df_filtrado[df_filtrado["Situação"].isin(filtro_situacao)]
-
-            # Aplicar filtro de datas 
-            if data_inicio:
                 df_filtrado = df_filtrado[
-                    df_filtrado["Previsão de Conclusão"] >= pd.to_datetime(data_inicio)
+                    df_filtrado["Situação"].isin(filtro_situacao)
                 ]
 
-            if data_fim:
+            if data_inicio is not None:
                 df_filtrado = df_filtrado[
-                    df_filtrado["Previsão de Conclusão"] <= pd.to_datetime(data_fim)
+                    df_filtrado["Previsão de Conclusão"] >= data_inicio
+                ]
+
+            if data_fim is not None:
+                df_filtrado = df_filtrado[
+                    df_filtrado["Previsão de Conclusão"] <= data_fim
                 ]
 
             # ===============================================================
-            # APLICAR ORDENAÇÃO
+            # ORDENAÇÃO
             # ===============================================================
 
-            if ordenacao == "Data de início":
-                df_filtrado = df_filtrado.sort_values(
-                    by="Data de início",
-                    ascending=True,
-                    na_position="last"
-                )
-            else:
-                df_filtrado = df_filtrado.sort_values(
-                    by="Previsão de Conclusão",
-                    ascending=True,
-                    na_position="last"
-                )
+            df_filtrado = df_filtrado.sort_values(
+                by=ordenacao,
+                ascending=True,
+                na_position="last"
+            )
 
             # ===============================================================
-            # EXIBIÇÃO DA TABELA
+            # FORMATAÇÃO
             # ===============================================================
 
-            st.write('')
-            
-            # Criar cópia para exibição (evita quebrar o filtro)
             df_exibir = df_filtrado.copy()
 
-            df_exibir["Data de início"] = df_exibir["Data de início"].dt.strftime("%d/%m/%Y")
-            df_exibir["Data de início"] = df_exibir["Data de início"].fillna("")
+            df_exibir["Data de início"] = (
+                df_exibir["Data de início"]
+                .dt.strftime("%d/%m/%Y")
+                .fillna("")
+            )
 
-            # Converter datetime para string (formato brasileiro)
-            df_exibir["Previsão de Conclusão"] = df_exibir["Previsão de Conclusão"].dt.strftime("%d/%m/%Y")
+            df_exibir["Previsão de Conclusão"] = (
+                df_exibir["Previsão de Conclusão"]
+                .dt.strftime("%d/%m/%Y")
+                .fillna("")
+            )
 
-            # Substituir NaT por vazio (opcional, mas recomendado)
-            df_exibir["Previsão de Conclusão"] = df_exibir["Previsão de Conclusão"].fillna("")
+            # ===============================================================
+            # TABELA
+            # ===============================================================
 
             ui.table(data=df_exibir)
+                
+        render_tabela_entregas(df_entregas, situacoes)
 
-        render_entregas_fragment(
-            entregas=entregas,
-            df_pessoas=df_pessoas,
-            pode_gerenciar_projeto=pode_gerenciar_projeto,
-            projeto_id=projeto_id
-        )
 
 # ##########################################################
 # Anotações
