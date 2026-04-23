@@ -195,7 +195,7 @@ with st.expander("MANUAL OPERACIONAL DO FUNDO ECOS"):
 
 
 # ORGANOGRAMA
-with st.expander("ORGANOGRAMA", expanded=True):
+with st.expander("ORGANOGRAMA"):
     st.write("Organograma do ISPN")
 
     with st.container(horizontal=True, horizontal_alignment="center"):
@@ -321,7 +321,19 @@ with st.expander("RELATÓRIO MENSAL DE ATIVIDADES"):
 # SOLICITAÇÃO DE AUTORIZAÇÃO DE VIAGEM (SAV)
 with st.expander("SOLICITAÇÃO DE AUTORIZAÇÃO DE VIAGEM"):
     st.write('')
-    st.write("As **Solicitações de Autorização de Viagem (SAVs)** e os **Relatórios de Viagem Simplificados (RVSs)** são feitos no **[Portal de Viagens do ISPN](https://ispn-viagens.streamlit.app)**")
+
+    st.markdown(
+    "As Solicitações de Autorização de Viagem <b><u>Internas</u></b> "
+    "e as Solicitações de Autorização de Viagem <b><u>para Terceiros</u></b>, "
+    "assim como os respectivos Relatórios de Viagem, devem ser feitos no portal <b>Jataí</b>.",
+    unsafe_allow_html=True
+    )
+    
+    st.markdown(
+        "As Solicitações de Autorização de Viagem <b><u>Externas</u></b> (para viajantes independentes que farão sua própria Solicitação e Relatório) continuam sendo feitas pelo **[Portal de Viagens do ISPN](https://ispn-viagens.streamlit.app)**.",
+        unsafe_allow_html=True
+        )
+    
 
     st.divider()
 
