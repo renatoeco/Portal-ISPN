@@ -434,7 +434,7 @@ def main():
 
     
     # Filtro de data e origem
-    colunas = st.columns(3)
+    colunas = st.columns(4)
     with colunas[0]:
         opcoes_filtro = ["Todos os PLs", "Atualizados no último mês", "Atualizados na última semana"]
         selecionado = st.radio("Filtrar por data da última ação", opcoes_filtro, index=0)
@@ -444,6 +444,32 @@ def main():
             "Selecione quais PLs deseja visualizar",
             ["PLs Federais (Câmara dos Deputados e Senado)", "PLs Estaduais do Maranhão"],
             index=0
+        )
+
+    with colunas[2]:
+        prioridade_filtro = st.radio(
+            "Filtrar por prioridade",
+            ["Todas", "1", "2", "3"],
+            horizontal=True,
+            index=0
+        )
+
+    st.write("")
+
+    col_filtro1, col_filtro2 = st.columns(2)
+
+    with col_filtro1:
+        temas_filtro = st.multiselect(
+            "Filtrar por Tema",
+            options=sorted(list(set(colecao.distinct("Tema") + colecao_3.distinct("Tema")))),
+            placeholder=""
+        )
+
+    with col_filtro2:
+        subtemas_filtro = st.multiselect(
+            "Filtrar por Sub-Tema",
+            options=sorted(list(set(colecao.distinct("Sub-Tema") + colecao_3.distinct("Sub-Tema")))),
+            placeholder=""
         )
 
     # Decide qual coleção usar com base na escolha
@@ -456,26 +482,67 @@ def main():
     else:
         df_sem_id = df.drop(columns=['_id'], errors='ignore')
 
+        # -----------------------------------------------------------------------------------
+        # GARANTE QUE A COLUNA PRIORIDADE EXISTA E MANTÉM VALORES DO BANCO
+        # -----------------------------------------------------------------------------------
+        if "Prioridade" not in df_sem_id.columns:
+            df_sem_id["Prioridade"] = ""
+        else:
+            # Garante que não tenha NaN (mantém valores já salvos)
+            df_sem_id["Prioridade"] = df_sem_id["Prioridade"].fillna("").astype(str)
+
         # Converte a coluna de data, se existir
         if "Data da Última Ação Legislativa" in df_sem_id.columns:
             df_sem_id["Data da Última Ação Legislativa"] = pd.to_datetime(
                 df_sem_id["Data da Última Ação Legislativa"], dayfirst=True, errors="coerce"
             )
+        
+        
 
-        # Aplica o filtro de tempo
         hoje = datetime.now()
-        if selecionado == "Todos os PLs":
-            df_filtrado = df_sem_id.copy()
-        elif selecionado == "Atualizados no último mês":
-            df_filtrado = df_sem_id[df_sem_id["Data da Última Ação Legislativa"] >= hoje - timedelta(days=30)]
-        elif selecionado == "Atualizados na última semana":
-            df_filtrado = df_sem_id[df_sem_id["Data da Última Ação Legislativa"] >= hoje - timedelta(days=7)]
 
         # -----------------------------------------------------------------------------------
-        # GARANTE QUE A COLUNA "Prioridade" EXISTA ANTES DA ORDENAÇÃO
+        # SEMPRE INICIALIZA df_filtrado
         # -----------------------------------------------------------------------------------
+        df_filtrado = df_sem_id.copy()
+
+        # -----------------------------------------------------------------------------------
+        # GARANTE PRIORIDADE NO DF FILTRADO
+        # -----------------------------------------------------------------------------------
+
         if "Prioridade" not in df_filtrado.columns:
             df_filtrado["Prioridade"] = ""
+        else:
+            df_filtrado["Prioridade"] = df_filtrado["Prioridade"].fillna("").astype(str)
+
+        if selecionado == "Atualizados no último mês":
+            df_filtrado = df_filtrado[
+                df_filtrado["Data da Última Ação Legislativa"] >= hoje - timedelta(days=30)
+            ]
+
+        elif selecionado == "Atualizados na última semana":
+            df_filtrado = df_filtrado[
+                df_filtrado["Data da Última Ação Legislativa"] >= hoje - timedelta(days=7)
+            ]
+
+
+        # -----------------------------------------------------------------------------------
+        # FILTRO DE PRIORIDADE
+        # -----------------------------------------------------------------------------------
+        if prioridade_filtro != "Todas":
+            df_filtrado = df_filtrado[df_filtrado["Prioridade"] == prioridade_filtro]
+
+        # -----------------------------------------------------------------------------------
+        # FILTRO DE TEMA
+        # -----------------------------------------------------------------------------------
+        if temas_filtro:
+            df_filtrado = df_filtrado[df_filtrado["Tema"].isin(temas_filtro)]
+
+        # -----------------------------------------------------------------------------------
+        # FILTRO DE SUB-TEMA
+        # -----------------------------------------------------------------------------------
+        if subtemas_filtro:
+            df_filtrado = df_filtrado[df_filtrado["Sub-Tema"].isin(subtemas_filtro)]
 
         # Converte prioridade para número (vazios vão para o final)
         df_filtrado["Prioridade_ord"] = pd.to_numeric(df_filtrado["Prioridade"], errors="coerce")
@@ -510,14 +577,8 @@ def main():
             ]
 
         # Filtra apenas colunas existentes
-        colunas_exibir = [col for col in nova_ordem if col in df_filtrado.columns]
+        colunas_exibir = ["Prioridade"] + [col for col in nova_ordem if col in df_filtrado.columns]
         df_exibir = df_filtrado[colunas_exibir]
-
-        # -----------------------------------------------------------------------------------
-        # GARANTE QUE A COLUNA PRIORIDADE EXISTA
-        # -----------------------------------------------------------------------------------
-        if "Prioridade" not in df_exibir.columns:
-            df_exibir["Prioridade"] = ""
 
         # -----------------------------------------------------------------------------------
         # MOVE PRIORIDADE PARA PRIMEIRA COLUNA
@@ -601,7 +662,7 @@ def main():
                             {"$set": dados_update}
                         )
 
-                    st.success("Alterações salvas com sucesso!")
+                    st.toast("Alterações salvas com sucesso!")
                     time.sleep(2)
                     st.rerun()
 
