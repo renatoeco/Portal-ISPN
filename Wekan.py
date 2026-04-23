@@ -80,26 +80,46 @@ st.session_state["pagina_anterior"] = PAGINA_ID
 ######################################################################################################
 # INTERFACE
 ######################################################################################################
-st.write('')
 
+col1, col2 = st.columns(2)
 
+with col1:
 
-st.markdown("""
+    st.write('')
+
+    st.markdown("""
+                    
+    **Wekan** é uma ferramenta de **gestão de atividades** baseada no método *Kanban*.
                 
-**Wekan** é uma ferramenta de **gestão de atividades** baseada no métido *Kanban*, que consiste em organizar **cartões de atividades** em **colunas**.
+    Consiste em organizar **cartões de atividades** em **colunas**.
 
-A forma mais clássica de usar o *kanban* é com 3 colunas: **'A fazer'**, **'Fazendo'** e **'Concluído'**.
-                                    
-As colunas são organizadas em um **painel**. Você pode ter um ou mais painéis.
-            
-Cada painel pode ser usado **individualmente** ou **em grupo**.
-                            
-""")
+    A forma mais clássica de usar o *kanban* é com 3 colunas: **'A fazer'**, **'Fazendo'** e **'Concluído'**.
+                                        
+    As colunas são organizadas em um **painel**. Você pode ter um ou mais painéis.
+                
+    Cada painel pode ser usado **individualmente** ou **em grupo**.
+                                
+    """)
+
+
+    st.write('')
+
+    st.write('**Wekan** é um software independente que roda fora do sistema Jataí. Você precisa criar uma **conta de usuário** e uma **senha** para utilizá-lo.')
+
+
+
+with col2:
+    with st.container(horizontal=True, horizontal_alignment="center"):
+        st.image("images/kanban.webp", width=600)
+
+
+
 
 
 st.write('')
 
-st.write('**Wekan** é um software independente que roda fora do sistema Jataí. Você precisa criar uma **conta de usuário** e uma **senha** para utilizá-lo.')
+
+
 
 
 
