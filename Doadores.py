@@ -519,7 +519,7 @@ with tab1:
 with tab2:
     st.write('')
     
-    if set(st.session_state.tipo_usuario) & {"admin", "gestao_projetos_doadores"}:
+    if set(st.session_state.tipo_usuario) & {"admin", "gestao_doadores"}:
         col1, col2, col3, col4, col5 = st.columns([2, 2, 1, 3, 2])
 
         col5.write('')
