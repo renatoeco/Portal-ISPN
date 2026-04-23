@@ -59,18 +59,6 @@ if navegou_para_esta_pagina:
 st.session_state["pagina_anterior"] = PAGINA_ID
 
 
-st.markdown(
-    """
-<style>
-div[data-testid="stDialog"] div[role="dialog"]:has(.big-dialog) {
-    width: 70vw;
-
-}
-</style>
-""",
-    unsafe_allow_html=True,
-)
-
 
 st.write('Para assuntos administrativos referentes a prestação de contas, relatórios, solicitações de viagens e formulários de evento, entre em contato com os seguintes endereços:')
 
