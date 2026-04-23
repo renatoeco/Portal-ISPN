@@ -568,6 +568,7 @@ def main():
             df_editado = st.data_editor(
                 df_exibir,
                 width="stretch",
+                height="content",
                 hide_index=True,
                 column_config=col_config,
                 key="editor_pls"
