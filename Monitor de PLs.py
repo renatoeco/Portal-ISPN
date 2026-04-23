@@ -471,8 +471,25 @@ def main():
         elif selecionado == "Atualizados na última semana":
             df_filtrado = df_sem_id[df_sem_id["Data da Última Ação Legislativa"] >= hoje - timedelta(days=7)]
 
-        # Ordena por data
-        df_filtrado = df_filtrado.sort_values(by="Data da Última Ação Legislativa", ascending=False)
+        # -----------------------------------------------------------------------------------
+        # GARANTE QUE A COLUNA "Prioridade" EXISTA ANTES DA ORDENAÇÃO
+        # -----------------------------------------------------------------------------------
+        if "Prioridade" not in df_filtrado.columns:
+            df_filtrado["Prioridade"] = ""
+
+        # Converte prioridade para número (vazios vão para o final)
+        df_filtrado["Prioridade_ord"] = pd.to_numeric(df_filtrado["Prioridade"], errors="coerce")
+
+        # -----------------------------------------------------------------------------------
+        # ORDENA POR PRIORIDADE (1 → 3) E DEPOIS POR DATA (mais recente primeiro)
+        # -----------------------------------------------------------------------------------
+        df_filtrado = df_filtrado.sort_values(
+            by=["Prioridade_ord", "Data da Última Ação Legislativa"],
+            ascending=[True, False]
+        )
+
+        # Remove coluna auxiliar
+        df_filtrado = df_filtrado.drop(columns=["Prioridade_ord"])
 
         # Formata a data
         if "Data da Última Ação Legislativa" in df_filtrado.columns:
@@ -496,13 +513,105 @@ def main():
         colunas_exibir = [col for col in nova_ordem if col in df_filtrado.columns]
         df_exibir = df_filtrado[colunas_exibir]
 
+        # -----------------------------------------------------------------------------------
+        # GARANTE QUE A COLUNA PRIORIDADE EXISTA
+        # -----------------------------------------------------------------------------------
+        if "Prioridade" not in df_exibir.columns:
+            df_exibir["Prioridade"] = ""
+
+        # -----------------------------------------------------------------------------------
+        # MOVE PRIORIDADE PARA PRIMEIRA COLUNA
+        # -----------------------------------------------------------------------------------
+        colunas = ["Prioridade"] + [col for col in df_exibir.columns if col != "Prioridade"]
+        df_exibir = df_exibir[colunas]
+
         # Renomeia a coluna 'Apresentação'
         df_exibir = df_exibir.rename(columns={"Apresentação": "Data de apresentação"})
 
         # Exibe resultado
         st.write('')
         contagem_pls.subheader(f'{len(df_exibir)} PLs monitorados')
-        ajustar_altura_dataframe(df_exibir, 1)
+
+        # -----------------------------------------------------------------------------------
+        # DEFINE SE O USUÁRIO PODE EDITAR
+        # -----------------------------------------------------------------------------------
+        usuario_pode_editar = bool(set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_pls"})
+
+        # -----------------------------------------------------------------------------------
+        # MODO EDITÁVEL
+        # -----------------------------------------------------------------------------------
+        if usuario_pode_editar:
+
+            st.write("")
+
+            # Botão de salvar acima do data editor
+            salvar = st.button("Salvar alterações", icon=":material/save:")
+
+            st.write("")
+
+            # Configuração das colunas editáveis
+            col_config = {
+                "Prioridade": st.column_config.SelectboxColumn(
+                    "Prioridade",
+                    options=["", "1", "2", "3"],
+                    required=False
+                ),
+                "Tema": st.column_config.Column(disabled=False),
+                "Sub-Tema": st.column_config.Column(disabled=False)
+            }
+
+            # Todas as outras colunas ficam travadas
+            for col in df_exibir.columns:
+                if col not in ["Prioridade", "Tema", "Sub-Tema"]:
+                    col_config[col] = st.column_config.Column(disabled=True)
+
+            df_editado = st.data_editor(
+                df_exibir,
+                width="stretch",
+                hide_index=True,
+                column_config=col_config,
+                key="editor_pls"
+            )
+
+            # -----------------------------------------------------------------------------------
+            # SALVAR NO BANCO
+            # -----------------------------------------------------------------------------------
+            if salvar:
+
+                try:
+                    for i, row in df_editado.iterrows():
+
+                        filtro = {}
+
+                        # Define identificador correto dependendo da coleção
+                        if "Proposições" in row:
+                            filtro["Proposições"] = row["Proposições"]
+                        elif "Proposição" in row:
+                            filtro["Proposição"] = row["Proposição"]
+
+                        dados_update = {
+                            "Tema": row["Tema"],
+                            "Sub-Tema": row["Sub-Tema"],
+                            "Prioridade": row.get("Prioridade", "")
+                        }
+
+                        colecao_usada.update_one(
+                            filtro,
+                            {"$set": dados_update}
+                        )
+
+                    st.success("Alterações salvas com sucesso!")
+                    time.sleep(2)
+                    st.rerun()
+
+                except Exception as e:
+                    st.error(f"Erro ao salvar alterações: {str(e)}")
+
+        # -----------------------------------------------------------------------------------
+        # MODO SOMENTE VISUALIZAÇÃO
+        # -----------------------------------------------------------------------------------
+        else:
+            ajustar_altura_dataframe(df_exibir, 1)
 
    
 main()
