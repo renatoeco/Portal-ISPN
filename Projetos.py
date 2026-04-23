@@ -1866,12 +1866,14 @@ projeto_id = df_projetos_ispn.loc[
 ].values[0]
 
 
+if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)"}:
 
+    # ABAS
+    tab_equipe, tab_indicadores, tab_entregas, tab_anotacoes = st.tabs([":material/group: Equipe", ":material/show_chart: Indicadores", ":material/package_2: Entregas", ":material/notes: Anotações"])
 
-# ABAS
-tab_equipe, tab_indicadores, tab_entregas, tab_anotacoes = st.tabs([":material/group: Equipe", ":material/show_chart: Indicadores", ":material/package_2: Entregas", ":material/notes: Anotações"])
-
-
+else:
+    # ABAS
+    tab_equipe, tab_indicadores, tab_anotacoes = st.tabs([":material/group: Equipe", ":material/show_chart: Indicadores", ":material/notes: Anotações"])
 
 
 # ##########################################################
@@ -2273,255 +2275,257 @@ with tab_indicadores:
 # ##########################################################
 
 
-with tab_entregas:
-    st.write("")
+if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)"}:
 
-    # Obter o documento completo do projeto selecionado
-    projeto_doc = projetos_ispn.find_one({"_id": projeto_id})
+    with tab_entregas:
+        st.write("")
 
-    # Obter lista de entregas (ou lista vazia se não houver)
-    entregas = projeto_doc.get("entregas", [])
+        # Obter o documento completo do projeto selecionado
+        projeto_doc = projetos_ispn.find_one({"_id": projeto_id})
 
-    if not entregas:
+        # Obter lista de entregas (ou lista vazia se não houver)
+        entregas = projeto_doc.get("entregas", [])
 
-        # ====================
-        # Botão para abrir o diálogo de Gerenciar entregas
-        # ====================
-        if pode_gerenciar_projeto:
-            with st.container(horizontal_alignment="right"):
-                st.write('')    
-                if st.button("Gerenciar entregas", icon=":material/edit:", width=300):
+        if not entregas:
 
-                    # SINCRONIZAÇÃO EXPLÍCITA
-                    st.session_state["projeto_selecionado_entregas"] = (
-                        st.session_state.get("projeto_selecionado_projetos")
-                    )
+            # ====================
+            # Botão para abrir o diálogo de Gerenciar entregas
+            # ====================
+            if pode_gerenciar_projeto:
+                with st.container(horizontal_alignment="right"):
+                    st.write('')    
+                    if st.button("Gerenciar entregas", icon=":material/edit:", width=300):
 
-                    st.session_state["pagina_anterior"] = "pagina_projetos"
+                        # SINCRONIZAÇÃO EXPLÍCITA
+                        st.session_state["projeto_selecionado_entregas"] = (
+                            st.session_state.get("projeto_selecionado_projetos")
+                        )
 
-                    dialog_editar_entregas()
+                        st.session_state["pagina_anterior"] = "pagina_projetos"
+
+                        dialog_editar_entregas()
 
 
+                
+                st.write("_Não há entregas cadastradas para este projeto._")
+
+        else:
             
-            st.write("_Não há entregas cadastradas para este projeto._")
-
-    else:
-        
-        # Criar dicionário de responsáveis
-        df_pessoas_ordenado = df_pessoas.sort_values("nome_completo", ascending=True)
-        responsaveis_dict = {
-            str(row["_id"]): row["nome_completo"]
-            for _, row in df_pessoas_ordenado.iterrows()
-        }
-
-        # Montar lista
-        dados_entregas = []
-        for entrega in entregas:
-            responsaveis_ids = [
-                str(r.get("$oid")) if isinstance(r, dict) else str(r)
-                for r in entrega.get("responsaveis", [])
-            ]
-            responsaveis_nomes = [
-                responsaveis_dict.get(rid, f"ID não encontrado: {rid}")
-                for rid in responsaveis_ids
-            ]
-
-            dados_entregas.append({
-                "Entregas": entrega.get("nome_da_entrega", "-"),
-                "Data de início": entrega.get("data_inicio", "-"),
-                "Previsão de Conclusão": entrega.get("previsao_da_conclusao", "-"),
-                "Responsáveis": ", ".join(responsaveis_nomes) if responsaveis_nomes else "-",
-                "Situação": entrega.get("situacao", "-"),
-            })
-
-        df_entregas = pd.DataFrame(dados_entregas)
-
-        # ===============================================================
-        # FILTROS e BOTÃO PARA GERENCIAR ENTREGAS
-        # ===============================================================
-
-        # Opções únicas para filtros
-        situacoes = sorted(df_entregas["Situação"].dropna().unique().tolist())
-        
-        # Buscar menor previsão de conclusão diretamente do MongoDB
-        pipeline = [
-            {"$unwind": "$entregas"},
-            {"$match": {"entregas.previsao_da_conclusao": {"$ne": None, "$ne": ""}}},
-            {
-                "$group": {
-                    "_id": None,
-                    "min_data": {"$min": "$entregas.previsao_da_conclusao"}
-                }
+            # Criar dicionário de responsáveis
+            df_pessoas_ordenado = df_pessoas.sort_values("nome_completo", ascending=True)
+            responsaveis_dict = {
+                str(row["_id"]): row["nome_completo"]
+                for _, row in df_pessoas_ordenado.iterrows()
             }
-        ]
 
-        resultado = list(projetos_ispn.aggregate(pipeline))
+            # Montar lista
+            dados_entregas = []
+            for entrega in entregas:
+                responsaveis_ids = [
+                    str(r.get("$oid")) if isinstance(r, dict) else str(r)
+                    for r in entrega.get("responsaveis", [])
+                ]
+                responsaveis_nomes = [
+                    responsaveis_dict.get(rid, f"ID não encontrado: {rid}")
+                    for rid in responsaveis_ids
+                ]
 
-        # Definir data_inicio padrão
-        if resultado and resultado[0].get("min_data"):
-            data_inicio_default = pd.to_datetime(
-                resultado[0]["min_data"],
+                dados_entregas.append({
+                    "Entregas": entrega.get("nome_da_entrega", "-"),
+                    "Data de início": entrega.get("data_inicio", "-"),
+                    "Previsão de Conclusão": entrega.get("previsao_da_conclusao", "-"),
+                    "Responsáveis": ", ".join(responsaveis_nomes) if responsaveis_nomes else "-",
+                    "Situação": entrega.get("situacao", "-"),
+                })
+
+            df_entregas = pd.DataFrame(dados_entregas)
+
+            # ===============================================================
+            # FILTROS e BOTÃO PARA GERENCIAR ENTREGAS
+            # ===============================================================
+
+            # Opções únicas para filtros
+            situacoes = sorted(df_entregas["Situação"].dropna().unique().tolist())
+            
+            # Buscar menor previsão de conclusão diretamente do MongoDB
+            pipeline = [
+                {"$unwind": "$entregas"},
+                {"$match": {"entregas.previsao_da_conclusao": {"$ne": None, "$ne": ""}}},
+                {
+                    "$group": {
+                        "_id": None,
+                        "min_data": {"$min": "$entregas.previsao_da_conclusao"}
+                    }
+                }
+            ]
+
+            resultado = list(projetos_ispn.aggregate(pipeline))
+
+            # Definir data_inicio padrão
+            if resultado and resultado[0].get("min_data"):
+                data_inicio_default = pd.to_datetime(
+                    resultado[0]["min_data"],
+                    format="%d/%m/%Y",
+                    errors="coerce"
+                )
+            else:
+                data_inicio_default = pd.to_datetime(datetime.date.today())
+
+            # Converter data de início para datetime
+            df_entregas["Data de início"] = pd.to_datetime(
+                df_entregas["Data de início"],
                 format="%d/%m/%Y",
                 errors="coerce"
             )
-        else:
-            data_inicio_default = pd.to_datetime(datetime.date.today())
 
-        # Converter data de início para datetime
-        df_entregas["Data de início"] = pd.to_datetime(
-            df_entregas["Data de início"],
-            format="%d/%m/%Y",
-            errors="coerce"
-        )
-
-        # Converter previsão para datetime
-        df_entregas["Previsão de Conclusão"] = pd.to_datetime(
-            df_entregas["Previsão de Conclusão"],
-            format="%d/%m/%Y",
-            errors="coerce"
-        )
+            # Converter previsão para datetime
+            df_entregas["Previsão de Conclusão"] = pd.to_datetime(
+                df_entregas["Previsão de Conclusão"],
+                format="%d/%m/%Y",
+                errors="coerce"
+            )
 
 
-        # ====================
-        # Botão para abrir o diálogo de Gerenciar entregas
-        # ====================
-        if pode_gerenciar_projeto:
-            with st.container(horizontal_alignment="right"):
-                st.write('')    
-                if st.button("Gerenciar entregas", icon=":material/edit:", width=300):
+            # ====================
+            # Botão para abrir o diálogo de Gerenciar entregas
+            # ====================
+            if pode_gerenciar_projeto:
+                with st.container(horizontal_alignment="right"):
+                    st.write('')    
+                    if st.button("Gerenciar entregas", icon=":material/edit:", width=300):
 
-                    # SINCRONIZAÇÃO EXPLÍCITA
-                    st.session_state["projeto_selecionado_entregas"] = (
-                        st.session_state.get("projeto_selecionado_projetos")
-                    )
+                        # SINCRONIZAÇÃO EXPLÍCITA
+                        st.session_state["projeto_selecionado_entregas"] = (
+                            st.session_state.get("projeto_selecionado_projetos")
+                        )
 
-                    st.session_state["pagina_anterior"] = "pagina_projetos"
+                        st.session_state["pagina_anterior"] = "pagina_projetos"
 
-                    dialog_editar_entregas()
+                        dialog_editar_entregas()
 
-                st.write('')    
-                
+                    st.write('')    
+                    
 
-        @st.fragment
-        def render_tabela_entregas(df_entregas, situacoes):
-            """
-            Fragment responsável EXCLUSIVAMENTE pela renderização da tabela de entregas.
+            @st.fragment
+            def render_tabela_entregas(df_entregas, situacoes):
+                """
+                Fragment responsável EXCLUSIVAMENTE pela renderização da tabela de entregas.
 
-            Tudo que estiver aqui será recarregado de forma isolada.
-            Filtros, botões e inputs devem ficar FORA desta função.
+                Tudo que estiver aqui será recarregado de forma isolada.
+                Filtros, botões e inputs devem ficar FORA desta função.
 
-            Parâmetros:
-            - df_entregas: DataFrame original com todas as entregas
-            - filtro_situacao: lista de situações selecionadas
-            - data_inicio: data inicial (ou None)
-            - data_fim: data final (ou None)
-            - ordenacao: string indicando critério de ordenação
-            """
-
-            with st.container(horizontal=True):
+                Parâmetros:
+                - df_entregas: DataFrame original com todas as entregas
+                - filtro_situacao: lista de situações selecionadas
+                - data_inicio: data inicial (ou None)
+                - data_fim: data final (ou None)
+                - ordenacao: string indicando critério de ordenação
+                """
 
                 with st.container(horizontal=True):
 
+                    with st.container(horizontal=True):
 
-                    filtro_situacao = st.multiselect(
-                        "Situação:",
-                        options=situacoes,
-                        default=[],
-                        placeholder="",
-                        width=250
-                    )
 
-                    # Campos de data SEM valor padrão (ficam vazios com placeholder)
-                    data_inicio = st.date_input(
-                        "Entregas a partir de:",
-                        value=None,
-                        format="DD/MM/YYYY",
-                        width=250
-                    )
+                        filtro_situacao = st.multiselect(
+                            "Situação:",
+                            options=situacoes,
+                            default=[],
+                            placeholder="",
+                            width=250
+                        )
 
-                    data_fim = st.date_input(
-                        "Até:",
-                        value=None,
-                        format="DD/MM/YYYY",
-                        width=250
-                    )
+                        # Campos de data SEM valor padrão (ficam vazios com placeholder)
+                        data_inicio = st.date_input(
+                            "Entregas a partir de:",
+                            value=None,
+                            format="DD/MM/YYYY",
+                            width=250
+                        )
 
-                    # Converter para datetime
-                    data_inicio = pd.to_datetime(data_inicio)
-                    data_fim = pd.to_datetime(data_fim)
+                        data_fim = st.date_input(
+                            "Até:",
+                            value=None,
+                            format="DD/MM/YYYY",
+                            width=250
+                        )
 
-                    # ===============================================================
-                    # ORDENAÇÃO
-                    # ===============================================================
+                        # Converter para datetime
+                        data_inicio = pd.to_datetime(data_inicio)
+                        data_fim = pd.to_datetime(data_fim)
 
-                    ordenacao = st.radio(
-                        "Ordenar por:",
-                        options=["Data de início", "Previsão de Conclusão"],
-                        horizontal=True
-                    )
+                        # ===============================================================
+                        # ORDENAÇÃO
+                        # ===============================================================
 
-                    st.write("")
+                        ordenacao = st.radio(
+                            "Ordenar por:",
+                            options=["Data de início", "Previsão de Conclusão"],
+                            horizontal=True
+                        )
+
+                        st.write("")
+                        
+                # Converter datas
+                data_inicio = pd.to_datetime(data_inicio) if data_inicio else None
+                data_fim = pd.to_datetime(data_fim) if data_fim else None
+
+                # ===============================================================
+                # FILTRAGEM
+                # ===============================================================
+
+                df_filtrado = df_entregas.copy()
+
+                if filtro_situacao:
+                    df_filtrado = df_filtrado[
+                        df_filtrado["Situação"].isin(filtro_situacao)
+                    ]
+
+                if data_inicio is not None:
+                    df_filtrado = df_filtrado[
+                        df_filtrado["Previsão de Conclusão"] >= data_inicio
+                    ]
+
+                if data_fim is not None:
+                    df_filtrado = df_filtrado[
+                        df_filtrado["Previsão de Conclusão"] <= data_fim
+                    ]
+
+                # ===============================================================
+                # ORDENAÇÃO
+                # ===============================================================
+
+                df_filtrado = df_filtrado.sort_values(
+                    by=ordenacao,
+                    ascending=True,
+                    na_position="last"
+                )
+
+                # ===============================================================
+                # FORMATAÇÃO
+                # ===============================================================
+
+                df_exibir = df_filtrado.copy()
+
+                df_exibir["Data de início"] = (
+                    df_exibir["Data de início"]
+                    .dt.strftime("%d/%m/%Y")
+                    .fillna("")
+                )
+
+                df_exibir["Previsão de Conclusão"] = (
+                    df_exibir["Previsão de Conclusão"]
+                    .dt.strftime("%d/%m/%Y")
+                    .fillna("")
+                )
+
+                # ===============================================================
+                # TABELA
+                # ===============================================================
+
+                ui.table(data=df_exibir)
                     
-            # Converter datas
-            data_inicio = pd.to_datetime(data_inicio) if data_inicio else None
-            data_fim = pd.to_datetime(data_fim) if data_fim else None
-
-            # ===============================================================
-            # FILTRAGEM
-            # ===============================================================
-
-            df_filtrado = df_entregas.copy()
-
-            if filtro_situacao:
-                df_filtrado = df_filtrado[
-                    df_filtrado["Situação"].isin(filtro_situacao)
-                ]
-
-            if data_inicio is not None:
-                df_filtrado = df_filtrado[
-                    df_filtrado["Previsão de Conclusão"] >= data_inicio
-                ]
-
-            if data_fim is not None:
-                df_filtrado = df_filtrado[
-                    df_filtrado["Previsão de Conclusão"] <= data_fim
-                ]
-
-            # ===============================================================
-            # ORDENAÇÃO
-            # ===============================================================
-
-            df_filtrado = df_filtrado.sort_values(
-                by=ordenacao,
-                ascending=True,
-                na_position="last"
-            )
-
-            # ===============================================================
-            # FORMATAÇÃO
-            # ===============================================================
-
-            df_exibir = df_filtrado.copy()
-
-            df_exibir["Data de início"] = (
-                df_exibir["Data de início"]
-                .dt.strftime("%d/%m/%Y")
-                .fillna("")
-            )
-
-            df_exibir["Previsão de Conclusão"] = (
-                df_exibir["Previsão de Conclusão"]
-                .dt.strftime("%d/%m/%Y")
-                .fillna("")
-            )
-
-            # ===============================================================
-            # TABELA
-            # ===============================================================
-
-            ui.table(data=df_exibir)
-                
-        render_tabela_entregas(df_entregas, situacoes)
+            render_tabela_entregas(df_entregas, situacoes)
 
 
 # ##########################################################

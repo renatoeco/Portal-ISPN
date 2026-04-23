@@ -438,6 +438,8 @@ else:
             st.Page("Indicadores.py", title="Indicadores", icon=":material/monitoring:"),
             st.Page("Programas e Áreas.py", title="Programas e Áreas", icon=":material/team_dashboard:"),
             st.Page("Pessoas.py", title="Pessoas", icon=":material/groups:"),
+            st.Page("Doadores.py", title="Doadores", icon=":material/all_inclusive:"),
+            st.Page("Projetos.py", title="Projetos", icon=":material/book:"),
             st.Page("Fundo Ecos.py", title="Fundo Ecos", icon=":material/owl:"),
             st.Page("Redes e Articulações.py", title="Redes e Articulações", icon=":material/network_node:"),
             st.Page("Monitor de PLs.py", title="Monitor de PLs", icon=":material/balance:"),
