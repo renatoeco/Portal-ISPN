@@ -287,11 +287,11 @@ if "admin" in st.session_state.tipo_usuario:
     with aba_impersonar:
 
         st.markdown("##### Impersonar usuário")
+        st.write('')
 
+        email_impersonar = st.text_input("E-mail do usuário que deseja impersonar", width=400)
 
-        email_impersonar = st.text_input("E-mail do usuário que deseja impersonar")
-
-        if st.button("Impersonar usuário"):
+        if st.button("Impersonar usuário", icon=":material/skull:"):
             usuario = colaboradores.find_one({
                 "e_mail": {"$regex": f"^{email_impersonar.strip()}$", "$options": "i"}
             })
@@ -329,8 +329,7 @@ if "admin" in st.session_state.tipo_usuario:
                 st.success(f"Acessando como {st.session_state['nome']}")
 
                 st.balloons()
-
-                
+               
                 time.sleep(3)
                 st.rerun()
             else:
