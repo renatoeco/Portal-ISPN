@@ -4,6 +4,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 import pandas as pd
 import datetime
+import time
 
 
 # ---------------------------------------------------------------------------------
@@ -17,6 +18,7 @@ st.write("")
 
 db = conectar_mongo_portal_ispn()
 estatistica = db["estatistica"]
+colaboradores = db["pessoas"]
 
 
 # ---------------------------------------------------------------------------------
@@ -68,8 +70,7 @@ doc = estatistica.find_one({}, {"_id": 0})
 # ABAS
 # ---------------------------------------------------------------------------------
 
-aba_visitas, aba_banco = st.tabs(["Visitações", "Banco de Dados"])
-# aba_banco, aba_visitas = st.tabs(["Banco de Dados", "Visitações"])
+aba_visitas, aba_banco, aba_impersonar = st.tabs(["Visitações", "Banco de Dados", "Impersonar Usuário"])
 
 
 # ---------------------------------------------------------------------------------
@@ -276,36 +277,49 @@ with aba_visitas:
 
 
 
-    # ------------------------------------------
-    # GRÁFICO 3 — Visitas por dia
-    # ------------------------------------------
-    # visitas_por_dia = df.groupby("data")["acessos"].sum().reset_index()
 
-    # fig_dias = px.bar(
-    #     visitas_por_dia,
-    #     x="data",
-    #     y="acessos",
-    #     title="Visualizações de Páginas",
-    #     text="acessos"
-    # )
+# ---------------------------------------------------------------------------------
+# ABA 3 - IMPERSONAR USUÁRIOS, SÓ PARA ADMIN
+# ---------------------------------------------------------------------------------
 
-    # fig_dias.update_traces(
-    #     textposition="inside",
-    #     texttemplate="%{y}"
-    # )
+if "admin" in st.session_state.tipo_usuario:
 
-    # fig_dias.update_xaxes(
-    #     tickmode="array",
-    #     tickvals=visitas_por_dia["data"],
-    #     ticktext=[d.strftime("%d/%m/%Y") for d in visitas_por_dia["data"]],
-    #     tickangle=-45
-    # )
+    with aba_impersonar:
 
-    # fig_dias.update_layout(
-    #     xaxis_title=None,
-    #     yaxis_title="Acessos"
-    # )
+        st.markdown("##### Impersonar usuário")
 
-    # fig_dias.update_layout(xaxis_title=None)
 
-    # st.plotly_chart(fig_dias)
+        email_impersonar = st.text_input("E-mail do usuário que deseja impersonar")
+
+        if st.button("Acessar usuário"):
+            usuario = colaboradores.find_one({
+                "e_mail": {"$regex": f"^{email_impersonar.strip()}$", "$options": "i"}
+            })
+
+            if usuario:
+                # reconstrução completa da sessão (mesmo padrão do login)
+                st.session_state["logged_in"] = True
+
+                st.session_state["tipo_usuario"] = usuario.get("tipo_usuario", "").strip().lower()
+
+                st.session_state["nome"] = usuario.get("nome_completo")
+                st.session_state["id_usuario"] = usuario.get("_id")
+
+                # inclusão do CPF conforme padrão do banco
+                st.session_state["cpf"] = usuario.get("CPF")
+
+                st.session_state["email"] = usuario.get("e_mail", "")
+                st.session_state["projetos"] = usuario.get("projetos", [])
+
+                # reseta navegação para fluxo correto
+                st.session_state["pagina_atual"] = None
+                st.session_state["projeto_atual"] = None
+
+                st.success(f"Acessando como {st.session_state['nome']}")
+
+                time.sleep(3)
+                st.rerun()
+            else:
+                st.error("Usuário não encontrado.")
+
+
