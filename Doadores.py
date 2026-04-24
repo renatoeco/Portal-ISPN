@@ -400,7 +400,7 @@ with tab1:
     tipos_usuario = set(st.session_state.get("tipo_usuario", []))
 
     pode_editar_doadores = bool(
-        tipos_usuario & {"admin", "coordenador(a)"}
+        tipos_usuario & {"admin", "gestao_doadores", "coordenador(a)"}
     )
 
     key_df = "df_doadores_main"
@@ -596,7 +596,7 @@ with tab1:
 with tab2:
     st.write('')
     
-    if set(st.session_state.tipo_usuario) & {"admin", "gestao_doadores"}:
+    if set(st.session_state.tipo_usuario) & {"admin", "gestao_doadores", "coordenador(a)"}:
         col1, col2, col3, col4, col5 = st.columns([2, 2, 1, 3, 2])
 
         col5.write('')
