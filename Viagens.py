@@ -235,6 +235,24 @@ def get_usuario_normalizado(pessoas, id_usuario) -> dict:
     if not isinstance(banco_doc, dict):
         banco_doc = {}
 
+    # ----------------------------------------------------------
+    # BUSCA DO E-MAIL DO COORDENADOR
+    # ----------------------------------------------------------
+
+    email_coordenador = None
+
+    coordenador_id = usuario_doc.get("coordenador")
+
+    # Verifica se existe coordenador vinculado
+    if coordenador_id:
+        # Busca o documento do coordenador na mesma coleção
+        coordenador_doc = pessoas.find_one({"_id": coordenador_id})
+
+        # Extrai o e-mail, se existir
+        if coordenador_doc:
+            email_coordenador = coordenador_doc.get("e_mail")
+
+
     usuario = {
         "nome_completo": usuario_doc.get("nome_completo"),
         "cpf": usuario_doc.get("CPF"),
@@ -243,7 +261,7 @@ def get_usuario_normalizado(pessoas, id_usuario) -> dict:
         "data_nascimento": usuario_doc.get("data_nascimento"),
         "genero": usuario_doc.get("gênero"),
         "email": usuario_doc.get("e_mail"),
-        "email_coordenador": None,
+        "email_coordenador": email_coordenador,
         "banco": {
             "nome": banco_doc.get("nome_banco"),
             "agencia": banco_doc.get("agencia"),
@@ -1082,6 +1100,8 @@ with terceiros:
 
     usuario = get_usuario_normalizado(pessoas, id_usuario)
 
+    # ????
+    st.write(usuario)
 
     # NOVA SOLICITAÇÃO PARA TERCEIROS
 
