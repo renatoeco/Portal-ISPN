@@ -317,6 +317,8 @@ if "admin" in st.session_state.tipo_usuario:
 
                 st.success(f"Acessando como {st.session_state['nome']}")
 
+                st.balloons()
+                
                 time.sleep(3)
                 st.rerun()
             else:
