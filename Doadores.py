@@ -79,52 +79,20 @@ st.session_state["pagina_anterior"] = PAGINA_ID
 ######################################################################################################
 
 
-
-
-
 @st.dialog("Gerenciar doadores", width="large", on_dismiss="rerun")
 def gerenciar_doadores():
 
     TIPOS_DOADOR = [
         "Cooperação internacional",
         "Empresa",
-        "Filantropia privada",
+        "Filantropia privada nacional",
+        "Filantropia privada internacional",
         "Governo"
     ]
 
-    tab_adicionar, tab_editar = st.tabs([":material/add: Adicionar", ":material/edit: Editar"])
+    tab_editar, tab_adicionar  = st.tabs([":material/edit: Editar", ":material/add: Adicionar"])
     
-    # =========================
-    # ABA ADICIONAR
-    # =========================
-    with tab_adicionar:
-        with st.form("form_adicionar_doador", border=False):
-            nome_novo = st.text_input("Nome do doador")
-            sigla_nova = st.text_input("Sigla")
-            tipo_novo = st.selectbox("Tipo de doador", TIPOS_DOADOR)
-
-            submitted = st.form_submit_button("Adicionar", icon=":material/add:", type="primary")
-
-            if submitted:
-                nome_limpo = nome_novo.strip()
-                if nome_limpo:
-                    doador_existente = db["doadores"].find_one({
-                        "nome_doador": {"$regex": f"^{nome_limpo}$", "$options": "i"}
-                    })
-
-                    if doador_existente:
-                        st.warning(f"Já existe um doador com o nome '{doador_existente['nome_doador']}'.")
-                    else:
-                        db["doadores"].insert_one({
-                            "nome_doador": nome_limpo,
-                            "sigla_doador": sigla_nova.strip(),
-                            "tipo_doador": tipo_novo
-                        })
-                        st.success(f"Doador '{nome_limpo}' adicionado com sucesso!")
-                        time.sleep(2)
-                        st.rerun(scope="fragment")
-                else:
-                    st.warning("O nome do doador é obrigatório.")
+    
 
     # =========================
     # ABA EDITAR
@@ -178,6 +146,38 @@ def gerenciar_doadores():
                     st.success("Doador atualizado com sucesso!")
                     time.sleep(2)
                     st.rerun(scope="fragment")
+                    
+    # =========================
+    # ABA ADICIONAR
+    # =========================
+    with tab_adicionar:
+        with st.form("form_adicionar_doador", border=False):
+            nome_novo = st.text_input("Nome do doador")
+            sigla_nova = st.text_input("Sigla")
+            tipo_novo = st.selectbox("Tipo de doador", TIPOS_DOADOR)
+
+            submitted = st.form_submit_button("Adicionar", icon=":material/add:", type="primary")
+
+            if submitted:
+                nome_limpo = nome_novo.strip()
+                if nome_limpo:
+                    doador_existente = db["doadores"].find_one({
+                        "nome_doador": {"$regex": f"^{nome_limpo}$", "$options": "i"}
+                    })
+
+                    if doador_existente:
+                        st.warning(f"Já existe um doador com o nome '{doador_existente['nome_doador']}'.")
+                    else:
+                        db["doadores"].insert_one({
+                            "nome_doador": nome_limpo,
+                            "sigla_doador": sigla_nova.strip(),
+                            "tipo_doador": tipo_novo
+                        })
+                        st.success(f"Doador '{nome_limpo}' adicionado com sucesso!")
+                        time.sleep(2)
+                        st.rerun(scope="fragment")
+                else:
+                    st.warning("O nome do doador é obrigatório.")
 
 
 def mapear_programas(lista_ids):
@@ -355,16 +355,93 @@ with tab1:
 
 
 
-    resumo_final = resumo_final[["Doador", "Tipo de Doador", "Número de projetos", "Valor"]]
+    # ----------------------------------------------------------------------------------
+    # PREPARAÇÃO DO DATAFRAME
+    # ----------------------------------------------------------------------------------
 
-    # exibir na tela:
+    df_tabela = resumo_final[["Doador", "Tipo de Doador", "Número de projetos", "Valor"]].copy()
 
-    ajustar_altura_dataframe(resumo_final, 1)
+    # Garante que não há NaN
+    df_tabela = df_tabela.fillna("")
+    
+    # ----------------------------------------------------------------------------------
+    # CALLBACK DE SELEÇÃO
+    # ----------------------------------------------------------------------------------
 
-    # st.dataframe(
-    #     resumo_final[["Doador", "Tipo de Doador", "Número de projetos", "Valor"]],
-    #     hide_index=True
-    # )
+    def criar_callback_doadores(df_visivel, key_df):
+
+        def handle_selecao():
+            estado = st.session_state.get(key_df, {})
+            linhas = estado.get("selection", {}).get("rows", [])
+
+            if not linhas:
+                st.session_state["doador_selecionado_id"] = None
+                return
+
+            idx = linhas[0]
+
+            nome_doador = df_visivel.iloc[idx]["Doador"]
+
+            # Buscar no Mongo o doador correspondente
+            doador_encontrado = db["doadores"].find_one({
+                "nome_doador": nome_doador
+            })
+
+            if doador_encontrado:
+                st.session_state["doador_selecionado_id"] = str(doador_encontrado["_id"])
+                st.session_state["abrir_dialog_doador"] = True
+
+        return handle_selecao
+    
+    # ----------------------------------------------------------------------------------
+    # CONTROLE DE PERMISSÃO
+    # ----------------------------------------------------------------------------------
+
+    tipos_usuario = set(st.session_state.get("tipo_usuario", []))
+
+    pode_editar_doadores = bool(
+        tipos_usuario & {"admin", "coordenador(a)"}
+    )
+
+    key_df = "df_doadores_main"
+
+
+    # ----------------------------------------------------------------------------------
+    # RENDERIZAÇÃO DA TABELA
+    # ----------------------------------------------------------------------------------
+
+    if pode_editar_doadores:
+
+        callback = criar_callback_doadores(df_tabela, key_df)
+
+        st.dataframe(
+            df_tabela,
+            hide_index=True,
+            selection_mode="single-row",
+            on_select=callback,
+            key=key_df,
+        )
+        
+        # ----------------------------------------------------------------------------------
+        # ABRIR DIALOG AUTOMATICAMENTE
+        # ----------------------------------------------------------------------------------
+
+        if st.session_state.get("abrir_dialog_doador"):
+
+            doador_id = st.session_state.get("doador_selecionado_id")
+
+            if doador_id:
+                # Define o doador selecionado no selectbox do dialog
+                st.session_state["editar_doador_select"] = doador_id
+
+            st.session_state["abrir_dialog_doador"] = False
+
+            gerenciar_doadores()
+
+    else:
+        ajustar_altura_dataframe(df_tabela, 1)
+
+ 
     
     st.write("")
     st.write("")
@@ -514,7 +591,7 @@ with tab1:
     st.write("")
     st.write("")
     st.write("")
-
+    
 
 with tab2:
     st.write('')
