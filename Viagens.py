@@ -768,9 +768,9 @@ def cadastrar_externo():
             if not rg_input:
                 erros.append("RG é obrigatório.")
 
-            # Verifica se o telefone tem o tamanho correto
-            if len(telefone_input) < 10 or len(telefone_input) > 11:
-                erros.append("Telefone inválido. Use DDD + número.")
+            # Verifica se o telefone foi preenchido
+            if not telefone_input or telefone_input.strip() == "":
+                erros.append("Telefone é obrigatório.")
 
             # Verifica se todos os campos bancários foram preenchidos
             if not banco_nome_input or not banco_agencia_input or not banco_conta_input:
