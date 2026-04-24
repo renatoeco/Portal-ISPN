@@ -1100,9 +1100,6 @@ with terceiros:
 
     usuario = get_usuario_normalizado(pessoas, id_usuario)
 
-    # ????
-    st.write(usuario)
-
     # NOVA SOLICITAÇÃO PARA TERCEIROS
 
     df_usuarios_externos = carregar_externos()
