@@ -25,6 +25,11 @@ estrategia = db["estrategia"]
 ###########################################################################################################
 
 
+# ????
+st.write(st.session_state)
+
+
+
 PAGINA_ID = "pagina_institucional"   # altera conforme a página
 nome_pagina = "Institucional"
 hoje = datetime.now().strftime("%d/%m/%Y")

@@ -291,7 +291,7 @@ if "admin" in st.session_state.tipo_usuario:
 
         email_impersonar = st.text_input("E-mail do usuário que deseja impersonar")
 
-        if st.button("Acessar usuário"):
+        if st.button("Impersonar usuário"):
             usuario = colaboradores.find_one({
                 "e_mail": {"$regex": f"^{email_impersonar.strip()}$", "$options": "i"}
             })
@@ -300,7 +300,18 @@ if "admin" in st.session_state.tipo_usuario:
                 # reconstrução completa da sessão (mesmo padrão do login)
                 st.session_state["logged_in"] = True
 
-                st.session_state["tipo_usuario"] = usuario.get("tipo_usuario", "").strip().lower()
+                # captura string do banco (nome correto do campo)
+                tipo_usuario_raw = usuario.get("tipo de usuário", "")
+
+
+                # converte string "a, b, c" → lista ["a", "b", "c"]
+                tipo_usuario = [
+                    t.strip().lower()
+                    for t in tipo_usuario_raw.split(",")
+                    if t.strip()
+                ]
+
+                st.session_state["tipo_usuario"] = tipo_usuario
 
                 st.session_state["nome"] = usuario.get("nome_completo")
                 st.session_state["id_usuario"] = usuario.get("_id")
@@ -318,6 +329,7 @@ if "admin" in st.session_state.tipo_usuario:
                 st.success(f"Acessando como {st.session_state['nome']}")
 
                 st.balloons()
+
                 
                 time.sleep(3)
                 st.rerun()
