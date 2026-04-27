@@ -79,7 +79,7 @@ st.session_state["pagina_anterior"] = PAGINA_ID
 ######################################################################################################
 
 
-@st.dialog("Gerenciar doadores", width="large", on_dismiss="rerun")
+@st.dialog("Gerenciar doadores", width="small", on_dismiss="rerun")
 def gerenciar_doadores():
 
     TIPOS_DOADOR = [
