@@ -226,6 +226,38 @@ def mostrar_detalhes(nome_indicador, tipo_selecionado=None, projetos_filtrados=N
         if col not in df.columns:
             df[col] = ""
     df.rename(columns=colunas_mapeadas, inplace=True)
+    
+    # ==========================================================
+    # Converter coluna "Valor" para float (tratando strings BR)
+    # ==========================================================
+    if "Valor" in df.columns:
+
+        def converter_para_float(v):
+            """
+            Converte valores para float tratando:
+            - int / float nativos
+            - strings no padrão brasileiro (1.234,56)
+            - valores vazios ou inválidos
+            """
+            try:
+                if isinstance(v, (int, float)):
+                    return float(v)
+                
+                if isinstance(v, str):
+                    v = v.strip()
+                    if v == "":
+                        return None
+                    
+                    # remove separador de milhar e troca vírgula por ponto
+                    v = v.replace(".", "").replace(",", ".")
+                    return float(v)
+
+            except:
+                return None
+
+            return None
+
+        df["Valor"] = df["Valor"].apply(converter_para_float)
 
     # Criar coluna Código
     df["Projeto"] = df["Projeto_id"].astype(str).map(id_para_codigo).fillna("Sem código")

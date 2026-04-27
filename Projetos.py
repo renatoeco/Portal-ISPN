@@ -2011,7 +2011,39 @@ with tab_indicadores:
 
     # Cria o DataFrame mesmo que linhas esteja vazio
     df_indicadores = pd.DataFrame(linhas, columns=["Indicador", "Valor", "Ano", "Autor(a)", "Data anotação", "Observações"])
-    df_indicadores["Valor_num"] = df_indicadores["Valor"].apply(parse_valor)
+    df_indicadores["Valor_num"] = df_indicadores["Valor"]
+
+    # ==========================================================
+    # Converter coluna "Valor" para float (padronização geral)
+    # ==========================================================
+
+    def converter_para_float(v):
+        """
+        Converte valores para float tratando:
+        - int / float nativos
+        - strings no padrão brasileiro (1.234,56)
+        - valores vazios ou inválidos
+        """
+        try:
+            if isinstance(v, (int, float)):
+                return float(v)
+
+            if isinstance(v, str):
+                v = v.strip()
+                if v == "":
+                    return None
+
+                # remove milhar e ajusta decimal
+                v = v.replace(".", "").replace(",", ".")
+                return float(v)
+
+        except:
+            return None
+
+        return None
+
+
+    df_indicadores["Valor"] = df_indicadores["Valor"].apply(converter_para_float)
 
     # Resumo por indicador
     df_resumo = (
