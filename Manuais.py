@@ -201,6 +201,72 @@ with st.expander("ORGANOGRAMA"):
     with st.container(horizontal=True, horizontal_alignment="center"):
         st.image('images/organograma.jpeg', width=1000)
 
+
+
+
+# PLANILHA PARA REEMBOLSO DE EVENTO
+with st.expander("PLANILHA PARA REEMBOLSO DE EVENTO"):
+    st.write("Modelo de planilha para solicitação de Reembolso de despesas / Prestação de contas.")
+
+    with st.container(horizontal=True):
+        st.write("Versão: 2025")
+        st.link_button(
+            label="Ver documento",
+            url="https://ispn.org.br/wp-content/uploads/2022/07/5.-PLANILHA-PARA-REEMBOLSO-EVENTOS.xlsx", 
+            type="tertiary",
+            icon=":material/open_in_new:"
+        )
+
+
+
+
+
+# POLÍTICA GÊNERO
+with st.expander("POLÍTICA GÊNERO"):
+    st.write("""Estabelece parâmetros e diretrizes que assegurem um ambiente institucional seguro, inclusivo 
+             e livre de qualquer forma de discriminação, assédio ou violência para todas as pessoas que 
+             colaboram com o ISPN, em coerência com os princípios já definidos no Código de Ética e Conduta 
+             e na Política de Proteção de Pessoas em Situação de Vulnerabilidade. Ao mesmo tempo, a política 
+             tem como propósito garantir a promoção da equidade nas relações entre as diversas identidades 
+             de gênero, considerando o empoderamento de mulheres e meninas, como princípios estruturantes 
+             e transversais da atuação do ISPN em todos os projetos e ações, internas e externas, contribuindo 
+             para o fortalecimento de territórios mais justos, resilientes e sustentáveis.""")
+    
+    with st.container(horizontal=True):
+        st.write("Versão: abril de 2026")
+        st.link_button(
+            label="Ver documento",
+            url="https://ispn.org.br/wp-content/uploads/2026/04/Politica_de_Genero_ISPN_abril_2026.pdf", 
+            type="tertiary",
+            icon=":material/open_in_new:"
+        )
+
+
+
+
+
+
+# POLÍTICA DE GESTÃO DE RISCOS
+with st.expander("POLÍTICA DE GESTÃO DE RISCOS"):
+    st.write("""A Política de Gestão de Riscos do Instituto Sociedade, População e Natureza – ISPN tem como objetivo 
+             estabelecer os princípios, as diretrizes, os procedimentos e as responsabilidades para a gestão integrada 
+             de riscos realizada pelo ISPN, visando fortalecer a estruturação de sua governança institucional, apoiar 
+             a tomada de decisão dos seus órgãos administrativos e assegurar a perenidade, a sustentabilidade e a 
+             atuação consciente e responsável da organização.""")
+    
+    with st.container(horizontal=True):
+        st.write("Versão: abril de 2026")
+        st.link_button(
+            label="Ver documento",
+            url="https://ispn.org.br/wp-content/uploads/2026/04/Politica-de-Gestao-de-Riscos_ISPN_abril_2026.pdf", 
+            type="tertiary",
+            icon=":material/open_in_new:"
+        )
+
+
+
+
+
 # POLÍTICA DE PRIVACIDADE
 with st.expander("POLÍTICA DE PRIVACIDADE"):
     st.write("""A Política de Privacidade do ISPN regula a coleta, uso, compartilhamento e proteção de 
@@ -253,19 +319,6 @@ with st.expander("POLÍTICA DE VIAGEM"):
             icon=":material/open_in_new:"
         )
 
-
-# PLANILHA PARA REEMBOLSO DE EVENTO
-with st.expander("PLANILHA PARA REEMBOLSO DE EVENTO"):
-    st.write("Modelo de planilha para solicitação de Reembolso de despesas / Prestação de contas.")
-
-    with st.container(horizontal=True):
-        st.write("Versão: 2025")
-        st.link_button(
-            label="Ver documento",
-            url="https://ispn.org.br/wp-content/uploads/2022/07/5.-PLANILHA-PARA-REEMBOLSO-EVENTOS.xlsx", 
-            type="tertiary",
-            icon=":material/open_in_new:"
-        )
 
 # RELATÓRIO MENSAL
 with st.expander("RELATÓRIO MENSAL DE ATIVIDADES"):
