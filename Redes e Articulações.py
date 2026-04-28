@@ -4,6 +4,8 @@ from datetime import datetime
 import time
 import re
 from funcoes_auxiliares import conectar_mongo_portal_ispn
+import smtplib
+from email.mime.text import MIMEText
 
 
 st.set_page_config(layout="wide")
@@ -239,21 +241,76 @@ def mostrar_detalhes(rede_doc):
             nova_data = datetime.now().date()
             novo_texto = st.text_area("Texto do acompanhamento", key="nova_anotacao", height="content", disabled=usuario_visitante)
 
+            # Lista de nomes (igual ponto focal)
+            pessoas_opcoes = sorted({
+                p.get("nome_completo")
+                for p in pessoas.find()
+                if p.get("nome_completo")
+            })
+
+            # Dicionário nome -> email
+            pessoas_dict = {
+                p.get("nome_completo"): p.get("e_mail")
+                for p in pessoas.find()
+                if p.get("nome_completo")
+            }
+
+            destinatarios_sel = st.multiselect(
+                "Notificar pessoas por e-mail",
+                options=pessoas_opcoes,
+                disabled=usuario_visitante,
+                placeholder=""
+            )
+
             if st.button("Adicionar acompanhamento", key="btn_add_anotacao", icon=":material/add_notes:", disabled=usuario_visitante):
+
                 if novo_texto.strip():
+
                     nova_entry = {
                         "data_anotacao": datetime.now().strftime("%d/%m/%Y %H:%M"),
                         "autor_anotacao": usuario_logado,
                         "anotacao": novo_texto.strip()
                     }
+
                     redes.update_one(
                         {"_id": rede_doc["_id"]},
                         {"$push": {"anotacoes": nova_entry}}
                     )
+
+                    # =========================
+                    # ENVIO DE EMAILS
+                    # =========================
+                    erros_email = []
+                    sem_email = []
+
+                    for nome in destinatarios_sel:
+                        email = pessoas_dict.get(nome)
+
+                        if not email:
+                            sem_email.append(nome)
+                            continue
+
+                        sucesso = enviar_email_acompanhamento(
+                            destinatario=email,
+                            nome_destinatario=nome,
+                            rede_nome=rede_doc.get("rede_articulacao", ""),
+                            descricao=rede_doc.get("descricao", ""),
+                            texto=novo_texto.strip(),
+                            autor=usuario_logado
+                        )
+
+                        if not sucesso:
+                            erros_email.append(nome)
+
+                    # Feedback
+                    if destinatarios_sel:
+                        if erros_email:
+                            st.warning(f"E-mails não enviados para: {', '.join(erros_email)}")
+
                     st.success("Acompanhamento salvo com sucesso.")
                     time.sleep(2)
-                    st.rerun()
-                    
+                    st.rerun(scope="fragment")
+
                 else:
                     st.warning("O campo do acompanhamento não pode estar vazio.")
 
@@ -475,6 +532,74 @@ def cadastro_rede():
         time.sleep(2)
         st.rerun()
 
+
+def enviar_email_acompanhamento(destinatario: str, nome_destinatario: str, rede_nome: str, descricao: str, texto: str, autor: str) -> bool:
+    """
+    Envia e-mail notificando um novo acompanhamento de rede.
+
+    Parâmetros:
+    - destinatario: email da pessoa
+    - nome_destinatario: nome da pessoa
+    - rede_nome: nome da rede
+    - descricao: descrição da rede
+    - texto: texto do acompanhamento
+    - autor: quem registrou
+
+    Retorna:
+    - True se sucesso, False caso erro
+    """
+
+    remetente = st.secrets["senhas"]["endereco_email"]
+    senha = st.secrets["senhas"]["senha_email"]
+
+    assunto = f"Novo acompanhamento - Redes/Articulações Jataí - {rede_nome}"
+
+    corpo = f"""
+    <!DOCTYPE html>
+    <html>
+    <body style="font-family: Arial; font-size: 15px; color: #333; padding: 20px;">
+
+        <div style="text-align:center;">
+            <img src="https://ispn.org.br/wp-content/uploads/2024/10/logo_ISPN_vertical_ass.png"
+                 style="max-width:120px;">
+            <h3>Novo acompanhamento registrado</h3>
+        </div>
+
+        <p>Um novo acompanhamento foi registrado na rede abaixo:</p>
+
+        <p><strong>Rede:</strong> {rede_nome}</p>
+        <p><strong>Descrição:</strong> {descricao}</p>
+
+        <hr>
+
+        <p><strong>Acompanhamento:</strong></p>
+        <p>{texto}</p>
+
+        <hr>
+
+        <p><strong>Registrado por:</strong> {autor}</p>
+
+        <br>
+        <p>Att.<br>ISPN</p>
+
+    </body>
+    </html>
+    """
+
+    msg = MIMEText(corpo, "html", "utf-8")
+    msg["Subject"] = assunto
+    msg["From"] = remetente
+    msg["To"] = destinatario
+
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(remetente, senha)
+            server.sendmail(remetente, destinatario, msg.as_string())
+        return True
+    except Exception as e:
+        st.error(f"Erro ao enviar e-mail: {e}")
+        return False
+    
 
 ######################################################################################################
 # MAIN
