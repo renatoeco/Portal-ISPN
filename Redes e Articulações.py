@@ -265,6 +265,27 @@ def mostrar_detalhes(rede_doc):
                 placeholder=""
             )
 
+            # Lista de nomes (igual ponto focal)
+            pessoas_opcoes = sorted({
+                p.get("nome_completo")
+                for p in pessoas.find()
+                if p.get("nome_completo")
+            })
+
+            # Dicionário nome -> email
+            pessoas_dict = {
+                p.get("nome_completo"): p.get("e_mail")
+                for p in pessoas.find()
+                if p.get("nome_completo")
+            }
+
+            destinatarios_sel = st.multiselect(
+                "Notificar pessoas por e-mail",
+                options=pessoas_opcoes,
+                disabled=usuario_visitante,
+                placeholder=""
+            )
+
             if st.button("Adicionar acompanhamento", key="btn_add_anotacao", icon=":material/add_notes:", disabled=usuario_visitante):
 
                 if novo_texto.strip():
