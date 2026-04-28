@@ -258,7 +258,29 @@ def mostrar_detalhes(rede_doc):
             nova_data = datetime.now().date()
             novo_texto = st.text_area("Texto do acompanhamento", key="nova_anotacao", height="content", disabled=usuario_visitante)
 
+            # Lista de nomes (igual ponto focal)
+            pessoas_opcoes = sorted({
+                p.get("nome_completo")
+                for p in pessoas.find()
+                if p.get("nome_completo")
+            })
+
+            # Dicionário nome -> email
+            pessoas_dict = {
+                p.get("nome_completo"): p.get("e_mail")
+                for p in pessoas.find()
+                if p.get("nome_completo")
+            }
+
+            destinatarios_sel = st.multiselect(
+                "Notificar pessoas por e-mail",
+                options=pessoas_opcoes,
+                disabled=usuario_visitante,
+                placeholder=""
+            )
+
             if st.button("Adicionar acompanhamento", key="btn_add_anotacao", icon=":material/add_notes:", disabled=usuario_visitante):
+
                 if novo_texto.strip():
 
                     nova_entry = {
@@ -271,6 +293,37 @@ def mostrar_detalhes(rede_doc):
                         {"_id": rede_doc["_id"]},
                         {"$push": {"anotacoes": nova_entry}}
                     )
+
+                    # =========================
+                    # ENVIO DE EMAILS
+                    # =========================
+                    erros_email = []
+                    sem_email = []
+
+                    for nome in destinatarios_sel:
+                        email = pessoas_dict.get(nome)
+
+                        if not email:
+                            sem_email.append(nome)
+                            continue
+
+                        sucesso = enviar_email_acompanhamento(
+                            destinatario=email,
+                            nome_destinatario=nome,
+                            rede_nome=rede_doc.get("rede_articulacao", ""),
+                            descricao=rede_doc.get("descricao", ""),
+                            texto=novo_texto.strip(),
+                            autor=usuario_logado
+                        )
+
+                        if not sucesso:
+                            erros_email.append(nome)
+
+                    # Feedback
+                    if destinatarios_sel:
+                        if erros_email:
+                            st.warning(f"E-mails não enviados para: {', '.join(erros_email)}")
+
                     st.success("Acompanhamento salvo com sucesso.")
                     time.sleep(2)
                     st.rerun(scope="fragment")
