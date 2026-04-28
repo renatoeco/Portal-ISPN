@@ -93,7 +93,6 @@ def mostrar_detalhes(rede_doc):
     st.html("<span class='big-dialog'></span>")
     st.subheader(rede_doc.get("rede_articulacao", ""))
     tabs = st.tabs([":material/info: Informações gerais", ":material/notes: Acompanhamentos"])
-    tabs = st.tabs([":material/info: Informações gerais", ":material/notes: Acompanhamentos"])
 
     # =====================
     # Aba 1: Informações gerais
@@ -109,7 +108,20 @@ def mostrar_detalhes(rede_doc):
             col2.write(f"**Ponto(s) Focal(is):** {rede_doc.get('ponto_focal', '')}")
             col3.write(f"**Tema:** {rede_doc.get('tema', '')}")
 
+            col1.write(f"**Rede/Articulação:** {rede_doc.get('rede_articulacao', '')}")
+            col2.write(f"**Ponto(s) Focal(is):** {rede_doc.get('ponto_focal', '')}")
+            col3.write(f"**Tema:** {rede_doc.get('tema', '')}")
+
             col1, col2, col3 = st.columns(3)
+
+            col1.write(f"**Programa:** {rede_doc.get('programa', '')}")
+            col2.write(f"**Grau de Prioridade:** {rede_doc.get('prioridade', '')}")
+            col3.write(f"**Dedicação:** {rede_doc.get('dedicacao', '')}")
+
+            st.write(f"**Status:** {rede_doc.get('status', 'ativa')}")
+
+            st.write(f"**Descrição da rede:** {rede_doc.get('descricao', '')}")
+
 
             col1.write(f"**Programa:** {rede_doc.get('programa', '')}")
             col2.write(f"**Grau de Prioridade:** {rede_doc.get('prioridade', '')}")
@@ -207,6 +219,8 @@ def mostrar_detalhes(rede_doc):
 
             descricao_edit = st.text_area("Descrição da rede", value=rede_doc.get("descricao", ""))
 
+            descricao_edit = st.text_area("Descrição da rede", value=rede_doc.get("descricao", ""))
+
             st.write("")
 
             if st.button("Salvar alterações", icon=":material/check:", type="primary"):
@@ -215,6 +229,7 @@ def mostrar_detalhes(rede_doc):
                     {
                         "$set": {
                             "rede_articulacao": rede_edit,
+                            "descricao": descricao_edit,
                             "descricao": descricao_edit,
                             "tema": ", ".join(temas_selecionados),
                             "ponto_focal": ", ".join(ponto_focal_edit),
@@ -232,6 +247,7 @@ def mostrar_detalhes(rede_doc):
 
 
     # Aba 2: Acompanhamento / Memória
+    # Aba 2: Acompanhamento / Memória
     with tabs[1]:
         usuario_logado = st.session_state.get("nome", "Desconhecido")
         tipo_usuario = st.session_state.get("tipo_usuario", "")
@@ -239,55 +255,10 @@ def mostrar_detalhes(rede_doc):
 
         # ---------------- EXPANDER PARA ADICIONAR ANOTAÇÃO ----------------
         with st.expander("Adicionar novo acompanhamento", expanded=False, icon=":material/add_notes:"):
-        with st.expander("Adicionar novo acompanhamento", expanded=False, icon=":material/add_notes:"):
             nova_data = datetime.now().date()
             novo_texto = st.text_area("Texto do acompanhamento", key="nova_anotacao", height="content", disabled=usuario_visitante)
-            novo_texto = st.text_area("Texto do acompanhamento", key="nova_anotacao", height="content", disabled=usuario_visitante)
-
-            # Lista de nomes (igual ponto focal)
-            pessoas_opcoes = sorted({
-                p.get("nome_completo")
-                for p in pessoas.find()
-                if p.get("nome_completo")
-            })
-
-            # Dicionário nome -> email
-            pessoas_dict = {
-                p.get("nome_completo"): p.get("e_mail")
-                for p in pessoas.find()
-                if p.get("nome_completo")
-            }
-
-            destinatarios_sel = st.multiselect(
-                "Notificar pessoas por e-mail",
-                options=pessoas_opcoes,
-                disabled=usuario_visitante,
-                placeholder=""
-            )
-
-            # Lista de nomes (igual ponto focal)
-            pessoas_opcoes = sorted({
-                p.get("nome_completo")
-                for p in pessoas.find()
-                if p.get("nome_completo")
-            })
-
-            # Dicionário nome -> email
-            pessoas_dict = {
-                p.get("nome_completo"): p.get("e_mail")
-                for p in pessoas.find()
-                if p.get("nome_completo")
-            }
-
-            destinatarios_sel = st.multiselect(
-                "Notificar pessoas por e-mail",
-                options=pessoas_opcoes,
-                disabled=usuario_visitante,
-                placeholder=""
-            )
 
             if st.button("Adicionar acompanhamento", key="btn_add_anotacao", icon=":material/add_notes:", disabled=usuario_visitante):
-
                 if novo_texto.strip():
 
                     nova_entry = {
@@ -300,47 +271,19 @@ def mostrar_detalhes(rede_doc):
                         {"_id": rede_doc["_id"]},
                         {"$push": {"anotacoes": nova_entry}}
                     )
-
-                    # =========================
-                    # ENVIO DE EMAILS
-                    # =========================
-                    erros_email = []
-                    sem_email = []
-
-                    for nome in destinatarios_sel:
-                        email = pessoas_dict.get(nome)
-
-                        if not email:
-                            sem_email.append(nome)
-                            continue
-
-                        sucesso = enviar_email_acompanhamento(
-                            destinatario=email,
-                            nome_destinatario=nome,
-                            rede_nome=rede_doc.get("rede_articulacao", ""),
-                            descricao=rede_doc.get("descricao", ""),
-                            texto=novo_texto.strip(),
-                            autor=usuario_logado
-                        )
-
-                        if not sucesso:
-                            erros_email.append(nome)
-
-                    # Feedback
-                    if destinatarios_sel:
-                        if erros_email:
-                            st.warning(f"E-mails não enviados para: {', '.join(erros_email)}")
-
                     st.success("Acompanhamento salvo com sucesso.")
                     time.sleep(2)
                     st.rerun(scope="fragment")
 
                 else:
                     st.warning("O campo do acompanhamento não pode estar vazio.")
+                    st.warning("O campo do acompanhamento não pode estar vazio.")
 
         st.write("")
         st.write("**Acompanhamentos registrados:**")
+        st.write("**Acompanhamentos registrados:**")
 
+        # ---------------- LISTA DE Acompanhamento / Memória ----------------
         # ---------------- LISTA DE Acompanhamento / Memória ----------------
         # Ordena por data (decrescente)
         anotacoes_ordenadas = []
@@ -384,6 +327,7 @@ def mostrar_detalhes(rede_doc):
 
                     novo_texto = st.text_area(
                         "Texto do acompanhamento",
+                        "Texto do acompanhamento",
                         value=anotacao.get("anotacao", ""),
                         key=f"texto_{container_key}", height="content"
                     )
@@ -397,11 +341,14 @@ def mostrar_detalhes(rede_doc):
                             {"$set": {"anotacoes": anotacoes}}
                         )
                         st.success("Acompanhamento atualizado.")
+                        st.success("Acompanhamento atualizado.")
 
+                    if botoes.button("Deletar acompanhamento", key=f"deletar_{container_key}", icon=":material/delete:"):
                     if botoes.button("Deletar acompanhamento", key=f"deletar_{container_key}", icon=":material/delete:"):
                         st.session_state[delete_key] = True
 
                     if st.session_state.get(delete_key, False):
+                        st.warning("Tem certeza que deseja apagar este acompanhamento?")
                         st.warning("Tem certeza que deseja apagar este acompanhamento?")
 
                         botoes_confirmacao = st.container(horizontal=True)
@@ -412,6 +359,7 @@ def mostrar_detalhes(rede_doc):
                                 {"_id": rede_doc["_id"]},
                                 {"$set": {"anotacoes": anotacoes}}
                             )
+                            st.success("Acompanhamento apagado com sucesso.")
                             st.success("Acompanhamento apagado com sucesso.")
                             st.session_state[delete_key] = False
 
@@ -472,6 +420,8 @@ def cadastro_rede():
 
     descricao_edit = st.text_area("Descrição da rede*")
 
+    descricao_edit = st.text_area("Descrição da rede*")
+
     col1, col2 = st.columns([1.5, 2])
     ponto_focal_edit = col1.multiselect("Ponto Focal*", options=pessoas_opcoes, placeholder="")
     temas_selecionados = col2.multiselect("Temas*", options=temas_opcoes, placeholder="")
@@ -483,11 +433,11 @@ def cadastro_rede():
 
     # =====================
     # Acompanhamento / Memória iniciais
+    # Acompanhamento / Memória iniciais
     # =====================
     
     usuario_logado = st.session_state.get("nome", "Desconhecido")
-    #nova_anotacao = st.text_area("Acompanhamento", key="anotacao_inicial", height="content")
-    st.write("")
+    nova_anotacao = st.text_area("Acompanhamento", key="anotacao_inicial", height="content")
 
     # =====================
     # Botão salvar
@@ -501,6 +451,7 @@ def cadastro_rede():
         
         campos_obrigatorios = [
             ("Rede/Articulação", rede_edit.strip()),
+            ("Descrição da rede", descricao_edit.strip()),
             ("Descrição da rede", descricao_edit.strip()),
             ("Ponto Focal", ponto_focal_edit),
             ("Temas", temas_selecionados),
@@ -529,6 +480,7 @@ def cadastro_rede():
         
         nova_rede = {
             "rede_articulacao": rede_edit.strip(),
+            "descricao": descricao_edit.strip(),
             "descricao": descricao_edit.strip(),
             "ponto_focal": ", ".join(ponto_focal_edit),
             "tema": ", ".join(temas_selecionados),
