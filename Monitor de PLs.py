@@ -434,7 +434,7 @@ def main():
 
     
     # Filtro de data e origem
-    colunas = st.columns(4)
+    colunas = st.columns(3)
     with colunas[0]:
         opcoes_filtro = ["Todos os PLs", "Atualizados no último mês", "Atualizados na última semana"]
         selecionado = st.radio("Filtrar por data da última ação", opcoes_filtro, index=0)
@@ -442,7 +442,11 @@ def main():
     with colunas[1]:
         origem_opcao = st.radio(
             "Selecione quais PLs deseja visualizar",
-            ["PLs Federais (Câmara dos Deputados e Senado)", "PLs Estaduais do Maranhão"],
+            [
+                "Todos os PLs",
+                "PLs Federais (Câmara dos Deputados e Senado)",
+                "PLs Estaduais do Maranhão"
+            ],
             index=0
         )
 
@@ -472,11 +476,41 @@ def main():
             placeholder=""
         )
 
-    # Decide qual coleção usar com base na escolha
-    colecao_usada = colecao_3 if origem_opcao == "PLs Estaduais do Maranhão" else colecao
+    # -----------------------------------------------------------------------------------
+    # CARREGA OS DADOS COM BASE NA ORIGEM SELECIONADA
+    # -----------------------------------------------------------------------------------
 
-    # Carrega os dados da coleção selecionada
-    df = pd.DataFrame(list(colecao_usada.find()))
+    if origem_opcao == "Todos os PLs":
+        
+        df_federal = pd.DataFrame(list(colecao.find()))
+        df_ma = pd.DataFrame(list(colecao_3.find()))
+
+        # -----------------------------------------------------------------------------------
+        # ADICIONA IDENTIFICADOR DE ORIGEM (ESSENCIAL PARA SALVAR DEPOIS)
+        # -----------------------------------------------------------------------------------
+        df_federal["origem_db"] = "federal"
+        df_ma["origem_db"] = "ma"
+        
+        # Padroniza nomes diferentes entre as coleções
+        if not df_ma.empty and "Proposição" in df_ma.columns:
+            df_ma = df_ma.rename(columns={"Proposição": "Proposições"})
+        
+        # Junta os dois dataframes
+        df = pd.concat([df_federal, df_ma], ignore_index=True)
+
+    elif origem_opcao == "PLs Estaduais do Maranhão":
+        
+        df = pd.DataFrame(list(colecao_3.find()))
+        
+        # Padroniza nome da coluna
+        if not df.empty and "Proposição" in df.columns:
+            df = df.rename(columns={"Proposição": "Proposições"})
+
+    else:
+        
+        df = pd.DataFrame(list(colecao.find()))
+
+
     if df.empty:
         st.warning("Nenhum PL encontrado na coleção selecionada.")
     else:
@@ -645,11 +679,8 @@ def main():
 
                         filtro = {}
 
-                        # Define identificador correto dependendo da coleção
                         if "Proposições" in row:
                             filtro["Proposições"] = row["Proposições"]
-                        elif "Proposição" in row:
-                            filtro["Proposição"] = row["Proposição"]
 
                         dados_update = {
                             "Tema": row["Tema"],
@@ -657,10 +688,11 @@ def main():
                             "Prioridade": row.get("Prioridade", "")
                         }
 
-                        colecao_usada.update_one(
-                            filtro,
-                            {"$set": dados_update}
-                        )
+                        # Escolhe a coleção correta
+                        if row.get("origem_db") == "ma":
+                            colecao_3.update_one(filtro, {"$set": dados_update})
+                        else:
+                            colecao.update_one(filtro, {"$set": dados_update})
 
                     st.toast("Alterações salvas com sucesso!")
                     time.sleep(2)
