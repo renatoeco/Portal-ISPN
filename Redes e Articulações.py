@@ -90,7 +90,7 @@ div[data-testid="stDialog"] div[role="dialog"]:has(.big-dialog) {
 def mostrar_detalhes(rede_doc):
     st.html("<span class='big-dialog'></span>")
     st.subheader(rede_doc.get("rede_articulacao", ""))
-    tabs = st.tabs([":material/info: Informações gerais", ":material/notes: Anotações"])
+    tabs = st.tabs([":material/info: Informações gerais", ":material/notes: Acompanhamentos"])
 
     # =====================
     # Aba 1: Informações gerais
@@ -100,19 +100,22 @@ def mostrar_detalhes(rede_doc):
 
         if not modo_edicao:
             # Exibição simples
-            st.write(f"**Rede/Articulação:** {rede_doc.get('rede_articulacao', '')}")
-            st.write(f"**Ponto(s) Focal(is):** {rede_doc.get('ponto_focal', '')}")
+            col1, col2, col3 = st.columns(3)
+
+            col1.write(f"**Rede/Articulação:** {rede_doc.get('rede_articulacao', '')}")
+            col2.write(f"**Ponto(s) Focal(is):** {rede_doc.get('ponto_focal', '')}")
+            col3.write(f"**Tema:** {rede_doc.get('tema', '')}")
 
             col1, col2, col3 = st.columns(3)
-            
-            col1.write(f"**Tema:** {rede_doc.get('tema', '')}")
-            col2.write(f"**Programa:** {rede_doc.get('programa', '')}")
 
-            col1, col2, col3 = st.columns(3)
-            
-            col1.write(f"**Grau de Prioridade:** {rede_doc.get('prioridade', '')}")
-            col2.write(f"**Dedicação:** {rede_doc.get('dedicacao', '')}")
-            col3.write(f"**Status:** {rede_doc.get('status', 'ativa')}")
+            col1.write(f"**Programa:** {rede_doc.get('programa', '')}")
+            col2.write(f"**Grau de Prioridade:** {rede_doc.get('prioridade', '')}")
+            col3.write(f"**Dedicação:** {rede_doc.get('dedicacao', '')}")
+
+            st.write(f"**Status:** {rede_doc.get('status', 'ativa')}")
+
+            st.write(f"**Descrição da rede:** {rede_doc.get('descricao', '')}")
+
 
         else:
             # =====================
@@ -199,6 +202,8 @@ def mostrar_detalhes(rede_doc):
                 index=status_opcoes.index(rede_doc.get("status", "ativa")) if rede_doc.get("status", "ativa") in status_opcoes else 0,
             )
 
+            descricao_edit = st.text_area("Descrição da rede", value=rede_doc.get("descricao", ""))
+
             st.write("")
 
             if st.button("Salvar alterações", icon=":material/check:", type="primary"):
@@ -207,6 +212,7 @@ def mostrar_detalhes(rede_doc):
                     {
                         "$set": {
                             "rede_articulacao": rede_edit,
+                            "descricao": descricao_edit,
                             "tema": ", ".join(temas_selecionados),
                             "ponto_focal": ", ".join(ponto_focal_edit),
                             "prioridade": prioridade_edit,
@@ -222,18 +228,18 @@ def mostrar_detalhes(rede_doc):
                 st.rerun()
 
 
-    # Aba 2: Anotações
+    # Aba 2: Acompanhamento / Memória
     with tabs[1]:
         usuario_logado = st.session_state.get("nome", "Desconhecido")
         tipo_usuario = st.session_state.get("tipo_usuario", "")
         anotacoes = rede_doc.get("anotacoes") or []
 
         # ---------------- EXPANDER PARA ADICIONAR ANOTAÇÃO ----------------
-        with st.expander("Adicionar nova anotação", expanded=False, icon=":material/add_notes:"):
+        with st.expander("Adicionar novo acompanhamento", expanded=False, icon=":material/add_notes:"):
             nova_data = datetime.now().date()
-            novo_texto = st.text_area("Texto da anotação", key="nova_anotacao", height="content", disabled=usuario_visitante)
+            novo_texto = st.text_area("Texto do acompanhamento", key="nova_anotacao", height="content", disabled=usuario_visitante)
 
-            if st.button("Adicionar anotação", key="btn_add_anotacao", icon=":material/add_notes:", disabled=usuario_visitante):
+            if st.button("Adicionar acompanhamento", key="btn_add_anotacao", icon=":material/add_notes:", disabled=usuario_visitante):
                 if novo_texto.strip():
                     nova_entry = {
                         "data_anotacao": datetime.now().strftime("%d/%m/%Y %H:%M"),
@@ -244,17 +250,17 @@ def mostrar_detalhes(rede_doc):
                         {"_id": rede_doc["_id"]},
                         {"$push": {"anotacoes": nova_entry}}
                     )
-                    st.success("Anotação salva com sucesso.")
+                    st.success("Acompanhamento salvo com sucesso.")
                     time.sleep(2)
                     st.rerun()
                     
                 else:
-                    st.warning("O campo da anotação não pode estar vazio.")
+                    st.warning("O campo do acompanhamento não pode estar vazio.")
 
         st.write("")
-        st.write("**Anotações registradas:**")
+        st.write("**Acompanhamentos registrados:**")
 
-        # ---------------- LISTA DE ANOTAÇÕES ----------------
+        # ---------------- LISTA DE Acompanhamento / Memória ----------------
         # Ordena por data (decrescente)
         anotacoes_ordenadas = []
         for idx, a in enumerate(anotacoes):
@@ -296,7 +302,7 @@ def mostrar_detalhes(rede_doc):
                     st.write(f"**Autor:** {anotacao.get('autor_anotacao', '')}")
 
                     novo_texto = st.text_area(
-                        "Texto da anotação",
+                        "Texto do acompanhamento",
                         value=anotacao.get("anotacao", ""),
                         key=f"texto_{container_key}", height="content"
                     )
@@ -309,13 +315,13 @@ def mostrar_detalhes(rede_doc):
                             {"_id": rede_doc["_id"]},
                             {"$set": {"anotacoes": anotacoes}}
                         )
-                        st.success("Anotação atualizada.")
+                        st.success("Acompanhamento atualizado.")
 
-                    if botoes.button("Deletar anotação", key=f"deletar_{container_key}", icon=":material/delete:"):
+                    if botoes.button("Deletar acompanhamento", key=f"deletar_{container_key}", icon=":material/delete:"):
                         st.session_state[delete_key] = True
 
                     if st.session_state.get(delete_key, False):
-                        st.warning("Tem certeza que deseja apagar esta anotação?")
+                        st.warning("Tem certeza que deseja apagar este acompanhamento?")
 
                         botoes_confirmacao = st.container(horizontal=True)
 
@@ -325,7 +331,7 @@ def mostrar_detalhes(rede_doc):
                                 {"_id": rede_doc["_id"]},
                                 {"$set": {"anotacoes": anotacoes}}
                             )
-                            st.success("Anotação apagada com sucesso.")
+                            st.success("Acompanhamento apagado com sucesso.")
                             st.session_state[delete_key] = False
 
                         if botoes_confirmacao.button("Não", key=f"cancelar_delete_{container_key}", icon=":material/close:"):
@@ -383,6 +389,8 @@ def cadastro_rede():
     
     rede_edit = st.text_input("Rede/Articulação*")
 
+    descricao_edit = st.text_area("Descrição da rede*")
+
     col1, col2 = st.columns([1.5, 2])
     ponto_focal_edit = col1.multiselect("Ponto Focal*", options=pessoas_opcoes, placeholder="")
     temas_selecionados = col2.multiselect("Temas*", options=temas_opcoes, placeholder="")
@@ -393,11 +401,11 @@ def cadastro_rede():
     programa_edit = col3.selectbox("Programa*", options=programas_opcoes)
 
     # =====================
-    # Anotações iniciais
+    # Acompanhamento / Memória iniciais
     # =====================
     
     usuario_logado = st.session_state.get("nome", "Desconhecido")
-    nova_anotacao = st.text_area("Anotação", key="anotacao_inicial", height="content")
+    nova_anotacao = st.text_area("Acompanhamento", key="anotacao_inicial", height="content")
 
     # =====================
     # Botão salvar
@@ -411,6 +419,7 @@ def cadastro_rede():
         
         campos_obrigatorios = [
             ("Rede/Articulação", rede_edit.strip()),
+            ("Descrição da rede", descricao_edit.strip()),
             ("Ponto Focal", ponto_focal_edit),
             ("Temas", temas_selecionados),
             ("Grau de Prioridade", prioridade_edit.strip() if prioridade_edit else ""),
@@ -438,6 +447,7 @@ def cadastro_rede():
         
         nova_rede = {
             "rede_articulacao": rede_edit.strip(),
+            "descricao": descricao_edit.strip(),
             "ponto_focal": ", ".join(ponto_focal_edit),
             "tema": ", ".join(temas_selecionados),
             "prioridade": prioridade_edit,
