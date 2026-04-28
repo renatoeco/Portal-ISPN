@@ -511,9 +511,11 @@ df_redes = df_redes.rename(columns={
     "prioridade": "Prioridade",
     "dedicacao": "Dedicação",
     "programa": "Programa",
-    "status": "Status"
+    "status": "Status",
+    "tema": "Tema"  
 })
-df_redes = df_redes[["Nome", "Ponto Focal", "Prioridade", "Dedicação", "Programa", "Status"]]
+
+df_redes = df_redes[["Nome", "Ponto Focal", "Tema", "Prioridade", "Dedicação", "Programa", "Status"]]
 
 # --- Preparar listas únicas para filtros ---
 pontos_unicos = (
@@ -538,13 +540,24 @@ programas_unicos = (
     .tolist()
 )
 
+temas_unicos = (
+    df_redes["Tema"]
+    .dropna()
+    .astype(str)
+    .str.split(",")
+    .explode()
+    .str.strip()
+    .unique()
+    .tolist()
+)
+
 status_unicos = df_redes["Status"].dropna().unique().tolist()
 if not status_unicos:
     status_unicos = ["ativa", "inativa"]  # fallback se não existir no banco
 
 # --- Filtros ---
 with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
-    colf1, colf2 = st.columns(2)
+    colf1, colf2, colf3 = st.columns(3)
     
     rede_sel = colf1.multiselect(
         "Rede",
@@ -553,6 +566,10 @@ with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
     ponto_sel = colf2.multiselect(
         "Ponto Focal",
         options=sorted(pontos_unicos), placeholder=""
+    )
+    tema_sel = colf3.multiselect(  
+        "Tema",
+        options=sorted(temas_unicos), placeholder=""
     )
 
     colf1, colf2, colf3, colf4 = st.columns(4)
@@ -602,6 +619,13 @@ if programa_sel:
         df_filtrado["Programa"]
         .astype(str)
         .apply(lambda x: any(p in x for p in programa_sel))
+    ]
+
+if tema_sel:
+    df_filtrado = df_filtrado[
+        df_filtrado["Tema"]
+        .astype(str)
+        .apply(lambda x: any(t in x for t in tema_sel))
     ]
 
 # Filtro Status
