@@ -405,7 +405,8 @@ def cadastro_rede():
     # =====================
     
     usuario_logado = st.session_state.get("nome", "Desconhecido")
-    nova_anotacao = st.text_area("Acompanhamento", key="anotacao_inicial", height="content")
+    #nova_anotacao = st.text_area("Acompanhamento", key="anotacao_inicial", height="content")
+    st.write("")
 
     # =====================
     # Botão salvar
@@ -457,12 +458,12 @@ def cadastro_rede():
             "anotacoes": [],
         }
 
-        if nova_anotacao.strip():
-            nova_rede["anotacoes"].append({
-                "data_anotacao": datetime.now().strftime("%d/%m/%Y %H:%M"),
-                "autor_anotacao": usuario_logado,
-                "anotacao": nova_anotacao.strip()
-            })
+        # if nova_anotacao.strip():
+        #     nova_rede["anotacoes"].append({
+        #         "data_anotacao": datetime.now().strftime("%d/%m/%Y %H:%M"),
+        #         "autor_anotacao": usuario_logado,
+        #         "anotacao": nova_anotacao.strip()
+        #     })
 
         # -----------------
         # Inserção no banco
