@@ -437,7 +437,8 @@ def cadastro_rede():
     # =====================
     
     usuario_logado = st.session_state.get("nome", "Desconhecido")
-    nova_anotacao = st.text_area("Acompanhamento", key="anotacao_inicial", height="content")
+    #nova_anotacao = st.text_area("Acompanhamento", key="anotacao_inicial", height="content")
+    st.write("")
 
     # =====================
     # Botão salvar
