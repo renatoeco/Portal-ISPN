@@ -93,6 +93,7 @@ def mostrar_detalhes(rede_doc):
     st.html("<span class='big-dialog'></span>")
     st.subheader(rede_doc.get("rede_articulacao", ""))
     tabs = st.tabs([":material/info: Informações gerais", ":material/notes: Acompanhamentos"])
+    tabs = st.tabs([":material/info: Informações gerais", ":material/notes: Acompanhamentos"])
 
     # =====================
     # Aba 1: Informações gerais
@@ -238,7 +239,9 @@ def mostrar_detalhes(rede_doc):
 
         # ---------------- EXPANDER PARA ADICIONAR ANOTAÇÃO ----------------
         with st.expander("Adicionar novo acompanhamento", expanded=False, icon=":material/add_notes:"):
+        with st.expander("Adicionar novo acompanhamento", expanded=False, icon=":material/add_notes:"):
             nova_data = datetime.now().date()
+            novo_texto = st.text_area("Texto do acompanhamento", key="nova_anotacao", height="content", disabled=usuario_visitante)
             novo_texto = st.text_area("Texto do acompanhamento", key="nova_anotacao", height="content", disabled=usuario_visitante)
 
             # Lista de nomes (igual ponto focal)
