@@ -338,6 +338,13 @@ if "admin" in st.session_state.tipo_usuario:
         # ------------------------------------------------------------------------------
         if st.button("Impersonar usuário", icon=":material/skull:"):
 
+            # ------------------------------------------------------------------------------
+            # IMPEDE EXECUÇÃO SE NÃO ESCOLHEU USUÁRIO REAL
+            # ------------------------------------------------------------------------------
+            if nome_selecionado == "-- Selecione um usuário --":
+                st.warning("Selecione um usuário válido.")
+                st.stop()
+
             # Busca direto pelo e-mail (mais seguro que nome)
             usuario = colaboradores.find_one({
                 "e_mail": email_impersonar
