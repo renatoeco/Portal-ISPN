@@ -289,22 +289,68 @@ if "admin" in st.session_state.tipo_usuario:
         st.markdown("##### Impersonar usuário")
         st.write('')
 
-        email_impersonar = st.text_input("E-mail do usuário que deseja impersonar", width=400)
+        # ------------------------------------------------------------------------------
+        # BUSCAR USUÁRIOS ATIVOS NO MONGO
+        # ------------------------------------------------------------------------------
+        usuarios_ativos = list(colaboradores.find(
+            {"status": "ativo"},
+            {"nome_completo": 1, "e_mail": 1}
+        ))
 
+        # ------------------------------------------------------------------------------
+        # CRIAR MAPA: NOME -> EMAIL
+        # Isso permite mostrar o nome no selectbox mas usar o e-mail internamente
+        # ------------------------------------------------------------------------------
+        mapa_usuarios = {
+            u.get("nome_completo", "Sem nome"): u.get("e_mail", "")
+            for u in usuarios_ativos
+            if u.get("e_mail")  # garante que só entra quem tem email
+        }
+
+        # ------------------------------------------------------------------------------
+        # LISTA DE NOMES PARA EXIBIÇÃO
+        # ------------------------------------------------------------------------------
+        lista_nomes = sorted(mapa_usuarios.keys())
+
+        # Adiciona opção vazia no topo
+        opcoes = ["-- Selecione um usuário --"] + lista_nomes
+
+        # ------------------------------------------------------------------------------
+        # SELECTBOX
+        # ------------------------------------------------------------------------------
+        nome_selecionado = st.selectbox(
+            "Selecione o usuário para impersonar",
+            options=opcoes,
+            index=0,  
+            width=400
+        )
+
+        # ------------------------------------------------------------------------------
+        # TRATAMENTO DA ESCOLHA
+        # ------------------------------------------------------------------------------
+        if nome_selecionado == "-- Selecione um usuário --":
+            email_impersonar = None
+        else:
+            email_impersonar = mapa_usuarios.get(nome_selecionado)
+
+        # ------------------------------------------------------------------------------
+        # BOTÃO DE IMPERSONAÇÃO
+        # ------------------------------------------------------------------------------
         if st.button("Impersonar usuário", icon=":material/skull:"):
+
+            # Busca direto pelo e-mail (mais seguro que nome)
             usuario = colaboradores.find_one({
-                "e_mail": {"$regex": f"^{email_impersonar.strip()}$", "$options": "i"}
+                "e_mail": email_impersonar
             })
 
             if usuario:
                 # reconstrução completa da sessão (mesmo padrão do login)
                 st.session_state["logged_in"] = True
 
-                # captura string do banco (nome correto do campo)
+                # captura string do banco
                 tipo_usuario_raw = usuario.get("tipo de usuário", "")
 
-
-                # converte string "a, b, c" → lista ["a", "b", "c"]
+                # converte string "a, b, c" → lista
                 tipo_usuario = [
                     t.strip().lower()
                     for t in tipo_usuario_raw.split(",")
@@ -312,24 +358,20 @@ if "admin" in st.session_state.tipo_usuario:
                 ]
 
                 st.session_state["tipo_usuario"] = tipo_usuario
-
                 st.session_state["nome"] = usuario.get("nome_completo")
                 st.session_state["id_usuario"] = usuario.get("_id")
-
-                # inclusão do CPF conforme padrão do banco
                 st.session_state["cpf"] = usuario.get("CPF")
-
                 st.session_state["email"] = usuario.get("e_mail", "")
                 st.session_state["projetos"] = usuario.get("projetos", [])
 
-                # reseta navegação para fluxo correto
+                # reset navegação
                 st.session_state["pagina_atual"] = None
                 st.session_state["projeto_atual"] = None
 
                 st.success(f"Acessando como {st.session_state['nome']}")
 
                 st.balloons()
-               
+
                 time.sleep(3)
                 st.rerun()
             else:
