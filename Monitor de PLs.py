@@ -453,8 +453,7 @@ def main():
     with colunas[2]:
         prioridade_filtro = st.radio(
             "Filtrar por prioridade",
-            ["Todas", "1", "2", "3"],
-            horizontal=True,
+            ["Todas", "Prioridade 1", "Prioridade 2", "Prioridade 3"],
             index=0
         )
 
@@ -564,7 +563,8 @@ def main():
         # FILTRO DE PRIORIDADE
         # -----------------------------------------------------------------------------------
         if prioridade_filtro != "Todas":
-            df_filtrado = df_filtrado[df_filtrado["Prioridade"] == prioridade_filtro]
+            numero_prioridade = prioridade_filtro.split()[-1]  # pega "1", "2" ou "3"
+            df_filtrado = df_filtrado[df_filtrado["Prioridade"] == numero_prioridade]
 
         # -----------------------------------------------------------------------------------
         # FILTRO DE TEMA
@@ -609,9 +609,10 @@ def main():
                 'Ementa', 'Situação', 'Última Ação Legislativa', 'Casa',
                 'Autor', 'UF', 'Partido', 'Apresentação', 'Link'
             ]
-
-        # Filtra apenas colunas existentes
+            
+        # Define colunas para exibição (usa direto a coluna original)
         colunas_exibir = ["Prioridade"] + [col for col in nova_ordem if col in df_filtrado.columns]
+
         df_exibir = df_filtrado[colunas_exibir]
 
         # -----------------------------------------------------------------------------------
@@ -673,9 +674,21 @@ def main():
             # SALVAR NO BANCO
             # -----------------------------------------------------------------------------------
             if salvar:
+                
+                df_original = df_exibir.copy()
 
                 try:
                     for i, row in df_editado.iterrows():
+
+                        row_original = df_original.iloc[i]
+
+                        # Só atualiza se houve mudança
+                        if (
+                            row["Prioridade"] == row_original["Prioridade"] and
+                            row["Tema"] == row_original["Tema"] and
+                            row["Sub-Tema"] == row_original["Sub-Tema"]
+                        ):
+                            continue  # pula, não faz update
 
                         filtro = {}
 
@@ -688,7 +701,6 @@ def main():
                             "Prioridade": row.get("Prioridade", "")
                         }
 
-                        # Escolhe a coleção correta
                         if row.get("origem_db") == "ma":
                             colecao_3.update_one(filtro, {"$set": dados_update})
                         else:
