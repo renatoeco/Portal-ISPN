@@ -65,33 +65,16 @@ if navegou_para_esta_pagina:
 st.session_state["pagina_anterior"] = PAGINA_ID
 
 
-######################################################################################################
-# CSS PARA DIALOGO MAIOR
-######################################################################################################
-
-
-st.markdown(
-    """
-<style>
-div[data-testid="stDialog"] div[role="dialog"]:has(.big-dialog) {
-    width: 60vw;
-    
-}
-</style>
-""",
-    unsafe_allow_html=True,
-)
-
 
 ######################################################################################################
 # FUNÇÕES
 ######################################################################################################
 
 
-@st.dialog("Detalhes da rede", width="large")
+@st.dialog("Detalhes da rede", width="medium")
 def mostrar_detalhes(rede_doc):
-    st.html("<span class='big-dialog'></span>")
     st.subheader(rede_doc.get("rede_articulacao", ""))
+    st.write("")
     tabs = st.tabs([":material/info: Informações gerais", ":material/notes: Acompanhamentos"])
 
     # =====================
@@ -257,6 +240,7 @@ def mostrar_detalhes(rede_doc):
         with st.expander("Adicionar novo acompanhamento", expanded=False, icon=":material/add_notes:"):
             nova_data = datetime.now().date()
             novo_texto = st.text_area("Texto do acompanhamento", key="nova_anotacao", height="content", disabled=usuario_visitante)
+            novo_texto = st.text_area("Texto do acompanhamento", key="nova_anotacao", height="content", disabled=usuario_visitante)
 
             # Lista de nomes (igual ponto focal)
             pessoas_opcoes = sorted({
@@ -275,6 +259,28 @@ def mostrar_detalhes(rede_doc):
             destinatarios_sel = st.multiselect(
                 "Notificar pessoas por e-mail",
                 options=pessoas_opcoes,
+                disabled=usuario_visitante,
+                placeholder=""
+            )
+
+            # Lista de nomes (igual ponto focal)
+            pessoas_opcoes = sorted({
+                p.get("nome_completo")
+                for p in pessoas.find()
+                if p.get("nome_completo")
+            })
+
+            # Dicionário nome -> email
+            pessoas_dict = {
+                p.get("nome_completo"): p.get("e_mail")
+                for p in pessoas.find()
+                if p.get("nome_completo")
+            }
+
+            destinatarios_sel = st.multiselect(
+                "Notificar pessoas por e-mail",
+                options=pessoas_opcoes,
+                default=default_destinatarios, 
                 disabled=usuario_visitante,
                 placeholder=""
             )
