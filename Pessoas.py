@@ -88,6 +88,17 @@ dados_pessoas = list(pessoas.find())
 dados_programas = list(programas_areas.find())
 dados_projetos_ispn = list(projetos_ispn.find())
 
+# FUNÇÃO AUXILIAR PARA CALCULAR IDADE
+def calcular_idade(data_nascimento_str):
+    if not data_nascimento_str:
+        return None  # <- NÃO usar ""
+    try:
+        nasc = datetime.datetime.strptime(data_nascimento_str, "%d/%m/%Y")
+        hoje = datetime.date.today()
+        idade = hoje.year - nasc.year - ((hoje.month, hoje.day) < (nasc.month, nasc.day))
+        return int(idade)  # garante inteiro
+    except Exception:
+        return None  # <- mantém padrão consistente
 
 # PESSOAS
 
@@ -132,6 +143,7 @@ for pessoa in dados_pessoas:
     # ----------------------
     pessoas_lista.append({
         "Nome": pessoa.get("nome_completo", ""),
+        "Idade": calcular_idade(pessoa.get("data_nascimento", "")),
         "Programa/Área": nome_programa_area,
         "Projeto Pagador": ", ".join(nomes_projetos_pagadores) if nomes_projetos_pagadores else "",
         "Cargo": pessoa.get("cargo", ""),
@@ -151,6 +163,10 @@ for pessoa in dados_pessoas:
 # Criar DataFrame de Pessoas
 df_pessoas = pd.DataFrame(pessoas_lista)
 
+# Reordenar colunas para que 'Idade' fique logo após 'Nome'
+colunas = list(df_pessoas.columns)
+colunas.insert(1, colunas.pop(colunas.index('Idade')))
+df_pessoas = df_pessoas[colunas]
 
 
 # PROJETOS
@@ -206,6 +222,8 @@ opcoes_cargos = [
     "Coordenador Geral administrativo/financeiro", "Coordenador Executivo", "Coordenador de Área", "Coordenador de Programa", "Estagiário",
     "Motorista", "Secretária(o)/Recepcionista", "Técnico de campo", "Técnico em informática"
 ]
+
+
 
 
 # Função para enviar e-mail de registro da previdência
@@ -2406,10 +2424,19 @@ with aba_pessoas:
     # ----------------------------------------------------------------------------------
 
     df_tabela = df_pessoas_exibir.copy()
+    
+    # Só trata colunas de texto
+    colunas_texto = df_tabela.select_dtypes(include="object").columns
+    # NÃO transformar idade em string
+    df_tabela['Idade'] = pd.to_numeric(df_tabela['Idade'], errors='coerce')
+    
 
-    # Garante que não há NaN em colunas sensíveis (evita bugs de renderização)
-    df_tabela = df_tabela.fillna("")
+    # Outras colunas continuam como string
+    colunas_texto = df_tabela.select_dtypes(include="object").columns
+    colunas_texto = [c for c in colunas_texto if c != 'Idade']
 
+    df_tabela[colunas_texto] = df_tabela[colunas_texto].fillna("")
+    
 
     # ----------------------------------------------------------------------------------
     # CALLBACK DE SELEÇÃO
@@ -2477,7 +2504,7 @@ with aba_pessoas:
             hide_index=True,
             selection_mode="single-row",
             on_select=callback,
-            key=key_df
+            key=key_df,
         )
 
     else:
@@ -2780,6 +2807,59 @@ with aba_pessoas:
     col2.plotly_chart(
         fig,
         # config={'staticPlot': True}
+    )
+    
+    # Gráfico de pessoas por Idade ------------------------------------------------
+    
+    # Filtra dados vazios para não distorcer o gráfico e faz uma cópia segura
+    df_idade = df_pessoas_filtrado[df_pessoas_filtrado['Idade'] != ""].copy()
+    
+    # Garante que a coluna é numérica
+    df_idade['Idade'] = pd.to_numeric(df_idade['Idade'])
+
+    # Define o tamanho da faixa etária (ex: 5 em 5 anos)
+    tamanho_faixa = 5
+
+    # Cria uma coluna com a idade base do grupo (Ex: 24 vira 20; 26 vira 25)
+    df_idade['Base Faixa'] = (df_idade['Idade'] // tamanho_faixa) * tamanho_faixa
+    
+    df_idade = df_idade.dropna(subset=['Base Faixa'])
+
+    # Cria o texto do intervalo sem sobreposição (Ex: "20 a 24 anos")
+    df_idade['Faixa Etária'] = df_idade['Base Faixa'].apply(
+        lambda x: f"{int(x)} a {int(x) + tamanho_faixa - 1} anos" if pd.notna(x) else None
+    )
+
+    # Agrupa contando quantas pessoas existem em cada faixa
+    resumo_idade = df_idade.groupby(['Base Faixa', 'Faixa Etária']).size().reset_index(name='Quantidade')
+    
+    # Ordena do menor intervalo para o maior
+    resumo_idade = resumo_idade.sort_values(by='Base Faixa')
+
+    # Plota como gráfico de barras usando as faixas criadas
+    fig_idade = px.bar(
+        resumo_idade,
+        x='Faixa Etária',
+        y='Quantidade',
+        color='Faixa Etária', # Aplica uma cor diferente para cada faixa
+        text='Quantidade',
+        title='Distribuição por Idade',
+        labels={'Faixa Etária': '', 'Quantidade': ''}
+    )
+
+    # Formatação para manter idêntico aos outros gráficos do seu painel
+    fig_idade.update_traces(textposition='outside')
+    fig_idade.update_yaxes(showticklabels=False)
+    fig_idade.update_yaxes(range=[0, resumo_idade['Quantidade'].max() * 1.15])
+    fig_idade.update_layout(
+        showlegend=False,
+        bargap=0.1 # Dá um espaço visual agradável entre as barras
+    )
+
+    # Exibe no col1
+    col1.plotly_chart(
+        fig_idade,
+        config={'staticPlot': False}
     )
 
 if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_pessoas"}:
