@@ -240,7 +240,6 @@ def mostrar_detalhes(rede_doc):
         with st.expander("Adicionar novo acompanhamento", expanded=False, icon=":material/add_notes:"):
             nova_data = datetime.now().date()
             novo_texto = st.text_area("Texto do acompanhamento", key="nova_anotacao", height="content", disabled=usuario_visitante)
-            novo_texto = st.text_area("Texto do acompanhamento", key="nova_anotacao", height="content", disabled=usuario_visitante)
 
             # Lista de nomes (igual ponto focal)
             pessoas_opcoes = sorted({
@@ -256,26 +255,12 @@ def mostrar_detalhes(rede_doc):
                 if p.get("nome_completo")
             }
 
-            destinatarios_sel = st.multiselect(
-                "Notificar pessoas por e-mail",
-                options=pessoas_opcoes,
-                disabled=usuario_visitante,
-                placeholder=""
-            )
+            # Recupera os pontos focais da rede
+            ponto_focal_str = rede_doc.get("ponto_focal", "")
+            ponto_focal_list = [p.strip() for p in ponto_focal_str.split(",")] if ponto_focal_str else []
 
-            # Lista de nomes (igual ponto focal)
-            pessoas_opcoes = sorted({
-                p.get("nome_completo")
-                for p in pessoas.find()
-                if p.get("nome_completo")
-            })
-
-            # Dicionário nome -> email
-            pessoas_dict = {
-                p.get("nome_completo"): p.get("e_mail")
-                for p in pessoas.find()
-                if p.get("nome_completo")
-            }
+            # Garante que só entram valores válidos (existentes nas opções)
+            default_destinatarios = [p for p in ponto_focal_list if p in pessoas_opcoes]
 
             destinatarios_sel = st.multiselect(
                 "Notificar pessoas por e-mail",
