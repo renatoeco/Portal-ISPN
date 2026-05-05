@@ -432,48 +432,53 @@ def main():
 # EXIBIÇÃO DO DATAFRAME
 # ###################################################################################################
 
-    
-    # Filtro de data e origem
-    colunas = st.columns(3)
-    with colunas[0]:
-        opcoes_filtro = ["Todos os PLs", "Atualizados no último mês", "Atualizados na última semana"]
-        selecionado = st.radio("Filtrar por data da última ação", opcoes_filtro, index=0)
+    st.write('')
 
-    with colunas[1]:
-        origem_opcao = st.radio(
-            "Selecione quais PLs deseja visualizar",
-            [
-                "Todos os PLs",
-                "PLs Federais (Câmara dos Deputados e Senado)",
-                "PLs Estaduais do Maranhão"
-            ],
-            index=0
-        )
+    with st.container(border=True):
+        
+        st.write("**Filtros:**")
 
-    with colunas[2]:
-        prioridade_filtro = st.radio(
-            "Filtrar por prioridade",
-            ["Todas", "Prioridade 1", "Prioridade 2", "Prioridade 3"],
-            index=0
-        )
+        # Filtro de data e origem
+        colunas = st.columns(3)
+        with colunas[0]:
+            opcoes_filtro = ["Todos os PLs", "Atualizados no último mês", "Atualizados na última semana"]
+            selecionado = st.radio("Filtrar por data da última ação", opcoes_filtro, index=0)
 
-    st.write("")
+        with colunas[1]:
+            origem_opcao = st.radio(
+                "Selecione quais PLs deseja visualizar",
+                [
+                    "Todos os PLs",
+                    "PLs Federais (Câmara dos Deputados e Senado)",
+                    "PLs Estaduais do Maranhão"
+                ],
+                index=0
+            )
 
-    col_filtro1, col_filtro2 = st.columns(2)
+        with colunas[2]:
+            prioridade_filtro = st.radio(
+                "Filtrar por prioridade",
+                ["Todas", "Prioridade 1", "Prioridade 2", "Prioridade 3"],
+                index=0
+            )
 
-    with col_filtro1:
-        temas_filtro = st.multiselect(
-            "Filtrar por Tema",
-            options=sorted(list(set(colecao.distinct("Tema") + colecao_3.distinct("Tema")))),
-            placeholder=""
-        )
+        st.write("")
 
-    with col_filtro2:
-        subtemas_filtro = st.multiselect(
-            "Filtrar por Sub-Tema",
-            options=sorted(list(set(colecao.distinct("Sub-Tema") + colecao_3.distinct("Sub-Tema")))),
-            placeholder=""
-        )
+        col_filtro1, col_filtro2 = st.columns(2)
+
+        with col_filtro1:
+            temas_filtro = st.multiselect(
+                "Filtrar por Tema",
+                options=sorted(list(set(colecao.distinct("Tema") + colecao_3.distinct("Tema")))),
+                placeholder=""
+            )
+
+        with col_filtro2:
+            subtemas_filtro = st.multiselect(
+                "Filtrar por Sub-Tema",
+                options=sorted(list(set(colecao.distinct("Sub-Tema") + colecao_3.distinct("Sub-Tema")))),
+                placeholder=""
+            )
 
     # -----------------------------------------------------------------------------------
     # CARREGA OS DADOS COM BASE NA ORIGEM SELECIONADA
