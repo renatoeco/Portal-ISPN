@@ -2405,9 +2405,10 @@ with aba_pessoas:
         "Data de nascimento",
     ]
 
-    # Se o usuário NÃO tiver permissão, remove também "Tipo de usuário"
+    # Se o usuário NÃO tiver permissão, remove também "Tipo de usuário" e "Idade"
     if not usuario_pode_ver_tipo:
         colunas_remover.append("Tipo de usuário")
+        colunas_remover.append("Idade")
 
     df_pessoas_exibir = df_pessoas_exibir.drop(
         columns=colunas_remover,
@@ -2427,8 +2428,10 @@ with aba_pessoas:
     
     # Só trata colunas de texto
     colunas_texto = df_tabela.select_dtypes(include="object").columns
-    # NÃO transformar idade em string
-    df_tabela['Idade'] = pd.to_numeric(df_tabela['Idade'], errors='coerce')
+
+    # Só trata idade se existir no dataframe
+    if 'Idade' in df_tabela.columns:
+        df_tabela['Idade'] = pd.to_numeric(df_tabela['Idade'], errors='coerce')
     
 
     # Outras colunas continuam como string
@@ -2841,19 +2844,23 @@ with aba_pessoas:
         resumo_idade,
         x='Faixa Etária',
         y='Quantidade',
-        color='Faixa Etária', # Aplica uma cor diferente para cada faixa
+        color='Base Faixa',
         text='Quantidade',
         title='Distribuição por Idade',
-        labels={'Faixa Etária': '', 'Quantidade': ''}
+        labels={'Faixa Etária': '', 'Quantidade': ''},
+        color_continuous_scale=px.colors.sequential.Blues[3:]
     )
 
-    # Formatação para manter idêntico aos outros gráficos do seu painel
+    # Remove legenda de cor (opcional, geralmente fica mais limpo)
+    fig_idade.update_coloraxes(showscale=False)
+
+    # Formatação igual aos outros gráficos
     fig_idade.update_traces(textposition='outside')
     fig_idade.update_yaxes(showticklabels=False)
     fig_idade.update_yaxes(range=[0, resumo_idade['Quantidade'].max() * 1.15])
     fig_idade.update_layout(
         showlegend=False,
-        bargap=0.1 # Dá um espaço visual agradável entre as barras
+        bargap=0.1
     )
 
     # Exibe no col1
