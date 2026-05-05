@@ -388,7 +388,6 @@ def mostrar_detalhes(rede_doc):
                         st.success("Acompanhamento atualizado.")
 
                     if botoes.button("Deletar acompanhamento", key=f"deletar_{container_key}", icon=":material/delete:"):
-                    if botoes.button("Deletar acompanhamento", key=f"deletar_{container_key}", icon=":material/delete:"):
                         st.session_state[delete_key] = True
 
                     if st.session_state.get(delete_key, False):
