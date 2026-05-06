@@ -71,7 +71,7 @@ st.session_state["pagina_anterior"] = PAGINA_ID
 ######################################################################################################
 
 
-@st.dialog("Detalhes da rede", width="medium")
+@st.dialog("Detalhes da rede", width="medium", on_dismiss="rerun")
 def mostrar_detalhes(rede_doc):
     st.subheader(rede_doc.get("rede_articulacao", ""))
     st.write("")
@@ -85,19 +85,19 @@ def mostrar_detalhes(rede_doc):
 
         if not modo_edicao:
             # Exibição simples
-            col1, col2, col3 = st.columns(3)
+            col1, col2, col3, col4 = st.columns(4)
 
             col1.write(f"**Rede/Articulação:** {rede_doc.get('rede_articulacao', '')}")
-            col2.write(f"**Ponto(s) Focal(is):** {rede_doc.get('ponto_focal', '')}")
-            col3.write(f"**Tema:** {rede_doc.get('tema', '')}")
+            col2.write(f"**Tipo de Rede:** {rede_doc.get('tipo_rede', '')}")
+            col3.write(f"**Ponto(s) Focal(is):** {rede_doc.get('ponto_focal', '')}")
+            col4.write(f"**Tema:** {rede_doc.get('tema', '')}")
 
-            col1, col2, col3 = st.columns(3)
+            col1, col2, col3, col4 = st.columns(4)
 
             col1.write(f"**Programa:** {rede_doc.get('programa', '')}")
             col2.write(f"**Grau de Prioridade:** {rede_doc.get('prioridade', '')}")
             col3.write(f"**Dedicação:** {rede_doc.get('dedicacao', '')}")
-
-            st.write(f"**Status:** {rede_doc.get('status', 'ativa')}")
+            col4.write(f"**Status:** {rede_doc.get('status', 'ativa')}")
 
             st.write(f"**Descrição da rede:** {rede_doc.get('descricao', '')}")
 
@@ -130,6 +130,8 @@ def mostrar_detalhes(rede_doc):
 
             # Opções fixas para status
             status_opcoes = ["ativa", "inativa"]
+            
+            tipos_rede_opcoes = ["1", "2", "3"]
 
             # =====================
             # Campos editáveis
@@ -137,7 +139,7 @@ def mostrar_detalhes(rede_doc):
             
             rede_edit = st.text_input("Rede/Articulação", value=rede_doc.get("rede_articulacao", ""))
 
-            col1, col2 = st.columns([1.5, 2])
+            col1, col2, col3 = st.columns([1.5, 2, 0.5])
 
             ponto_focal_str = rede_doc.get("ponto_focal", "")
             ponto_focal_list = [p.strip() for p in ponto_focal_str.split(",")] if ponto_focal_str else []
@@ -159,9 +161,16 @@ def mostrar_detalhes(rede_doc):
                 options=temas_opcoes,
                 default=temas_default,
             )
-
+            
+            tipo_rede_edit = col3.selectbox(
+                "Tipo de Rede",
+                options=tipos_rede_opcoes,
+                index=tipos_rede_opcoes.index(rede_doc.get("tipo_rede")) 
+                if rede_doc.get("tipo_rede") in tipos_rede_opcoes else 0,
+            )
+            
             col1, col2, col3, col4 = st.columns(4)
-
+            
             prioridade_edit = col1.selectbox(
                 "Grau de Prioridade",
                 options=prioridades_opcoes,
@@ -203,7 +212,8 @@ def mostrar_detalhes(rede_doc):
                             "prioridade": prioridade_edit,
                             "dedicacao": dedicacao_edit,
                             "programa": programa_edit,
-                            "status": status_edit,  # <-- salva o status
+                            "status": status_edit, 
+                            "tipo_rede": tipo_rede_edit,
                         }
                     },
                 )
@@ -217,6 +227,11 @@ def mostrar_detalhes(rede_doc):
     with tabs[1]:
         usuario_logado = st.session_state.get("nome", "Desconhecido")
         tipo_usuario = st.session_state.get("tipo_usuario", "")
+        
+        # Recarrega documento atualizado do Mongo
+        rede_doc = redes.find_one({"_id": rede_doc["_id"]})
+
+        # Obtém anotações atualizadas
         anotacoes = rede_doc.get("anotacoes") or []
 
         # ---------------- EXPANDER PARA ADICIONAR ANOTAÇÃO ----------------
@@ -298,6 +313,8 @@ def mostrar_detalhes(rede_doc):
                         if erros_email:
                             st.warning(f"E-mails não enviados para: {', '.join(erros_email)}")
 
+                    
+                    
                     st.success("Acompanhamento salvo com sucesso.")
                     time.sleep(2)
                     st.rerun(scope="fragment")
@@ -364,6 +381,8 @@ def mostrar_detalhes(rede_doc):
                             {"$set": {"anotacoes": anotacoes}}
                         )
                         st.success("Acompanhamento atualizado.")
+                        time.sleep(2)
+                        st.rerun(scope="fragment")
 
                     if botoes.button("Deletar acompanhamento", key=f"deletar_{container_key}", icon=":material/delete:"):
                         st.session_state[delete_key] = True
@@ -380,6 +399,8 @@ def mostrar_detalhes(rede_doc):
                                 {"$set": {"anotacoes": anotacoes}}
                             )
                             st.success("Acompanhamento apagado com sucesso.")
+                            time.sleep(2)
+                            st.rerun(scope="fragment")
                             st.session_state[delete_key] = False
 
                         if botoes_confirmacao.button("Não", key=f"cancelar_delete_{container_key}", icon=":material/close:"):
@@ -430,7 +451,9 @@ def cadastro_rede():
         "Povos Indígenas",
         "Sociobiodiversidade",
     ]
-
+    
+    tipos_rede_opcoes = ["1", "2", "3"]
+    
     # =====================
     # Campos do cadastro
     # =====================
@@ -439,9 +462,13 @@ def cadastro_rede():
 
     descricao_edit = st.text_area("Descrição da rede*")
 
-    col1, col2 = st.columns([1.5, 2])
+    col1, col2, col3 = st.columns([1.5, 2, 0.5])
     ponto_focal_edit = col1.multiselect("Ponto Focal*", options=pessoas_opcoes, placeholder="")
     temas_selecionados = col2.multiselect("Temas*", options=temas_opcoes, placeholder="")
+    tipo_rede_edit = col3.selectbox(
+        "Tipo de Rede*",
+        options=tipos_rede_opcoes
+    )
 
     col1, col2, col3 = st.columns(3)
     prioridade_edit = col1.selectbox("Grau de Prioridade*", options=prioridades_opcoes)
@@ -469,8 +496,8 @@ def cadastro_rede():
         campos_obrigatorios = [
             ("Rede/Articulação", rede_edit.strip()),
             ("Descrição da rede", descricao_edit.strip()),
-            ("Descrição da rede", descricao_edit.strip()),
             ("Ponto Focal", ponto_focal_edit),
+            ("Tipo de Rede", tipo_rede_edit),
             ("Temas", temas_selecionados),
             ("Grau de Prioridade", prioridade_edit.strip() if prioridade_edit else ""),
             ("Dedicação", dedicacao_edit.strip() if dedicacao_edit else ""),
@@ -504,7 +531,8 @@ def cadastro_rede():
             "prioridade": prioridade_edit,
             "dedicacao": dedicacao_edit,
             "programa": programa_edit,
-            "status": "ativa",  # fixo por padrão
+            "status": "ativa",  
+            "tipo_rede": tipo_rede_edit,
             "anotacoes": [],
         }
 
@@ -626,6 +654,7 @@ dados_redes = list(redes.find())
 df_redes = pd.DataFrame(dados_redes)
 df_redes = df_redes.rename(columns={
     "rede_articulacao": "Nome",
+    "tipo_rede": "Tipo de Rede",
     "ponto_focal": "Ponto Focal",
     "prioridade": "Prioridade",
     "dedicacao": "Dedicação",
@@ -634,7 +663,14 @@ df_redes = df_redes.rename(columns={
     "tema": "Tema"  
 })
 
-df_redes = df_redes[["Nome", "Ponto Focal", "Tema", "Prioridade", "Dedicação", "Programa", "Status"]]
+# Garante existência da coluna mesmo em documentos antigos
+if "Tipo de Rede" not in df_redes.columns:
+    df_redes["Tipo de Rede"] = ""
+
+# Preenche valores nulos
+df_redes["Tipo de Rede"] = df_redes["Tipo de Rede"].fillna("")
+
+df_redes = df_redes[["Nome", "Tipo de Rede", "Ponto Focal", "Tema", "Prioridade", "Dedicação", "Programa", "Status"]]
 
 # --- Preparar listas únicas para filtros ---
 pontos_unicos = (
@@ -676,11 +712,16 @@ if not status_unicos:
 
 # --- Filtros ---
 with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
-    colf1, colf2, colf3 = st.columns(3)
+    colf1, colf2, colf3, colf4 = st.columns(4)
     
     rede_sel = colf1.multiselect(
         "Rede",
         options=sorted(df_redes["Nome"].dropna().unique().tolist()), placeholder=""
+    )
+    tipo_rede_sel = colf4.multiselect(
+        "Tipo de Rede",
+        options=["1", "2", "3"],
+        placeholder=""
     )
     ponto_sel = colf2.multiselect(
         "Ponto Focal",
@@ -690,7 +731,7 @@ with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
         "Tema",
         options=sorted(temas_unicos), placeholder=""
     )
-
+    
     colf1, colf2, colf3, colf4 = st.columns(4)
 
     prioridade_sel = colf1.multiselect(
@@ -751,6 +792,12 @@ if tema_sel:
 if status_sel:
     df_filtrado = df_filtrado[df_filtrado["Status"].isin(status_sel)]
 
+# Filtro tipo de rede 
+if tipo_rede_sel:
+    df_filtrado = df_filtrado[
+        df_filtrado["Tipo de Rede"].isin(tipo_rede_sel)
+    ]
+
 # --- Ordenação customizada pelo Grau de Prioridade ---
 ordem_prioridade = ["Estratégico", "Médio", "Baixo"]
 df_filtrado["Prioridade"] = pd.Categorical(
@@ -770,11 +817,11 @@ st.subheader(f"{len(df_exibir)} Redes e Articulações")
 st.write('')
 
 # --- Layout da tabela customizada ---
-colunas_visiveis = ["Nome", "Ponto Focal", "Prioridade", "Dedicação", "Programa"]
+colunas_visiveis = ["Nome", "Tipo de Rede", "Ponto Focal", "Prioridade", "Dedicação", "Programa"]
 headers = colunas_visiveis + ["Detalhes"]
 
 # Ajuste dos tamanhos de coluna (ponto focal mais estreito)
-col_sizes = [4, 4, 1, 1, 2, 2]
+col_sizes = [4, 1, 4, 1, 1, 2, 2]
 
 # Cabeçalho
 header_cols = st.columns(col_sizes)
