@@ -301,13 +301,13 @@ def mostrar_detalhes_sav(row):
     # TRATAMENTO DO LINK DE EDIÇÃO
     sumbission_id = row["Submission ID"]
 
-    # usuario = st.session_state.usuario
 
     link_edicao = f"https://www.jotform.com/edit/{sumbission_id}"
 
-    col1, col2, col3 = st.columns([1, 1, 1])
 
-    col3.link_button("Editar a Solicitação", icon=":material/edit:", url=link_edicao)
+    with st.container(horizontal=True, horizontal_alignment="right"):
+
+        st.link_button("Editar a Solicitação", icon=":material/edit:", url=link_edicao, width=250)
 
 
     # INFORMAÇÕES
@@ -1204,8 +1204,11 @@ with terceiros:
     st.write('**Viagens solicitadas por mim**')
     st.write('')
 
+
     # Limpar a coluna CPF do responsável pela SAV quero apenas os números
     df_savs_terceiros['CPF do responsável pela SAV:'] = df_savs_terceiros['CPF do responsável pela SAV:'].str.replace(r'[^\d]+', '', regex=True)
+
+
 
     # Capturar a data da viagem
     df_savs_terceiros['Data da viagem:'] = df_savs_terceiros['Itinerário:'].str[6:16].replace('-', '/', regex=True)
@@ -1217,7 +1220,14 @@ with terceiros:
     df_savs_terceiros["Destinos:"] = df_savs_terceiros["Itinerário:"].apply(lambda x: ' > '.join(re.findall(destinos, x)))
 
     # Filtar SAVs com o CPF do usuário
-    df_savs_terceiros_meus = df_savs_terceiros[df_savs_terceiros['CPF do responsável pela SAV:'].astype(str) == str(usuario['cpf'])].copy()
+
+    cpf_usuario_numeros = re.sub(r'\D', '', str(usuario['cpf']))
+
+    df_savs_terceiros_meus = df_savs_terceiros[
+        df_savs_terceiros['CPF do responsável pela SAV:']
+        .astype(str)
+        .str.replace(r'\D', '', regex=True) == cpf_usuario_numeros
+    ].copy()
 
 
 
