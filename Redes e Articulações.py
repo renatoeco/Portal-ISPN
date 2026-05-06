@@ -295,104 +295,84 @@ def mostrar_detalhes(rede_doc):
     with tabs[1]:
         usuario_logado = st.session_state.get("nome", "Desconhecido")
         tipo_usuario = st.session_state.get("tipo_usuario", "")
-        
+
+
+
+
+
+
         # Recarrega documento atualizado do Mongo
         rede_doc = redes.find_one({"_id": rede_doc["_id"]})
 
         # Obtém anotações atualizadas
         anotacoes = rede_doc.get("anotacoes") or []
 
+
+
+
         # ---------------- EXPANDER PARA ADICIONAR ANOTAÇÃO ----------------
         with st.expander("Adicionar novo acompanhamento", expanded=False, icon=":material/add_notes:"):
-            nova_data = datetime.now().date()
-            
-            # Campo de texto ------------------------------------------------------------
-            novo_texto = st.text_area("Texto do acompanhamento", key="nova_anotacao", height="content", disabled=usuario_visitante)
 
+            with st.form(key=f"form_acompanhamento_{rede_doc['_id']}"):
 
+                nova_data = datetime.now().date()
+                
+                # Campo de texto ------------------------------------------------------------
+                novo_texto = st.text_area(
+                    "Texto do acompanhamento",
+                    key="nova_anotacao",
+                    height="content",
+                    disabled=usuario_visitante
+                )
 
+                # Upload de arquivos ------------------------------------------------------------
+                arquivos = st.file_uploader(
+                    "Arquivos anexos",
+                    accept_multiple_files=True,
+                    type=["jpg", "png", "pdf", "jpeg", "webp", "docx"],
+                    key=f"upload_rede_{rede_doc['_id']}"
+                )
 
+                # Lista de nomes ------------------------------------------------------------
+                pessoas_opcoes = sorted({
+                    p.get("nome_completo")
+                    for p in pessoas.find()
+                    if p.get("nome_completo")
+                })
 
+                pessoas_dict = {
+                    p.get("nome_completo"): p.get("e_mail")
+                    for p in pessoas.find()
+                    if p.get("nome_completo")
+                }
 
+                ponto_focal_str = rede_doc.get("ponto_focal", "")
+                ponto_focal_list = [p.strip() for p in ponto_focal_str.split(",")] if ponto_focal_str else []
 
+                default_destinatarios = [p for p in ponto_focal_list if p in pessoas_opcoes]
 
+                destinatarios_sel = st.multiselect(
+                    "Notificar pessoas por e-mail",
+                    options=pessoas_opcoes,
+                    default=default_destinatarios,
+                    disabled=usuario_visitante,
+                    placeholder=""
+                )
 
+                # Controle de execução única
+                flag_upload_key = f"upload_executado_{rede_doc['_id']}"
 
+                if flag_upload_key not in st.session_state:
+                    st.session_state[flag_upload_key] = False
 
+                # BOTÃO DO FORM
+                submitted = st.form_submit_button(
+                    "Adicionar acompanhamento",
+                    icon=":material/add_notes:",
+                    disabled=usuario_visitante,
+                )
 
-
-
-
-
-            # Upload de arquivos ------------------------------------------------------------
-
-            arquivos = st.file_uploader(
-                "Arquivos anexos",
-                accept_multiple_files=True,
-                type=["jpg", "png", "pdf", "jpeg", "webp", "docx"],
-                key=f"upload_rede_{rede_doc['_id']}"
-            )
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-            # Lista de nomes ------------------------------------------------------------
-            pessoas_opcoes = sorted({
-                p.get("nome_completo")
-                for p in pessoas.find()
-                if p.get("nome_completo")
-            })
-
-            # Dicionário nome -> email
-            pessoas_dict = {
-                p.get("nome_completo"): p.get("e_mail")
-                for p in pessoas.find()
-                if p.get("nome_completo")
-            }
-
-            # Recupera os pontos focais da rede
-            ponto_focal_str = rede_doc.get("ponto_focal", "")
-            ponto_focal_list = [p.strip() for p in ponto_focal_str.split(",")] if ponto_focal_str else []
-
-            # Garante que só entram valores válidos (existentes nas opções)
-            default_destinatarios = [p for p in ponto_focal_list if p in pessoas_opcoes]
-
-            destinatarios_sel = st.multiselect(
-                "Notificar pessoas por e-mail",
-                options=pessoas_opcoes,
-                default=default_destinatarios, 
-                disabled=usuario_visitante,
-                placeholder=""
-            )
-
-
-
-            flag_upload_key = f"upload_executado_{rede_doc['_id']}"
-
-            if flag_upload_key not in st.session_state:
-                st.session_state[flag_upload_key] = False
-
-
-            with st.container(horizontal=True, horizontal_alignment="right"):
-
-                if st.button("Adicionar acompanhamento", 
-                             key="btn_add_anotacao", 
-                             icon=":material/add_notes:", 
-                             disabled=usuario_visitante,
-                             type="primary"
-                             ):
+                if submitted:
 
                     if novo_texto.strip():
 
@@ -400,10 +380,8 @@ def mostrar_detalhes(rede_doc):
 
                             anexos_upload = []
 
-                            # Executa apenas uma vez por clique
                             if arquivos and not st.session_state[flag_upload_key]:
 
-                                # Marca antes para evitar duplicação
                                 st.session_state[flag_upload_key] = True
 
                                 servico = obter_servico_drive()
@@ -427,9 +405,6 @@ def mostrar_detalhes(rede_doc):
                                             "url_anexo_rede": gerar_link_drive(id_drive)
                                         })
 
-
-
-                            # Monta entrada com anexos
                             nova_entry = {
                                 "data_anotacao": datetime.now().strftime("%d/%m/%Y %H:%M"),
                                 "autor_anotacao": usuario_logado,
@@ -442,7 +417,6 @@ def mostrar_detalhes(rede_doc):
                                 {"$push": {"anotacoes": nova_entry}}
                             )
 
-                            # Reset da flag para próxima operação
                             st.session_state[flag_upload_key] = False
 
                         st.success("Acompanhamento salvo com sucesso.")
@@ -451,6 +425,179 @@ def mostrar_detalhes(rede_doc):
 
                     else:
                         st.warning("O campo do acompanhamento não pode estar vazio.")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        # # ---------------- EXPANDER PARA ADICIONAR ANOTAÇÃO ----------------
+        # with st.expander("Adicionar novo acompanhamento", expanded=False, icon=":material/add_notes:"):
+        #     nova_data = datetime.now().date()
+            
+        #     # Campo de texto ------------------------------------------------------------
+        #     novo_texto = st.text_area("Texto do acompanhamento", key="nova_anotacao", height="content", disabled=usuario_visitante)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        #     # Upload de arquivos ------------------------------------------------------------
+
+        #     arquivos = st.file_uploader(
+        #         "Arquivos anexos",
+        #         accept_multiple_files=True,
+        #         type=["jpg", "png", "pdf", "jpeg", "webp", "docx"],
+        #         key=f"upload_rede_{rede_doc['_id']}"
+        #     )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        #     # Lista de nomes ------------------------------------------------------------
+        #     pessoas_opcoes = sorted({
+        #         p.get("nome_completo")
+        #         for p in pessoas.find()
+        #         if p.get("nome_completo")
+        #     })
+
+        #     # Dicionário nome -> email
+        #     pessoas_dict = {
+        #         p.get("nome_completo"): p.get("e_mail")
+        #         for p in pessoas.find()
+        #         if p.get("nome_completo")
+        #     }
+
+        #     # Recupera os pontos focais da rede
+        #     ponto_focal_str = rede_doc.get("ponto_focal", "")
+        #     ponto_focal_list = [p.strip() for p in ponto_focal_str.split(",")] if ponto_focal_str else []
+
+        #     # Garante que só entram valores válidos (existentes nas opções)
+        #     default_destinatarios = [p for p in ponto_focal_list if p in pessoas_opcoes]
+
+        #     destinatarios_sel = st.multiselect(
+        #         "Notificar pessoas por e-mail",
+        #         options=pessoas_opcoes,
+        #         default=default_destinatarios, 
+        #         disabled=usuario_visitante,
+        #         placeholder=""
+        #     )
+
+
+
+        #     flag_upload_key = f"upload_executado_{rede_doc['_id']}"
+
+        #     if flag_upload_key not in st.session_state:
+        #         st.session_state[flag_upload_key] = False
+
+
+
+        #     if st.button("Adicionar acompanhamento", 
+        #                     key="btn_add_anotacao", 
+        #                     icon=":material/add_notes:", 
+        #                     disabled=usuario_visitante,
+        #                     type="primary"
+        #                     ):
+
+        #         if novo_texto.strip():
+
+        #             with st.spinner("Salvando..."):
+
+        #                 anexos_upload = []
+
+        #                 # Executa apenas uma vez por clique
+        #                 if arquivos and not st.session_state[flag_upload_key]:
+
+        #                     # Marca antes para evitar duplicação
+        #                     st.session_state[flag_upload_key] = True
+
+        #                     servico = obter_servico_drive()
+
+        #                     pasta_rede = obter_pasta_rede(
+        #                         servico,
+        #                         rede_doc["_id"],
+        #                         rede_doc.get("rede_articulacao", "")
+        #                     )
+
+        #                     for arq in arquivos:
+        #                         id_drive = enviar_arquivo_drive(
+        #                             servico,
+        #                             pasta_rede,
+        #                             arq
+        #                         )
+
+        #                         if id_drive:
+        #                             anexos_upload.append({
+        #                                 "nome_anexo_rede": arq.name,
+        #                                 "url_anexo_rede": gerar_link_drive(id_drive)
+        #                             })
+
+
+
+        #                 # Monta entrada com anexos
+        #                 nova_entry = {
+        #                     "data_anotacao": datetime.now().strftime("%d/%m/%Y %H:%M"),
+        #                     "autor_anotacao": usuario_logado,
+        #                     "anotacao": novo_texto.strip(),
+        #                     "anexos": anexos_upload
+        #                 }
+
+        #                 redes.update_one(
+        #                     {"_id": rede_doc["_id"]},
+        #                     {"$push": {"anotacoes": nova_entry}}
+        #                 )
+
+        #                 # Reset da flag para próxima operação
+        #                 st.session_state[flag_upload_key] = False
+
+        #             st.success("Acompanhamento salvo com sucesso.")
+        #             time.sleep(3)
+        #             st.rerun(scope="fragment")
+
+        #         else:
+        #             st.warning("O campo do acompanhamento não pode estar vazio.")
+
+
+
+
+
+
+
 
 
 
