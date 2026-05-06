@@ -1224,8 +1224,8 @@ with terceiros:
     # Criar cabeçalho da "tabela"
     col1, col2, col3, col4, col5, col6 = st.columns([2, 2, 4, 6, 3, 3])
 
-    col1.write('Código da viagem')
-    col2.write('Data da viagem')
+    col1.write('Código')
+    col2.write('Data')
     col3.write('Nome do(a) viajante')
     col4.write('Destinos')
     col5.write('Solicitações')
