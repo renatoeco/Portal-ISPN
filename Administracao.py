@@ -70,7 +70,12 @@ doc = estatistica.find_one({}, {"_id": 0})
 # ABAS
 # ---------------------------------------------------------------------------------
 
-aba_visitas, aba_banco, aba_impersonar = st.tabs(["Visitações", "Banco de Dados", "Impersonar Usuário"])
+if "admin" in st.session_state.tipo_usuario:
+    
+    aba_visitas, aba_banco, aba_impersonar = st.tabs(["Visitações", "Banco de Dados", "Impersonar Usuário"])
+
+else:
+    aba_visitas, aba_banco = st.tabs(["Visitações", "Banco de Dados"])
 
 
 # ---------------------------------------------------------------------------------
