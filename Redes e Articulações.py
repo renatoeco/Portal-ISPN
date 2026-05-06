@@ -188,8 +188,6 @@ def mostrar_detalhes(rede_doc):
 
             descricao_edit = st.text_area("Descrição da rede", value=rede_doc.get("descricao", ""))
 
-            descricao_edit = st.text_area("Descrição da rede", value=rede_doc.get("descricao", ""))
-
             st.write("")
 
             if st.button("Salvar alterações", icon=":material/check:", type="primary"):
@@ -212,7 +210,7 @@ def mostrar_detalhes(rede_doc):
 
                 st.success("Alterações salvas com sucesso!")
                 time.sleep(2)
-                st.rerun()
+                st.rerun(scope="fragment")
 
 
     # Aba 2: Acompanhamento / Memória
