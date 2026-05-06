@@ -3,13 +3,76 @@ import pandas as pd
 from datetime import datetime
 import time
 import re
-from funcoes_auxiliares import conectar_mongo_portal_ispn
+
+from funcoes_auxiliares import (
+    conectar_mongo_portal_ispn,
+    obter_servico_drive,
+    enviar_arquivo_drive,
+    obter_pasta_rede,
+    gerar_link_drive
+)
+
 import smtplib
 from email.mime.text import MIMEText
 
 
-st.set_page_config(layout="wide")
+
+
+###########################################################################################################
+# CONFIGURAÇÕES DO STREAMLIT
+###########################################################################################################
+
+
+st.set_page_config(layout="wide", page_title="Redes e Articulações")
 st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
+
+
+
+# Traduzindo o texto do st.file_uploader
+# Texto interno
+st.markdown("""
+<style>
+/* Esconde o texto padrão */
+[data-testid="stFileUploaderDropzone"] div div::before {
+    content: "Arraste e solte os arquivos aqui";
+    color: rgba(49, 51, 63, 0.7);
+    font-size: 0.9rem;
+    font-weight: 400;
+    position: absolute;
+    top: 50px;              /* fixa no topo */
+    left: 50%;
+    transform: translate(-50%, 10%);
+    pointer-events: none;
+}
+/* Esconde o texto original */
+[data-testid="stFileUploaderDropzone"] div div span {
+    visibility: hidden !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# Traduzindo Botão do file_uploader
+st.markdown("""
+<style>
+/* Alvo: apenas o botão dentro do componente de upload */
+section[data-testid="stFileUploaderDropzone"] button[data-testid="stBaseButton-secondary"] {
+    font-size: 0px !important;   /* esconde o texto original */
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+    min-width: 160px !important;
+}
+/* Insere o texto traduzido */
+section[data-testid="stFileUploaderDropzone"] button[data-testid="stBaseButton-secondary"]::after {
+    content: "Selecionar arquivo";
+    font-size: 14px !important;
+    color: inherit;
+}
+</style>
+""", unsafe_allow_html=True)
+
+
+
+
 
 
 ######################################################################################################
@@ -71,7 +134,7 @@ st.session_state["pagina_anterior"] = PAGINA_ID
 ######################################################################################################
 
 
-@st.dialog("Detalhes da rede", width="medium", on_dismiss="rerun")
+@st.dialog("Detalhes da rede", width="large", on_dismiss="rerun")
 def mostrar_detalhes(rede_doc):
     st.subheader(rede_doc.get("rede_articulacao", ""))
     st.write("")
@@ -85,12 +148,15 @@ def mostrar_detalhes(rede_doc):
 
         if not modo_edicao:
             # Exibição simples
-            col1, col2, col3, col4 = st.columns(4)
 
-            col1.write(f"**Rede/Articulação:** {rede_doc.get('rede_articulacao', '')}")
+            st.write(f"**Rede/Articulação:** {rede_doc.get('rede_articulacao', '')}")
+            st.write(f"**Descrição da rede:** {rede_doc.get('descricao', '')}")
+            st.write(f"**Ponto(s) Focal(is):** {rede_doc.get('ponto_focal', '')}")
+
+            col1, col2 = st.columns(2)
+
+            col1.write(f"**Tema:** {rede_doc.get('tema', '')}")
             col2.write(f"**Tipo de Rede:** {rede_doc.get('tipo_rede', '')}")
-            col3.write(f"**Ponto(s) Focal(is):** {rede_doc.get('ponto_focal', '')}")
-            col4.write(f"**Tema:** {rede_doc.get('tema', '')}")
 
             col1, col2, col3, col4 = st.columns(4)
 
@@ -99,7 +165,6 @@ def mostrar_detalhes(rede_doc):
             col3.write(f"**Dedicação:** {rede_doc.get('dedicacao', '')}")
             col4.write(f"**Status:** {rede_doc.get('status', 'ativa')}")
 
-            st.write(f"**Descrição da rede:** {rede_doc.get('descricao', '')}")
 
         else:
             # =====================
@@ -131,7 +196,7 @@ def mostrar_detalhes(rede_doc):
             # Opções fixas para status
             status_opcoes = ["ativa", "inativa"]
             
-            tipos_rede_opcoes = ["1", "2", "3"]
+            tipos_rede_opcoes = [" ","tipo 1", "tipo 2", "tipo 3"]
 
             # =====================
             # Campos editáveis
@@ -139,16 +204,19 @@ def mostrar_detalhes(rede_doc):
             
             rede_edit = st.text_input("Rede/Articulação", value=rede_doc.get("rede_articulacao", ""))
 
-            col1, col2, col3 = st.columns([1.5, 2, 0.5])
+            descricao_edit = st.text_area("Descrição da rede", value=rede_doc.get("descricao", ""))
 
             ponto_focal_str = rede_doc.get("ponto_focal", "")
             ponto_focal_list = [p.strip() for p in ponto_focal_str.split(",")] if ponto_focal_str else []
 
-            ponto_focal_edit = col1.multiselect(
-                "Ponto Focal",
+            ponto_focal_edit = st.multiselect(
+                "Ponto(s) Focal(is)",
                 options=pessoas_opcoes,
                 default=[p for p in ponto_focal_list if p in pessoas_opcoes]
             )
+
+
+            col1, col2 = st.columns(2)
 
             temas_default = [
                 t.strip()
@@ -156,13 +224,13 @@ def mostrar_detalhes(rede_doc):
                 if t.strip() and t.strip() in temas_opcoes
             ]
 
-            temas_selecionados = col2.multiselect(
+            temas_selecionados = col1.multiselect(
                 "Temas",
                 options=temas_opcoes,
                 default=temas_default,
             )
             
-            tipo_rede_edit = col3.selectbox(
+            tipo_rede_edit = col2.selectbox(
                 "Tipo de Rede",
                 options=tipos_rede_opcoes,
                 index=tipos_rede_opcoes.index(rede_doc.get("tipo_rede")) 
@@ -171,23 +239,24 @@ def mostrar_detalhes(rede_doc):
             
             col1, col2, col3, col4 = st.columns(4)
             
-            prioridade_edit = col1.selectbox(
+            programa_edit = col1.selectbox(
+                "Programa",
+                options=programas_opcoes,
+                index=programas_opcoes.index(rede_doc.get("programa")) if rede_doc.get("programa") in programas_opcoes else 0,
+            )
+
+            prioridade_edit = col2.selectbox(
                 "Grau de Prioridade",
                 options=prioridades_opcoes,
                 index=prioridades_opcoes.index(rede_doc.get("prioridade")) if rede_doc.get("prioridade") in prioridades_opcoes else 0,
             )
 
-            dedicacao_edit = col2.selectbox(
+            dedicacao_edit = col3.selectbox(
                 "Dedicação",
                 options=dedicacao_opcoes,
                 index=dedicacao_opcoes.index(rede_doc.get("dedicacao")) if rede_doc.get("dedicacao") in dedicacao_opcoes else 0,
             )
 
-            programa_edit = col3.selectbox(
-                "Programa",
-                options=programas_opcoes,
-                index=programas_opcoes.index(rede_doc.get("programa")) if rede_doc.get("programa") in programas_opcoes else 0,
-            )
 
             status_edit = col4.selectbox(
                 "Status",
@@ -195,7 +264,6 @@ def mostrar_detalhes(rede_doc):
                 index=status_opcoes.index(rede_doc.get("status", "ativa")) if rede_doc.get("status", "ativa") in status_opcoes else 0,
             )
 
-            descricao_edit = st.text_area("Descrição da rede", value=rede_doc.get("descricao", ""))
 
             st.write("")
 
@@ -237,9 +305,50 @@ def mostrar_detalhes(rede_doc):
         # ---------------- EXPANDER PARA ADICIONAR ANOTAÇÃO ----------------
         with st.expander("Adicionar novo acompanhamento", expanded=False, icon=":material/add_notes:"):
             nova_data = datetime.now().date()
+            
+            # Campo de texto ------------------------------------------------------------
             novo_texto = st.text_area("Texto do acompanhamento", key="nova_anotacao", height="content", disabled=usuario_visitante)
 
-            # Lista de nomes (igual ponto focal)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            # Upload de arquivos ------------------------------------------------------------
+
+            arquivos = st.file_uploader(
+                "Arquivos anexos",
+                accept_multiple_files=True,
+                type=["jpg", "png", "pdf", "jpeg", "webp", "docx"],
+                key=f"upload_rede_{rede_doc['_id']}"
+            )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            # Lista de nomes ------------------------------------------------------------
             pessoas_opcoes = sorted({
                 p.get("nome_completo")
                 for p in pessoas.find()
@@ -268,62 +377,93 @@ def mostrar_detalhes(rede_doc):
                 placeholder=""
             )
 
-            if st.button("Adicionar acompanhamento", key="btn_add_anotacao", icon=":material/add_notes:", disabled=usuario_visitante):
 
-                if novo_texto.strip():
 
-                    nova_entry = {
-                        "data_anotacao": datetime.now().strftime("%d/%m/%Y %H:%M"),
-                        "autor_anotacao": usuario_logado,
-                        "anotacao": novo_texto.strip()
-                    }
+            flag_upload_key = f"upload_executado_{rede_doc['_id']}"
 
-                    redes.update_one(
-                        {"_id": rede_doc["_id"]},
-                        {"$push": {"anotacoes": nova_entry}}
-                    )
+            if flag_upload_key not in st.session_state:
+                st.session_state[flag_upload_key] = False
 
-                    # =========================
-                    # ENVIO DE EMAILS
-                    # =========================
-                    erros_email = []
-                    sem_email = []
 
-                    for nome in destinatarios_sel:
-                        email = pessoas_dict.get(nome)
+            with st.container(horizontal=True, horizontal_alignment="right"):
 
-                        if not email:
-                            sem_email.append(nome)
-                            continue
+                if st.button("Adicionar acompanhamento", 
+                             key="btn_add_anotacao", 
+                             icon=":material/add_notes:", 
+                             disabled=usuario_visitante,
+                             type="primary"
+                             ):
 
-                        sucesso = enviar_email_acompanhamento(
-                            destinatario=email,
-                            nome_destinatario=nome,
-                            rede_nome=rede_doc.get("rede_articulacao", ""),
-                            descricao=rede_doc.get("descricao", ""),
-                            texto=novo_texto.strip(),
-                            autor=usuario_logado
-                        )
+                    if novo_texto.strip():
 
-                        if not sucesso:
-                            erros_email.append(nome)
+                        with st.spinner("Salvando..."):
 
-                    # Feedback
-                    if destinatarios_sel:
-                        if erros_email:
-                            st.warning(f"E-mails não enviados para: {', '.join(erros_email)}")
+                            anexos_upload = []
 
-                    
-                    
-                    st.success("Acompanhamento salvo com sucesso.")
-                    time.sleep(2)
-                    st.rerun(scope="fragment")
+                            # Executa apenas uma vez por clique
+                            if arquivos and not st.session_state[flag_upload_key]:
 
-                else:
-                    st.warning("O campo do acompanhamento não pode estar vazio.")
+                                # Marca antes para evitar duplicação
+                                st.session_state[flag_upload_key] = True
+
+                                servico = obter_servico_drive()
+
+                                pasta_rede = obter_pasta_rede(
+                                    servico,
+                                    rede_doc["_id"],
+                                    rede_doc.get("rede_articulacao", "")
+                                )
+
+                                for arq in arquivos:
+                                    id_drive = enviar_arquivo_drive(
+                                        servico,
+                                        pasta_rede,
+                                        arq
+                                    )
+
+                                    if id_drive:
+                                        anexos_upload.append({
+                                            "nome_anexo_rede": arq.name,
+                                            "url_anexo_rede": gerar_link_drive(id_drive)
+                                        })
+
+
+
+                            # Monta entrada com anexos
+                            nova_entry = {
+                                "data_anotacao": datetime.now().strftime("%d/%m/%Y %H:%M"),
+                                "autor_anotacao": usuario_logado,
+                                "anotacao": novo_texto.strip(),
+                                "anexos": anexos_upload
+                            }
+
+                            redes.update_one(
+                                {"_id": rede_doc["_id"]},
+                                {"$push": {"anotacoes": nova_entry}}
+                            )
+
+                            # Reset da flag para próxima operação
+                            st.session_state[flag_upload_key] = False
+
+                        st.success("Acompanhamento salvo com sucesso.")
+                        time.sleep(3)
+                        st.rerun(scope="fragment")
+
+                    else:
+                        st.warning("O campo do acompanhamento não pode estar vazio.")
+
+
+
 
         st.write("")
         st.write("**Acompanhamentos registrados:**")
+
+
+
+
+
+
+
 
         # ---------------- LISTA DE Acompanhamento / Memória ----------------
         # Ordena por data (decrescente)
@@ -417,6 +557,19 @@ def mostrar_detalhes(rede_doc):
                     with col2:
                         st.write(f"**Autor:** {anotacao.get('autor_anotacao', '')}")
                     st.write(anotacao.get("anotacao", ""))
+
+                    # Renderização dos anexos vinculados ao acompanhamento
+                    anexos = anotacao.get("anexos", [])
+
+                    if anexos:
+                        st.write("**Anexos:**")
+
+                        for anexo in anexos:
+                            url = anexo.get("url_anexo_rede")
+
+                            if url:
+                                nome = anexo.get("nome_anexo_rede", "Abrir anexo")
+                                st.markdown(f"- [{nome}]({url})")
 
 
 @st.dialog("Cadastrar rede", width="medium") 
@@ -536,12 +689,7 @@ def cadastro_rede():
             "anotacoes": [],
         }
 
-        # if nova_anotacao.strip():
-        #     nova_rede["anotacoes"].append({
-        #         "data_anotacao": datetime.now().strftime("%d/%m/%Y %H:%M"),
-        #         "autor_anotacao": usuario_logado,
-        #         "anotacao": nova_anotacao.strip()
-        #     })
+
 
         # -----------------
         # Inserção no banco
@@ -845,17 +993,3 @@ for i, row in df_exibir.iterrows():
 
 
 
-
-# # TESTE DE CAIXA DE ANOTAÇÕES COM LIMITE DE CARACTERES
-
-# MAX_CARACTERES = 2000
-
-# texto = st.text_area("Digite seu texto (máx. 2000 caracteres):", height=400)
-# num_caracteres = len(texto)
-# caracteres_restantes = MAX_CARACTERES - num_caracteres
-
-# if caracteres_restantes < 0:
-#     st.markdown(f"<span style='color:red'>{num_caracteres} / {MAX_CARACTERES} - Você ultrapassou o limite em {-caracteres_restantes} caracteres!</span>", unsafe_allow_html=True)
-# else:
-#     st.write(f"{num_caracteres} / {MAX_CARACTERES}")
-# st.write(f"*Clique fora da caixa de texto para atualizar o contador")

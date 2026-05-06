@@ -69,7 +69,7 @@ st.session_state["pagina_anterior"] = PAGINA_ID
 # ---------------------------------------------------------------------------------
 
 # Carrega as credenciais diretamente do secrets.toml
-gcp_credentials = st.secrets["gcp_service_account"]
+gcp_credentials = st.secrets["gcp_service_account_analytics"]
 
 # Cria o objeto de credenciais a partir do dicionário
 credentials = service_account.Credentials.from_service_account_info(dict(gcp_credentials))
