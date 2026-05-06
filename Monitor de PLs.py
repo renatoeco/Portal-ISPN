@@ -646,6 +646,7 @@ def main():
             st.write("")
 
             # Botão de salvar acima do data editor
+            st.caption("Após realizar alterações, lembre-se de clicar no botão de Salvar")
             salvar = st.button("Salvar alterações", icon=":material/save:")
 
             st.write("")
