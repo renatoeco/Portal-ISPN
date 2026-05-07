@@ -1146,32 +1146,54 @@ def gerenciar_pessoas(pessoa_id=None):
                             # Data início
                             data_inicio_valor = contrato.get("data_inicio")
                             data_inicio_dt = None
+
                             if isinstance(data_inicio_valor, str) and data_inicio_valor:
                                 try:
-                                    data_inicio_dt = datetime.datetime.strptime(data_inicio_valor, "%d/%m/%Y").date()
+                                    data_inicio_dt = datetime.datetime.strptime(
+                                        data_inicio_valor,
+                                        "%d/%m/%Y"
+                                    ).date()
                                 except:
-                                    pass
-                            contrato["data_inicio"] = st.date_input(
+                                    data_inicio_dt = None
+
+                            nova_data_inicio = st.date_input(
                                 "Data de início",
-                                value=data_inicio_dt or datetime.date.today(),
+                                value=data_inicio_dt,   # None = campo vazio
                                 format="DD/MM/YYYY",
                                 key=f"inicio_{contrato_key}"
-                            ).strftime("%d/%m/%Y")
+                            )
+
+                            contrato["data_inicio"] = (
+                                nova_data_inicio.strftime("%d/%m/%Y")
+                                if nova_data_inicio
+                                else ""
+                            )
 
                             # Data fim
                             data_fim_valor = contrato.get("data_fim")
                             data_fim_dt = None
+
                             if isinstance(data_fim_valor, str) and data_fim_valor:
                                 try:
-                                    data_fim_dt = datetime.datetime.strptime(data_fim_valor, "%d/%m/%Y").date()
+                                    data_fim_dt = datetime.datetime.strptime(
+                                        data_fim_valor,
+                                        "%d/%m/%Y"
+                                    ).date()
                                 except:
-                                    pass
-                            contrato["data_fim"] = st.date_input(
+                                    data_fim_dt = None
+
+                            nova_data_fim = st.date_input(
                                 "Data de fim",
-                                value=data_fim_dt or datetime.date.today(),
+                                value=data_fim_dt,   # None = campo vazio
                                 format="DD/MM/YYYY",
                                 key=f"fim_{contrato_key}"
-                            ).strftime("%d/%m/%Y")
+                            )
+
+                            contrato["data_fim"] = (
+                                nova_data_fim.strftime("%d/%m/%Y")
+                                if nova_data_fim
+                                else ""
+                            )
 
 
                         else:
