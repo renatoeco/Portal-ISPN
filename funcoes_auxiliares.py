@@ -436,12 +436,97 @@ def dialog_editar_entregas():
     mapa_eixos = {}
     mapa_objetivos = {}
     eixos_da_estrategia = []
+
+    # ==========================================================
+    # RECUPERA TODOS OS PROGRAMAS DOS PROJETOS ENVOLVIDOS
+    # ==========================================================
+
     mapa_acoes_programa = {}
     mapa_resultados_programa = {}
 
+    programas_ids = set()
+
+    # ----------------------------------------------------------
+    # 1. Programa(s) do projeto selecionado
+    # ----------------------------------------------------------
+
+    programas_projeto_principal = projeto_info.get("programas", [])
+
+    if isinstance(programas_projeto_principal, list):
+
+        for p in programas_projeto_principal:
+
+            programas_ids.add(
+                ObjectId(p) if isinstance(p, str) else p
+            )
+
+    # ----------------------------------------------------------
+    # 2. Programa(s) dos projetos relacionados
+    # ----------------------------------------------------------
+
+    for entrega in entregas_existentes:
+
+        projetos_relacionados = entrega.get(
+            "projetos_relacionados",
+            []
+        )
+
+        # Inclui também o projeto de origem da entrega
+        projeto_origem = entrega.get("_projeto_origem_id")
+
+        ids_projetos_considerados = list(projetos_relacionados)
+
+        if projeto_origem:
+            ids_projetos_considerados.append(projeto_origem)
+
+        for projeto_id in ids_projetos_considerados:
+
+            projeto_rel = projetos_ispn.find_one({
+                "_id": ObjectId(projeto_id)
+            })
+
+            if not projeto_rel:
+                continue
+
+            programas_rel = projeto_rel.get("programas", [])
+
+            if not isinstance(programas_rel, list):
+                continue
+
+            for prog in programas_rel:
+
+                programas_ids.add(
+                    ObjectId(prog)
+                    if isinstance(prog, str)
+                    else prog
+                )
+
+    # ==========================================================
+    # MONTA MAPAS DE AÇÕES E RESULTADOS
+    # ==========================================================
+
     for doc in dados_programas:
-        for r in doc.get("resultados_programa", []):
-            mapa_resultados_programa[str(r["_id"])] = r.get("titulo", "")
+
+        if doc.get("_id") not in programas_ids:
+            continue
+
+        # -----------------------------------------
+        # AÇÕES ESTRATÉGICAS
+        # -----------------------------------------
+        for acao in doc.get("acoes_estrategicas", []):
+
+            mapa_acoes_programa[str(acao["_id"])] = (
+                acao.get("acao_estrategica", "")
+            )
+
+        # -----------------------------------------
+        # RESULTADOS DO PROGRAMA
+        # -----------------------------------------
+        for resultado in doc.get("resultados_programa", []):
+
+            mapa_resultados_programa[str(resultado["_id"])] = (
+                resultado.get("titulo", "")
+            )
 
     for doc in dados_estrategia:
         for resultado in doc.get("resultados_medio_prazo", {}).get("resultados_mp", []):
@@ -477,13 +562,6 @@ def dialog_editar_entregas():
 
     # Mapeia ações estratégicas considerando múltiplos programas
     programas_ids = set(programas_do_projeto)
-
-    for doc in dados_programas:
-        if doc["_id"] in programas_ids:
-            for a in doc.get("acoes_estrategicas", []):
-                mapa_acoes_programa[str(a["_id"])] = a["acao_estrategica"]
-
-
 
     acoes_programa_options = sorted(mapa_acoes_programa.keys(),key=lambda x: mapa_acoes_programa[x])  
     resultados_programa_options = sorted(mapa_resultados_programa.keys(), key=lambda x: mapa_resultados_programa[x])          
