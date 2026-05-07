@@ -2932,11 +2932,31 @@ for colab_doc in colaboradores_raw:
             continue
 
         # Datas do contrato
-        try:
-            di = datetime.datetime.strptime(contrato.get("data_inicio", ""), "%d/%m/%Y")
-            df = datetime.datetime.strptime(contrato.get("data_fim", ""), "%d/%m/%Y")
-        except:
-            continue
+        data_inicio_str = contrato.get("data_inicio", "")
+        data_fim_str = contrato.get("data_fim", "")
+
+        di = None
+        df = None
+
+        # Tenta converter data de início
+        if data_inicio_str:
+            try:
+                di = datetime.datetime.strptime(
+                    data_inicio_str,
+                    "%d/%m/%Y"
+                )
+            except:
+                pass
+
+        # Tenta converter data de fim
+        if data_fim_str:
+            try:
+                df = datetime.datetime.strptime(
+                    data_fim_str,
+                    "%d/%m/%Y"
+                )
+            except:
+                pass
 
         # Projetos do contrato (na ordem)
         siglas_contrato = []
@@ -2952,9 +2972,13 @@ for colab_doc in colaboradores_raw:
         projetos_lista.extend(siglas_contrato)
 
         # Datas entram UMA ÚNICA VEZ por contrato
-        datas_inicio_lista.append(di.strftime("%d/%m/%Y"))
-        datas_fim_lista.append(df.strftime("%d/%m/%Y"))
+        datas_inicio_lista.append(
+            di.strftime("%d/%m/%Y") if di else ""
+        )
 
+        datas_fim_lista.append(
+            df.strftime("%d/%m/%Y") if df else ""
+        )
 
     # Strings finais (mesma ordem)
     projeto_str = ", ".join(projetos_lista)
