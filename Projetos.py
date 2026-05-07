@@ -2312,11 +2312,68 @@ if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)"}:
     with tab_entregas:
         st.write("")
 
-        # Obter o documento completo do projeto selecionado
-        projeto_doc = projetos_ispn.find_one({"_id": projeto_id})
+        # ============================================================
+        # CARREGAR ENTREGAS DO PROJETO + ENTREGAS RELACIONADAS
+        # ============================================================
 
-        # Obter lista de entregas (ou lista vazia se não houver)
-        entregas = projeto_doc.get("entregas", [])
+        # Lista final de entregas que aparecerão na aba
+        entregas = []
+
+        # Buscar todos os projetos
+        todos_projetos = list(projetos_ispn.find())
+
+        for proj in todos_projetos:
+
+            entregas_projeto = proj.get("entregas", [])
+
+            if not isinstance(entregas_projeto, list):
+                continue
+
+            for entrega in entregas_projeto:
+
+                # ----------------------------------------------------
+                # Projeto dono da entrega
+                # ----------------------------------------------------
+                projeto_dono_id = proj.get("_id")
+
+                # ----------------------------------------------------
+                # Projetos relacionados da entrega
+                # ----------------------------------------------------
+                projetos_relacionados = entrega.get(
+                    "projetos_relacionados",
+                    []
+                )
+
+                # Garantir lista
+                if not isinstance(projetos_relacionados, list):
+                    projetos_relacionados = []
+
+                # Converter tudo para string
+                projetos_relacionados_str = [
+                    str(p) for p in projetos_relacionados
+                ]
+
+                # ----------------------------------------------------
+                # REGRA:
+                # Mostrar se:
+                #
+                # 1) A entrega pertence ao projeto atual
+                # OU
+                # 2) O projeto atual está nos relacionados
+                # ----------------------------------------------------
+                if (
+                    str(projeto_dono_id) == str(projeto_id)
+                    or str(projeto_id) in projetos_relacionados_str
+                ):
+
+                    # Adiciona informação do projeto origem
+                    entrega["projeto_origem_sigla"] = proj.get("sigla", "-")
+                    entrega["projeto_origem_nome"] = proj.get(
+                        "nome_do_projeto",
+                        "-"
+                    )
+
+                    entregas.append(entrega)
 
         if not entregas:
 
@@ -2362,15 +2419,39 @@ if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)"}:
                     for rid in responsaveis_ids
                 ]
 
-                dados_entregas.append({
+                # Verifica se a entrega veio de outro projeto
+                eh_projeto_relacionado = (
+                    entrega.get("projeto_origem_sigla") != projeto_selecionado
+                )
+
+                linha = {
                     "Entregas": entrega.get("nome_da_entrega", "-"),
                     "Data de início": entrega.get("data_inicio", "-"),
                     "Previsão de Conclusão": entrega.get("previsao_da_conclusao", "-"),
                     "Responsáveis": ", ".join(responsaveis_nomes) if responsaveis_nomes else "-",
                     "Situação": entrega.get("situacao", "-"),
-                })
+                }
+
+                # Só mostra a coluna para entregas vindas de outros projetos
+                if eh_projeto_relacionado:
+                    linha["Projeto principal"] = entrega.get("projeto_origem_sigla", "-")
+
+                dados_entregas.append(linha)
 
             df_entregas = pd.DataFrame(dados_entregas)
+
+            # Remove a coluna se nenhuma entrega relacionada existir
+            if "Projeto principal" in df_entregas.columns:
+
+                valores_validos = (
+                    df_entregas["Projeto principal"]
+                    .fillna("")
+                    .astype(str)
+                    .str.strip()
+                )
+
+                if (valores_validos == "").all():
+                    df_entregas = df_entregas.drop(columns=["Projeto principal"])
 
             # ===============================================================
             # FILTROS e BOTÃO PARA GERENCIAR ENTREGAS
