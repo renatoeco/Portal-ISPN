@@ -442,6 +442,33 @@ def dialog_editar_entregas():
         for _, row in df_pessoas_ordenado.iterrows()
     }
     responsaveis_options = list(responsaveis_dict.keys())
+
+    # ==========================================================
+    # PROJETOS RELACIONADOS
+    # ==========================================================
+
+    # Cria mapa: id -> sigla
+    mapa_projetos = {
+        str(row["_id"]): row["sigla"]
+        for _, row in df_projetos_ispn.iterrows()
+        if row.get("sigla")
+    }
+
+    # ==========================================================
+    # REMOVE O PROJETO ATUAL DAS OPÇÕES
+    # ==========================================================
+
+    projeto_atual_id = str(projeto_info["_id"])
+
+    # Lista de opções do multiselect sem o projeto atual
+    projetos_relacionados_options = sorted(
+        [
+            projeto_id
+            for projeto_id in mapa_projetos.keys()
+            if projeto_id != projeto_atual_id
+        ],
+        key=lambda x: mapa_projetos[x]
+    )
     
     if mostrar_lancamentos:
         aba_entregas, aba_lancamentos_entregas = st.tabs(
@@ -487,12 +514,23 @@ def dialog_editar_entregas():
                     key="progresso_nova_entrega"
                 )
                 
-                responsaveis_selecionados = st.multiselect(
-                    "Responsáveis",
-                    options=responsaveis_options,
-                    format_func=lambda x: responsaveis_dict.get(x, "Desconhecido"),
-                    placeholder=""
-                )
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    responsaveis_selecionados = st.multiselect(
+                        "Responsáveis",
+                        options=responsaveis_options,
+                        format_func=lambda x: responsaveis_dict.get(x, "Desconhecido"),
+                        placeholder=""
+                    )
+
+                with col2:
+                    projetos_relacionados = st.multiselect(
+                        "Demais projetos relacionados",
+                        options=projetos_relacionados_options,
+                        format_func=lambda x: mapa_projetos.get(x, "Projeto não encontrado"),
+                        placeholder=""
+                    )
                 
                 acoes_medio_prazo_relacionadas = st.multiselect(
                     "Contribui com quais ações estratégicas dos resultados de médio prazo?",
@@ -583,7 +621,8 @@ def dialog_editar_entregas():
                             "eixos_relacionados": [ObjectId(e) for e in eixos_relacionados],
                             "acoes_relacionadas": [ObjectId(a) for a in acoes_relacionados],
                             "metas_resultados_medio_prazo": [ObjectId(m) for m in metas_mp_relacionadas],
-                            "indicadores_relacionados": [ObjectId(i) for i in indicadores_relacionados]
+                            "indicadores_relacionados": [ObjectId(i) for i in indicadores_relacionados],
+                            "projetos_relacionados": [ObjectId(p) for p in projetos_relacionados],
                         }
 
                         # adiciona ao array existente
@@ -636,9 +675,21 @@ def dialog_editar_entregas():
                         st.write(f"**Progresso:** {progresso}%")
                         
                         st.write(f"**Responsáveis:** {responsaveis_formatados}")
-                        
-                        st.write("")
 
+                        projetos_rel_ids = entrega.get("projetos_relacionados", [])
+
+                        projetos_rel_nomes = [
+                            mapa_projetos.get(str(p), "Projeto não encontrado")
+                            for p in projetos_rel_ids
+                        ]
+
+                        projetos_rel_formatados = (
+                            ", ".join(projetos_rel_nomes)
+                            if projetos_rel_nomes else "-"
+                        )
+
+                        st.write(f"**Demais projetos relacionados:** {projetos_rel_formatados}")
+                        
                         # Resultados de médio prazo
                         acoes_medio = entrega.get("acoes_resultados_medio_prazo", [])
                         if acoes_medio:
@@ -795,14 +846,41 @@ def dialog_editar_entregas():
                                 key=f"entrega_progresso_{i}"
                             )
 
-                            responsaveis_existentes = [str(r) for r in entrega.get("responsaveis", [])]
-                            entrega_editada["responsaveis"] = st.multiselect(
-                                "Responsáveis",
-                                options=list(responsaveis_dict.keys()),
-                                default=responsaveis_existentes,
-                                format_func=lambda x: responsaveis_dict.get(x, "Desconhecido"),
-                                placeholder="Selecione os responsáveis"
-                            )
+                            col1, col2 = st.columns(2)
+
+                            responsaveis_existentes = [
+                                str(r) for r in entrega.get("responsaveis", [])
+                            ]
+
+                            projetos_relacionados_existentes = [
+                                str(p) for p in entrega.get("projetos_relacionados", [])
+                            ]
+
+                            with col1:
+                                entrega_editada["responsaveis"] = st.multiselect(
+                                    "Responsáveis",
+                                    options=list(responsaveis_dict.keys()),
+                                    default=responsaveis_existentes,
+                                    format_func=lambda x: responsaveis_dict.get(x, "Desconhecido"),
+                                    placeholder="Selecione os responsáveis"
+                                )
+
+                            with col2:
+                                entrega_editada["projetos_relacionados"] = st.multiselect(
+                                    "Demais projetos relacionados",
+                                    options=projetos_relacionados_options,
+                                    default=projetos_relacionados_existentes,
+                                    format_func=lambda x: mapa_projetos.get(
+                                        x,
+                                        "Projeto não encontrado"
+                                    ),
+                                    placeholder=""
+                                )
+
+                            entrega_editada["projetos_relacionados"] = [
+                                ObjectId(p)
+                                for p in entrega_editada["projetos_relacionados"]
+                            ]
 
                             acoes_mp_default = [str(a) for a in entrega.get("acoes_resultados_medio_prazo", [])]
 
