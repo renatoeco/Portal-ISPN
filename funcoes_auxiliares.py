@@ -355,7 +355,65 @@ def dialog_editar_entregas():
     ].iloc[0]
 
 
-    entregas_existentes = projeto_info.get("entregas", [])
+    # ==========================================================
+    # ENTREGAS DO PROJETO + ENTREGAS RELACIONADAS
+    # ==========================================================
+
+    entregas_existentes = []
+
+    projeto_atual_id = ObjectId(projeto_info["_id"])
+
+    # ----------------------------------------------------------
+    # 1. Entregas do próprio projeto
+    # ----------------------------------------------------------
+
+    entregas_projeto = projeto_info.get("entregas", [])
+
+    # Garante lista válida
+    if not isinstance(entregas_projeto, list):
+        entregas_projeto = []
+
+    for entrega_original in entregas_projeto:
+
+        entrega = dict(entrega_original)
+
+        entrega["_projeto_origem_id"] = projeto_info["_id"]
+        entrega["_projeto_origem_sigla"] = projeto_info.get("sigla", "")
+
+        entregas_existentes.append(entrega)
+
+    # ----------------------------------------------------------
+    # 2. Entregas de outros projetos relacionadas a este
+    # ----------------------------------------------------------
+    outros_projetos = projetos_ispn.find({
+        "_id": {"$ne": projeto_atual_id},
+        "entregas.projetos_relacionados": projeto_atual_id
+    })
+
+    for proj in outros_projetos:
+
+        entregas_proj = proj.get("entregas", [])
+
+        # Garante lista válida
+        if not isinstance(entregas_proj, list):
+            entregas_proj = []
+
+        for entrega_original in entregas_proj:
+
+            projetos_rel = entrega_original.get(
+                "projetos_relacionados",
+                []
+            )
+
+            if projeto_atual_id in projetos_rel:
+
+                entrega = dict(entrega_original)
+
+                entrega["_projeto_origem_id"] = proj["_id"]
+                entrega["_projeto_origem_sigla"] = proj.get("sigla", "")
+
+                entregas_existentes.append(entrega)
+
     # Garante que entregas_existentes seja sempre uma lista
     if not isinstance(entregas_existentes, list):
         entregas_existentes = []
@@ -688,6 +746,27 @@ def dialog_editar_entregas():
                             if projetos_rel_nomes else "-"
                         )
 
+                        # Projeto principal/origem da entrega
+                        projeto_principal = entrega.get(
+                            "_projeto_origem_sigla",
+                            projeto_info.get("sigla", "-")
+                        )
+
+                        st.write(f"**Projeto principal:** {projeto_principal}")
+
+                        # Projetos relacionados
+                        projetos_rel_ids = entrega.get("projetos_relacionados", [])
+
+                        projetos_rel_nomes = [
+                            mapa_projetos.get(str(p), "Projeto não encontrado")
+                            for p in projetos_rel_ids
+                        ]
+
+                        projetos_rel_formatados = (
+                            ", ".join(projetos_rel_nomes)
+                            if projetos_rel_nomes else "-"
+                        )
+
                         st.write(f"**Demais projetos relacionados:** {projetos_rel_formatados}")
                         
                         # Resultados de médio prazo
@@ -852,8 +931,37 @@ def dialog_editar_entregas():
                                 str(r) for r in entrega.get("responsaveis", [])
                             ]
 
+                            # Projeto principal/origem da entrega
+                            projeto_principal_id = str(entrega["_projeto_origem_id"])
+
+                            # Verifica se a entrega está sendo editada dentro do projeto principal/origem
+                            edicao_no_projeto_principal = (
+                                str(entrega["_projeto_origem_id"]) == str(projeto_info["_id"])
+                            )
+
+                            # Se estiver no projeto principal:
+                            # remove ele mesmo das opções
+                            if edicao_no_projeto_principal:
+
+                                projetos_relacionados_options_edicao = [
+                                    p
+                                    for p in projetos_relacionados_options
+                                    if p != projeto_principal_id
+                                ]
+
+                            # Se estiver em um projeto relacionado:
+                            # mantém todas as opções para exibição
+                            else:
+
+                                projetos_relacionados_options_edicao = (
+                                    projetos_relacionados_options.copy()
+                                )
+
+                            # Projetos relacionados já salvos
                             projetos_relacionados_existentes = [
-                                str(p) for p in entrega.get("projetos_relacionados", [])
+                                str(p)
+                                for p in entrega.get("projetos_relacionados", [])
+                                if str(p) in projetos_relacionados_options_edicao
                             ]
 
                             with col1:
@@ -868,13 +976,14 @@ def dialog_editar_entregas():
                             with col2:
                                 entrega_editada["projetos_relacionados"] = st.multiselect(
                                     "Demais projetos relacionados",
-                                    options=projetos_relacionados_options,
+                                    options=projetos_relacionados_options_edicao,
                                     default=projetos_relacionados_existentes,
                                     format_func=lambda x: mapa_projetos.get(
                                         x,
                                         "Projeto não encontrado"
                                     ),
-                                    placeholder=""
+                                    placeholder="",
+                                    disabled=not edicao_no_projeto_principal
                                 )
 
                             entrega_editada["projetos_relacionados"] = [
@@ -957,7 +1066,9 @@ def dialog_editar_entregas():
                             ]
                             
                             resultados_prog_default = [
-                                str(r) for r in entrega.get("resultados_programa_relacionados", [])
+                                str(r)
+                                for r in entrega.get("resultados_programa_relacionados", [])
+                                if str(r) in resultados_programa_options
                             ]
 
                             entrega_editada["resultados_programa_relacionados"] = st.multiselect(
@@ -977,7 +1088,9 @@ def dialog_editar_entregas():
                             ]
 
                             acoes_programa_default = [
-                                str(a) for a in entrega.get("acoes_relacionadas", [])
+                                str(a)
+                                for a in entrega.get("acoes_relacionadas", [])
+                                if str(a) in acoes_programa_options
                             ]
 
                             entrega_editada["acoes_relacionadas"] = st.multiselect(
@@ -1017,11 +1130,18 @@ def dialog_editar_entregas():
 
                                     entrega_editada["responsaveis"] = [ObjectId(r) for r in entrega_editada["responsaveis"]]
 
-                                    entregas_existentes[i] = entrega_editada
-                                    projetos_ispn.update_one(
-                                        {"_id": projeto_info["_id"]},
-                                        {"$set": {"entregas": entregas_existentes}}
+                                    # Se NÃO estiver no projeto principal, não altera os projetos relacionados
+                                    if not edicao_no_projeto_principal:
+
+                                        entrega_editada["projetos_relacionados"] = (
+                                            entrega.get("projetos_relacionados", [])
+                                        )
+
+                                    atualizar_entrega_no_projeto(
+                                        entrega["_projeto_origem_id"],
+                                        entrega_editada
                                     )
+                                    
                                     st.success("Entrega atualizada!")
                                     time.sleep(2)
                                     st.rerun(scope="fragment")
@@ -1040,11 +1160,20 @@ def dialog_editar_entregas():
                                     )
 
                                     if excluir:
-                                        entregas_existentes.pop(i)
+                                        projeto_origem = projetos_ispn.find_one(
+                                            {"_id": entrega["_projeto_origem_id"]}
+                                        )
+
+                                        entregas_origem = projeto_origem.get("entregas", [])
+
+                                        entregas_origem = [
+                                            e for e in entregas_origem
+                                            if e.get("_id") != entrega.get("_id")
+                                        ]
 
                                         projetos_ispn.update_one(
-                                            {"_id": projeto_info["_id"]},
-                                            {"$set": {"entregas": entregas_existentes}}
+                                            {"_id": entrega["_projeto_origem_id"]},
+                                            {"$set": {"entregas": entregas_origem}}
                                         )
 
                                         st.success("Entrega excluída com sucesso.")
@@ -1273,9 +1402,45 @@ def dialog_editar_entregas():
                                 st.rerun(scope="fragment")
 
 
+def atualizar_entrega_no_projeto(
+    projeto_origem_id,
+    entrega_editada
+):
+    """
+    Atualiza uma entrega específica
+    dentro do projeto de origem.
+    """
 
+    db = conectar_mongo_portal_ispn()
+    projetos_ispn = db["projetos_ispn"]  
 
+    projeto = projetos_ispn.find_one(
+        {"_id": ObjectId(projeto_origem_id)}
+    )
 
+    if not projeto:
+        return
+
+    entregas = projeto.get("entregas", [])
+
+    for idx, ent in enumerate(entregas):
+
+        if ent.get("_id") == entrega_editada.get("_id"):
+
+            # Remove campos auxiliares
+            entrega_limpa = {
+                k: v
+                for k, v in entrega_editada.items()
+                if not k.startswith("_projeto_origem")
+            }
+
+            entregas[idx] = entrega_limpa
+            break
+
+    projetos_ispn.update_one(
+        {"_id": ObjectId(projeto_origem_id)},
+        {"$set": {"entregas": entregas}}
+    )
 
 
 ###########################################################################################################
