@@ -344,7 +344,8 @@ def dialog_registros_entregas():
     st.markdown(f"## {nome_entrega}")
     st.write("")
 
-    col1, col2, col3, col4 = st.columns([1, 1, 1.5, 2.5])
+    #col1, col2, col3, col4 = st.columns([1, 1, 1.5, 2.5])
+    col1, col2, col3, col4, col5 = st.columns([1, 1, 1.5, 2.5, 2.5])
 
     usuarios_coordenadores = set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)"}
 
@@ -402,6 +403,64 @@ def dialog_registros_entregas():
                 key=f"entrega_responsaveis_{idx}"
             )
 
+        # ==========================================================
+        # PROJETOS RELACIONADOS
+        # ==========================================================
+
+        # Lista de projetos disponíveis
+        lista_projetos = list(
+            projetos_ispn.find(
+                {},
+                {
+                    "_id": 1,
+                    "sigla": 1
+                }
+            )
+        )
+
+        # Remove o próprio projeto da lista
+        lista_projetos = [
+            p for p in lista_projetos
+            if p["_id"] != ObjectId(projeto_id)
+        ]
+
+        # Ordena alfabeticamente pela sigla
+        lista_projetos = sorted(
+            lista_projetos,
+            key=lambda x: x.get("sigla", "").lower()
+        )
+
+        # Mapa id -> sigla
+        mapa_projetos = {
+            str(p["_id"]): p.get("sigla", "")
+            for p in lista_projetos
+        }
+
+        # Busca entrega atual
+        entrega_atual = next(
+            (
+                e for e in projeto_info.get("entregas", [])
+                if e["_id"] == ObjectId(entrega_ctx["entrega_id"])
+            ),
+            {}
+        )
+
+        # Projetos já relacionados
+        projetos_relacionados_ids = [
+            str(p)
+            for p in entrega_atual.get("projetos_relacionados", [])
+        ]
+
+        with col5:
+            st.multiselect(
+                "Demais projetos relacionados:",
+                options=list(mapa_projetos.keys()),
+                default=projetos_relacionados_ids,
+                format_func=lambda x: mapa_projetos.get(x, x),
+                key=f"entrega_projetos_relacionados_{idx}",
+                placeholder=""
+            )
+
         # st.write("")
         with st.container(horizontal_alignment="right", horizontal=True):
             if st.button("Salvar alterações", icon=":material/save:", width=250):
@@ -410,6 +469,7 @@ def dialog_registros_entregas():
                 novo_progresso = st.session_state[f"entrega_progresso_{idx}"]
                 nova_data = st.session_state[f"entrega_previsao_{idx}"]
                 novos_responsaveis = st.session_state[f"entrega_responsaveis_{idx}"]
+                novos_projetos_relacionados = st.session_state[f"entrega_projetos_relacionados_{idx}"]
 
                 nova_data_str = nova_data.strftime("%d/%m/%Y") if nova_data else None
 
@@ -421,6 +481,7 @@ def dialog_registros_entregas():
                             "entregas.$.progresso": novo_progresso,
                             "entregas.$.previsao_da_conclusao": nova_data_str,
                             "entregas.$.responsaveis": [ObjectId(r) for r in novos_responsaveis],
+                            "entregas.$.projetos_relacionados": [ObjectId(p) for p in novos_projetos_relacionados],
                         }
                     }
                 )
@@ -673,6 +734,15 @@ def carregar_entregas():
         for p in programas.find({}, {"nome_programa_area": 1})
     }
 
+    # ==========================================================
+    # MAPA DE PROJETOS
+    # ==========================================================
+
+    mapa_projetos = {
+        str(p["_id"]): p.get("sigla", "")
+        for p in projetos_ispn.find({}, {"sigla": 1})
+    }
+
     registros = []
 
     for projeto in projetos_ispn.find():
@@ -713,13 +783,38 @@ def carregar_entregas():
             except:
                 pass
 
+            # ==========================================================
+            # PROJETOS RELACIONADOS
+            # ==========================================================
+
+            projetos_relacionados_ids = entrega.get(
+                "projetos_relacionados",
+                []
+            )
+
+            projetos_relacionados_nomes = [
+                mapa_projetos.get(str(pid), "")
+                for pid in projetos_relacionados_ids
+                if mapa_projetos.get(str(pid), "")
+            ]
+
+            # Junta projeto principal + relacionados
+            todos_projetos = [nome_projeto]
+
+            for proj in projetos_relacionados_nomes:
+                if proj not in todos_projetos:
+                    todos_projetos.append(proj)
+
+            projetos_str = ", ".join(todos_projetos)
+
             registros.append({
                 "projeto_id": projeto["_id"],
                 
                 "nome_da_entrega": entrega.get("nome_da_entrega"),
                 "entrega_id": entrega["_id"],
                 
-                "sigla": nome_projeto,
+                "projetos": todos_projetos,
+                "projetos_str": projetos_str,
 
                 "data_inicio": data_inicio,
                 "data_inicio_str": data_inicio.strftime("%d/%m/%Y") if data_inicio else "",
@@ -753,7 +848,8 @@ def carregar_entregas():
             "projeto_id",
             "nome_da_entrega",
             "entrega_id",
-            "sigla",
+            "projetos",
+            "projetos_str",
             "previsao_da_conclusao",
             "previsao_da_conclusao_str",
             "responsaveis",
@@ -848,7 +944,7 @@ def grafico_cronograma(df, titulo):
         color="situacao",
         custom_data=[
             "nome_da_entrega",
-            "sigla",
+            "projetos_str",
             "inicio_hover",
             "previsao_hover",
             "responsaveis",
@@ -988,12 +1084,12 @@ with st.form("filtros_entregas", border=False):
     col1, col2, col3 = st.columns(3)
 
     # -------- Projetos --------
-    projetos_opcoes = sorted(
-        df_entregas["sigla"]
-        .dropna()
-        .unique()
-        .tolist()
-    )
+    projetos_opcoes = sorted({
+        projeto
+        for lista in df_entregas["projetos"]
+        for projeto in (lista if isinstance(lista, list) else [])
+        if projeto
+    })
 
     with col1:
         filtro_projetos = st.multiselect(
@@ -1063,7 +1159,12 @@ df_filtrado = df_entregas.copy()
 
 if filtro_projetos:
     df_filtrado = df_filtrado[
-        df_filtrado["sigla"].isin(filtro_projetos)
+        df_filtrado["projetos"].apply(
+            lambda lista: any(
+                projeto in filtro_projetos
+                for projeto in (lista if isinstance(lista, list) else [])
+            )
+        )
     ]
 
 if filtro_status:
@@ -1107,7 +1208,7 @@ with lista_entregas:
     # Renomeando as colunas
     RENOMEAR = {
         "nome_da_entrega": "Entrega",
-        "sigla": "Projeto",
+        "projetos_str": "Projetos",
         "data_inicio_str": "Data de Início",
         "previsao_da_conclusao_str": "Previsão de Conclusão",
         "responsaveis": "Responsáveis",
@@ -1122,7 +1223,7 @@ with lista_entregas:
 
     df_entregas_lista = df_entregas_lista[[
         "Entrega",
-        "Projeto",
+        "Projetos",
         "Programa",
         "Responsáveis",
         "Data de Início",
