@@ -2532,35 +2532,59 @@ def gerenciar_pessoas(pessoa_sel):
                                 key=f"status_{contrato_key}"
                             )
 
-                            # Data início
+                            # ---------------- DATA INÍCIO ----------------
                             data_inicio_valor = contrato.get("data_inicio")
+
                             data_inicio_dt = None
+
                             if isinstance(data_inicio_valor, str) and data_inicio_valor:
                                 try:
-                                    data_inicio_dt = datetime.datetime.strptime(data_inicio_valor, "%d/%m/%Y").date()
+                                    data_inicio_dt = datetime.datetime.strptime(
+                                        data_inicio_valor,
+                                        "%d/%m/%Y"
+                                    ).date()
                                 except:
                                     pass
-                            contrato["data_inicio"] = st.date_input(
+
+                            data_inicio_input = st.date_input(
                                 "Data de início",
-                                value=data_inicio_dt or datetime.date.today(),
+                                value=data_inicio_dt,
                                 format="DD/MM/YYYY",
                                 key=f"inicio_{contrato_key}"
-                            ).strftime("%d/%m/%Y")
+                            )
 
-                            # Data fim
+                            contrato["data_inicio"] = (
+                                data_inicio_input.strftime("%d/%m/%Y")
+                                if data_inicio_input
+                                else ""
+                            )
+
+                            # ---------------- DATA FIM ----------------
                             data_fim_valor = contrato.get("data_fim")
+
                             data_fim_dt = None
+
                             if isinstance(data_fim_valor, str) and data_fim_valor:
                                 try:
-                                    data_fim_dt = datetime.datetime.strptime(data_fim_valor, "%d/%m/%Y").date()
+                                    data_fim_dt = datetime.datetime.strptime(
+                                        data_fim_valor,
+                                        "%d/%m/%Y"
+                                    ).date()
                                 except:
                                     pass
-                            contrato["data_fim"] = st.date_input(
+
+                            data_fim_input = st.date_input(
                                 "Data de fim",
-                                value=data_fim_dt or datetime.date.today(),
+                                value=data_fim_dt,
                                 format="DD/MM/YYYY",
                                 key=f"fim_{contrato_key}"
-                            ).strftime("%d/%m/%Y")
+                            )
+
+                            contrato["data_fim"] = (
+                                data_fim_input.strftime("%d/%m/%Y")
+                                if data_fim_input
+                                else ""
+                            )
 
                             # Mês reajuste
                             contrato["data_reajuste"] = st.selectbox(
