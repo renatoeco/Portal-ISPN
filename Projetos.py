@@ -459,7 +459,7 @@ def dialog_cadastrar_projeto():
     # PROJETO ESTRATÉGICO
     # =========================================================
 
-    projeto_estrategico = st.checkbox(
+    projeto_estrategico = st.toggle(
         "Projeto estratégico",
         value=False
     )
