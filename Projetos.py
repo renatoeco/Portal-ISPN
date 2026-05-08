@@ -459,7 +459,11 @@ def dialog_cadastrar_projeto():
     # PROJETO ESTRATÉGICO
     # =========================================================
 
-    projeto_estrategico = st.toggle(
+    st.write("")
+
+    col1, col2 = st.columns([5, 1])
+
+    projeto_estrategico = col2.toggle(
         "Projeto estratégico",
         value=False
     )
