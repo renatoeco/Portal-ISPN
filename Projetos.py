@@ -455,287 +455,418 @@ def dialog_cadastrar_projeto():
         elif "ucs" in doc:
             dados_uc = doc["ucs"]
 
+    # =========================================================
+    # PROJETO ESTRATÉGICO
+    # =========================================================
+
+    projeto_estrategico = st.checkbox(
+        "Projeto estratégico",
+        value=False
+    )
+
+    st.write("")
+
+
     with st.form("form_cadastrar_projeto", border=False):
         
         st.subheader("Dados do projeto")
         st.write("")
-        
-        # --- Colunas ---
-        col1, col2 = st.columns(2)
 
-        # --- Código ---
-        codigo = col1.text_input("Código", value="")
+         # =========================================================
+        # FORMULÁRIO REDUZIDO - PROJETO ESTRATÉGICO
+        # =========================================================
 
-        # --- Sigla ---
-        sigla = col2.text_input("Sigla", value="")
+        if projeto_estrategico:
 
-        # --- Nome do projeto ---
-        nome_do_projeto = st.text_input("Nome do Projeto", value="")
-        
-        col1, col2, col3 = st.columns(3)
+            col1, col2 = st.columns(2)
 
-        # --- Status ---
-        status_options = ["", "Em andamento", "Finalizado", "Cancelado"]
-        status = col1.selectbox("Status", options=status_options, index=0)
+            # Código
+            codigo = col1.text_input("Código", value="")
 
-        # --- Datas ---
-        data_inicio = col2.date_input("Data de início", value=datetime.date.today(), format="DD/MM/YYYY")
-        data_fim = col3.date_input("Data de fim", value=datetime.date.today(), format="DD/MM/YYYY")
-        
-        # -----------------------------------
-        # Pessoas ativas (para coordenador e gestores)
-        # -----------------------------------
-        df_pessoas_ativas = df_pessoas[df_pessoas["status"] == "ativo"].copy()
+            # Sigla
+            sigla = col2.text_input("Sigla", value="")
 
-        # Lista de opções (ObjectId como string)
-        pessoas_options = df_pessoas_ativas["_id"].astype(str).tolist()
+            # Nome do projeto
+            nome_do_projeto = st.text_input(
+                "Nome do projeto",
+                value=""
+            )
 
-        # --- Coordenador ---
-        coordenador_options = [""] + pessoas_options
-        
-        col1, col2, col3 = st.columns(3)
+            col1, col2 = st.columns(2)
 
-        coordenador = col1.selectbox(
-            "Coordenador",
-            options=coordenador_options,
-            format_func=lambda x: "" if x == "" else df_pessoas_ativas
-                .loc[df_pessoas_ativas["_id"].astype(str) == x, "nome_completo"]
-                .values[0],
-            index=0
-        )
-        
-        # --- Programa / Área ---
-        programa_options = [""] + list(mapa_programa.keys())
-        programas_selecionados = col2.multiselect(
-            "Programa / Área",
-            options=programa_options,
-            format_func=lambda x: "" if x == "" else mapa_programa[x],
-            placeholder=""
-        )
+            # Status fixo
+            status = "Estratégico"
 
-        # --- Doador ---
-        doador_options = [""] + list(mapa_doador.keys())
-        doador = col3.selectbox(
-            "Doador",
-            options=doador_options,
-            format_func=lambda x: "" if x=="" else mapa_doador[x],
-            index=0
-        )
+            col1.text_input(
+                "Status",
+                value="Estratégico",
+                disabled=True
+            )
 
-        gestores = st.multiselect(
-            "Gestores(as) do projeto",
-            options=pessoas_options,
-            format_func=lambda x: df_pessoas_ativas
-                .loc[df_pessoas_ativas["_id"].astype(str) == x, "nome_completo"]
-                .values[0],
-            placeholder=""
-        )
+            # -----------------------------------
+            # Pessoas ativas
+            # -----------------------------------
 
-        # --- Objetivo Geral ---
-        objetivo_geral = st.text_area("Objetivo Geral", value="")
+            df_pessoas_ativas = df_pessoas[
+                df_pessoas["status"] == "ativo"
+            ].copy()
+
+            pessoas_options = (
+                df_pessoas_ativas["_id"]
+                .astype(str)
+                .tolist()
+            )
+
+            coordenador_options = [""] + pessoas_options
+
+            coordenador = col2.selectbox(
+                "Coordenador",
+                options=coordenador_options,
+                format_func=lambda x:
+                    "" if x == "" else
+                    df_pessoas_ativas.loc[
+                        df_pessoas_ativas["_id"].astype(str) == x,
+                        "nome_completo"
+                    ].values[0],
+                index=0
+            )
+
+            # Programa / Área
+            programa_options = [""] + list(mapa_programa.keys())
+
+            programas_selecionados = st.multiselect(
+                "Programa / Área",
+                options=programa_options,
+                format_func=lambda x:
+                    "" if x == "" else mapa_programa[x],
+                placeholder=""
+            )
+
+            # Objetivo geral
+            objetivo_geral = st.text_area(
+                "Objetivo geral",
+                value=""
+            )
+
+            st.divider()
+
+            st.subheader("Informações financeiras")
+            st.write("")
+
+            col1, col2 = st.columns(2)
+
+            # Moeda
+            moeda_options = ["", "Dólares", "Reais", "Euros"]
+
+            moeda = col1.selectbox(
+                "Moeda",
+                options=moeda_options,
+                index=0
+            )
+
+            # Valor
+            valor = col2.number_input(
+                "Valor",
+                value=0.00,
+                step=0.01,
+                min_value=0.0,
+                format="%.2f"
+            )
+
+            # Campos não utilizados no estratégico
+            contrapartida = 0
+            doador = None
+            gestores = []
+            regioes_atuacao = []
+            orcamento_por_ano = {}
+            data_inicio = None
+            data_fim = None
+
+            st.write("")
+
 
         # =========================================================
-        # INFORMAÇÕES FINANCEIRAS
+        # FORMULÁRIO COMPLETO
         # =========================================================
-        
-        st.divider()
-        
-        st.subheader("Informações financeiras")
-        st.write("")
 
-        col1, col2, col3 = st.columns(3)
-
-        # --- Moeda ---
-        moeda_options = ["", "Dólares", "Reais", "Euros"]
-        moeda = col1.selectbox("Moeda", options=moeda_options, index=0)
-
-        # --- Valor ---
-        valor = col2.number_input(
-            "Valor",
-            value=0.00,
-            step=0.01,
-            min_value=0.0,
-            format="%.2f"
-        )
-
-        # --- Contrapartida ---
-        contrapartida = col3.number_input(
-            "Contrapartida",
-            value=0.00,
-            step=0.01,
-            min_value=0.0,
-            format="%.2f"
-        )
-        
-        # -----------------------------------
-        # ORÇAMENTO POR ANO
-        # -----------------------------------
-
-        anos_projeto = gerar_anos_intervalo(data_inicio, data_fim)
-
-        orcamento_por_ano = {}
-
-        if anos_projeto:
-            cols = st.columns(len(anos_projeto))
-
-            for i, ano in enumerate(anos_projeto):
-                valor_ano = cols[i].number_input(
-                    f"Orçamento de {ano}",
-                    min_value=0.0,
-                    value=0.0,
-                    step=0.01,
-                    format="%.2f",
-                    key=f"orcamento_{ano}"
-                )
-                orcamento_por_ano[str(ano)] = valor_ano
         else:
-            st.warning("Defina as datas para lançar o orçamento por ano.")
         
-        st.divider()
-        
-        ######################################################################
-        # REGIÕES DE ATUAÇÃO
-        ######################################################################
+            # --- Colunas ---
+            col1, col2 = st.columns(2)
 
-        st.subheader("Regiões de atuação")
-        st.write("")
+            # --- Código ---
+            codigo = col1.text_input("Código", value="")
 
-        # Criar dicionário código_uf -> sigla
-        codigo_uf_para_sigla = {
-            '11': 'RO', '12': 'AC', '13': 'AM', '14': 'RR', '15': 'PA', '16': 'AP', '17': 'TO',
-            '21': 'MA', '22': 'PI', '23': 'CE', '24': 'RN', '25': 'PB', '26': 'PE', '27': 'AL', '28': 'SE', '29': 'BA',
-            '31': 'MG', '32': 'ES', '33': 'RJ', '35': 'SP',
-            '41': 'PR', '42': 'SC', '43': 'RS',
-            '50': 'MS', '51': 'MT', '52': 'GO', '53': 'DF'
-        }
-        
-        uf_codigo_para_label = {
-            uf["codigo_uf"]: f"{uf['nome_uf']} ({uf['codigo_uf']})"
-            for uf in dados_ufs
-        }
+            # --- Sigla ---
+            sigla = col2.text_input("Sigla", value="")
+
+            # --- Nome do projeto ---
+            nome_do_projeto = st.text_input("Nome do Projeto", value="")
+            
+            col1, col2, col3 = st.columns(3)
+
+            # --- Status ---
+            status_options = ["", "Em andamento", "Finalizado", "Cancelado"]
+            status = col1.selectbox("Status", options=status_options, index=0)
+
+            # --- Datas ---
+            data_inicio = col2.date_input("Data de início", value=datetime.date.today(), format="DD/MM/YYYY")
+            data_fim = col3.date_input("Data de fim", value=datetime.date.today(), format="DD/MM/YYYY")
+            
+            # -----------------------------------
+            # Pessoas ativas (para coordenador e gestores)
+            # -----------------------------------
+            df_pessoas_ativas = df_pessoas[df_pessoas["status"] == "ativo"].copy()
+
+            # Lista de opções (ObjectId como string)
+            pessoas_options = df_pessoas_ativas["_id"].astype(str).tolist()
+
+            # --- Coordenador ---
+            coordenador_options = [""] + pessoas_options
+            
+            col1, col2, col3 = st.columns(3)
+
+            coordenador = col1.selectbox(
+                "Coordenador",
+                options=coordenador_options,
+                format_func=lambda x: "" if x == "" else df_pessoas_ativas
+                    .loc[df_pessoas_ativas["_id"].astype(str) == x, "nome_completo"]
+                    .values[0],
+                index=0
+            )
+            
+            # --- Programa / Área ---
+            programa_options = [""] + list(mapa_programa.keys())
+            programas_selecionados = col2.multiselect(
+                "Programa / Área",
+                options=programa_options,
+                format_func=lambda x: "" if x == "" else mapa_programa[x],
+                placeholder=""
+            )
+
+            # --- Doador ---
+            doador_options = [""] + list(mapa_doador.keys())
+            doador = col3.selectbox(
+                "Doador",
+                options=doador_options,
+                format_func=lambda x: "" if x=="" else mapa_doador[x],
+                index=0
+            )
+
+            gestores = st.multiselect(
+                "Gestores(as) do projeto",
+                options=pessoas_options,
+                format_func=lambda x: df_pessoas_ativas
+                    .loc[df_pessoas_ativas["_id"].astype(str) == x, "nome_completo"]
+                    .values[0],
+                placeholder=""
+            )
+
+            # --- Objetivo Geral ---
+            objetivo_geral = st.text_area("Objetivo Geral", value="")
+
+            # =========================================================
+            # INFORMAÇÕES FINANCEIRAS
+            # =========================================================
+            
+            st.divider()
+            
+            st.subheader("Informações financeiras")
+            st.write("")
+
+            col1, col2, col3 = st.columns(3)
+
+            # --- Moeda ---
+            moeda_options = ["", "Dólares", "Reais", "Euros"]
+            moeda = col1.selectbox("Moeda", options=moeda_options, index=0)
+
+            # --- Valor ---
+            valor = col2.number_input(
+                "Valor",
+                value=0.00,
+                step=0.01,
+                min_value=0.0,
+                format="%.2f"
+            )
+
+            # --- Contrapartida ---
+            contrapartida = col3.number_input(
+                "Contrapartida",
+                value=0.00,
+                step=0.01,
+                min_value=0.0,
+                format="%.2f"
+            )
+            
+            # -----------------------------------
+            # ORÇAMENTO POR ANO
+            # -----------------------------------
+
+            anos_projeto = gerar_anos_intervalo(data_inicio, data_fim)
+
+            orcamento_por_ano = {}
+
+            if anos_projeto:
+                cols = st.columns(len(anos_projeto))
+
+                for i, ano in enumerate(anos_projeto):
+                    valor_ano = cols[i].number_input(
+                        f"Orçamento de {ano}",
+                        min_value=0.0,
+                        value=0.0,
+                        step=0.01,
+                        format="%.2f",
+                        key=f"orcamento_{ano}"
+                    )
+                    orcamento_por_ano[str(ano)] = valor_ano
+            else:
+                st.warning("Defina as datas para lançar o orçamento por ano.")
+            
+            st.divider()
+            
+            ######################################################################
+            # REGIÕES DE ATUAÇÃO
+            ######################################################################
+
+            st.subheader("Regiões de atuação")
+            st.write("")
+
+            # Criar dicionário código_uf -> sigla
+            codigo_uf_para_sigla = {
+                '11': 'RO', '12': 'AC', '13': 'AM', '14': 'RR', '15': 'PA', '16': 'AP', '17': 'TO',
+                '21': 'MA', '22': 'PI', '23': 'CE', '24': 'RN', '25': 'PB', '26': 'PE', '27': 'AL', '28': 'SE', '29': 'BA',
+                '31': 'MG', '32': 'ES', '33': 'RJ', '35': 'SP',
+                '41': 'PR', '42': 'SC', '43': 'RS',
+                '50': 'MS', '51': 'MT', '52': 'GO', '53': 'DF'
+            }
+            
+            uf_codigo_para_label = {
+                uf["codigo_uf"]: f"{uf['nome_uf']} ({uf['codigo_uf']})"
+                for uf in dados_ufs
+            }
 
 
-        # Criar mapeamento código -> "Município - UF"
-        municipios_codigo_para_label = {
-            int(m["codigo_municipio"]): f"{m['nome_municipio']} - {codigo_uf_para_sigla[str(m['codigo_municipio'])[:2]]}"
-            for m in dados_municipios
-        }
-        
-        biomas_codigo_para_label = {
-            b["codigo_bioma"]: f"{b['nome_bioma']} ({b['codigo_bioma']})"
-            for b in dados_biomas
-        }
+            # Criar mapeamento código -> "Município - UF"
+            municipios_codigo_para_label = {
+                int(m["codigo_municipio"]): f"{m['nome_municipio']} - {codigo_uf_para_sigla[str(m['codigo_municipio'])[:2]]}"
+                for m in dados_municipios
+            }
+            
+            biomas_codigo_para_label = {
+                b["codigo_bioma"]: f"{b['nome_bioma']} ({b['codigo_bioma']})"
+                for b in dados_biomas
+            }
 
-        assent_codigo_para_label = {
-            a["codigo_assentamento"]: f"{a['nome_assentamento']} ({a['codigo_assentamento']})"
-            for a in dados_assentamentos
-        }
+            assent_codigo_para_label = {
+                a["codigo_assentamento"]: f"{a['nome_assentamento']} ({a['codigo_assentamento']})"
+                for a in dados_assentamentos
+            }
 
-        quilombo_codigo_para_label = {
-            q["codigo_quilombo"]: f"{q['nome_quilombo']} ({q['codigo_quilombo']})"
-            for q in dados_quilombos
-        }
+            quilombo_codigo_para_label = {
+                q["codigo_quilombo"]: f"{q['nome_quilombo']} ({q['codigo_quilombo']})"
+                for q in dados_quilombos
+            }
 
-        ti_codigo_para_label = {
-            ti["codigo_ti"]: f"{ti['nome_ti']} ({ti['codigo_ti']})"
-            for ti in dados_ti
-        }
+            ti_codigo_para_label = {
+                ti["codigo_ti"]: f"{ti['nome_ti']} ({ti['codigo_ti']})"
+                for ti in dados_ti
+            }
 
-        uc_codigo_para_label = {
-            u["codigo_uc"]: f"{u['nome_uc']} ({u['codigo_uc']})"
-            for u in dados_uc
-        }
+            uc_codigo_para_label = {
+                u["codigo_uc"]: f"{u['nome_uc']} ({u['codigo_uc']})"
+                for u in dados_uc
+            }
 
-        bacia_macro_codigo_para_label = {
-            b["codigo"]: f"{b['label']} ({b['codigo']})" 
-            for b in dados_bacias_macro
-        }
+            bacia_macro_codigo_para_label = {
+                b["codigo"]: f"{b['label']} ({b['codigo']})" 
+                for b in dados_bacias_macro
+            }
 
-        bacia_meso_codigo_para_label = {
-            b["codigo"]: f"{b['label']} ({b['codigo']})" 
-            for b in dados_bacias_meso
-        }
+            bacia_meso_codigo_para_label = {
+                b["codigo"]: f"{b['label']} ({b['codigo']})" 
+                for b in dados_bacias_meso
+            }
 
-        bacia_micro_codigo_para_label = {
-            b["codigo"]: f"{b['label']} ({b['codigo']})" 
-            for b in dados_bacias_micro
-        }
-        
+            bacia_micro_codigo_para_label = {
+                b["codigo"]: f"{b['label']} ({b['codigo']})" 
+                for b in dados_bacias_micro
+            }
+            
 
-        # ----------------------- TERRAS INDÍGENAS -----------------------
-        col1, col2, col3 = st.columns(3)
+            # ----------------------- TERRAS INDÍGENAS -----------------------
+            col1, col2, col3 = st.columns(3)
 
-        ufs_selecionadas = col1.multiselect(
-            "Estados",
-            options=sorted(uf_codigo_para_label.values()),
-            placeholder=""
-        )
+            ufs_selecionadas = col1.multiselect(
+                "Estados",
+                options=sorted(uf_codigo_para_label.values()),
+                placeholder=""
+            )
 
-        municipios_selecionadas = col2.multiselect(
-            "Municípios",
-            options=sorted(municipios_codigo_para_label.values()),
-            placeholder=""
-        )
+            municipios_selecionadas = col2.multiselect(
+                "Municípios",
+                options=sorted(municipios_codigo_para_label.values()),
+                placeholder=""
+            )
 
-        biomas_selecionados = col3.multiselect(
-            "Biomas",
-            options=sorted(biomas_codigo_para_label.values()),
-            placeholder=""
-        )
+            biomas_selecionados = col3.multiselect(
+                "Biomas",
+                options=sorted(biomas_codigo_para_label.values()),
+                placeholder=""
+            )
 
-        # ----------------------- TERRAS INDÍGENAS -----------------------
-        col1, col2 = st.columns(2)
+            # ----------------------- TERRAS INDÍGENAS -----------------------
+            col1, col2 = st.columns(2)
 
-        tis_selecionadas = col1.multiselect(
-            "Terras Indígenas",
-            options=sorted(ti_codigo_para_label.values()),
-            placeholder=""
-        )
+            tis_selecionadas = col1.multiselect(
+                "Terras Indígenas",
+                options=sorted(ti_codigo_para_label.values()),
+                placeholder=""
+            )
 
-        # ----------------------- UNIDADES DE CONSERVAÇÃO -----------------------
-        ucs_selecionadas = col2.multiselect(
-            "Unidades de Conservação",
-            options=sorted(uc_codigo_para_label.values()),
-            placeholder=""
-        )
+            # ----------------------- UNIDADES DE CONSERVAÇÃO -----------------------
+            ucs_selecionadas = col2.multiselect(
+                "Unidades de Conservação",
+                options=sorted(uc_codigo_para_label.values()),
+                placeholder=""
+            )
 
-        # ----------------------- ASSENTAMENTOS -----------------------
-        col1, col2 = st.columns(2)
-        assentamentos_selecionados = col1.multiselect(
-            "Assentamentos",
-            options=sorted(assent_codigo_para_label.values()),
-            placeholder=""
-        )
+            # ----------------------- ASSENTAMENTOS -----------------------
+            col1, col2 = st.columns(2)
+            assentamentos_selecionados = col1.multiselect(
+                "Assentamentos",
+                options=sorted(assent_codigo_para_label.values()),
+                placeholder=""
+            )
 
-        # ----------------------- QUILOMBOS -----------------------
-        quilombos_selecionados = col2.multiselect(
-            "Quilombos",
-            options=sorted(quilombo_codigo_para_label.values()),
-            placeholder=""
-        )
+            # ----------------------- QUILOMBOS -----------------------
+            quilombos_selecionados = col2.multiselect(
+                "Quilombos",
+                options=sorted(quilombo_codigo_para_label.values()),
+                placeholder=""
+            )
 
-        # ----------------------- BACIAS HIDROGRÁFICAS -----------------------
-        col1, col2, col3 = st.columns(3)
+            # ----------------------- BACIAS HIDROGRÁFICAS -----------------------
+            col1, col2, col3 = st.columns(3)
 
-        bacias_macro_sel = col1.multiselect(
-            "Bacias Hidrográficas - Nível 2",
-            options=sorted(bacia_macro_codigo_para_label.values()),
-            placeholder=""
-        )
+            bacias_macro_sel = col1.multiselect(
+                "Bacias Hidrográficas - Nível 2",
+                options=sorted(bacia_macro_codigo_para_label.values()),
+                placeholder=""
+            )
 
-        bacias_meso_sel = col2.multiselect(
-            "Bacias Hidrográficas - Nível 3",
-            options=sorted(bacia_meso_codigo_para_label.values()),
-            placeholder=""
-        )
+            bacias_meso_sel = col2.multiselect(
+                "Bacias Hidrográficas - Nível 3",
+                options=sorted(bacia_meso_codigo_para_label.values()),
+                placeholder=""
+            )
 
-        bacias_micro_sel = col3.multiselect(
-            "Bacias Hidrográficas - Nível 4",
-            options=sorted(bacia_micro_codigo_para_label.values()),
-            placeholder=""
-        )
- 
-        st.write('')
+            bacias_micro_sel = col3.multiselect(
+                "Bacias Hidrográficas - Nível 4",
+                options=sorted(bacia_micro_codigo_para_label.values()),
+                placeholder=""
+            )
+    
+            st.write('')
 
         # --- Botão de salvar ---
         submit = st.form_submit_button("Cadastrar", icon=":material/save:", width=200, type="primary")
@@ -750,6 +881,52 @@ def dialog_cadastrar_projeto():
                 
             elif codigo_existente:
                 st.warning(f"O código '{codigo}' já está cadastrado em outro projeto. Escolha outro.")
+
+            # ==========================================================
+            # SALVAR PROJETO ESTRATÉGICO
+            # ==========================================================
+
+            elif projeto_estrategico:
+
+                projeto_id = bson.ObjectId()
+
+                coordenador_objid = (
+                    bson.ObjectId(coordenador)
+                    if coordenador else None
+                )
+
+                programas_objids = [
+                    bson.ObjectId(p)
+                    for p in programas_selecionados
+                ] if programas_selecionados else []
+
+                doc = {
+                    "_id": projeto_id,
+                    "tipo_projeto": "estrategico",
+                    "codigo": codigo,
+                    "sigla": sigla,
+                    "nome_do_projeto": nome_do_projeto,
+                    "status": "Estratégico",
+                    "coordenador": coordenador_objid,
+                    "programas": programas_objids,
+                    "objetivo_geral": objetivo_geral,
+                    "moeda": moeda,
+                    "valor": float_to_br(valor),
+                    "valor_contrapartida": float_to_br(0),
+                    "doador": None,
+                    "gestores": [],
+                    "regioes_atuacao": [],
+                    "orcamento_por_ano": {},
+                    "data_inicio_contrato": None,
+                    "data_fim_contrato": None,
+                }
+
+                projetos_ispn.insert_one(doc)
+
+                st.success("Projeto estratégico cadastrado com sucesso!")
+
+                time.sleep(2)
+                st.rerun()
                 
             else:
                 # --- Criar ObjectIds ---
@@ -795,16 +972,23 @@ def dialog_cadastrar_projeto():
                     "codigo": codigo,
                     "sigla": sigla,
                     "nome_do_projeto": nome_do_projeto,
+                    "status": status,
                     "moeda": moeda,
                     "valor": float_to_br(valor),
                     "valor_contrapartida": float_to_br(contrapartida),
                     "coordenador": coordenador_objid,
-                    "doador": doador_objid,
+                    "doador": doador_objid if doador else None,
                     "programas": programas_objids,
                     "gestores": gestores_objids,
-                    "status": status,
-                    "data_inicio_contrato": data_inicio.strftime("%d/%m/%Y"),
-                    "data_fim_contrato": data_fim.strftime("%d/%m/%Y"),
+                    "data_inicio_contrato": (
+                        data_inicio.strftime("%d/%m/%Y")
+                        if data_inicio else None
+                    ),
+
+                    "data_fim_contrato": (
+                        data_fim.strftime("%d/%m/%Y")
+                        if data_fim else None
+                    ),
                     "objetivo_geral": objetivo_geral,
                     "regioes_atuacao": regioes_atuacao,  
                     "orcamento_por_ano": {
@@ -897,6 +1081,12 @@ def dialog_editar_projeto():
 
     projeto_info = df_projetos_ispn[df_projetos_ispn["sigla"] == projeto_selecionado].iloc[0]
 
+    tipo_projeto = projeto_info.get("tipo_projeto", "normal")
+
+    projeto_estrategico = (
+        tipo_projeto == "estrategico"
+    )
+
     orcamento_existente = projeto_info.get("orcamento_por_ano", {})
 
     # Se vier None, float, NaN, etc → vira dict vazio
@@ -911,495 +1101,711 @@ def dialog_editar_projeto():
     st.write("")
 
     with st.form("form_editar_projeto", border=False):
-        
-        #######################################################################
-        # DADOS DO PROJETO
-        #######################################################################
-        
-        st.subheader("Dados do projeto")
-        st.write("")
 
-        col1, col2 = st.columns(2)
-        
-        # Código
-        codigo = col1.text_input("Código", value=projeto_info.get("codigo", ""))
-        
-        # Sigla
-        sigla = col2.text_input("Sigla", value=projeto_info.get("sigla", ""))
-        
-        # Nome do projeto
-        nome_do_projeto = st.text_input("Nome do Projeto", value=projeto_info.get("nome_do_projeto", ""))
+        # ======================================================
+        # FORMULÁRIO DE PROJETO ESTRATÉGICO
+        # ======================================================
 
-        col1, col2, col3 = st.columns(3)
+        if projeto_estrategico:
 
-        # Status
-        status_options = ["", "Em andamento", "Finalizado", "Cancelado"]
+            st.subheader("Dados do projeto")
+            st.write("")
 
-        status_atual = projeto_info.get("status", "")
-        index_status = status_options.index(status_atual) if status_atual in status_options else 0
+            col1, col2 = st.columns(2)
 
-        status = col1.selectbox(
-            "Status",
-            options=status_options,
-            index=index_status
-        )
+            codigo = col1.text_input(
+                "Código",
+                value=projeto_info.get("codigo", "")
+            )
 
-        # Datas
-        data_inicio_raw = projeto_info.get("data_inicio_contrato")
+            sigla = col2.text_input(
+                "Sigla",
+                value=projeto_info.get("sigla", "")
+            )
 
-        data_inicio = col2.date_input(
-            "Data de início",
-            value=(
-                pd.to_datetime(data_inicio_raw, errors="coerce").date()
-                if data_inicio_raw and not pd.isna(pd.to_datetime(data_inicio_raw, errors="coerce"))
-                else None
-            ),
-            format="DD/MM/YYYY"
-        )
+            nome_do_projeto = st.text_input(
+                "Nome do projeto",
+                value=projeto_info.get("nome_do_projeto", "")
+            )
 
-        data_fim_raw = projeto_info.get("data_fim_contrato")
+            col1, col2 = st.columns(2)
 
-        data_fim = col3.date_input(
-            "Data de fim",
-            value=(
-                pd.to_datetime(data_fim_raw, errors="coerce").date()
-                if data_fim_raw and not pd.isna(pd.to_datetime(data_fim_raw, errors="coerce"))
-                else None
-            ),
-            format="DD/MM/YYYY"
-        )
-        
-        # -----------------------------------
-        # Pessoas ativas (base para selects)
-        # -----------------------------------
-        df_pessoas_ativas = df_pessoas[df_pessoas["status"] == "ativo"].copy()
+            col1.text_input(
+                "Status",
+                value="Estratégico",
+                disabled=True
+            )
 
-        pessoas_ativas_options = df_pessoas_ativas["_id"].astype(str).tolist()
+            # -----------------------------------
+            # Pessoas ativas
+            # -----------------------------------
 
-        # Coordenador atual
-        coordenador_atual_obj = projeto_info.get("coordenador")
-        coordenador_atual_str = str(coordenador_atual_obj) if coordenador_atual_obj else ""
+            df_pessoas_ativas = df_pessoas[
+                df_pessoas["status"] == "ativo"
+            ].copy()
 
-        # Opções: pessoas ativas + coordenador atual (se não estiver ativo)
-        coordenador_options = pessoas_ativas_options.copy()
+            pessoas_options = (
+                df_pessoas_ativas["_id"]
+                .astype(str)
+                .tolist()
+            )
 
-        if coordenador_atual_str and coordenador_atual_str not in coordenador_options:
-            coordenador_options.insert(0, coordenador_atual_str)
+            coordenador_atual = (
+                str(projeto_info.get("coordenador"))
+                if projeto_info.get("coordenador")
+                else ""
+            )
 
-        coordenador_options = [""] + coordenador_options
+            coordenador_options = [""] + pessoas_options
 
-        index_coordenador = (
-            coordenador_options.index(coordenador_atual_str)
-            if coordenador_atual_str in coordenador_options
-            else 0
-        )
-
-        coordenador = col1.selectbox(
-            "Coordenador",
-            options=coordenador_options,
-            format_func=lambda x: "" if x == "" else df_pessoas
-                .loc[df_pessoas["_id"].astype(str) == x, "nome_completo"]
-                .values[0],
-            index=index_coordenador
-        )
-
-        # Programa / Área
-        mapa_programa_str = {str(k): v for k, v in mapa_programa.items()}
-
-        programa_options = list(mapa_programa_str.keys())
-        programas_atuais = projeto_info.get("programas", [])
-
-        # Garante lista
-        if not isinstance(programas_atuais, list):
-            programas_atuais = [programas_atuais] if programas_atuais else []
-
-        # Converte para string e remove inválidos
-        programas_atuais_str = [
-            str(p) for p in programas_atuais
-            if p and str(p) != "nan"
-        ]
-
-        # Mantém apenas os que existem nas opções
-        programas_atuais_str = [
-            p for p in programas_atuais_str
-            if p in programa_options
-        ]
-
-        programa_options = list(mapa_programa_str.keys())
-
-        programas_selecionados = col2.multiselect(
-            "Programa / Área",
-            options=programa_options,
-            default=programas_atuais_str,
-            format_func=lambda x: mapa_programa_str[x],
-            placeholder=""
-        )
-        
-        # Doador
-        doador_options = list(mapa_doador.keys())
-        doador_atual = projeto_info.get("doador", "")
-        index_doador = doador_options.index(doador_atual) if doador_atual in doador_options else 0
-        doador = col3.selectbox(
-            "Doador",
-            options=doador_options,
-            format_func=lambda x: mapa_doador[x],
-            index=index_doador
-        )
-        
-        # -----------------------------------
-        # Gestores atuais (normalização segura)
-        # -----------------------------------
-        gestores_raw = projeto_info.get("gestores", [])
-
-        if not isinstance(gestores_raw, list):
-            gestores_raw = []
-
-        gestores_atuais = [str(g) for g in gestores_raw if g]
-        
-        gestores_options = pessoas_ativas_options.copy()
-
-        for g in gestores_atuais:
-            if g not in gestores_options:
-                gestores_options.append(g)
-                
-        gestores = st.multiselect(
-            "Gestores(as) do projeto",
-            options=gestores_options,
-            default=gestores_atuais,
-            format_func=lambda x: df_pessoas
-                .loc[df_pessoas["_id"].astype(str) == x, "nome_completo"]
-                .values[0],
-            placeholder=""
-        )
-
-        # Objetivo geral
-        objetivo_geral = st.text_area(
-            "Objetivo Geral",
-            value=str(projeto_info.get("objetivo_geral", "")) if pd.notna(projeto_info.get("objetivo_geral")) else ""
-        )
-
-        #######################################################################
-        # INFORMAÇÕES FINANCEIRAS
-        #######################################################################
-        
-        st.divider()
-        
-        st.subheader("Informações Financeiras")
-        st.write("")
-
-        col1, col2, col3 = st.columns(3)
-
-        # Moeda
-        moeda_options = ["", "Dólares", "Reais", "Euros"]
-        moeda_atual = projeto_info.get("moeda", "")
-        index_atual = moeda_options.index(moeda_atual) if moeda_atual in moeda_options else 0
-
-        moeda = col1.selectbox(
-            "Moeda",
-            options=moeda_options,
-            index=index_atual
-        )
-
-        # Valor
-        valor_atual = br_to_float(projeto_info.get("valor", "0"))
-
-        valor = col2.number_input(
-            "Valor",
-            value=valor_atual,
-            step=0.01,
-            min_value=0.0,
-            format="%.2f"
-        )
-
-        # Contrapartida
-        contrapartida_atual = br_to_float(
-            projeto_info.get("valor_contrapartida", "0")
-        )
-
-        contrapartida = col3.number_input(
-            "Contrapartida",
-            value=contrapartida_atual,
-            step=0.01,
-            min_value=0.0,
-            format="%.2f"
-        )
-        anos_projeto = gerar_anos_intervalo(data_inicio, data_fim)
-
-        orcamento_por_ano = {}
-
-        if anos_projeto:
-            cols = st.columns(len(anos_projeto))
-
-            for i, ano in enumerate(anos_projeto):
-                valor_inicial = br_to_float(orcamento_existente.get(str(ano), "0"))
-
-                valor_ano = cols[i].number_input(
-                    f"Orçamento de {ano}",
-                    min_value=0.0,
-                    value=valor_inicial,
-                    step=0.01,
-                    format="%.2f",
-                    key=f"edit_orcamento_{ano}"
+            if (
+                coordenador_atual and
+                coordenador_atual not in coordenador_options
+            ):
+                coordenador_options.append(
+                    coordenador_atual
                 )
 
-                orcamento_por_ano[str(ano)] = valor_ano
+            coordenador = col2.selectbox(
+                "Coordenador",
+                options=coordenador_options,
+                index=(
+                    coordenador_options.index(coordenador_atual)
+                    if coordenador_atual in coordenador_options
+                    else 0
+                ),
+                format_func=lambda x:
+                    "" if x == "" else
+                    df_pessoas.loc[
+                        df_pessoas["_id"].astype(str) == x,
+                        "nome_completo"
+                    ].values[0]
+            )
 
-        ######################################################################
-        # REGIÕES DE ATUAÇÃO
-        ######################################################################
+            # -----------------------------------
+            # Programas
+            # -----------------------------------
 
-        st.divider()
+            mapa_programa_str = {
+                str(k): v
+                for k, v in mapa_programa.items()
+            }
 
-        # --- Carrega dados do Mongo ---
-        doc_ufs = colecao_ufs.find_one({"ufs": {"$exists": True}})
-        doc_municipios = colecao_ufs.find_one({"municipios": {"$exists": True}})
+            programa_options = list(
+                mapa_programa_str.keys()
+            )
 
-        dados_ufs = doc_ufs.get("ufs", []) if doc_ufs else []
-        dados_municipios = doc_municipios.get("municipios", []) if doc_municipios else []
+            programas_atuais = projeto_info.get(
+                "programas",
+                []
+            )
 
-        # Criar dicionário código_uf -> sigla
-        codigo_uf_para_sigla = {
-            '11': 'RO', '12': 'AC', '13': 'AM', '14': 'RR', '15': 'PA', '16': 'AP', '17': 'TO',
-            '21': 'MA', '22': 'PI', '23': 'CE', '24': 'RN', '25': 'PB', '26': 'PE', '27': 'AL', '28': 'SE', '29': 'BA',
-            '31': 'MG', '32': 'ES', '33': 'RJ', '35': 'SP',
-            '41': 'PR', '42': 'SC', '43': 'RS',
-            '50': 'MS', '51': 'MT', '52': 'GO', '53': 'DF'
-        }
-        
-        uf_codigo_para_label = {
-            uf["codigo_uf"]: f"{uf['nome_uf']} ({uf['codigo_uf']})"
-            for uf in dados_ufs
-        }
+            if not isinstance(programas_atuais, list):
+                programas_atuais = []
 
+            programas_atuais = [
+                str(p)
+                for p in programas_atuais
+            ]
 
-        # Criar mapeamento código -> "Município - UF"
-        municipios_codigo_para_label = {
-            int(m["codigo_municipio"]): f"{m['nome_municipio']} - {codigo_uf_para_sigla[str(m['codigo_municipio'])[:2]]}"
-            for m in dados_municipios
-        }
-        
-        biomas_codigo_para_label = {
-            b["codigo_bioma"]: f"{b['nome_bioma']} ({b['codigo_bioma']})"
-            for b in dados_biomas
-        }
+            programas_selecionados = st.multiselect(
+                "Programa / Área",
+                options=programa_options,
+                default=programas_atuais,
+                format_func=lambda x:
+                    mapa_programa_str[x],
+                placeholder=""
+            )
 
-        assent_codigo_para_label = {
-            a["codigo_assentamento"]: f"{a['nome_assentamento']} ({a['codigo_assentamento']})"
-            for a in dados_assentamentos
-        }
+            objetivo_geral = st.text_area(
+                "Objetivo geral",
+                value=projeto_info.get(
+                    "objetivo_geral",
+                    ""
+                )
+            )
 
-        quilombo_codigo_para_label = {
-            q["codigo_quilombo"]: f"{q['nome_quilombo']} ({q['codigo_quilombo']})"
-            for q in dados_quilombos
-        }
+            st.divider()
 
-        ti_codigo_para_label = {
-            ti["codigo_ti"]: f"{ti['nome_ti']} ({ti['codigo_ti']})"
-            for ti in dados_ti
-        }
+            st.subheader("Informações financeiras")
 
-        uc_codigo_para_label = {
-            u["codigo_uc"]: f"{u['nome_uc']} ({u['codigo_uc']})"
-            for u in dados_uc
-        }
+            col1, col2 = st.columns(2)
 
-        bacia_macro_codigo_para_label = {
-            b["codigo"]: f"{b['label']} ({b['codigo']})" 
-            for b in dados_bacias_macro
-        }
+            moeda_options = [
+                "",
+                "Dólares",
+                "Reais",
+                "Euros"
+            ]
 
-        bacia_meso_codigo_para_label = {
-            b["codigo"]: f"{b['label']} ({b['codigo']})" 
-            for b in dados_bacias_meso
-        }
+            moeda_atual = projeto_info.get(
+                "moeda",
+                ""
+            )
 
-        bacia_micro_codigo_para_label = {
-            b["codigo"]: f"{b['label']} ({b['codigo']})" 
-            for b in dados_bacias_micro
-        }
+            moeda = col1.selectbox(
+                "Moeda",
+                options=moeda_options,
+                index=(
+                    moeda_options.index(moeda_atual)
+                    if moeda_atual in moeda_options
+                    else 0
+                )
+            )
 
-        # -------------------- VALORES PADRÃO (REGIÕES JÁ CADASTRADAS) --------------------
-        regioes = projeto.get("regioes_atuacao", [])
+            valor = col2.number_input(
+                "Valor",
+                value=br_to_float(
+                    projeto_info.get("valor", "0")
+                ),
+                step=0.01,
+                min_value=0.0,
+                format="%.2f"
+            )
 
-        ufs_default = [r["codigo"] for r in regioes if r["tipo"] == "uf"]
-        muni_default = [r["codigo"] for r in regioes if r["tipo"] == "municipio"]
-        biomas_default = [r["codigo"] for r in regioes if r["tipo"] == "bioma"]
-        ti_default = [r["codigo"] for r in regioes if r["tipo"] == "terra_indigena"]
-        uc_default = [r["codigo"] for r in regioes if r["tipo"] == "uc"]
-        assent_default = [r["codigo"] for r in regioes if r["tipo"] == "assentamento"]
-        quilombo_default = [r["codigo"] for r in regioes if r["tipo"] == "quilombo"]
-        bacia_micro_default = [r["codigo"] for r in regioes if r["tipo"] == "bacia_micro"]
-        bacia_meso_default = [r["codigo"] for r in regioes if r["tipo"] == "bacia_meso"]
-        bacia_macro_default = [r["codigo"] for r in regioes if r["tipo"] == "bacia_macro"]
-        
-        st.subheader("Regiões de atuação")
-        st.write("")
+            st.write("")
 
-        # ----------------------- ESTADOS, MUNICÍPIOS E BIOMAS -----------------------
-        col1, col2, col3 = st.columns(3)
+            submit = st.form_submit_button(
+                "Salvar",
+                icon=":material/save:",
+                type="primary",
+                width=200
+            )
 
-        ufs_selecionadas = col1.multiselect(
-            "Estados",
-            options=sorted(uf_codigo_para_label.values()),
-            default=[uf_codigo_para_label[c] for c in ufs_default if c in uf_codigo_para_label],
-            placeholder=""
-        )
+            if submit:
 
-        municipios_selecionadas = col2.multiselect(
-            "Municípios",
-            options=sorted(municipios_codigo_para_label.values()),
-            default=[municipios_codigo_para_label[c] for c in muni_default if c in municipios_codigo_para_label],
-            placeholder=""
-        )
+                coordenador_objid = (
+                    bson.ObjectId(coordenador)
+                    if coordenador else None
+                )
 
-        biomas_selecionados = col3.multiselect(
-            "Biomas",
-            options=sorted(biomas_codigo_para_label.values()),
-            default=[biomas_codigo_para_label[c] for c in biomas_default if c in biomas_codigo_para_label],
-            placeholder=""
-        )
+                programas_objids = [
+                    bson.ObjectId(p)
+                    for p in programas_selecionados
+                ] if programas_selecionados else []
 
-        # ----------------------- UNIDADES DE CONSERVAÇÃO -----------------------
-
-        col1, col2 = st.columns(2)
-
-        ucs_selecionadas = col1.multiselect(
-            "Unidades de Conservação",
-            options=sorted(uc_codigo_para_label.values()),
-            default=[uc_codigo_para_label[c] for c in uc_default if c in uc_codigo_para_label],
-            placeholder=""
-        )
-
-        # ----------------------- TERRAS INDÍGENAS -----------------------
-        
-        tis_selecionadas = col2.multiselect(
-            "Terras Indígenas",
-            options=sorted(ti_codigo_para_label.values()),  # lista de labels
-            default=[ti_codigo_para_label[c] for c in ti_default if c in ti_codigo_para_label],
-            placeholder=""
-        )
-
-        # ----------------------- ASSENTAMENTOS -----------------------
-        
-        col1, col2 = st.columns(2)
-        
-        assentamentos_selecionados = col1.multiselect(
-            "Assentamentos",
-            options=sorted(assent_codigo_para_label.values()),
-            default=[assent_codigo_para_label[c] for c in assent_default],
-            placeholder=""
-        )
-
-        # ----------------------- QUILOMBOS -----------------------
-        quilombos_selecionados = col2.multiselect(
-            "Quilombos",
-            options=sorted(quilombo_codigo_para_label.values()),
-            default=[quilombo_codigo_para_label[c] for c in quilombo_default],
-            placeholder=""
-        )
-
-        # ----------------------- BACIAS HIDROGRÁFICAS -----------------------
-        col1, col2, col3 = st.columns(3)
-        
-        bacias_macro_sel = col1.multiselect(
-            "Bacias Hidrográficas - Nível 2",
-            options=sorted(bacia_macro_codigo_para_label.values()),
-            default=[bacia_macro_codigo_para_label[c] for c in bacia_macro_default],
-            placeholder=""
-        )
-        
-
-        bacias_meso_sel = col2.multiselect(
-            "Bacias Hidrográficas - Nível 3",
-            options=sorted(bacia_meso_codigo_para_label.values()),
-            default=[bacia_meso_codigo_para_label[c] for c in bacia_meso_default],
-            placeholder=""
-        )
-        
-        bacias_micro_sel = col3.multiselect(
-            "Bacias Hidrográficas - Nível 4",
-            options=sorted(bacia_micro_codigo_para_label.values()),
-            default=[bacia_micro_codigo_para_label[c] for c in bacia_micro_default],
-            placeholder=""
-        )
-
-        st.write('')
-        
-        # Botão de salvar
-        submit = st.form_submit_button("Salvar", icon=":material/save:", type="primary", width=200)
-        if submit:
-            # Converter coordenador, doador e programa para ObjectId antes de salvar
-            coordenador_objid = bson.ObjectId(coordenador) if coordenador else None
-            gestores_objids = [bson.ObjectId(g) for g in gestores] if gestores else []
-            doador_objid = bson.ObjectId(doador) if doador else None
-            programas_objids = [bson.ObjectId(p) for p in programas_selecionados] if programas_selecionados else []
-
-
-            # Checar duplicidade de sigla
-            sigla_existente = ((df_projetos_ispn["sigla"] == sigla) & (df_projetos_ispn["_id"] != projeto_info["_id"])).any()
-
-            # Checar duplicidade de código
-            codigo_existente = ((df_projetos_ispn["codigo"] == codigo) & (df_projetos_ispn["_id"] != projeto_info["_id"])).any()
-
-            if sigla_existente:
-                st.warning(f"A sigla '{sigla}' já está cadastrada em outro projeto. Escolha outra.")
-            elif codigo_existente:
-                st.warning(f"O código '{codigo}' já está cadastrado em outro projeto. Escolha outro.")
-                
-            else:
-
-                # Função auxiliar
-                def get_codigo_por_label(dicionario, valor):
-                    return next((codigo for codigo, label in dicionario.items() if label == valor), None)
-
-                regioes_atuacao = []
-
-                # Tipos simples com lookup
-                for tipo, selecionados, dicionario in [
-                    ("uf", ufs_selecionadas, uf_codigo_para_label),
-                    ("municipio", municipios_selecionadas, municipios_codigo_para_label),
-                    ("bioma", biomas_selecionados, biomas_codigo_para_label),
-                    ("terra_indigena", tis_selecionadas, ti_codigo_para_label),
-                    ("uc", ucs_selecionadas, uc_codigo_para_label),
-                    ("assentamento", assentamentos_selecionados, assent_codigo_para_label),
-                    ("quilombo", quilombos_selecionados, quilombo_codigo_para_label),
-                    ("bacia_micro", bacias_micro_sel, bacia_micro_codigo_para_label),
-                    ("bacia_meso", bacias_meso_sel, bacia_meso_codigo_para_label),
-                    ("bacia_macro", bacias_macro_sel, bacia_macro_codigo_para_label),
-                ]:
-                    for item in selecionados:
-                        codigo_atuacao = get_codigo_por_label(dicionario, item)
-                        if codigo_atuacao:
-                            regioes_atuacao.append({"tipo": tipo, "codigo": codigo_atuacao})
-
-                # Agora salva no MongoDB
                 update_doc = {
                     "codigo": codigo,
                     "sigla": sigla,
                     "nome_do_projeto": nome_do_projeto,
+                    "status": "Estratégico",
+                    "tipo_projeto": "estrategico",
+                    "coordenador": coordenador_objid,
+                    "programas": programas_objids,
+                    "objetivo_geral": objetivo_geral,
                     "moeda": moeda,
                     "valor": float_to_br(valor),
-                    "valor_contrapartida": float_to_br(contrapartida),
-                    "coordenador": coordenador_objid,
-                    "doador": doador_objid,
-                    "programas": programas_objids,
-                    "gestores": gestores_objids,
-                    "status": status,
-                    "data_inicio_contrato": data_inicio.strftime("%d/%m/%Y"),
-                    "data_fim_contrato": data_fim.strftime("%d/%m/%Y"),
-                    "objetivo_geral": objetivo_geral,
-                    "regioes_atuacao": regioes_atuacao,
-                    "orcamento_por_ano": {
-                        ano: float_to_br(v)
-                        for ano, v in orcamento_por_ano.items()
-                        if v > 0
-                    },
+                    "valor_contrapartida": float_to_br(0),
+                    "doador": None,
+                    "gestores": [],
+                    "regioes_atuacao": [],
+                    "orcamento_por_ano": {},
+                    "data_inicio_contrato": None,
+                    "data_fim_contrato": None,
                 }
 
-                projetos_ispn.update_one({"_id": projeto_info["_id"]}, {"$set": update_doc})
-                st.success("Projeto atualizado com sucesso!", icon=":material/check:")
+                projetos_ispn.update_one(
+                    {"_id": projeto_info["_id"]},
+                    {"$set": update_doc}
+                )
+
+                st.success(
+                    "Projeto estratégico atualizado com sucesso!"
+                )
+
                 time.sleep(2)
                 st.rerun()
+
+        else:
+        
+            #######################################################################
+            # DADOS DO PROJETO
+            #######################################################################
+            
+            st.subheader("Dados do projeto")
+            st.write("")
+
+            col1, col2 = st.columns(2)
+            
+            # Código
+            codigo = col1.text_input("Código", value=projeto_info.get("codigo", ""))
+            
+            # Sigla
+            sigla = col2.text_input("Sigla", value=projeto_info.get("sigla", ""))
+            
+            # Nome do projeto
+            nome_do_projeto = st.text_input("Nome do Projeto", value=projeto_info.get("nome_do_projeto", ""))
+
+            col1, col2, col3 = st.columns(3)
+
+            # Status
+            status_options = ["", "Em andamento", "Finalizado", "Cancelado"]
+
+            status_atual = projeto_info.get("status", "")
+            index_status = status_options.index(status_atual) if status_atual in status_options else 0
+
+            status = col1.selectbox(
+                "Status",
+                options=status_options,
+                index=index_status
+            )
+
+            # Datas
+            data_inicio_raw = projeto_info.get("data_inicio_contrato")
+
+            data_inicio = col2.date_input(
+                "Data de início",
+                value=(
+                    pd.to_datetime(data_inicio_raw, errors="coerce").date()
+                    if data_inicio_raw and not pd.isna(pd.to_datetime(data_inicio_raw, errors="coerce"))
+                    else None
+                ),
+                format="DD/MM/YYYY"
+            )
+
+            data_fim_raw = projeto_info.get("data_fim_contrato")
+
+            data_fim = col3.date_input(
+                "Data de fim",
+                value=(
+                    pd.to_datetime(data_fim_raw, errors="coerce").date()
+                    if data_fim_raw and not pd.isna(pd.to_datetime(data_fim_raw, errors="coerce"))
+                    else None
+                ),
+                format="DD/MM/YYYY"
+            )
+            
+            # -----------------------------------
+            # Pessoas ativas (base para selects)
+            # -----------------------------------
+            df_pessoas_ativas = df_pessoas[df_pessoas["status"] == "ativo"].copy()
+
+            pessoas_ativas_options = df_pessoas_ativas["_id"].astype(str).tolist()
+
+            # Coordenador atual
+            coordenador_atual_obj = projeto_info.get("coordenador")
+            coordenador_atual_str = str(coordenador_atual_obj) if coordenador_atual_obj else ""
+
+            # Opções: pessoas ativas + coordenador atual (se não estiver ativo)
+            coordenador_options = pessoas_ativas_options.copy()
+
+            if coordenador_atual_str and coordenador_atual_str not in coordenador_options:
+                coordenador_options.insert(0, coordenador_atual_str)
+
+            coordenador_options = [""] + coordenador_options
+
+            index_coordenador = (
+                coordenador_options.index(coordenador_atual_str)
+                if coordenador_atual_str in coordenador_options
+                else 0
+            )
+
+            coordenador = col1.selectbox(
+                "Coordenador",
+                options=coordenador_options,
+                format_func=lambda x: "" if x == "" else df_pessoas
+                    .loc[df_pessoas["_id"].astype(str) == x, "nome_completo"]
+                    .values[0],
+                index=index_coordenador
+            )
+
+            # Programa / Área
+            mapa_programa_str = {str(k): v for k, v in mapa_programa.items()}
+
+            programa_options = list(mapa_programa_str.keys())
+            programas_atuais = projeto_info.get("programas", [])
+
+            # Garante lista
+            if not isinstance(programas_atuais, list):
+                programas_atuais = [programas_atuais] if programas_atuais else []
+
+            # Converte para string e remove inválidos
+            programas_atuais_str = [
+                str(p) for p in programas_atuais
+                if p and str(p) != "nan"
+            ]
+
+            # Mantém apenas os que existem nas opções
+            programas_atuais_str = [
+                p for p in programas_atuais_str
+                if p in programa_options
+            ]
+
+            programa_options = list(mapa_programa_str.keys())
+
+            programas_selecionados = col2.multiselect(
+                "Programa / Área",
+                options=programa_options,
+                default=programas_atuais_str,
+                format_func=lambda x: mapa_programa_str[x],
+                placeholder=""
+            )
+            
+            # Doador
+            doador_options = list(mapa_doador.keys())
+            doador_atual = projeto_info.get("doador", "")
+            index_doador = doador_options.index(doador_atual) if doador_atual in doador_options else 0
+            doador = col3.selectbox(
+                "Doador",
+                options=doador_options,
+                format_func=lambda x: mapa_doador[x],
+                index=index_doador
+            )
+            
+            # -----------------------------------
+            # Gestores atuais (normalização segura)
+            # -----------------------------------
+            gestores_raw = projeto_info.get("gestores", [])
+
+            if not isinstance(gestores_raw, list):
+                gestores_raw = []
+
+            gestores_atuais = [str(g) for g in gestores_raw if g]
+            
+            gestores_options = pessoas_ativas_options.copy()
+
+            for g in gestores_atuais:
+                if g not in gestores_options:
+                    gestores_options.append(g)
+                    
+            gestores = st.multiselect(
+                "Gestores(as) do projeto",
+                options=gestores_options,
+                default=gestores_atuais,
+                format_func=lambda x: df_pessoas
+                    .loc[df_pessoas["_id"].astype(str) == x, "nome_completo"]
+                    .values[0],
+                placeholder=""
+            )
+
+            # Objetivo geral
+            objetivo_geral = st.text_area(
+                "Objetivo Geral",
+                value=str(projeto_info.get("objetivo_geral", "")) if pd.notna(projeto_info.get("objetivo_geral")) else ""
+            )
+
+            #######################################################################
+            # INFORMAÇÕES FINANCEIRAS
+            #######################################################################
+            
+            st.divider()
+            
+            st.subheader("Informações Financeiras")
+            st.write("")
+
+            col1, col2, col3 = st.columns(3)
+
+            # Moeda
+            moeda_options = ["", "Dólares", "Reais", "Euros"]
+            moeda_atual = projeto_info.get("moeda", "")
+            index_atual = moeda_options.index(moeda_atual) if moeda_atual in moeda_options else 0
+
+            moeda = col1.selectbox(
+                "Moeda",
+                options=moeda_options,
+                index=index_atual
+            )
+
+            # Valor
+            valor_atual = br_to_float(projeto_info.get("valor", "0"))
+
+            valor = col2.number_input(
+                "Valor",
+                value=valor_atual,
+                step=0.01,
+                min_value=0.0,
+                format="%.2f"
+            )
+
+            # Contrapartida
+            contrapartida_atual = br_to_float(
+                projeto_info.get("valor_contrapartida", "0")
+            )
+
+            contrapartida = col3.number_input(
+                "Contrapartida",
+                value=contrapartida_atual,
+                step=0.01,
+                min_value=0.0,
+                format="%.2f"
+            )
+            anos_projeto = gerar_anos_intervalo(data_inicio, data_fim)
+
+            orcamento_por_ano = {}
+
+            if anos_projeto:
+                cols = st.columns(len(anos_projeto))
+
+                for i, ano in enumerate(anos_projeto):
+                    valor_inicial = br_to_float(orcamento_existente.get(str(ano), "0"))
+
+                    valor_ano = cols[i].number_input(
+                        f"Orçamento de {ano}",
+                        min_value=0.0,
+                        value=valor_inicial,
+                        step=0.01,
+                        format="%.2f",
+                        key=f"edit_orcamento_{ano}"
+                    )
+
+                    orcamento_por_ano[str(ano)] = valor_ano
+
+            ######################################################################
+            # REGIÕES DE ATUAÇÃO
+            ######################################################################
+
+            st.divider()
+
+            # --- Carrega dados do Mongo ---
+            doc_ufs = colecao_ufs.find_one({"ufs": {"$exists": True}})
+            doc_municipios = colecao_ufs.find_one({"municipios": {"$exists": True}})
+
+            dados_ufs = doc_ufs.get("ufs", []) if doc_ufs else []
+            dados_municipios = doc_municipios.get("municipios", []) if doc_municipios else []
+
+            # Criar dicionário código_uf -> sigla
+            codigo_uf_para_sigla = {
+                '11': 'RO', '12': 'AC', '13': 'AM', '14': 'RR', '15': 'PA', '16': 'AP', '17': 'TO',
+                '21': 'MA', '22': 'PI', '23': 'CE', '24': 'RN', '25': 'PB', '26': 'PE', '27': 'AL', '28': 'SE', '29': 'BA',
+                '31': 'MG', '32': 'ES', '33': 'RJ', '35': 'SP',
+                '41': 'PR', '42': 'SC', '43': 'RS',
+                '50': 'MS', '51': 'MT', '52': 'GO', '53': 'DF'
+            }
+            
+            uf_codigo_para_label = {
+                uf["codigo_uf"]: f"{uf['nome_uf']} ({uf['codigo_uf']})"
+                for uf in dados_ufs
+            }
+
+
+            # Criar mapeamento código -> "Município - UF"
+            municipios_codigo_para_label = {
+                int(m["codigo_municipio"]): f"{m['nome_municipio']} - {codigo_uf_para_sigla[str(m['codigo_municipio'])[:2]]}"
+                for m in dados_municipios
+            }
+            
+            biomas_codigo_para_label = {
+                b["codigo_bioma"]: f"{b['nome_bioma']} ({b['codigo_bioma']})"
+                for b in dados_biomas
+            }
+
+            assent_codigo_para_label = {
+                a["codigo_assentamento"]: f"{a['nome_assentamento']} ({a['codigo_assentamento']})"
+                for a in dados_assentamentos
+            }
+
+            quilombo_codigo_para_label = {
+                q["codigo_quilombo"]: f"{q['nome_quilombo']} ({q['codigo_quilombo']})"
+                for q in dados_quilombos
+            }
+
+            ti_codigo_para_label = {
+                ti["codigo_ti"]: f"{ti['nome_ti']} ({ti['codigo_ti']})"
+                for ti in dados_ti
+            }
+
+            uc_codigo_para_label = {
+                u["codigo_uc"]: f"{u['nome_uc']} ({u['codigo_uc']})"
+                for u in dados_uc
+            }
+
+            bacia_macro_codigo_para_label = {
+                b["codigo"]: f"{b['label']} ({b['codigo']})" 
+                for b in dados_bacias_macro
+            }
+
+            bacia_meso_codigo_para_label = {
+                b["codigo"]: f"{b['label']} ({b['codigo']})" 
+                for b in dados_bacias_meso
+            }
+
+            bacia_micro_codigo_para_label = {
+                b["codigo"]: f"{b['label']} ({b['codigo']})" 
+                for b in dados_bacias_micro
+            }
+
+            # -------------------- VALORES PADRÃO (REGIÕES JÁ CADASTRADAS) --------------------
+            regioes = projeto.get("regioes_atuacao", [])
+
+            ufs_default = [r["codigo"] for r in regioes if r["tipo"] == "uf"]
+            muni_default = [r["codigo"] for r in regioes if r["tipo"] == "municipio"]
+            biomas_default = [r["codigo"] for r in regioes if r["tipo"] == "bioma"]
+            ti_default = [r["codigo"] for r in regioes if r["tipo"] == "terra_indigena"]
+            uc_default = [r["codigo"] for r in regioes if r["tipo"] == "uc"]
+            assent_default = [r["codigo"] for r in regioes if r["tipo"] == "assentamento"]
+            quilombo_default = [r["codigo"] for r in regioes if r["tipo"] == "quilombo"]
+            bacia_micro_default = [r["codigo"] for r in regioes if r["tipo"] == "bacia_micro"]
+            bacia_meso_default = [r["codigo"] for r in regioes if r["tipo"] == "bacia_meso"]
+            bacia_macro_default = [r["codigo"] for r in regioes if r["tipo"] == "bacia_macro"]
+            
+            st.subheader("Regiões de atuação")
+            st.write("")
+
+            # ----------------------- ESTADOS, MUNICÍPIOS E BIOMAS -----------------------
+            col1, col2, col3 = st.columns(3)
+
+            ufs_selecionadas = col1.multiselect(
+                "Estados",
+                options=sorted(uf_codigo_para_label.values()),
+                default=[uf_codigo_para_label[c] for c in ufs_default if c in uf_codigo_para_label],
+                placeholder=""
+            )
+
+            municipios_selecionadas = col2.multiselect(
+                "Municípios",
+                options=sorted(municipios_codigo_para_label.values()),
+                default=[municipios_codigo_para_label[c] for c in muni_default if c in municipios_codigo_para_label],
+                placeholder=""
+            )
+
+            biomas_selecionados = col3.multiselect(
+                "Biomas",
+                options=sorted(biomas_codigo_para_label.values()),
+                default=[biomas_codigo_para_label[c] for c in biomas_default if c in biomas_codigo_para_label],
+                placeholder=""
+            )
+
+            # ----------------------- UNIDADES DE CONSERVAÇÃO -----------------------
+
+            col1, col2 = st.columns(2)
+
+            ucs_selecionadas = col1.multiselect(
+                "Unidades de Conservação",
+                options=sorted(uc_codigo_para_label.values()),
+                default=[uc_codigo_para_label[c] for c in uc_default if c in uc_codigo_para_label],
+                placeholder=""
+            )
+
+            # ----------------------- TERRAS INDÍGENAS -----------------------
+            
+            tis_selecionadas = col2.multiselect(
+                "Terras Indígenas",
+                options=sorted(ti_codigo_para_label.values()),  # lista de labels
+                default=[ti_codigo_para_label[c] for c in ti_default if c in ti_codigo_para_label],
+                placeholder=""
+            )
+
+            # ----------------------- ASSENTAMENTOS -----------------------
+            
+            col1, col2 = st.columns(2)
+            
+            assentamentos_selecionados = col1.multiselect(
+                "Assentamentos",
+                options=sorted(assent_codigo_para_label.values()),
+                default=[assent_codigo_para_label[c] for c in assent_default],
+                placeholder=""
+            )
+
+            # ----------------------- QUILOMBOS -----------------------
+            quilombos_selecionados = col2.multiselect(
+                "Quilombos",
+                options=sorted(quilombo_codigo_para_label.values()),
+                default=[quilombo_codigo_para_label[c] for c in quilombo_default],
+                placeholder=""
+            )
+
+            # ----------------------- BACIAS HIDROGRÁFICAS -----------------------
+            col1, col2, col3 = st.columns(3)
+            
+            bacias_macro_sel = col1.multiselect(
+                "Bacias Hidrográficas - Nível 2",
+                options=sorted(bacia_macro_codigo_para_label.values()),
+                default=[bacia_macro_codigo_para_label[c] for c in bacia_macro_default],
+                placeholder=""
+            )
+            
+
+            bacias_meso_sel = col2.multiselect(
+                "Bacias Hidrográficas - Nível 3",
+                options=sorted(bacia_meso_codigo_para_label.values()),
+                default=[bacia_meso_codigo_para_label[c] for c in bacia_meso_default],
+                placeholder=""
+            )
+            
+            bacias_micro_sel = col3.multiselect(
+                "Bacias Hidrográficas - Nível 4",
+                options=sorted(bacia_micro_codigo_para_label.values()),
+                default=[bacia_micro_codigo_para_label[c] for c in bacia_micro_default],
+                placeholder=""
+            )
+
+            st.write('')
+        
+            # Botão de salvar
+            submit = st.form_submit_button("Salvar", icon=":material/save:", type="primary", width=200)
+            if submit:
+                # Converter coordenador, doador e programa para ObjectId antes de salvar
+                coordenador_objid = bson.ObjectId(coordenador) if coordenador else None
+                gestores_objids = [bson.ObjectId(g) for g in gestores] if gestores else []
+                doador_objid = bson.ObjectId(doador) if doador else None
+                programas_objids = [bson.ObjectId(p) for p in programas_selecionados] if programas_selecionados else []
+
+
+                # Checar duplicidade de sigla
+                sigla_existente = ((df_projetos_ispn["sigla"] == sigla) & (df_projetos_ispn["_id"] != projeto_info["_id"])).any()
+
+                # Checar duplicidade de código
+                codigo_existente = ((df_projetos_ispn["codigo"] == codigo) & (df_projetos_ispn["_id"] != projeto_info["_id"])).any()
+
+                if sigla_existente:
+                    st.warning(f"A sigla '{sigla}' já está cadastrada em outro projeto. Escolha outra.")
+                elif codigo_existente:
+                    st.warning(f"O código '{codigo}' já está cadastrado em outro projeto. Escolha outro.")
+                    
+                else:
+
+                    # Função auxiliar
+                    def get_codigo_por_label(dicionario, valor):
+                        return next((codigo for codigo, label in dicionario.items() if label == valor), None)
+
+                    regioes_atuacao = []
+
+                    # Tipos simples com lookup
+                    for tipo, selecionados, dicionario in [
+                        ("uf", ufs_selecionadas, uf_codigo_para_label),
+                        ("municipio", municipios_selecionadas, municipios_codigo_para_label),
+                        ("bioma", biomas_selecionados, biomas_codigo_para_label),
+                        ("terra_indigena", tis_selecionadas, ti_codigo_para_label),
+                        ("uc", ucs_selecionadas, uc_codigo_para_label),
+                        ("assentamento", assentamentos_selecionados, assent_codigo_para_label),
+                        ("quilombo", quilombos_selecionados, quilombo_codigo_para_label),
+                        ("bacia_micro", bacias_micro_sel, bacia_micro_codigo_para_label),
+                        ("bacia_meso", bacias_meso_sel, bacia_meso_codigo_para_label),
+                        ("bacia_macro", bacias_macro_sel, bacia_macro_codigo_para_label),
+                    ]:
+                        for item in selecionados:
+                            codigo_atuacao = get_codigo_por_label(dicionario, item)
+                            if codigo_atuacao:
+                                regioes_atuacao.append({"tipo": tipo, "codigo": codigo_atuacao})
+
+                    # Agora salva no MongoDB
+                    update_doc = {
+                        "codigo": codigo,
+                        "sigla": sigla,
+                        "nome_do_projeto": nome_do_projeto,
+                        "moeda": moeda,
+                        "valor": float_to_br(valor),
+                        "valor_contrapartida": float_to_br(contrapartida),
+                        "coordenador": coordenador_objid,
+                        "doador": doador_objid,
+                        "programas": programas_objids,
+                        "gestores": gestores_objids,
+                        "status": status,
+                        "data_inicio_contrato": data_inicio.strftime("%d/%m/%Y"),
+                        "data_fim_contrato": data_fim.strftime("%d/%m/%Y"),
+                        "objetivo_geral": objetivo_geral,
+                        "regioes_atuacao": regioes_atuacao,
+                        "orcamento_por_ano": {
+                            ano: float_to_br(v)
+                            for ano, v in orcamento_por_ano.items()
+                            if v > 0
+                        },
+                    }
+
+                    projetos_ispn.update_one({"_id": projeto_info["_id"]}, {"$set": update_doc})
+                    st.success("Projeto atualizado com sucesso!", icon=":material/check:")
+                    time.sleep(2)
+                    st.rerun()
 
 
 ######################################################################################################
@@ -1500,10 +1906,26 @@ if status_selecionado != "Todos":
 data_inicio_periodo = pd.to_datetime(f"{ano_inicio_selecionado}-01-01")
 data_fim_periodo = pd.to_datetime(f"{ano_fim_selecionado}-12-31")
 
-# Filtrar projetos que possuem qualquer interseção com esse período
-df_projetos_ispn_filtrado = df_projetos_ispn_filtrado[
+# ----------------------------------------------------------
+# FILTRO DE DATAS
+# ----------------------------------------------------------
+
+# Projetos estratégicos
+mask_estrategicos = (
+    df_projetos_ispn_filtrado["tipo_projeto"] == "estrategico"
+)
+
+# Projetos normais dentro do intervalo
+mask_periodo = (
     (df_projetos_ispn_filtrado['data_fim_contrato'] >= data_inicio_periodo) &
     (df_projetos_ispn_filtrado['data_inicio_contrato'] <= data_fim_periodo)
+)
+
+# Mantém:
+# - estratégicos
+# - normais dentro do período
+df_projetos_ispn_filtrado = df_projetos_ispn_filtrado[
+    mask_estrategicos | mask_periodo
 ]
 
 # Fim dos filtros -----------------------------------------------------------------------------
@@ -1683,6 +2105,11 @@ if projeto_info.empty:
 
 projeto = projeto_info.iloc[0]
 
+# Verifica se o projeto é estratégico
+projeto_estrategico = (
+    projeto.get("tipo_projeto") == "estrategico"
+)
+
 st.divider()
 
 with st.container(horizontal=True):
@@ -1792,60 +2219,162 @@ st.subheader(
 
 st.write('')
 
-col1, col2, col3 = st.columns(3)
+# ==========================================================
+# INTERFACE - PROJETO ESTRATÉGICO
+# ==========================================================
+
+def render_visualizacao_projeto_estrategico():
+
+    col1, col2 = st.columns(2)
+
+    # Valor
+    col1.metric(
+        "Valor",
+        df_projetos_ispn.loc[
+            df_projetos_ispn['sigla'] == projeto_selecionado,
+            'valor_com_moeda'
+        ].values[0]
+    )
+
+    st.write("")
+
+    col1, col2, col3 = st.columns(3)
+
+    st.write("")
+
+    # Coordenador
+    coordenador_id = (
+        projeto_info["coordenador"].values[0]
+        if not projeto_info.empty else None
+    )
+
+    coordenador_nome = (
+        mapa_coordenador.get(str(coordenador_id), "")
+        if coordenador_id else ""
+    )
+
+    col1.write(f"**Coordenador(a):** {coordenador_nome}")
+
+    # Programa
+    programa = (
+        projeto_info["programa_nome"].values[0]
+        if not projeto_info.empty else ""
+    )
+
+    col2.write(f"**Programa(s):** {programa}")
+
+    # Situação
+    col3.write(
+        f"**Situação:** {
+            df_projetos_ispn.loc[
+                df_projetos_ispn['sigla'] == projeto_selecionado,
+                'status'
+            ].values[0]
+        }"
+    )
 
 
-# Valor e contrapartida
 
-col1.write('')
-col1.metric("**Valor:**", df_projetos_ispn.loc[df_projetos_ispn['sigla'] == projeto_selecionado, 'valor_com_moeda'].values[0])
-col1.write('')
+# ==========================================================
+# INTERFACE - PROJETO NORMAL
+# ==========================================================
+
+def render_visualizacao_projeto_normal():
+
+    col1, col2, col3 = st.columns(3)
+
+    # Valor
+    col1.metric(
+        "Valor",
+        df_projetos_ispn.loc[
+            df_projetos_ispn['sigla'] == projeto_selecionado,
+            'valor_com_moeda'
+        ].values[0]
+    )
+
+    # Contrapartida
+    col2.metric(
+        "Contrapartida",
+        df_projetos_ispn.loc[
+            df_projetos_ispn['sigla'] == projeto_selecionado,
+            'contrapartida_com_moeda'
+        ].values[0]
+    )
+
+    # Orçamento
+    if df_orcamento.empty:
+        col3.write("_Sem orçamento por ano cadastrado_")
+    else:
+        col3.write("**Orçamento por ano:**")
+        col3.dataframe(df_orcamento, hide_index=True)
+
+    st.write("")
+
+    col1, col2, col3 = st.columns(3)
+
+    # Coordenador
+    coordenador_id = (
+        projeto_info["coordenador"].values[0]
+        if not projeto_info.empty else None
+    )
+
+    coordenador_nome = (
+        mapa_coordenador.get(str(coordenador_id), "")
+        if coordenador_id else ""
+    )
+
+    col1.write(f"**Coordenador(a):** {coordenador_nome}")
+
+    # Programa
+    programa = (
+        projeto_info["programa_nome"].values[0]
+        if not projeto_info.empty else ""
+    )
+
+    col1.write(f"**Programa(s):** {programa}")
+
+    # Doador
+    doador = (
+        projeto_info["doador_nome"].values[0]
+        if not projeto_info.empty else ""
+    )
+
+    col2.write(f"**Doador:** {doador}")
+    # Situação
+    col2.write(
+        f"**Situação:** {
+            df_projetos_ispn.loc[
+                df_projetos_ispn['sigla'] == projeto_selecionado,
+                'status'
+            ].values[0]
+        }"
+    )
+
+    # Datas
+    data_inicio = df_projetos_ispn.loc[
+        df_projetos_ispn["sigla"] == projeto_selecionado,
+        "data_inicio_contrato"
+    ].dt.strftime("%d/%m/%Y").values[0]
+
+    data_fim = df_projetos_ispn.loc[
+        df_projetos_ispn["sigla"] == projeto_selecionado,
+        "data_fim_contrato"
+    ].dt.strftime("%d/%m/%Y").values[0]
+
+    col3.write(f"**Data de início:** {data_inicio}")
+    col3.write(f"**Data de término:** {data_fim}")
+
+    
 
 
-col2.write('')
-col2.metric(
-    "**Contrapartida:**",
-    df_projetos_ispn.loc[
-        df_projetos_ispn['sigla'] == projeto_selecionado,
-        'contrapartida_com_moeda'
-    ].values[0]
-)
-col2.write('')
+# ==========================================================
+# RENDERIZAÇÃO
+# ==========================================================
 
-# ---------------------------
-# ORÇAMENTO POR ANO
-# ---------------------------
-
-col3.write('')
-
-if df_orcamento.empty:
-    col3.write("_Sem orçamento por ano cadastrado_")
+if projeto_estrategico:
+    render_visualizacao_projeto_estrategico()
 else:
-    col3.write("**Orçamento por ano:**")
-    col3.dataframe(df_orcamento, hide_index=True)
-
-st.write('')
-
-# Coordenador
-coordenador_id = projeto_info["coordenador"].values[0] if not projeto_info.empty else None
-coordenador_nome = (mapa_coordenador.get(str(coordenador_id), "") if coordenador_id else "")
-col1.write(f'**Coordenador(a):** {coordenador_nome}')
-
-# Doador e Programa
-doador = projeto_info["doador_nome"].values[0] if not projeto_info.empty else ""
-programa = projeto_info["programa_nome"].values[0] if not projeto_info.empty else ""
-col1.write(f'**Doador:** {doador}')
-col1.write(f'**Programa(s):** {programa}')
-
-
-# Situação
-col2.write(f'**Situação:** {df_projetos_ispn.loc[df_projetos_ispn["sigla"] == projeto_selecionado, "status"].values[0]}')
-
-# Datas de início e término
-data_inicio = df_projetos_ispn.loc[df_projetos_ispn["sigla"] == projeto_selecionado, "data_inicio_contrato"].dt.strftime("%d/%m/%Y").values[0]
-data_fim = df_projetos_ispn.loc[df_projetos_ispn["sigla"] == projeto_selecionado, "data_fim_contrato"].dt.strftime("%d/%m/%Y").values[0]
-col2.write(f'**Data de início:** {data_inicio}')
-col2.write(f'**Data de término:** {data_fim}')
+    render_visualizacao_projeto_normal()
 
 
 
