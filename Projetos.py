@@ -2021,16 +2021,40 @@ st.write('')
 # Selecionando colunas pra mostrar
 df_projetos_ispn_filtrado_show = df_projetos_ispn_filtrado[['sigla', 'nome_do_projeto', 'programa_nome', 'doador_nome', 'valor_com_moeda', 'data_inicio_contrato', 'data_fim_contrato', 'status']]
 
+# ==========================================================
+# PROJETOS ESTRATÉGICOS
+# Substitui Doador e Datas por "-"
+# ==========================================================
+
+mask_estrategico = (
+    df_projetos_ispn_filtrado["status"] == "Estratégico"
+)
+
+df_projetos_ispn_filtrado_show.loc[
+    mask_estrategico,
+    ["doador_nome", "data_inicio_contrato", "data_fim_contrato"]
+] = ""
 
 # Formatando as datas
 df_projetos_ispn_filtrado_show = df_projetos_ispn_filtrado_show.copy()
 
-df_projetos_ispn_filtrado_show['data_inicio_contrato'] = (
-    df_projetos_ispn_filtrado_show['data_inicio_contrato'].dt.strftime('%d/%m/%Y')
-)
-df_projetos_ispn_filtrado_show['data_fim_contrato'] = (
-    df_projetos_ispn_filtrado_show['data_fim_contrato'].dt.strftime('%d/%m/%Y')
-)
+# df_projetos_ispn_filtrado_show['data_inicio_contrato'] = (
+#     df_projetos_ispn_filtrado_show['data_inicio_contrato']
+#     .apply(
+#         lambda x: x.strftime('%d/%m/%Y')
+#         if isinstance(x, pd.Timestamp)
+#         else x
+#     )
+# )
+
+# df_projetos_ispn_filtrado_show['data_fim_contrato'] = (
+#     df_projetos_ispn_filtrado_show['data_fim_contrato']
+#     .apply(
+#         lambda x: x.strftime('%d/%m/%Y')
+#         if isinstance(x, pd.Timestamp)
+#         else x
+#     )
+# )
 
 # Renomeando as colunas
 df_projetos_ispn_filtrado_show = df_projetos_ispn_filtrado_show.rename(columns={
@@ -2092,8 +2116,16 @@ st.dataframe(
         "Abrir": st.column_config.CheckboxColumn(
             "Abrir",
             help="Abrir projeto"
-        )
-    },
+        ),
+        "Início do contrato": st.column_config.DateColumn(
+            "Início do contrato",
+            format="DD/MM/YYYY"
+        ),
+        "Fim do contrato": st.column_config.DateColumn(
+            "Fim do contrato",
+            format="DD/MM/YYYY"
+        ),
+    }
 )
 
 projeto_selecionado = st.session_state.get("projeto_selecionado_projetos")
