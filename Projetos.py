@@ -321,6 +321,16 @@ df_pessoas = pd.DataFrame(list(db["pessoas"].find()))
 
 # PROJETOS
 
+# Garantir existência da coluna tipo_projeto
+if "tipo_projeto" not in df_projetos_ispn.columns:
+    df_projetos_ispn["tipo_projeto"] = "normal"
+
+# Preencher valores vazios
+df_projetos_ispn["tipo_projeto"] = (
+    df_projetos_ispn["tipo_projeto"]
+    .fillna("normal")
+)
+
 # --- 2. Criar dicionários de mapeamento ---
 mapa_doador = {d["_id"]: d["nome_doador"] for d in db["doadores"].find()}
 mapa_programa = {p["_id"]: p["nome_programa_area"] for p in db["programas_areas"].find()}
@@ -916,13 +926,6 @@ def dialog_cadastrar_projeto():
                     "objetivo_geral": objetivo_geral,
                     "moeda": moeda,
                     "valor": float_to_br(valor),
-                    "valor_contrapartida": float_to_br(0),
-                    "doador": None,
-                    "gestores": [],
-                    "regioes_atuacao": [],
-                    "orcamento_por_ano": {},
-                    "data_inicio_contrato": None,
-                    "data_fim_contrato": None,
                 }
 
                 projetos_ispn.insert_one(doc)
@@ -1299,13 +1302,6 @@ def dialog_editar_projeto():
                     "objetivo_geral": objetivo_geral,
                     "moeda": moeda,
                     "valor": float_to_br(valor),
-                    "valor_contrapartida": float_to_br(0),
-                    "doador": None,
-                    "gestores": [],
-                    "regioes_atuacao": [],
-                    "orcamento_por_ano": {},
-                    "data_inicio_contrato": None,
-                    "data_fim_contrato": None,
                 }
 
                 projetos_ispn.update_one(
