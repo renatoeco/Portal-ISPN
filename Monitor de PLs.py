@@ -24,6 +24,36 @@ df_final = pd.DataFrame(columns=colunas)  # Cria o DataFrame com as colunas defi
 # ###################################################################################################
 
 
+# -----------------------------------------------------------------------------------
+# GARANTE QUE TEMA E SUB-TEMA SEJAM LISTAS
+# NECESSÁRIO PARA O MULTISELECTCOLUMN FUNCIONAR
+# -----------------------------------------------------------------------------------
+
+def transformar_em_lista(valor):
+    """
+    Garante que o valor seja sempre uma lista.
+    """
+
+    # Já é lista
+    if isinstance(valor, list):
+        return valor
+
+    # Caso venha como tupla ou array
+    if isinstance(valor, (tuple, set)):
+        return list(valor)
+
+    # Valores nulos
+    if valor is None:
+        return []
+
+    # NaN
+    if isinstance(valor, float) and pd.isna(valor):
+        return []
+
+    # String simples
+    return [valor]
+            
+
 # Função para excluir um item da coleção
 def excluir_pls(numero_pl):
     # Exclui um item com o número da proposição fornecido
@@ -572,16 +602,33 @@ def main():
             df_filtrado = df_filtrado[df_filtrado["Prioridade"] == numero_prioridade]
 
         # -----------------------------------------------------------------------------------
+        # GARANTE LISTAS PARA FILTRAGEM
+        # -----------------------------------------------------------------------------------
+
+        df_filtrado["Tema"] = df_filtrado["Tema"].apply(transformar_em_lista)
+        df_filtrado["Sub-Tema"] = df_filtrado["Sub-Tema"].apply(transformar_em_lista)
+
+        # -----------------------------------------------------------------------------------
         # FILTRO DE TEMA
         # -----------------------------------------------------------------------------------
+
         if temas_filtro:
-            df_filtrado = df_filtrado[df_filtrado["Tema"].isin(temas_filtro)]
+            df_filtrado = df_filtrado[
+                df_filtrado["Tema"].apply(
+                    lambda temas: any(t in temas for t in temas_filtro)
+                )
+            ]
 
         # -----------------------------------------------------------------------------------
         # FILTRO DE SUB-TEMA
         # -----------------------------------------------------------------------------------
+
         if subtemas_filtro:
-            df_filtrado = df_filtrado[df_filtrado["Sub-Tema"].isin(subtemas_filtro)]
+            df_filtrado = df_filtrado[
+                df_filtrado["Sub-Tema"].apply(
+                    lambda subtemas: any(s in subtemas for s in subtemas_filtro)
+                )
+            ]
 
         # Converte prioridade para número (vazios vão para o final)
         df_filtrado["Prioridade_ord"] = pd.to_numeric(df_filtrado["Prioridade"], errors="coerce")
@@ -651,15 +698,48 @@ def main():
 
             st.write("")
 
-            # Configuração das colunas editáveis
+            # -----------------------------------------------------------------------------------
+            # OPÇÕES DISPONÍVEIS NO BANCO
+            # -----------------------------------------------------------------------------------
+
+            temas_opcoes = sorted(list(set(
+                colecao.distinct("Tema") +
+                colecao_3.distinct("Tema")
+            )))
+
+            subtemas_opcoes = sorted(list(set(
+                colecao.distinct("Sub-Tema") +
+                colecao_3.distinct("Sub-Tema")
+            )))
+
+            
+
+
+            df_exibir["Tema"] = df_exibir["Tema"].apply(transformar_em_lista)
+            df_exibir["Sub-Tema"] = df_exibir["Sub-Tema"].apply(transformar_em_lista)
+
+            # -----------------------------------------------------------------------------------
+            # CONFIGURAÇÃO DAS COLUNAS EDITÁVEIS
+            # -----------------------------------------------------------------------------------
+
             col_config = {
                 "Prioridade": st.column_config.SelectboxColumn(
                     "Prioridade",
                     options=["", "1", "2", "3"],
                     required=False
                 ),
-                "Tema": st.column_config.Column(disabled=False),
-                "Sub-Tema": st.column_config.Column(disabled=False)
+
+                "Tema": st.column_config.MultiselectColumn(
+                    "Tema",
+                    options=temas_opcoes,
+                    required=False
+                ),
+
+                "Sub-Tema": st.column_config.MultiselectColumn(
+                    "Sub-Tema",
+                    options=subtemas_opcoes,
+                    required=False
+                )
             }
 
             # Todas as outras colunas ficam travadas
@@ -691,8 +771,8 @@ def main():
                         # Só atualiza se houve mudança
                         if (
                             row["Prioridade"] == row_original["Prioridade"] and
-                            row["Tema"] == row_original["Tema"] and
-                            row["Sub-Tema"] == row_original["Sub-Tema"]
+                            sorted(row["Tema"]) == sorted(row_original["Tema"]) and
+                            sorted(row["Sub-Tema"]) == sorted(row_original["Sub-Tema"])
                         ):
                             continue  # pula, não faz update
 
