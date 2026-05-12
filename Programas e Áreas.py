@@ -789,30 +789,9 @@ def dialog_cadastrar_projeto():
         # =========================================================
 
         if projeto_estrategico:
-            col1, col2 = st.columns(2)
 
-            # Código
-            codigo = col1.text_input("Código", value="")
-
-            # Sigla
-            sigla = col2.text_input("Sigla", value="")
-
-            # Nome do projeto
-            nome_do_projeto = st.text_input(
-                "Nome do projeto",
-                value=""
-            )
-
-            col1, col2 = st.columns(2)
-
-            # Status fixo
-            status = "Estratégico"
-
-            col1.text_input(
-                "Status",
-                value="Estratégico",
-                disabled=True
-            )
+            # Programa / Área
+            programa_options = [""] + list(mapa_programa.keys())
 
             # -----------------------------------
             # Pessoas ativas
@@ -830,6 +809,39 @@ def dialog_cadastrar_projeto():
 
             coordenador_options = [""] + pessoas_options
 
+            col1, col2, col3 = st.columns(3)
+
+            # Código
+            codigo = col1.text_input("Código", value="")
+
+            # Sigla
+            sigla = col2.text_input("Sigla", value="")
+
+            # Status fixo
+            status = "Estratégico"
+
+            col3.text_input(
+                "Status",
+                value="Estratégico",
+                disabled=True
+            )
+
+            # Nome do projeto
+            nome_do_projeto = st.text_input(
+                "Nome do projeto",
+                value=""
+            )
+
+            col1, col2, col3 = st.columns(3)
+
+            programas_selecionados = col1.multiselect(
+                "Programa / Área",
+                options=programa_options,
+                format_func=lambda x:
+                    "" if x == "" else mapa_programa[x],
+                placeholder=""
+            )
+
             coordenador = col2.selectbox(
                 "Coordenador",
                 options=coordenador_options,
@@ -842,52 +854,18 @@ def dialog_cadastrar_projeto():
                 index=0
             )
 
-            # Programa / Área
-            programa_options = [""] + list(mapa_programa.keys())
-
-            programas_selecionados = st.multiselect(
-                "Programa / Área",
-                options=programa_options,
-                format_func=lambda x:
-                    "" if x == "" else mapa_programa[x],
+            gestores = col3.multiselect(
+                "Gestores(as) do projeto",
+                options=pessoas_options,
+                format_func=lambda x: df_pessoas_ativas
+                    .loc[df_pessoas_ativas["_id"].astype(str) == x, "nome_completo"]
+                    .values[0],
                 placeholder=""
-            )
-
-            # Objetivo geral
-            objetivo_geral = st.text_area(
-                "Objetivo geral",
-                value=""
-            )
-
-            st.divider()
-
-            st.subheader("Informações financeiras")
-            st.write("")
-
-            col1, col2 = st.columns(2)
-
-            # Moeda
-            moeda_options = ["", "Dólares", "Reais", "Euros"]
-
-            moeda = col1.selectbox(
-                "Moeda",
-                options=moeda_options,
-                index=0
-            )
-
-            # Valor
-            valor = col2.number_input(
-                "Valor",
-                value=0.00,
-                step=0.01,
-                min_value=0.0,
-                format="%.2f"
             )
 
             # Campos não utilizados no estratégico
             contrapartida = 0
             doador = None
-            gestores = []
             regioes_atuacao = []
             orcamento_por_ano = {}
             data_inicio = None
@@ -1205,6 +1183,11 @@ def dialog_cadastrar_projeto():
                     for p in programas_selecionados
                 ] if programas_selecionados else []
 
+                gestores_objids = [
+                    bson.ObjectId(g)
+                    for g in gestores
+                ] if gestores else []
+
                 doc = {
                     "_id": projeto_id,
                     "tipo_projeto": "estrategico",
@@ -1214,9 +1197,7 @@ def dialog_cadastrar_projeto():
                     "status": "Estratégico",
                     "coordenador": coordenador_objid,
                     "programas": programas_objids,
-                    "objetivo_geral": objetivo_geral,
-                    "moeda": moeda,
-                    "valor": float_to_br(valor),
+                    "gestores": gestores_objids,
                 }
 
                 projetos_ispn.insert_one(doc)
@@ -1431,7 +1412,7 @@ def dialog_editar_projeto():
 
         if projeto_estrategico:
 
-            col1, col2 = st.columns(2)
+            col1, col2, col3 = st.columns(3)
 
             codigo = col1.text_input(
                 "Código",
@@ -1443,18 +1424,18 @@ def dialog_editar_projeto():
                 value=projeto_info.get("sigla", "")
             )
 
+            col3.text_input(
+                "Status",
+                value="Estratégico",
+                disabled=True
+            )
+
             nome_do_projeto = st.text_input(
                 "Nome do projeto",
                 value=projeto_info.get("nome_do_projeto", "")
             )
 
-            col1, col2 = st.columns(2)
-
-            col1.text_input(
-                "Status",
-                value="Estratégico",
-                disabled=True
-            )
+            col1, col2, col3 = st.columns(3)
 
             # -----------------------------------
             # Pessoas ativas
@@ -1486,22 +1467,6 @@ def dialog_editar_projeto():
                     coordenador_atual
                 )
 
-            coordenador = col2.selectbox(
-                "Coordenador",
-                options=coordenador_options,
-                index=(
-                    coordenador_options.index(coordenador_atual)
-                    if coordenador_atual in coordenador_options
-                    else 0
-                ),
-                format_func=lambda x:
-                    "" if x == "" else
-                    df_pessoas.loc[
-                        df_pessoas["_id"].astype(str) == x,
-                        "nome_completo"
-                    ].values[0]
-            )
-
             # -----------------------------------
             # Programas
             # -----------------------------------
@@ -1528,7 +1493,7 @@ def dialog_editar_projeto():
                 for p in programas_atuais
             ]
 
-            programas_selecionados = st.multiselect(
+            programas_selecionados = col1.multiselect(
                 "Programa / Área",
                 options=programa_options,
                 default=programas_atuais,
@@ -1537,54 +1502,48 @@ def dialog_editar_projeto():
                 placeholder=""
             )
 
-            objetivo_geral = st.text_area(
-                "Objetivo geral",
-                value=projeto_info.get(
-                    "objetivo_geral",
-                    ""
-                )
-            )
-
-            st.divider()
-
-            st.subheader("Informações financeiras")
-
-            col1, col2 = st.columns(2)
-
-            moeda_options = [
-                "",
-                "Dólares",
-                "Reais",
-                "Euros"
-            ]
-
-            moeda_atual = projeto_info.get(
-                "moeda",
-                ""
-            )
-
-            moeda = col1.selectbox(
-                "Moeda",
-                options=moeda_options,
+            coordenador = col2.selectbox(
+                "Coordenador",
+                options=coordenador_options,
                 index=(
-                    moeda_options.index(moeda_atual)
-                    if moeda_atual in moeda_options
+                    coordenador_options.index(coordenador_atual)
+                    if coordenador_atual in coordenador_options
                     else 0
-                )
+                ),
+                format_func=lambda x:
+                    "" if x == "" else
+                    df_pessoas.loc[
+                        df_pessoas["_id"].astype(str) == x,
+                        "nome_completo"
+                    ].values[0]
             )
 
-            valor = col2.number_input(
-                "Valor",
-                value=br_to_float(
-                    projeto_info.get("valor", "0")
-                ),
-                step=0.01,
-                min_value=0.0,
-                format="%.2f"
+            gestores_raw = projeto_info.get("gestores", [])
+
+            if not isinstance(gestores_raw, list):
+                gestores_raw = []
+
+            gestores_atuais = [str(g) for g in gestores_raw if g]
+
+            gestores_options = pessoas_options.copy()
+
+            for g in gestores_atuais:
+                if g not in gestores_options:
+                    gestores_options.append(g)
+
+            gestores = col3.multiselect(
+                "Gestores(as) do projeto",
+                options=gestores_options,
+                default=gestores_atuais,
+                format_func=lambda x: df_pessoas
+                    .loc[df_pessoas["_id"].astype(str) == x, "nome_completo"]
+                    .values[0],
+                placeholder=""
             )
-        
+
+
         #######################################################################
-        # DADOS DO PROJETO
+        # DADOS DO PROJETO NORMAL
         #######################################################################
         
         else:
@@ -2024,6 +1983,10 @@ def dialog_editar_projeto():
             # Converter coordenador, programa para ObjectId antes de salvar
             coordenador_objid = bson.ObjectId(coordenador) if coordenador else None
             programas_objids = [bson.ObjectId(p) for p in programas_selecionados] if programas_selecionados else []
+            gestores_objids = [
+                bson.ObjectId(g)
+                for g in gestores
+            ] if gestores else []
 
 
             # Checar duplicidade de sigla
@@ -2047,9 +2010,7 @@ def dialog_editar_projeto():
                     "status": "Estratégico",
                     "coordenador": coordenador_objid,
                     "programas": programas_objids,
-                    "objetivo_geral": objetivo_geral,
-                    "moeda": moeda,
-                    "valor": float_to_br(valor),
+                    "gestores": gestores_objids,
                 }
 
                 projetos_ispn.update_one(
@@ -2063,8 +2024,7 @@ def dialog_editar_projeto():
                 st.rerun()
                 
             else:
-                # Converter gestores, doador para ObjectId antes de salvar
-                gestores_objids = [bson.ObjectId(g) for g in gestores] if gestores else []
+                # Converter doador para ObjectId antes de salvar
                 doador_objid = bson.ObjectId(doador) if doador else None
 
                 # Função auxiliar
