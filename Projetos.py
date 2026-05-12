@@ -2264,22 +2264,17 @@ st.write('')
 
 def render_visualizacao_projeto_estrategico():
 
-    col1, col2 = st.columns(2)
+    st.write("")
 
-    # Valor
-    col1.metric(
-        "Valor",
-        df_projetos_ispn.loc[
-            df_projetos_ispn['sigla'] == projeto_selecionado,
-            'valor_com_moeda'
-        ].values[0]
+    col1, col2= st.columns(2)
+
+    # Programa
+    programa = (
+        projeto_info["programa_nome"].values[0]
+        if not projeto_info.empty else ""
     )
 
-    st.write("")
-
-    col1, col2, col3 = st.columns(3)
-
-    st.write("")
+    col1.write(f"**Programa(s):** {programa}")
 
     # Coordenador
     coordenador_id = (
@@ -2292,25 +2287,48 @@ def render_visualizacao_projeto_estrategico():
         if coordenador_id else ""
     )
 
-    col1.write(f"**Coordenador(a):** {coordenador_nome}")
+    col2.write(f"**Coordenador(a):** {coordenador_nome}")
 
-    # Programa
-    programa = (
-        projeto_info["programa_nome"].values[0]
-        if not projeto_info.empty else ""
+    col1, col2= st.columns(2)
+
+    # Gestores
+    gestores_ids = (
+        projeto_info["gestores"].values[0]
+        if (
+            not projeto_info.empty
+            and "gestores" in projeto_info.columns
+        )
+        else []
     )
 
-    col2.write(f"**Programa(s):** {programa}")
+    if not isinstance(gestores_ids, list):
+        gestores_ids = [gestores_ids] if gestores_ids else []
+
+    gestores_nomes = [
+        mapa_coordenador.get(str(gestor_id), str(gestor_id))
+        for gestor_id in gestores_ids
+        if gestor_id
+    ]
+
+    gestores_texto = ", ".join(gestores_nomes) if gestores_nomes else "-"
+
+    col1.write(f"**Gestor(es):** {gestores_texto}")
 
     # Situação
-    col3.write(
-        f"**Situação:** {
-            df_projetos_ispn.loc[
-                df_projetos_ispn['sigla'] == projeto_selecionado,
-                'status'
-            ].values[0]
-        }"
+    situacao = (
+        df_projetos_ispn.loc[
+            df_projetos_ispn['sigla'] == projeto_selecionado,
+            'status'
+        ].values[0]
+        if not df_projetos_ispn.loc[
+            df_projetos_ispn['sigla'] == projeto_selecionado
+        ].empty
+        else ""
     )
+
+    col2.write(f"**Situação:** {situacao}")
+
+    st.write("")
 
 
 
@@ -2403,6 +2421,17 @@ def render_visualizacao_projeto_normal():
     col3.write(f"**Data de início:** {data_inicio}")
     col3.write(f"**Data de término:** {data_fim}")
 
+    # Objetivo geral
+    objetivo_geral = df_projetos_ispn.loc[
+        df_projetos_ispn["sigla"] == projeto_selecionado, "objetivo_geral"
+    ].values[0]
+    # Verificando se é NaN ou vazio
+    if pd.isna(objetivo_geral) or objetivo_geral == "":
+        objetivo_geral = "_Não cadastrado_"
+    st.write(f'**Objetivo geral:** {objetivo_geral}')
+
+    st.write('')
+
     
 
 
@@ -2417,16 +2446,7 @@ else:
 
 
 
-# Objetivo geral
-objetivo_geral = df_projetos_ispn.loc[
-    df_projetos_ispn["sigla"] == projeto_selecionado, "objetivo_geral"
-].values[0]
-# Verificando se é NaN ou vazio
-if pd.isna(objetivo_geral) or objetivo_geral == "":
-    objetivo_geral = "_Não cadastrado_"
-st.write(f'**Objetivo geral:** {objetivo_geral}')
 
-st.write('')
 
 # Obter o _id do projeto selecionado
 projeto_id = df_projetos_ispn.loc[
