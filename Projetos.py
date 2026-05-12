@@ -177,35 +177,77 @@ def parse_valor(valor):
 
 # Função para limpar e formatar o valor com notação de moeda (duas casas decimais)
 def formatar_valor(row):
-    moeda = moedas.get(row['moeda'].lower(), '')
+    """
+    Formata o valor do projeto com símbolo monetário.
+    Trata valores nulos, NaN e tipos inesperados.
+    """
+
+    moeda_raw = row.get("moeda", "")
+
+    if pd.isna(moeda_raw):
+        moeda_raw = ""
+
+    moeda = moedas.get(str(moeda_raw).strip().lower(), "")
+
     try:
-        valor = row['valor'] if row['valor'] else 0
-        # Converter string brasileira para float
-        valor_num = float(str(valor).replace('.', '').replace(',', '.'))
-        # Formatar com ponto como separador de milhares e vírgula para decimais
-        valor_formatado = f"{valor_num:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        valor = row.get("valor", 0)
+
+        if pd.isna(valor):
+            valor = 0
+
+        valor_num = float(
+            str(valor)
+            .replace(".", "")
+            .replace(",", ".")
+        )
+
+        valor_formatado = (
+            f"{valor_num:,.2f}"
+            .replace(",", "X")
+            .replace(".", ",")
+            .replace("X", ".")
+        )
+
         return f"{moeda} {valor_formatado}"
+
     except:
         return f"{moeda} 0,00"
 
 
 def formatar_contrapartida(row):
     """
-    Formata a contrapartida usando a MESMA moeda do projeto.
+    Formata a contrapartida usando a mesma moeda do projeto.
+    Trata valores nulos, NaN e tipos inesperados.
     """
-    moeda = moedas.get(row['moeda'].lower(), '')
-    
+
+    moeda_raw = row.get("moeda", "")
+
+    if pd.isna(moeda_raw):
+        moeda_raw = ""
+
+    moeda = moedas.get(str(moeda_raw).strip().lower(), "")
+
     try:
-        valor = row['valor_contrapartida'] if row['valor_contrapartida'] else 0
-        
-        # Converter string BR para float
-        valor_num = float(str(valor).replace('.', '').replace(',', '.'))
-        
-        # Formatação BR
-        valor_formatado = f"{valor_num:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-        
+        valor = row.get("valor_contrapartida", 0)
+
+        if pd.isna(valor):
+            valor = 0
+
+        valor_num = float(
+            str(valor)
+            .replace(".", "")
+            .replace(",", ".")
+        )
+
+        valor_formatado = (
+            f"{valor_num:,.2f}"
+            .replace(",", "X")
+            .replace(".", ",")
+            .replace("X", ".")
+        )
+
         return f"{moeda} {valor_formatado}"
-    
+
     except:
         return f"{moeda} 0,00"
 
@@ -492,7 +534,7 @@ def dialog_cadastrar_projeto():
 
         if projeto_estrategico:
 
-            col1, col2 = st.columns(2)
+            col1, col2, col3 = st.columns(3)
 
             # Código
             codigo = col1.text_input("Código", value="")
@@ -500,22 +542,22 @@ def dialog_cadastrar_projeto():
             # Sigla
             sigla = col2.text_input("Sigla", value="")
 
+            # Status fixo
+            status = "Estratégico"
+
+            col3.text_input(
+                "Status",
+                value="Estratégico",
+                disabled=True
+            )
+
             # Nome do projeto
             nome_do_projeto = st.text_input(
                 "Nome do projeto",
                 value=""
             )
 
-            col1, col2 = st.columns(2)
-
-            # Status fixo
-            status = "Estratégico"
-
-            col1.text_input(
-                "Status",
-                value="Estratégico",
-                disabled=True
-            )
+            col1, col2, col3 = st.columns(3)
 
             # -----------------------------------
             # Pessoas ativas
@@ -529,6 +571,17 @@ def dialog_cadastrar_projeto():
                 df_pessoas_ativas["_id"]
                 .astype(str)
                 .tolist()
+            )
+
+            # Programa / Área
+            programa_options = [""] + list(mapa_programa.keys())
+
+            programas_selecionados = col1.multiselect(
+                "Programa / Área",
+                options=programa_options,
+                format_func=lambda x:
+                    "" if x == "" else mapa_programa[x],
+                placeholder=""
             )
 
             coordenador_options = [""] + pessoas_options
@@ -545,52 +598,21 @@ def dialog_cadastrar_projeto():
                 index=0
             )
 
-            # Programa / Área
-            programa_options = [""] + list(mapa_programa.keys())
-
-            programas_selecionados = st.multiselect(
-                "Programa / Área",
-                options=programa_options,
-                format_func=lambda x:
-                    "" if x == "" else mapa_programa[x],
+            gestores = col3.multiselect(
+                "Gestores(as) do projeto",
+                options=pessoas_options,
+                format_func=lambda x: df_pessoas_ativas
+                    .loc[
+                        df_pessoas_ativas["_id"].astype(str) == x,
+                        "nome_completo"
+                    ]
+                    .values[0],
                 placeholder=""
-            )
-
-            # Objetivo geral
-            objetivo_geral = st.text_area(
-                "Objetivo geral",
-                value=""
-            )
-
-            st.divider()
-
-            st.subheader("Informações financeiras")
-            st.write("")
-
-            col1, col2 = st.columns(2)
-
-            # Moeda
-            moeda_options = ["", "Dólares", "Reais", "Euros"]
-
-            moeda = col1.selectbox(
-                "Moeda",
-                options=moeda_options,
-                index=0
-            )
-
-            # Valor
-            valor = col2.number_input(
-                "Valor",
-                value=0.00,
-                step=0.01,
-                min_value=0.0,
-                format="%.2f"
             )
 
             # Campos não utilizados no estratégico
             contrapartida = 0
             doador = None
-            gestores = []
             regioes_atuacao = []
             orcamento_por_ano = {}
             data_inicio = None
@@ -914,6 +936,11 @@ def dialog_cadastrar_projeto():
                     for p in programas_selecionados
                 ] if programas_selecionados else []
 
+                gestores_objids = [
+                    bson.ObjectId(g)
+                    for g in gestores
+                ] if gestores else []
+
                 doc = {
                     "_id": projeto_id,
                     "tipo_projeto": "estrategico",
@@ -923,9 +950,7 @@ def dialog_cadastrar_projeto():
                     "status": "Estratégico",
                     "coordenador": coordenador_objid,
                     "programas": programas_objids,
-                    "objetivo_geral": objetivo_geral,
-                    "moeda": moeda,
-                    "valor": float_to_br(valor),
+                    "gestores": gestores_objids,
                 }
 
                 projetos_ispn.insert_one(doc)
@@ -1118,31 +1143,6 @@ def dialog_editar_projeto():
             st.subheader("Dados do projeto")
             st.write("")
 
-            col1, col2 = st.columns(2)
-
-            codigo = col1.text_input(
-                "Código",
-                value=projeto_info.get("codigo", "")
-            )
-
-            sigla = col2.text_input(
-                "Sigla",
-                value=projeto_info.get("sigla", "")
-            )
-
-            nome_do_projeto = st.text_input(
-                "Nome do projeto",
-                value=projeto_info.get("nome_do_projeto", "")
-            )
-
-            col1, col2 = st.columns(2)
-
-            col1.text_input(
-                "Status",
-                value="Estratégico",
-                disabled=True
-            )
-
             # -----------------------------------
             # Pessoas ativas
             # -----------------------------------
@@ -1150,6 +1150,8 @@ def dialog_editar_projeto():
             df_pessoas_ativas = df_pessoas[
                 df_pessoas["status"] == "ativo"
             ].copy()
+
+            pessoas_ativas_options = df_pessoas_ativas["_id"].astype(str).tolist()
 
             pessoas_options = (
                 df_pessoas_ativas["_id"]
@@ -1172,22 +1174,6 @@ def dialog_editar_projeto():
                 coordenador_options.append(
                     coordenador_atual
                 )
-
-            coordenador = col2.selectbox(
-                "Coordenador",
-                options=coordenador_options,
-                index=(
-                    coordenador_options.index(coordenador_atual)
-                    if coordenador_atual in coordenador_options
-                    else 0
-                ),
-                format_func=lambda x:
-                    "" if x == "" else
-                    df_pessoas.loc[
-                        df_pessoas["_id"].astype(str) == x,
-                        "nome_completo"
-                    ].values[0]
-            )
 
             # -----------------------------------
             # Programas
@@ -1215,7 +1201,48 @@ def dialog_editar_projeto():
                 for p in programas_atuais
             ]
 
-            programas_selecionados = st.multiselect(
+            # -----------------------------------
+            # Gestores atuais (normalização segura)
+            # -----------------------------------
+            gestores_raw = projeto_info.get("gestores", [])
+
+            if not isinstance(gestores_raw, list):
+                gestores_raw = []
+
+            gestores_atuais = [str(g) for g in gestores_raw if g]
+            
+            gestores_options = pessoas_ativas_options.copy()
+
+            for g in gestores_atuais:
+                if g not in gestores_options:
+                    gestores_options.append(g)
+
+            col1, col2, col3 = st.columns(3)
+
+            codigo = col1.text_input(
+                "Código",
+                value=projeto_info.get("codigo", "")
+            )
+
+            sigla = col2.text_input(
+                "Sigla",
+                value=projeto_info.get("sigla", "")
+            )
+
+            col3.text_input(
+                "Status",
+                value="Estratégico",
+                disabled=True
+            )
+
+            nome_do_projeto = st.text_input(
+                "Nome do projeto",
+                value=projeto_info.get("nome_do_projeto", "")
+            )
+
+            col1, col2, col3 = st.columns(3)
+
+            programas_selecionados = col1.multiselect(
                 "Programa / Área",
                 options=programa_options,
                 default=programas_atuais,
@@ -1224,50 +1251,30 @@ def dialog_editar_projeto():
                 placeholder=""
             )
 
-            objetivo_geral = st.text_area(
-                "Objetivo geral",
-                value=projeto_info.get(
-                    "objetivo_geral",
-                    ""
-                )
-            )
-
-            st.divider()
-
-            st.subheader("Informações financeiras")
-
-            col1, col2 = st.columns(2)
-
-            moeda_options = [
-                "",
-                "Dólares",
-                "Reais",
-                "Euros"
-            ]
-
-            moeda_atual = projeto_info.get(
-                "moeda",
-                ""
-            )
-
-            moeda = col1.selectbox(
-                "Moeda",
-                options=moeda_options,
+            coordenador = col2.selectbox(
+                "Coordenador",
+                options=coordenador_options,
                 index=(
-                    moeda_options.index(moeda_atual)
-                    if moeda_atual in moeda_options
+                    coordenador_options.index(coordenador_atual)
+                    if coordenador_atual in coordenador_options
                     else 0
-                )
+                ),
+                format_func=lambda x:
+                    "" if x == "" else
+                    df_pessoas.loc[
+                        df_pessoas["_id"].astype(str) == x,
+                        "nome_completo"
+                    ].values[0]
             )
 
-            valor = col2.number_input(
-                "Valor",
-                value=br_to_float(
-                    projeto_info.get("valor", "0")
-                ),
-                step=0.01,
-                min_value=0.0,
-                format="%.2f"
+            gestores = col3.multiselect(
+                "Gestores(as) do projeto",
+                options=gestores_options,
+                default=gestores_atuais,
+                format_func=lambda x: df_pessoas
+                    .loc[df_pessoas["_id"].astype(str) == x, "nome_completo"]
+                    .values[0],
+                placeholder=""
             )
 
             st.write("")
@@ -1291,6 +1298,8 @@ def dialog_editar_projeto():
                     for p in programas_selecionados
                 ] if programas_selecionados else []
 
+                gestores_objids = [bson.ObjectId(g) for g in gestores] if gestores else []
+
                 update_doc = {
                     "codigo": codigo,
                     "sigla": sigla,
@@ -1299,9 +1308,7 @@ def dialog_editar_projeto():
                     "tipo_projeto": "estrategico",
                     "coordenador": coordenador_objid,
                     "programas": programas_objids,
-                    "objetivo_geral": objetivo_geral,
-                    "moeda": moeda,
-                    "valor": float_to_br(valor),
+                    "gestores": gestores_objids,
                 }
 
                 projetos_ispn.update_one(
