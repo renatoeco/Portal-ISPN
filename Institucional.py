@@ -1,7 +1,7 @@
 import streamlit as st
 import time
 import re
-from datetime import datetime
+from datetime import datetime,  timedelta
 from funcoes_auxiliares import conectar_mongo_portal_ispn  # Função personalizada para conectar ao MongoDB
 from bson import ObjectId
 
@@ -10,14 +10,145 @@ from bson import ObjectId
 # CONEXÃO COM O BANCO DE DADOS MONGODB
 ###########################################################################################################
 
+
 # Conecta-se ao banco de dados MongoDB (usa cache automático para melhorar performance)
 db = conectar_mongo_portal_ispn()
 
 # Define as coleções específicas que serão utilizadas a partir do banco
 estatistica = db["estatistica"]
-colaboradores = db["colaboradores"]
+colaboradores = db["pessoas"]
 institucional = db["institucional"]
 estrategia = db["estrategia"]
+
+
+###########################################################################################################
+# ROTINA DIÁRIA - DESATIVAR VISITANTES EXPIRADOS
+###########################################################################################################
+
+
+def desativar_visitantes():
+    """
+    Desativa visitantes expirados uma vez por dia.
+    """
+
+    cronjob = db["cronjob"]
+
+    hoje_dt = datetime.now().replace(
+        hour=0,
+        minute=0,
+        second=0,
+        microsecond=0
+    )
+
+    hoje_str = hoje_dt.strftime("%d/%m/%Y")
+
+    # ==================================================================================
+    # GARANTE DOCUMENTO DO DIA
+    # ==================================================================================
+    doc_hoje = cronjob.find_one({"data": hoje_str})
+
+    if not doc_hoje:
+        cronjob.insert_one({
+            "data": hoje_str,
+            "desativou_visitantes": False
+        })
+        doc_hoje = cronjob.find_one({"data": hoje_str})
+
+    # ==================================================================================
+    # SE JÁ EXECUTOU HOJE, ENCERRA
+    # ==================================================================================
+    if doc_hoje.get("desativou_visitantes") is True:
+        return
+
+    # ==================================================================================
+    # BUSCA USUÁRIOS ATIVOS COM DATA DE EXPIRAÇÃO
+    # ==================================================================================
+    usuarios_ativos = colaboradores.find({
+        "status": "ativo",
+        "data_expiracao_acesso": {"$exists": True}
+    })
+
+    ids_para_desativar = []
+
+    for usuario in usuarios_ativos:
+        tipo_usuario = str(usuario.get("tipo de usuário", "")).strip().lower()
+        data_expiracao = usuario.get("data_expiracao_acesso")
+
+        if tipo_usuario != "visitante":
+            continue
+
+        if not data_expiracao:
+            continue
+
+        try:
+            data_expiracao_dt = datetime.strptime(
+                data_expiracao,
+                "%d/%m/%Y"
+            )
+
+            if data_expiracao_dt < hoje_dt:
+                ids_para_desativar.append(usuario["_id"])
+
+        except Exception as e:
+            None
+            
+    # ==================================================================================
+    # DESATIVA EM LOTE
+    # ==================================================================================
+    if ids_para_desativar:
+        resultado = colaboradores.update_many(
+            {
+                "_id": {
+                    "$in": ids_para_desativar
+                }
+            },
+            {
+                "$set": {
+                    "status": "inativo"
+                }
+            }
+        )
+
+
+    # ==================================================================================
+    # MARCA EXECUÇÃO
+    # ==================================================================================
+    cronjob.update_one(
+        {"data": hoje_str},
+        {
+            "$set": {
+                "desativou_visitantes": True
+            }
+        }
+    )
+
+    # ==================================================================================
+    # REMOVE CRONJOBS ANTIGOS
+    # ==================================================================================
+    limite_dt = hoje_dt - timedelta(days=60)
+
+    ids_antigos = []
+
+    for doc in cronjob.find({}):
+        try:
+            data_doc_dt = datetime.strptime(doc["data"], "%d/%m/%Y")
+
+            if data_doc_dt < limite_dt:
+                ids_antigos.append(doc["_id"])
+
+        except:
+            continue
+
+    if ids_antigos:
+        cronjob.delete_many({
+            "_id": {
+                "$in": ids_antigos
+            }
+        })
+
+
+# EXECUTA A ROTINA
+desativar_visitantes()
 
 
 ###########################################################################################################
