@@ -3155,37 +3155,110 @@ if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_pess
 # ABA ANIVERSARIANTES ---------------------------------------------------------------------------------------------------
 with aba_aniversariantes:
 
-    # Obter mês atual
-    mes_atual = datetime.date.today().month
-
     st.write("")
 
-    st.markdown(f'<h3 style="font-size: 1.5em;">Aniversariantes do mês de {meses_pt[mes_atual - 1]}:</h3>', unsafe_allow_html=True)
-    st.write("")
+    # Inicializa mês selecionado
+    if "mes_aniversariantes" not in st.session_state:
+        st.session_state.mes_aniversariantes = datetime.date.today().month
 
-    encontrados = False  # Flag para saber se achou algum aniversariante
+    # Funções de navegação
+    def voltar_mes():
+        if st.session_state.mes_aniversariantes == 1:
+            st.session_state.mes_aniversariantes = 12
+        else:
+            st.session_state.mes_aniversariantes -= 1
+
+    def avancar_mes():
+        if st.session_state.mes_aniversariantes == 12:
+            st.session_state.mes_aniversariantes = 1
+        else:
+            st.session_state.mes_aniversariantes += 1
+
+    # Cabeçalho
+    col_voltar, col_titulo, col_avancar = st.columns([1, 4, 1])
+
+    with col_voltar:
+        st.button(
+            "◀",
+            use_container_width=True,
+            key="mes_aniv_voltar",
+            on_click=voltar_mes
+        )
+
+    with col_titulo:
+        st.markdown(
+            f"""
+            <h3 style="font-size: 1.5em; text-align: center;">
+                Aniversariantes de {meses_pt[st.session_state.mes_aniversariantes - 1]}
+            </h3>
+            """,
+            unsafe_allow_html=True
+        )
+
+    with col_avancar:
+        st.button(
+            "▶",
+            use_container_width=True,
+            key="mes_aniv_avancar",
+            on_click=avancar_mes
+        )
+
+    st.divider()
 
     df_aniversariantes = df_pessoas.copy()
 
-    # Converter Data de nascimento para datetime
-    df_aniversariantes["data_nascimento_datetime"] = pd.to_datetime(df_aniversariantes["Data de nascimento"], format="%d/%m/%Y")
+    # Converter datas
+    df_aniversariantes["data_nascimento_datetime"] = pd.to_datetime(
+        df_aniversariantes["Data de nascimento"],
+        format="%d/%m/%Y",
+        errors="coerce"
+    )
 
-    # Filtrar pessoas com data de nascimento no mês atual
-    df_aniversariantes = df_aniversariantes[df_aniversariantes["data_nascimento_datetime"].dt.month == mes_atual]
+    # Remove inválidos
+    df_aniversariantes = df_aniversariantes.dropna(
+        subset=["data_nascimento_datetime"]
+    )
 
-    # Ordenar pelo dia do mês, se quiser ordem crescente
-    df_aniversariantes = df_aniversariantes.sort_values(by="Data de nascimento")
+    # Filtrar mês selecionado
+    df_aniversariantes = df_aniversariantes[
+        df_aniversariantes["data_nascimento_datetime"].dt.month
+        == st.session_state.mes_aniversariantes
+    ]
 
-    for _, pessoa in df_aniversariantes.iterrows():
-        nome = pessoa["Nome"] if pd.notna(pessoa["Nome"]) else "Sem nome"
-        data_nascimento = pessoa["data_nascimento_datetime"]
+    # Ordenar pelo dia do mês (ignorando ano)
+    df_aniversariantes["dia_aniversario"] = (
+        df_aniversariantes["data_nascimento_datetime"].dt.day
+    )
 
-        st.write(f"**{nome}** - {data_nascimento.strftime('%d/%m')}")
-        encontrados = True
+    df_aniversariantes = df_aniversariantes.sort_values(
+        by="dia_aniversario"
+    )
 
+    # Centralização
+    col_esq, col_centro, col_dir = st.columns([2, 3, 2])
 
-    if not encontrados:
-        st.caption("Nenhum aniversariante encontrado neste mês.")
+    with col_centro:
+        with st.container(border=False):
+
+            if df_aniversariantes.empty:
+                st.caption("Nenhum aniversariante encontrado neste mês.")
+            else:
+                for _, pessoa in df_aniversariantes.iterrows():
+                    nome = pessoa["Nome"] if pd.notna(pessoa["Nome"]) else "Sem nome"
+                    data_nascimento = pessoa["data_nascimento_datetime"]
+
+                    st.markdown(
+                        f"""
+                        <div style="
+                            text-align: center;
+                            padding: 8px 0;
+                            font-size: 1rem;
+                        ">
+                            <strong>{nome}</strong> - {data_nascimento.strftime('%d/%m')}
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
 
 
 
