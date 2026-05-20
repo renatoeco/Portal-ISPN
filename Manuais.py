@@ -185,10 +185,10 @@ with st.expander("MANUAL OPERACIONAL DO FUNDO ECOS"):
     com os objetivos estratégicos do Fundo Ecos.""")
     
     with st.container(horizontal=True):
-        st.write("Versão: fevereiro de 2025")
+        st.write("Versão: maio de 2026")
         st.link_button(
             label="Ver documento",
-            url="https://fundoecos.org.br/wp-content/uploads/2025/05/Manual-operacional-Fundo-Ecos_2025_site.pdf", 
+            url="https://fundoecos.org.br/wp-content/uploads/2026/05/260519_Manual_Operacional_FundoEcos_rev1.pdf", 
             type="tertiary",
             icon=":material/open_in_new:"
         )
