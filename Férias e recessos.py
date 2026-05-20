@@ -155,7 +155,7 @@ def montar_dataframe_saldo_do_ano(ano_selecionado, ano_dados):
         "Saldos": [
             f"Residual do Ano Anterior ({int(ano_selecionado) - 1})",  # Saldo que ficou do ano anterior
             "Férias recebidas no ano",  # Saldo atribuído no início do ano atual
-            "Total gozado",  # Dias de férias já utilizados
+            "Total gozado / agendado",  # Dias de férias já utilizados
             "Saldo atual"  # Dias de férias ainda disponíveis
         ],
         "Dias": [
