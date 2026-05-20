@@ -1230,17 +1230,25 @@ if set(st.session_state.tipo_usuario) & {"admin", "gestao_ferias", "supervisao_f
                         # Verifica se há solicitações para o ano
                         
                         # Se há solicitações, envia tabela de saldo e a tabela de solicitações
-                        if not df_solicitacoes.empty:
-                            # Aplicar a transformação diretamente com lambda para listas
-                            df_solicitacoes['Período solicitado'] = df_solicitacoes['Período solicitado'].apply(
-                                lambda periodo: f"{periodo[0]} a {periodo[1]}"
+                        solicitacoes_ano = ano_dados.get("solicitacoes", [])
+
+                        if solicitacoes_ano:
+                            df_solicitacoes_email = pd.DataFrame([
+                                {
+                                    "Data do registro": s.get("data_solicitacao", "Data não disponível"),
+                                    "Dias de início e fim": f"{s['lista_de_dias'][0]} a {s['lista_de_dias'][-1]}",
+                                    "Total de dias úteis": s.get("numero_dias_uteis", "Não disponível"),
+                                    "Observações": s.get("observacoes", "Nenhuma observação")
+                                }
+                                for s in solicitacoes_ano
+                            ])
+
+                            df_solicitacoes_html = df_solicitacoes_email.to_html(
+                                index=False,
+                                classes="table",
+                                border=1,
+                                justify="left"
                             )
-
-                            # Renomear a coluna Período solicitado para Dias de início e fim
-                            df_solicitacoes.rename(columns={'Período solicitado': 'Dias de início e fim'}, inplace=True)
-
-                            # Converte df_solicitacoes para HTML
-                            df_solicitacoes_html = df_solicitacoes.to_html(index=False, classes="table", border=1, justify="left")
 
                             # Monta o conteúdo do e-mail com uma tabela HTML
 
