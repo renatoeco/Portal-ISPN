@@ -2908,6 +2908,9 @@ if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_pess
         contratos_90_dias = []
 
         for p in dados_pessoas:
+            if p.get("status") != "ativo":
+                continue
+            
             contratos_exibir = contratos_para_aba_contratos(p.get("contratos", []))
 
             for contrato in contratos_exibir:
@@ -2976,16 +2979,17 @@ if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_pess
         st.write('')
         st.markdown('<h3 style="font-size: 1.5em;">Cronograma dos contratos</h3>', unsafe_allow_html=True)
 
-
         lista_tratada = []
 
         for pessoa in dados_pessoas:
+            if pessoa.get("status") != "ativo":
+                continue
+
             nome = pessoa.get("nome_completo", "Sem nome")
             contratos = pessoa.get("contratos", [])
 
             fins_contratos = []
 
-            # contratos normais
             for contrato in contratos_para_aba_contratos(contratos):
                 data_inicio = parse_date(contrato.get("data_inicio"))
                 data_fim = parse_date(contrato.get("data_fim"))
@@ -3004,21 +3008,20 @@ if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_pess
                         if projeto and projeto.get("sigla"):
                             siglas.append(projeto["sigla"])
 
-                    sigla_projeto = " | ".join(siglas[:3])
-                    if len(siglas) > 3:
+                    sigla_projeto = " | ".join(siglas[:2])
+                    if len(siglas) > 2:
                         sigla_projeto += " +"
 
                     lista_tratada.append({
                         "Nome": nome,
-                        "Início do contrato": data_inicio,
-                        "Fim do contrato": data_fim,
+                        "Inicio": data_inicio,
+                        "Fim": data_fim,
                         "Dias restantes": dias_restantes(data_fim),
                         "Tipo": "contrato",
                         "Texto": sigla_projeto
                     })
 
-
-            # -------- extensão por recurso garantido --------
+            # extensão do recurso garantido
             recurso_garantido = parse_date(pessoa.get("recurso_garantido_ate"))
 
             if fins_contratos and recurso_garantido:
@@ -3027,93 +3030,102 @@ if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_pess
                 if recurso_garantido > maior_fim:
                     lista_tratada.append({
                         "Nome": nome,
-                        "Início do contrato": maior_fim,
-                        "Fim do contrato": recurso_garantido,
+                        "Inicio": maior_fim,
+                        "Fim": recurso_garantido,
                         "Dias restantes": None,
                         "Tipo": "recurso_garantido",
-                        "Texto": recurso_garantido.strftime('%d/%m/%y')
+                        "Texto": "Recurso garantido"
                     })
 
         if lista_tratada:
-            
+
             df_equipe = pd.DataFrame(lista_tratada)
-            
+
             df_equipe["Hover"] = df_equipe.apply(
                 lambda row: (
                     f"<b>{row['Nome']}</b><br>"
-                    f"Recurso garantido até: {row['Fim do contrato'].strftime('%d/%m/%Y')}"
+                    f"Recurso garantido até: {row['Fim'].strftime('%d/%m/%Y')}"
                     if row["Tipo"] == "recurso_garantido"
                     else
                     f"<b>{row['Nome']}</b><br>"
-                    f"Início do contrato: {row['Início do contrato'].strftime('%d/%m/%Y')}<br>"
-                    f"Fim do contrato: {row['Fim do contrato'].strftime('%d/%m/%Y')}"
+                    f"Início: {row['Inicio'].strftime('%d/%m/%Y')}<br>"
+                    f"Fim: {row['Fim'].strftime('%d/%m/%Y')}<br>"
+                    f"{row['Texto']}"
                 ),
                 axis=1
             )
 
-
             def definir_cor(row):
                 if row["Tipo"] == "recurso_garantido":
-                    return "rgba(180, 180, 180, 0.6)"  # cinza
+                    return "rgba(180,180,180,0.6)"
+
                 if row["Dias restantes"] is not None and row["Dias restantes"] < 90:
-                    return "rgba(255, 0, 0, 0.5)"  # vermelho
-                return "rgba(76, 120, 168, 0.5)"  # azul
+                    return "rgba(255,0,0,0.65)"
+
+                return "rgba(76,120,168,0.75)"
 
             df_equipe["Cor"] = df_equipe.apply(definir_cor, axis=1)
 
-            # Ordenar por data de fim (decrescente)
-            df_equipe = df_equipe.sort_values(by="Fim do contrato", ascending=False)
-            categorias_y = df_equipe["Nome"].tolist()
+            # ordena pessoas pelo contrato mais distante
+            ordem_nomes = (
+                df_equipe.groupby("Nome")["Fim"]
+                .max()
+                .sort_values(ascending=True)
+                .index
+                .tolist()
+            )
 
-            # Calcular altura do gráfico dinamicamente
-            altura_base = 200
-            altura_extra = 40 * len(df_equipe)
-            altura = altura_base + altura_extra
+            altura = max(500, len(ordem_nomes) * 38)
 
-            # Criar gráfico de timeline
             fig = px.timeline(
                 df_equipe,
-                x_start="Início do contrato",
-                x_end="Fim do contrato",
+                x_start="Inicio",
+                x_end="Fim",
                 y="Nome",
                 color="Cor",
-                text="Texto",
                 color_discrete_map="identity",
                 custom_data=["Hover"],
+                text="Texto",
                 height=altura
             )
-            
+
             fig.update_traces(
+                hovertemplate="%{customdata[0]}<extra></extra>",
                 textposition="inside",
-                insidetextanchor="end",
-                textfont=dict(
-                    color="black",
-                    size=12
-                ),
-                hovertemplate="%{customdata[0]}<extra></extra>"
+                insidetextanchor="middle",
+                textfont=dict(size=11, color="black")
             )
 
-            fig.update_yaxes(categoryorder="array", categoryarray=categorias_y)
+            fig.update_yaxes(
+                categoryorder="array",
+                categoryarray=ordem_nomes,
+                autorange="reversed"
+            )
 
             fig.update_xaxes(
-                dtick="M1",                 # marca cada mês
+                dtick="M6",
+                tickformat="%b/%Y",
                 showgrid=True,
-                gridcolor="rgba(211,211,211,0.5)",
-
+                gridcolor="rgba(211,211,211,0.35)"
             )
 
-
-            # Linha vertical de hoje
             hoje = pd.Timestamp(datetime.date.today())
-            fig.add_vline(x=hoje, line_width=1, line_dash="dash", line_color="gray")
+            fig.add_vline(
+                x=hoje,
+                line_width=1,
+                line_dash="dash",
+                line_color="gray"
+            )
 
             fig.update_layout(
                 yaxis_title=None,
-                xaxis_title="Duração do contrato",
-                showlegend=False
+                xaxis_title=None,
+                showlegend=False,
+                bargap=0.45
             )
 
             st.plotly_chart(fig)
+
         else:
             st.caption("Nenhum contrato válido encontrado.")
 
