@@ -1081,26 +1081,28 @@ def gerenciar_pessoas(pessoa_id=None):
                     width=250
                 )
 
-                if st.button(
-                    "Salvar",
-                    icon=":material/save:",
-                    key=f"salvar_recurso_{pessoa_id}",
-                ):
-                    pessoas.update_one(
-                        {"_id": pessoa["_id"]},
-                        {
-                            "$set": {
-                                "recurso_garantido_ate": (
-                                    nova_data_recurso.strftime("%d/%m/%Y")
-                                    if nova_data_recurso
-                                    else None
-                                )
+                if usuario_pode_editar_contratos:
+
+                    if st.button(
+                        "Salvar",
+                        icon=":material/save:",
+                        key=f"salvar_recurso_{pessoa_id}",
+                    ):
+                        pessoas.update_one(
+                            {"_id": pessoa["_id"]},
+                            {
+                                "$set": {
+                                    "recurso_garantido_ate": (
+                                        nova_data_recurso.strftime("%d/%m/%Y")
+                                        if nova_data_recurso
+                                        else None
+                                    )
+                                }
                             }
-                        }
-                    )
-                    st.success("Data atualizada!", width=250, icon=":material/check:")
-                    time.sleep(2)
-                    st.rerun(scope="fragment")
+                        )
+                        st.success("Data atualizada!", width=250, icon=":material/check:")
+                        time.sleep(2)
+                        st.rerun(scope="fragment")
                     
             st.write("")
             st.write("")
