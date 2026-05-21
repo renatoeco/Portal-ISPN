@@ -399,6 +399,19 @@ def gerenciar_pessoas(pessoa_id=None):
     if "pessoa_selecionada_anterior" not in st.session_state:
         st.session_state.pessoa_selecionada_anterior = None
 
+    tipos_usuario_logado = set(st.session_state.get("tipo_usuario", []))
+
+    usuario_e_coordenador = "coordenador(a)" in tipos_usuario_logado
+
+    usuario_pode_editar_contratos = bool(
+        tipos_usuario_logado & {"admin", "gestao_pessoas"}
+    )
+
+    usuario_pode_ver_previdencia = not usuario_e_coordenador
+
+    usuario_pode_ver_ferias = bool(
+        tipos_usuario_logado & {"admin", "gestao_pessoas", "gestao_ferias", "supervisao_ferias"}
+    )
 
     # Mapeia nomes de programa <-> ObjectId
     nome_para_id_programa = {
@@ -497,26 +510,39 @@ def gerenciar_pessoas(pessoa_id=None):
                 st.session_state.contratos_verificados_por_pessoa[pessoa_id] = True
 
     
-        # Controle de permissão para abas sensíveis
-        usuario_pode_ver_abas_restritas = bool(
-            set(st.session_state.get("tipo_usuario", [])) & {"admin", "gestao_pessoas"}
-        )
-        
-        # Cria abas conforme permissão
-        if usuario_pode_ver_abas_restritas:
-            aba_info, aba_contratos, aba_previdencia, aba_ferias, aba_anotacoes = st.tabs([
-                ":material/info: Informações gerais",
-                ":material/contract: Projetos e Contratos",
-                ":material/finance_mode: Previdência",
-                ":material/beach_access: Férias e Recessos",
-                ":material/notes: Anotações"
-            ])
-        else:
-            aba_info, aba_anotacoes = st.tabs([
-                ":material/info: Informações gerais",
-                ":material/notes: Anotações"
-            ])
-        
+        # Cria abas
+        abas = [
+            ":material/info: Informações gerais",
+            ":material/contract: Projetos e Contratos",
+        ]
+
+        if usuario_pode_ver_previdencia:
+            abas.append(":material/finance_mode: Previdência")
+
+        if usuario_pode_ver_ferias:
+            abas.append(":material/beach_access: Férias e Recessos")
+
+        abas.append(":material/notes: Anotações")
+
+        tabs = st.tabs(abas)
+
+        indice = 0
+
+        aba_info = tabs[indice]
+        indice += 1
+
+        aba_contratos = tabs[indice]
+        indice += 1
+
+        if usuario_pode_ver_previdencia:
+            aba_previdencia = tabs[indice]
+            indice += 1
+
+        if usuario_pode_ver_ferias:
+            aba_ferias = tabs[indice]
+            indice += 1
+
+        aba_anotacoes = tabs[indice]
     
         # ABA INFORMAÇÕES GERAIS ################################################################
         with aba_info:
@@ -1006,85 +1032,85 @@ def gerenciar_pessoas(pessoa_id=None):
 
         # ABA CONTRATOS ###############################################################################
         
-        if usuario_pode_ver_abas_restritas:
-            with aba_contratos:
+        with aba_contratos:
 
-                # PREPARAÇÃO DE VARIÁVEIS ------------------------------------------------------
-                # Lista de projetos
-                lista_projetos = sorted([
-                    p["sigla"] for p in dados_projetos_ispn if p.get("sigla", "")
-                ])
+            # PREPARAÇÃO DE VARIÁVEIS ------------------------------------------------------
+            # Lista de projetos
+            lista_projetos = sorted([
+                p["sigla"] for p in dados_projetos_ispn if p.get("sigla", "")
+            ])
 
-                # Lista de contratos da pessoa selecionada
-                if pessoa:
-                    contratos = pessoa.get("contratos", [])
-                else:
-                    contratos = []
+            # Lista de contratos da pessoa selecionada
+            if pessoa:
+                contratos = pessoa.get("contratos", [])
+            else:
+                contratos = []
 
 
-                # Lista de meses em português
-                meses_pt = [
-                    "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-                    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
-                ]
+            # Lista de meses em português
+            meses_pt = [
+                "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+                "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+            ]
 
-                # Opções de status
-                status_opcoes = [
-                    "Em vigência", "Encerrado", "Cancelado", "Fonte de recurso temporária"
-                ]
-                
-                # ---------------- RECURSO GARANTIDO ATÉ ----------------
+            # Opções de status
+            status_opcoes = [
+                "Em vigência", "Encerrado", "Cancelado", "Fonte de recurso temporária"
+            ]
+            
+            # ---------------- RECURSO GARANTIDO ATÉ ----------------
 
-                data_recurso_db = pessoa.get("recurso_garantido_ate") if pessoa else None
+            data_recurso_db = pessoa.get("recurso_garantido_ate") if pessoa else None
 
-                data_recurso_dt = None
-                if isinstance(data_recurso_db, str) and data_recurso_db:
-                    try:
-                        data_recurso_dt = datetime.datetime.strptime(
-                            data_recurso_db, "%d/%m/%Y"
-                        ).date()
-                    except:
-                        data_recurso_dt = None
-                        
-                with st.container(border=False, horizontal=False):
+            data_recurso_dt = None
+            if isinstance(data_recurso_db, str) and data_recurso_db:
+                try:
+                    data_recurso_dt = datetime.datetime.strptime(
+                        data_recurso_db, "%d/%m/%Y"
+                    ).date()
+                except:
+                    data_recurso_dt = None
+                    
+            with st.container(border=False, horizontal=False):
 
-                    nova_data_recurso = st.date_input(
-                        "Recurso garantido até:",
-                        value=data_recurso_dt,   # None → campo vazio
-                        format="DD/MM/YYYY",
-                        key=f"recurso_garantido_{pessoa_id}",
-                        width=250
-                    )
+                nova_data_recurso = st.date_input(
+                    "Recurso garantido até:",
+                    value=data_recurso_dt,   # None → campo vazio
+                    format="DD/MM/YYYY",
+                    key=f"recurso_garantido_{pessoa_id}",
+                    width=250
+                )
 
-                    if st.button(
-                        "Salvar",
-                        icon=":material/save:",
-                        key=f"salvar_recurso_{pessoa_id}",
-                    ):
-                        pessoas.update_one(
-                            {"_id": pessoa["_id"]},
-                            {
-                                "$set": {
-                                    "recurso_garantido_ate": (
-                                        nova_data_recurso.strftime("%d/%m/%Y")
-                                        if nova_data_recurso
-                                        else None
-                                    )
-                                }
+                if st.button(
+                    "Salvar",
+                    icon=":material/save:",
+                    key=f"salvar_recurso_{pessoa_id}",
+                ):
+                    pessoas.update_one(
+                        {"_id": pessoa["_id"]},
+                        {
+                            "$set": {
+                                "recurso_garantido_ate": (
+                                    nova_data_recurso.strftime("%d/%m/%Y")
+                                    if nova_data_recurso
+                                    else None
+                                )
                             }
-                        )
-                        st.success("Data atualizada!", width=250, icon=":material/check:")
-                        time.sleep(2)
-                        st.rerun(scope="fragment")
-                        
-                st.write("")
-                st.write("")
+                        }
+                    )
+                    st.success("Data atualizada!", width=250, icon=":material/check:")
+                    time.sleep(2)
+                    st.rerun(scope="fragment")
+                    
+            st.write("")
+            st.write("")
 
-                # Expander de adicionar contrato -------------------------------------------------------
+            # Expander de adicionar contrato -------------------------------------------------------
 
+            if usuario_pode_editar_contratos:
                 with st.expander("Adicionar contrato", expanded=False, icon=":material/add_circle:"):
-                    
-                    
+                
+                
                     # Projeto pagador
                     cols = st.columns([3, 1])
 
@@ -1133,158 +1159,161 @@ def gerenciar_pessoas(pessoa_id=None):
                         time.sleep(2)
                         st.rerun(scope="fragment")
 
-                # CONTRATOS ------------------------------------------------------------
+            # CONTRATOS ------------------------------------------------------------
 
-                st.write('')
-                st.write('**Contratos:**')
+            st.write('')
+            st.write('**Contratos:**')
 
-                # CARD DE CADA CONTRATO ------------------------------------------------------------
-                for i, contrato in enumerate(contratos):
-                    contrato_key = f"contrato_{pessoa['_id']}_{i}"
-                    toggle_key = f"toggle_edicao_contrato_{contrato_key}"
+            # CARD DE CADA CONTRATO ------------------------------------------------------------
+            for i, contrato in enumerate(contratos):
+                contrato_key = f"contrato_{pessoa['_id']}_{i}"
+                toggle_key = f"toggle_edicao_contrato_{contrato_key}"
 
-                    with st.container(border=True):
-                        projetos_ids = contrato.get("projeto_pagador", [])
+                with st.container(border=True):
+                    projetos_ids = contrato.get("projeto_pagador", [])
 
-                        # Toggle para modo edição
+                    # Toggle para modo edição
+                    if usuario_pode_editar_contratos:
                         modo_edicao = st.toggle("Editar", key=toggle_key, value=False)
+                    else:
+                        modo_edicao = False
 
-                        col1, col2 = st.columns([1, 2])
+                    col1, col2 = st.columns([1, 2])
 
-                        # ---------------- COLUNA 1 ----------------
-                        with col1:
-                            if modo_edicao:
-                                contrato["status_contrato"] = st.selectbox(
-                                    "Status",
-                                    options=status_opcoes,
-                                    index=status_opcoes.index(contrato.get("status_contrato", "Em vigência"))
-                                    if contrato.get("status_contrato") in status_opcoes else 0,
-                                    key=f"status_{contrato_key}"
-                                )
-
-                                # Data início
-                                data_inicio_valor = contrato.get("data_inicio")
-                                data_inicio_dt = None
-
-                                if isinstance(data_inicio_valor, str) and data_inicio_valor:
-                                    try:
-                                        data_inicio_dt = datetime.datetime.strptime(
-                                            data_inicio_valor,
-                                            "%d/%m/%Y"
-                                        ).date()
-                                    except:
-                                        data_inicio_dt = None
-
-                                nova_data_inicio = st.date_input(
-                                    "Data de início",
-                                    value=data_inicio_dt,   # None = campo vazio
-                                    format="DD/MM/YYYY",
-                                    key=f"inicio_{contrato_key}"
-                                )
-
-                                contrato["data_inicio"] = (
-                                    nova_data_inicio.strftime("%d/%m/%Y")
-                                    if nova_data_inicio
-                                    else ""
-                                )
-
-                                # Data fim
-                                data_fim_valor = contrato.get("data_fim")
-                                data_fim_dt = None
-
-                                if isinstance(data_fim_valor, str) and data_fim_valor:
-                                    try:
-                                        data_fim_dt = datetime.datetime.strptime(
-                                            data_fim_valor,
-                                            "%d/%m/%Y"
-                                        ).date()
-                                    except:
-                                        data_fim_dt = None
-
-                                nova_data_fim = st.date_input(
-                                    "Data de fim",
-                                    value=data_fim_dt,   # None = campo vazio
-                                    format="DD/MM/YYYY",
-                                    key=f"fim_{contrato_key}"
-                                )
-
-                                contrato["data_fim"] = (
-                                    nova_data_fim.strftime("%d/%m/%Y")
-                                    if nova_data_fim
-                                    else ""
-                                )
-
-
-                            else:
-                                st.write("**Status:**", contrato.get("status_contrato", ""))
-                                st.write("**Data de início:**", contrato.get("data_inicio", ""))
-                                st.write("**Data de fim:**", contrato.get("data_fim", ""))
-
-                        # ---------------- COLUNA 2 ----------------
-                        with col2:
-                            st.write('**Projeto(s) pagador(es):**')
-
-                            if modo_edicao:
-                                siglas_selecionadas = [
-                                    p["sigla"] for p in dados_projetos_ispn
-                                    if p["_id"] in projetos_ids and p.get("sigla")
-                                ]
-
-                                siglas_escolhidas = st.multiselect(
-                                    "Selecione os projetos pagadores",
-                                    options=lista_projetos,
-                                    default=siglas_selecionadas,
-                                    key=f"multiselect_{contrato_key}"
-                                )
-
-                                contrato["projeto_pagador"] = [
-                                    p["_id"] for p in dados_projetos_ispn if p.get("sigla") in siglas_escolhidas
-                                ]
-
-                                contrato["anotacoes_contrato"] = st.text_area(
-                                    "Anotações sobre o contrato",
-                                    value=contrato.get("anotacoes_contrato", ""),
-                                    key=f"anotacoes_{contrato_key}"
-                                )
-
-                            else:
-                                if not projetos_ids:
-                                    st.write("O projeto pagador não foi informado")
-                                else:
-                                    for projeto_id in projetos_ids:
-                                        projeto = next(
-                                            (p for p in dados_projetos_ispn if p["_id"] == projeto_id),
-                                            None
-                                        )
-                                        if projeto:
-                                            st.write(f"{projeto.get('sigla', '')} - {projeto.get('nome_do_projeto', '')}")
-                                        else:
-                                            st.write(f"Projeto não encontrado para o ID: {projeto_id}")
-
-                                if contrato.get("anotacoes_contrato"):
-                                    st.write("**Anotações:**")
-                                    st.write(contrato["anotacoes_contrato"])
-
-                        # ---------------- BOTÃO DE SALVAR ----------------
+                    # ---------------- COLUNA 1 ----------------
+                    with col1:
                         if modo_edicao:
-                            if st.button("Salvar alterações", key=f"salvar_{contrato_key}", icon=":material/save:"):
+                            contrato["status_contrato"] = st.selectbox(
+                                "Status",
+                                options=status_opcoes,
+                                index=status_opcoes.index(contrato.get("status_contrato", "Em vigência"))
+                                if contrato.get("status_contrato") in status_opcoes else 0,
+                                key=f"status_{contrato_key}"
+                            )
+
+                            # Data início
+                            data_inicio_valor = contrato.get("data_inicio")
+                            data_inicio_dt = None
+
+                            if isinstance(data_inicio_valor, str) and data_inicio_valor:
                                 try:
-                                    pessoas.update_one(
-                                        {"_id": pessoa["_id"]},
-                                        {
-                                            "$set": {
-                                                f"contratos.{i}": contrato  # substitui só o contrato i
-                                            }
-                                        }
+                                    data_inicio_dt = datetime.datetime.strptime(
+                                        data_inicio_valor,
+                                        "%d/%m/%Y"
+                                    ).date()
+                                except:
+                                    data_inicio_dt = None
+
+                            nova_data_inicio = st.date_input(
+                                "Data de início",
+                                value=data_inicio_dt,   # None = campo vazio
+                                format="DD/MM/YYYY",
+                                key=f"inicio_{contrato_key}"
+                            )
+
+                            contrato["data_inicio"] = (
+                                nova_data_inicio.strftime("%d/%m/%Y")
+                                if nova_data_inicio
+                                else ""
+                            )
+
+                            # Data fim
+                            data_fim_valor = contrato.get("data_fim")
+                            data_fim_dt = None
+
+                            if isinstance(data_fim_valor, str) and data_fim_valor:
+                                try:
+                                    data_fim_dt = datetime.datetime.strptime(
+                                        data_fim_valor,
+                                        "%d/%m/%Y"
+                                    ).date()
+                                except:
+                                    data_fim_dt = None
+
+                            nova_data_fim = st.date_input(
+                                "Data de fim",
+                                value=data_fim_dt,   # None = campo vazio
+                                format="DD/MM/YYYY",
+                                key=f"fim_{contrato_key}"
+                            )
+
+                            contrato["data_fim"] = (
+                                nova_data_fim.strftime("%d/%m/%Y")
+                                if nova_data_fim
+                                else ""
+                            )
+
+
+                        else:
+                            st.write("**Status:**", contrato.get("status_contrato", ""))
+                            st.write("**Data de início:**", contrato.get("data_inicio", ""))
+                            st.write("**Data de fim:**", contrato.get("data_fim", ""))
+
+                    # ---------------- COLUNA 2 ----------------
+                    with col2:
+                        st.write('**Projeto(s) pagador(es):**')
+
+                        if modo_edicao:
+                            siglas_selecionadas = [
+                                p["sigla"] for p in dados_projetos_ispn
+                                if p["_id"] in projetos_ids and p.get("sigla")
+                            ]
+
+                            siglas_escolhidas = st.multiselect(
+                                "Selecione os projetos pagadores",
+                                options=lista_projetos,
+                                default=siglas_selecionadas,
+                                key=f"multiselect_{contrato_key}"
+                            )
+
+                            contrato["projeto_pagador"] = [
+                                p["_id"] for p in dados_projetos_ispn if p.get("sigla") in siglas_escolhidas
+                            ]
+
+                            contrato["anotacoes_contrato"] = st.text_area(
+                                "Anotações sobre o contrato",
+                                value=contrato.get("anotacoes_contrato", ""),
+                                key=f"anotacoes_{contrato_key}"
+                            )
+
+                        else:
+                            if not projetos_ids:
+                                st.write("O projeto pagador não foi informado")
+                            else:
+                                for projeto_id in projetos_ids:
+                                    projeto = next(
+                                        (p for p in dados_projetos_ispn if p["_id"] == projeto_id),
+                                        None
                                     )
-                                    st.success("Contrato atualizado com sucesso!")
-                                    time.sleep(2)
-                                    st.rerun(scope="fragment")
-                                except Exception as e:
-                                    st.error(f"Erro ao salvar no banco: {e}")
+                                    if projeto:
+                                        st.write(f"{projeto.get('sigla', '')} - {projeto.get('nome_do_projeto', '')}")
+                                    else:
+                                        st.write(f"Projeto não encontrado para o ID: {projeto_id}")
+
+                            if contrato.get("anotacoes_contrato"):
+                                st.write("**Anotações:**")
+                                st.write(contrato["anotacoes_contrato"])
+
+                    # ---------------- BOTÃO DE SALVAR ----------------
+                    if modo_edicao:
+                        if st.button("Salvar alterações", key=f"salvar_{contrato_key}", icon=":material/save:"):
+                            try:
+                                pessoas.update_one(
+                                    {"_id": pessoa["_id"]},
+                                    {
+                                        "$set": {
+                                            f"contratos.{i}": contrato  # substitui só o contrato i
+                                        }
+                                    }
+                                )
+                                st.success("Contrato atualizado com sucesso!")
+                                time.sleep(2)
+                                st.rerun(scope="fragment")
+                            except Exception as e:
+                                st.error(f"Erro ao salvar no banco: {e}")
 
         # ABA PREVIDÊNCIA ############################################################################### 
-        if usuario_pode_ver_abas_restritas:
+        if usuario_pode_ver_previdencia:
             with aba_previdencia:
 
                 # Obtém a lista de contribuições do banco, ou cria lista vazia se não existir
@@ -1484,7 +1513,7 @@ def gerenciar_pessoas(pessoa_id=None):
 
 
         # ABA FÉRIAS ###############################################################################
-        if usuario_pode_ver_abas_restritas:
+        if usuario_pode_ver_ferias:
             with aba_ferias:
 
                 # ------------------------------------------------------------------
@@ -2529,7 +2558,7 @@ with aba_pessoas:
     tipos_usuario = set(st.session_state.get("tipo_usuario", []))
 
     pode_editar_pessoas = bool(
-        tipos_usuario & {"admin", "gestao_pessoas"}
+        tipos_usuario & {"admin", "gestao_pessoas", "coordenador(a)"}
     )
 
 

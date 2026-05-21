@@ -2741,6 +2741,13 @@ def gerenciar_pessoas(pessoa_sel):
             status_opcoes = [
                 "Em vigência", "Encerrado", "Cancelado", "Fonte de recurso temporária"
             ]
+
+            tipos_usuario = set(st.session_state.get("tipo_usuario", []))
+
+            pode_editar_contratos = (
+                "admin" in tipos_usuario
+                or "gestao_pessoas" in tipos_usuario
+            )
             
             # ---------------- RECURSO GARANTIDO ATÉ ----------------
 
@@ -2791,60 +2798,61 @@ def gerenciar_pessoas(pessoa_sel):
 
             # Expander de adicionar contrato -------------------------------------------------------
 
-            with st.expander("Adicionar contrato", expanded=False, icon=":material/add_circle:"):
+            if pode_editar_contratos:
+                with st.expander("Adicionar contrato", expanded=False, icon=":material/add_circle:"):
                 
                 
-                # Projeto pagador
-                cols = st.columns([3, 1])
+                    # Projeto pagador
+                    cols = st.columns([3, 1])
 
-                projetos_pagadores_nomes_edit = cols[0].multiselect(
-                    "Contratado(a) pelo(s) projeto(s):",
-                    lista_projetos
-                )
-                projetos_pagadores_edit = [
-                    sigla_para_id_projeto.get(sigla)
-                    for sigla in projetos_pagadores_nomes_edit
-                    if sigla and sigla_para_id_projeto.get(sigla)
-                ]
-
-
-                # Status do contrato
-                status_contrato = cols[1].selectbox("Status do contrato:", status_opcoes)
-
-
-
-                cols = st.columns(3)
-                inicio_contrato = cols[0].date_input("Data de início do contrato:", format="DD/MM/YYYY", value="today")
-                fim_contrato = cols[1].date_input("Data de fim do contrato:", format="DD/MM/YYYY", value=None)
-                data_reajuste = cols[2].selectbox("Mês de reajuste:", meses_pt)
-
-                anotacoes_contrato = st.text_area("Anotações sobre o contrato:")
-
-                # lista_status_contrato = ["Em vigência", "Encerrado", "Cancelado", "Fonte de recurso temporária", ""]
-
-                #data_reajuste = col3.date_input("Data de reajuste:", format="DD/MM/YYYY")
-
-                if st.button("Adicionar contrato", icon=":material/note_add:"):
-                    novo_contrato = {
-                        "data_inicio": inicio_contrato.strftime("%d/%m/%Y") if inicio_contrato else "",
-                        "data_fim": fim_contrato.strftime("%d/%m/%Y") if fim_contrato else "",
-                        "status_contrato": status_contrato,
-                        "projeto_pagador": projetos_pagadores_edit,
-                        "data_reajuste": data_reajuste,                  
-                        "anotacoes_contrato": anotacoes_contrato        
-                    }
-
-                    contratos.append(novo_contrato)
-
-                    # Atualiza no MongoDB
-                    pessoas.update_one(
-                        {"_id": ObjectId(pessoa["_id"])},
-                        {"$set": {"contratos": contratos}}
+                    projetos_pagadores_nomes_edit = cols[0].multiselect(
+                        "Contratado(a) pelo(s) projeto(s):",
+                        lista_projetos
                     )
+                    projetos_pagadores_edit = [
+                        sigla_para_id_projeto.get(sigla)
+                        for sigla in projetos_pagadores_nomes_edit
+                        if sigla and sigla_para_id_projeto.get(sigla)
+                    ]
 
-                    st.success("Novo contrato adicionado com sucesso!")
-                    time.sleep(2)
-                    st.rerun(scope="fragment")
+
+                    # Status do contrato
+                    status_contrato = cols[1].selectbox("Status do contrato:", status_opcoes)
+
+
+
+                    cols = st.columns(3)
+                    inicio_contrato = cols[0].date_input("Data de início do contrato:", format="DD/MM/YYYY", value="today")
+                    fim_contrato = cols[1].date_input("Data de fim do contrato:", format="DD/MM/YYYY", value=None)
+                    data_reajuste = cols[2].selectbox("Mês de reajuste:", meses_pt)
+
+                    anotacoes_contrato = st.text_area("Anotações sobre o contrato:")
+
+                    # lista_status_contrato = ["Em vigência", "Encerrado", "Cancelado", "Fonte de recurso temporária", ""]
+
+                    #data_reajuste = col3.date_input("Data de reajuste:", format="DD/MM/YYYY")
+
+                    if st.button("Adicionar contrato", icon=":material/note_add:"):
+                        novo_contrato = {
+                            "data_inicio": inicio_contrato.strftime("%d/%m/%Y") if inicio_contrato else "",
+                            "data_fim": fim_contrato.strftime("%d/%m/%Y") if fim_contrato else "",
+                            "status_contrato": status_contrato,
+                            "projeto_pagador": projetos_pagadores_edit,
+                            "data_reajuste": data_reajuste,                  
+                            "anotacoes_contrato": anotacoes_contrato        
+                        }
+
+                        contratos.append(novo_contrato)
+
+                        # Atualiza no MongoDB
+                        pessoas.update_one(
+                            {"_id": ObjectId(pessoa["_id"])},
+                            {"$set": {"contratos": contratos}}
+                        )
+
+                        st.success("Novo contrato adicionado com sucesso!")
+                        time.sleep(2)
+                        st.rerun(scope="fragment")
 
             # CONTRATOS ------------------------------------------------------------
 
@@ -2860,7 +2868,14 @@ def gerenciar_pessoas(pessoa_sel):
                     projetos_ids = contrato.get("projeto_pagador", [])
 
                     # Toggle para modo edição
-                    modo_edicao = st.toggle("Editar", key=toggle_key, value=False)
+                    modo_edicao = False
+
+                    if pode_editar_contratos:
+                        modo_edicao = st.toggle(
+                            "Editar",
+                            key=toggle_key,
+                            value=False
+                        )
 
                     col1, col2 = st.columns([1, 2])
 
@@ -3556,9 +3571,9 @@ for i, aba in enumerate(abas):
         coordenador_programa_id = str(programa_doc.get("coordenador_id", ""))
 
         pode_editar_pessoas = (
-            usuario_id == coordenador_programa_id
-            or "admin" in tipos_usuario
+            "admin" in tipos_usuario
             or "gestao_pessoas" in tipos_usuario
+            or "coordenador(a)" in tipos_usuario
         )
         
         # Cria uma key única para o dataframe da equipe
