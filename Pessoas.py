@@ -3039,50 +3039,77 @@ if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_pess
 
             nome = pessoa.get("nome_completo", "Sem nome")
             contratos = pessoa.get("contratos", [])
+            recurso_garantido = parse_date(pessoa.get("recurso_garantido_ate"))
 
-            fins_contratos = []
+            contratos_exibir = contratos_para_aba_contratos(contratos)
 
-            for contrato in contratos_para_aba_contratos(contratos):
+            contratos_validos = []
+
+            # Primeiro: coletar contratos válidos
+            for idx, contrato in enumerate(contratos_exibir):
                 data_inicio = parse_date(contrato.get("data_inicio"))
                 data_fim = parse_date(contrato.get("data_fim"))
 
-                if data_inicio and data_fim:
-                    fins_contratos.append(data_fim)
+                if not (data_inicio and data_fim):
+                    continue
 
-                    projetos_ids = contrato.get("projeto_pagador", [])
-                    siglas = []
+                contratos_validos.append({
+                    "idx": idx,
+                    "contrato": contrato,
+                    "data_inicio": data_inicio,
+                    "data_fim": data_fim
+                })
 
-                    for pid in projetos_ids:
-                        projeto = next(
-                            (p for p in dados_projetos_ispn if p["_id"] == pid),
-                            None
-                        )
-                        if projeto and projeto.get("sigla"):
-                            siglas.append(projeto["sigla"])
+            if not contratos_validos:
+                continue
 
-                    sigla_projeto = " | ".join(siglas[:2])
-                    if len(siglas) > 2:
-                        sigla_projeto += " +"
+            # Descobre qual contrato termina mais tarde
+            maior_data_fim = max(c["data_fim"] for c in contratos_validos)
 
+            for item in contratos_validos:
+                idx = item["idx"]
+                contrato = item["contrato"]
+                data_inicio = item["data_inicio"]
+                data_fim = item["data_fim"]
+
+                projetos_ids = contrato.get("projeto_pagador", [])
+                siglas = []
+
+                for pid in projetos_ids:
+                    projeto = next(
+                        (p for p in dados_projetos_ispn if p["_id"] == pid),
+                        None
+                    )
+                    if projeto and projeto.get("sigla"):
+                        siglas.append(projeto["sigla"])
+
+                sigla_projeto = " | ".join(siglas[:2])
+                if len(siglas) > 2:
+                    sigla_projeto += " +"
+
+                nome_linha = f"{nome}__{idx}"
+
+                # barra azul do contrato
+                lista_tratada.append({
+                    "Nome": nome,
+                    "Nome_Linha": nome_linha,
+                    "Inicio": data_inicio,
+                    "Fim": data_fim,
+                    "Dias restantes": dias_restantes(data_fim),
+                    "Tipo": "contrato",
+                    "Texto": sigla_projeto
+                })
+
+                # barra cinza apenas no contrato com maior data final
+                if (
+                    recurso_garantido
+                    and recurso_garantido > data_fim
+                    and data_fim == maior_data_fim
+                ):
                     lista_tratada.append({
                         "Nome": nome,
-                        "Inicio": data_inicio,
-                        "Fim": data_fim,
-                        "Dias restantes": dias_restantes(data_fim),
-                        "Tipo": "contrato",
-                        "Texto": sigla_projeto
-                    })
-
-            # extensão do recurso garantido
-            recurso_garantido = parse_date(pessoa.get("recurso_garantido_ate"))
-
-            if fins_contratos and recurso_garantido:
-                maior_fim = max(fins_contratos)
-
-                if recurso_garantido > maior_fim:
-                    lista_tratada.append({
-                        "Nome": nome,
-                        "Inicio": maior_fim,
+                        "Nome_Linha": nome_linha,
+                        "Inicio": data_fim,
                         "Fim": recurso_garantido,
                         "Dias restantes": None,
                         "Tipo": "recurso_garantido",
@@ -3118,7 +3145,6 @@ if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_pess
 
             df_equipe["Cor"] = df_equipe.apply(definir_cor, axis=1)
 
-            # ordena pessoas pelo contrato mais distante
             ordem_nomes = (
                 df_equipe.groupby("Nome")["Fim"]
                 .max()
@@ -3127,13 +3153,19 @@ if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_pess
                 .tolist()
             )
 
-            altura = max(500, len(ordem_nomes) * 38)
+            ordem_linhas = []
+
+            for nome in ordem_nomes:
+                linhas = df_equipe[df_equipe["Nome"] == nome]["Nome_Linha"].tolist()
+                ordem_linhas.extend(linhas)
+
+            altura = max(500, len(ordem_linhas) * 28)
 
             fig = px.timeline(
                 df_equipe,
                 x_start="Inicio",
                 x_end="Fim",
-                y="Nome",
+                y="Nome_Linha",
                 color="Cor",
                 color_discrete_map="identity",
                 custom_data=["Hover"],
@@ -3150,8 +3182,14 @@ if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_pess
 
             fig.update_yaxes(
                 categoryorder="array",
-                categoryarray=ordem_nomes,
-                autorange="reversed"
+                categoryarray=ordem_linhas,
+                autorange="reversed",
+                tickmode="array",
+                tickvals=ordem_linhas,
+                ticktext=[
+                    linha.split("__")[0] if linha.endswith("__0") else ""
+                    for linha in ordem_linhas
+                ]
             )
 
             fig.update_xaxes(
@@ -3162,6 +3200,7 @@ if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_pess
             )
 
             hoje = pd.Timestamp(datetime.date.today())
+
             fig.add_vline(
                 x=hoje,
                 line_width=1,
@@ -3173,10 +3212,10 @@ if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_pess
                 yaxis_title=None,
                 xaxis_title=None,
                 showlegend=False,
-                bargap=0.45
+                bargap=0.25
             )
 
-            st.plotly_chart(fig)
+            st.plotly_chart(fig, width="stretch")
 
         else:
             st.caption("Nenhum contrato válido encontrado.")

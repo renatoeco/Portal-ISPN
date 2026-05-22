@@ -48,11 +48,11 @@ def desativar_visitantes():
     doc_hoje = cronjob.find_one({"data": hoje_str})
 
     if not doc_hoje:
-        cronjob.insert_one({
+        doc_hoje = {
             "data": hoje_str,
             "desativou_visitantes": False
-        })
-        doc_hoje = cronjob.find_one({"data": hoje_str})
+        }
+        cronjob.insert_one(doc_hoje)
 
     # ==================================================================================
     # SE JÁ EXECUTOU HOJE, ENCERRA
@@ -63,40 +63,38 @@ def desativar_visitantes():
     # ==================================================================================
     # BUSCA USUÁRIOS ATIVOS COM DATA DE EXPIRAÇÃO
     # ==================================================================================
-    usuarios_ativos = colaboradores.find({
-        "status": "ativo",
-        "data_expiracao_acesso": {"$exists": True}
-    })
-
     ids_para_desativar = []
 
+    usuarios_ativos = colaboradores.find(
+        {
+            "tipo de usuário": "visitante",
+            "status": "ativo",
+            "data_expiracao_acesso": {"$exists": True, "$ne": None}
+        },
+        {
+            "_id": 1,
+            "data_expiracao_acesso": 1
+        }
+    )
+
     for usuario in usuarios_ativos:
-        tipo_usuario = str(usuario.get("tipo de usuário", "")).strip().lower()
-        data_expiracao = usuario.get("data_expiracao_acesso")
-
-        if tipo_usuario != "visitante":
-            continue
-
-        if not data_expiracao:
-            continue
-
         try:
             data_expiracao_dt = datetime.strptime(
-                data_expiracao,
+                usuario["data_expiracao_acesso"],
                 "%d/%m/%Y"
             )
 
             if data_expiracao_dt < hoje_dt:
                 ids_para_desativar.append(usuario["_id"])
 
-        except Exception as e:
-            None
+        except:
+            continue
             
     # ==================================================================================
     # DESATIVA EM LOTE
     # ==================================================================================
     if ids_para_desativar:
-        resultado = colaboradores.update_many(
+        colaboradores.update_many(
             {
                 "_id": {
                     "$in": ids_para_desativar
