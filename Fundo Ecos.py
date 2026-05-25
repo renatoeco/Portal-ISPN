@@ -1989,7 +1989,9 @@ colunas = [
     "status",
     "cpf",
     "proponente",
-    "ponto_focal"
+    "ponto_focal",
+    "data_inicio_do_contrato",
+    "data_final_do_contrato"
 ]
 
 # Adiciona "doador" se ela estiver presente no DataFrame
@@ -2018,7 +2020,9 @@ df_projetos = df_projetos[colunas].rename(columns={
     "bioma": "Bioma",
     "genero": "Gênero",
     "status": "Status",
-    "ponto_focal": "Ponto Focal"
+    "ponto_focal": "Ponto Focal",
+    "data_inicio_do_contrato": "Data Início",
+    "data_final_do_contrato": "Data Fim"
 })
 
 
@@ -2037,6 +2041,18 @@ df_projetos_codigos = df_projetos.copy()
 
 # Garantir que todos os campos estão como string
 df_projetos = df_projetos.fillna("").astype(str)
+
+df_projetos["Data Início"] = pd.to_datetime(
+    df_projetos["Data Início"],
+    format="%d/%m/%Y",
+    errors="coerce"
+)
+
+df_projetos["Data Fim"] = pd.to_datetime(
+    df_projetos["Data Fim"],
+    format="%d/%m/%Y",
+    errors="coerce"
+)
 
 # Aplicar a função na coluna 'Municípios'
 df_projetos["Município(s)"] = df_projetos["Município(s)"].apply(converter_codigos_para_nomes)
@@ -2113,7 +2129,7 @@ with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
         # ===== Terceira Linha =====
         col1, col2, col3, col4 = st.columns(4)
         edital_sel = col1.multiselect("Edital", sorted(df_base["Edital"].dropna().unique(), key=edital_key), placeholder="Todos")
-        ano_sel = col2.multiselect("Ano", sorted(df_base["Ano"].dropna().unique()), placeholder="Todos")
+        ano_sel = col2.multiselect("Ano do edital", sorted(df_base["Ano"].dropna().unique()), placeholder="Todos")
         doador_sel = col3.multiselect("Doador", sorted(df_base["Doador"].dropna().unique()), placeholder="Todos")
         codigo_sel = col4.multiselect("Código", sorted(df_base["Código"].dropna().unique()), placeholder="Todos")
 
@@ -2131,12 +2147,39 @@ with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
         status_sel = col4.multiselect("Status", sorted(df_base["Status"].dropna().unique()), placeholder="Todos")
 
         # ===== Quinta Linha =====
-        col5, col6 = st.columns(2)
-        estados_unicos = sorted(df_base["Estado(s)"].dropna().apply(lambda x: [m.strip() for m in x.split(",")]).explode().unique())
-        uf_sel = col5.multiselect("Estado(s)", estados_unicos, placeholder="Todos")
+        col1, col2, col3, col4 = st.columns(4)
+        
+        data_inicio_filtro = col1.date_input(
+            "Data início do projeto",
+            value=None,
+            min_value=datetime.date(1990, 1, 1),
+            format="DD/MM/YYYY"
+        )
 
-        municipios_unicos = sorted(df_base["Município(s)"].dropna().apply(lambda x: [m.strip() for m in x.split(",")]).explode().unique())
-        municipio_sel = col6.multiselect("Município(s)", municipios_unicos, placeholder="Todos")
+        data_fim_filtro = col2.date_input(
+            "Data fim do projeto",
+            value=None,
+            min_value=datetime.date(1990, 1, 1),
+            format="DD/MM/YYYY"
+        )
+
+        estados_unicos = sorted(
+            df_base["Estado(s)"]
+            .dropna()
+            .apply(lambda x: [m.strip() for m in x.split(",")])
+            .explode()
+            .unique()
+        )
+        uf_sel = col3.multiselect("Estado(s)", estados_unicos, placeholder="Todos")
+
+        municipios_unicos = sorted(
+            df_base["Município(s)"]
+            .dropna()
+            .apply(lambda x: [m.strip() for m in x.split(",")])
+            .explode()
+            .unique()
+        )
+        municipio_sel = col4.multiselect("Município(s)", municipios_unicos, placeholder="Todos")
 
         # ===== Botão =====
         aplicar = st.form_submit_button("Aplicar filtros")
@@ -2179,6 +2222,18 @@ with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
         if status_sel: mask &= df_base["Status"].isin(status_sel)
         if uf_sel: mask &= df_base["Estado(s)"].apply(lambda x: any(m.strip() in uf_sel for m in x.split(",")) if isinstance(x, str) else False)
         if municipio_sel: mask &= df_base["Município(s)"].apply(lambda x: any(m.strip() in municipio_sel for m in x.split(",")) if isinstance(x, str) else False)
+
+        if data_inicio_filtro:
+            mask &= (
+                df_base["Data Início"].notna() &
+                (df_base["Data Início"].dt.date >= data_inicio_filtro)
+            )
+
+        if data_fim_filtro:
+            mask &= (
+                df_base["Data Fim"].notna() &
+                (df_base["Data Fim"].dt.date <= data_fim_filtro)
+            )
 
         df_filtrado = df_base.loc[mask].copy()
 
@@ -2491,14 +2546,6 @@ with lista:
     st.session_state["pagina_topo"] = max(st.session_state["pagina_topo"], 1)
     st.session_state["pagina_rodape"] = max(st.session_state["pagina_rodape"], 1)
 
-    # --- Inicializar paginação no session_state ---
-    if "pagina_atual" not in st.session_state:
-        st.session_state["pagina_atual"] = 1
-    if "pagina_topo" not in st.session_state:
-        st.session_state["pagina_topo"] = st.session_state["pagina_atual"]
-    if "pagina_rodape" not in st.session_state:
-        st.session_state["pagina_rodape"] = st.session_state["pagina_atual"]
-
     # --- Funções de callback para sincronização ---
     def atualizar_topo():
         st.session_state["pagina_atual"] = st.session_state["pagina_topo"]
@@ -2516,7 +2563,6 @@ with lista:
         "Página",
         min_value=1,
         max_value=total_paginas,
-        value=st.session_state["pagina_topo"],
         step=1,
         key="pagina_topo",
         on_change=atualizar_topo
@@ -2539,7 +2585,25 @@ with lista:
 
     # --- Layout da tabela customizada ---
     # colunas_visiveis = [c for c in df_exibir.columns]  # personalizar se quiser excluir colunas
-    colunas_visiveis = [c for c in df_exibir.columns if c not in ["Tipo", "Município(s)", "CNPJ", "CPF", "Proponente", "Programa", "Temas", "Público", "Bioma", "Gênero", "Status", "Ponto Focal"]]
+    colunas_visiveis = [
+        c for c in df_exibir.columns
+        if c not in [
+            "Tipo",
+            "Município(s)",
+            "CNPJ",
+            "CPF",
+            "Proponente",
+            "Programa",
+            "Temas",
+            "Público",
+            "Bioma",
+            "Gênero",
+            "Status",
+            "Ponto Focal",
+            "Data Início",
+            "Data Fim"
+        ]
+    ]
 
     headers = colunas_visiveis + ["Detalhes"]
 
@@ -2577,7 +2641,6 @@ with lista:
         "Página",
         min_value=1,
         max_value=total_paginas,
-        value=st.session_state["pagina_rodape"],
         step=1,
         key="pagina_rodape",
         on_change=atualizar_rodape
