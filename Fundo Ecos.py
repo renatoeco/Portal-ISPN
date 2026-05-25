@@ -2469,6 +2469,27 @@ with lista:
     itens_por_pagina = 50
     total_linhas = len(df_exibir)
     total_paginas = max(math.ceil(total_linhas / itens_por_pagina), 1)
+    
+    # Inicializar paginação
+    if "pagina_atual" not in st.session_state:
+        st.session_state["pagina_atual"] = 1
+
+    if "pagina_topo" not in st.session_state:
+        st.session_state["pagina_topo"] = 1
+
+    if "pagina_rodape" not in st.session_state:
+        st.session_state["pagina_rodape"] = 1
+
+
+    # Corrigir valores caso o filtro reduza o número de páginas
+    st.session_state["pagina_atual"] = min(st.session_state["pagina_atual"], total_paginas)
+    st.session_state["pagina_topo"] = min(st.session_state["pagina_topo"], total_paginas)
+    st.session_state["pagina_rodape"] = min(st.session_state["pagina_rodape"], total_paginas)
+
+    # Garantir mínimo
+    st.session_state["pagina_atual"] = max(st.session_state["pagina_atual"], 1)
+    st.session_state["pagina_topo"] = max(st.session_state["pagina_topo"], 1)
+    st.session_state["pagina_rodape"] = max(st.session_state["pagina_rodape"], 1)
 
     # --- Inicializar paginação no session_state ---
     if "pagina_atual" not in st.session_state:
@@ -2495,7 +2516,7 @@ with lista:
         "Página",
         min_value=1,
         max_value=total_paginas,
-        # value=st.session_state["pagina_topo"],
+        value=st.session_state["pagina_topo"],
         step=1,
         key="pagina_topo",
         on_change=atualizar_topo
