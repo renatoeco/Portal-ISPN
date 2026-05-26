@@ -3522,12 +3522,13 @@ if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_pess
         # CABEÇALHO DA TABELA
         ##################################################################################################
 
-        cols = st.columns([2,2,5,2])
+        cols = st.columns([2, 2, 5, 2, 2])
 
         cols[0].markdown("**Nome**")
         cols[1].markdown("**E-mail**")
         cols[2].markdown("**Páginas permitidas**")
-        cols[3].markdown("**Ações**")
+        cols[3].markdown("**Data de expiração**")
+        cols[4].markdown("**Ações**")
 
         st.write('')
 
@@ -3547,7 +3548,7 @@ if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_pess
 
             for visitante in visitantes:
 
-                cols = st.columns([2,2,5,2], gap="medium")
+                cols = st.columns([2, 2, 5, 2, 2], gap="medium")
 
                 # Nome do visitante
                 cols[0].write(
@@ -3570,6 +3571,11 @@ if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_pess
                     key=f"visitante_{visitante['_id']}"
                 )
 
+                # Data de expiração
+                cols[3].write(
+                    visitante.get("data_expiracao_acesso", "")
+                )
+
                 # Atualiza permissões caso haja alteração
                 if paginas_selecionadas != paginas_atuais:
 
@@ -3583,11 +3589,10 @@ if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_pess
                     )
 
                     time.sleep(3)
-
                     st.rerun()
 
                 # Botão remover acesso
-                if cols[3].button(
+                if cols[4].button(
                     "Remover acesso",
                     key=f"remover_{visitante['_id']}",
                     icon=":material/delete:",
