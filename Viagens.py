@@ -882,6 +882,7 @@ abas_labels = [
     ":material/flight_takeoff: Minhas Viagens",
     ":material/add: Nova Solicitação de Viagem",
     ":material/group: Solicitações para Terceiros",
+    ":material/account_child_invert: Solicitações Externas",
 ]
 
 # Perfis com acesso à aba Pendências
@@ -909,7 +910,8 @@ tabs = st.tabs(abas_labels)
 minhas_viagens = tabs[0]
 nova_sav = tabs[1]
 terceiros = tabs[2]
-pendencias = tabs[3] if tem_acesso_pendencias else None
+solicitacoes_externas = tabs[3]
+pendencias = tabs[4] if tem_acesso_pendencias else None
 
 df_minhas_savs = df_savs[
     df_savs['CPF:'].astype(str) == st.session_state.cpf
@@ -1318,9 +1320,194 @@ with terceiros:
         st.divider()  # Separador entre cada linha da tabela
 
 
+# #######################################################################
+# ABA SOLICITAÇÕES EXTERNAS
+# #######################################################################
 
+with solicitacoes_externas:
 
+    st.write("**Viagens em que você é o responsável pela SAV**")
+    st.write("")
 
+    # ----------------------------------------------------------
+    # NORMALIZA CPF DO RESPONSÁVEL
+    # ----------------------------------------------------------
+
+    df_savs_terceiros["CPF do responsável pela SAV:"] = (
+        df_savs_terceiros["CPF do responsável pela SAV:"]
+        .astype(str)
+        .str.replace(r"\D", "", regex=True)
+    )
+
+    cpf_usuario_numeros = re.sub(
+        r"\D",
+        "",
+        str(st.session_state.cpf)
+    )
+
+    # ----------------------------------------------------------
+    # FILTRA APENAS AS SAVS EM QUE O USUÁRIO É RESPONSÁVEL
+    # ----------------------------------------------------------
+
+    df_solicitacoes_externas = df_savs_terceiros[
+        df_savs_terceiros["CPF do responsável pela SAV:"]
+        == cpf_usuario_numeros
+    ].copy()
+
+    # ----------------------------------------------------------
+    # TRATAMENTO DE CAMPOS
+    # ----------------------------------------------------------
+
+    df_solicitacoes_externas["Data da viagem:"] = (
+        df_solicitacoes_externas["Itinerário:"]
+        .str[6:16]
+        .replace("-", "/", regex=True)
+    )
+
+    destinos_regex = r"Cidade de chegada: (.*?)(?:,|$)"
+
+    df_solicitacoes_externas["Destinos:"] = (
+        df_solicitacoes_externas["Itinerário:"]
+        .apply(
+            lambda x: " > ".join(
+                re.findall(destinos_regex, x)
+            )
+        )
+    )
+
+    # ----------------------------------------------------------
+    # TABELA VAZIA
+    # ----------------------------------------------------------
+
+    if df_solicitacoes_externas.empty:
+
+        st.caption(
+            "Você ainda não foi marcado como responsável "
+            "em solicitações externas."
+        )
+
+    else:
+
+        # ------------------------------------------------------
+        # CABEÇALHO
+        # ------------------------------------------------------
+
+        col1, col2, col3, col4, col5, col6 = st.columns(
+            [2, 2, 4, 6, 3, 3]
+        )
+
+        col1.write("Código")
+        col2.write("Data")
+        col3.write("Nome do(a) viajante")
+        col4.write("Destinos")
+        col5.write("Solicitações")
+        col6.write("Relatórios")
+
+        # ------------------------------------------------------
+        # LISTA
+        # ------------------------------------------------------
+
+        for index, row in (
+            df_solicitacoes_externas[::-1]
+            .iterrows()
+        ):
+
+            # ----------------------------------------------
+            # PREPARAÇÃO DO LINK DE RVS
+            # ----------------------------------------------
+
+            trechos = parse_itinerario(
+                row["Itinerário:"]
+            )
+
+            data_inicial = trechos[0]["Data"]
+            data_final = trechos[-1]["Data"]
+
+            periodo_viagem = (
+                f"{data_inicial} a {data_final}"
+                .replace("-", "/")
+            )
+
+            cidades_chegada = [
+                viagem["Cidade de chegada"]
+                for viagem in trechos
+            ]
+
+            destinos = ", ".join(cidades_chegada)
+
+            params = {
+                "codigoDa": row["Código da viagem:"],
+                "qualE": row["Qual é a fonte do recurso?"],
+                "responsavel": row["Responsável pela SAV:"],
+                "nome_viajante": row["Nome do(a) viajante:"],
+                "email": row["E-mail:"],
+                "cidadesDe": destinos,
+                "periodoDa": periodo_viagem
+            }
+
+            jotform_rvs_url = (
+                f"{st.secrets['links']['url_rvs_trc']}?"
+                f"{encode_params(params)}"
+            )
+
+            # ----------------------------------------------
+            # LINHA
+            # ----------------------------------------------
+
+            col1, col2, col3, col4, col5, col6 = st.columns(
+                [2, 2, 4, 6, 3, 3]
+            )
+
+            col1.write(row["Código da viagem:"])
+            col2.write(row["Data da viagem:"])
+            col3.write(row["Nome do(a) viajante:"])
+            col4.write(row["Destinos:"])
+
+            col5.button(
+                "Detalhes",
+                key=f"det_ext_{index}",
+                on_click=mostrar_detalhes_sav,
+                args=(row,),
+                width="stretch",
+                icon=":material/info:"
+            )
+
+            # ----------------------------------------------
+            # STATUS DO RELATÓRIO
+            # ----------------------------------------------
+
+            possui_relatorio = (
+                row["Código da viagem:"].upper()
+                in
+                df_rvss_terceiros[
+                    "Código da viagem:"
+                ]
+                .str.upper()
+                .values
+            )
+
+            if possui_relatorio:
+
+                col6.button(
+                    "Relatório entregue",
+                    key=f"rvs_ext_{index}",
+                    on_click=mostrar_detalhes_rvs,
+                    args=(row, df_rvss_terceiros),
+                    width="stretch",
+                    icon=":material/check:",
+                    type="primary"
+                )
+
+            else:
+
+                col6.link_button(
+                    "Enviar relatório",
+                    width="stretch",
+                    icon=":material/description:",
+                    url=jotform_rvs_url
+                )
+
+            st.divider()
 
 
 # #######################################################################
