@@ -328,7 +328,7 @@ def atualizar_filtro_interativo(campo, opcoes, label):
 def carregar_projetos():
     projetos_todos = []
     for coll in [projetos_ispn, projetos_pf, projetos_pj]:
-        projetos_todos.extend(list(coll.find({}, {"_id": 1, "bioma": 1, "sigla": 1, "programa": 1})))
+        projetos_todos.extend(list(coll.find({}, {"_id": 1, "bioma": 1, "sigla": 1, "programa": 1,  "edital": 1})))
     return projetos_todos
 
 
@@ -1145,6 +1145,9 @@ df_proj_info = pd.DataFrame(projetos_todos).rename(columns={"_id": "projeto"})
 if "programa" not in df_proj_info.columns:
     df_proj_info["programa"] = ""
 
+if "edital" not in df_proj_info.columns:
+    df_proj_info["edital"] = ""
+
 map_programa_nome = {p["_id"]: p["nome_programa_area"] for p in programas}
 
 # Aplica corretamente
@@ -1155,7 +1158,7 @@ if "filtros_indicadores" not in st.session_state:
     st.session_state.filtros_indicadores = {}
 
 # Garante que TODAS as chaves existam
-for key in ["tipo", "autor_anotacao", "codigo", "ano", "bioma", "sigla", "programa"]:
+for key in ["tipo", "autor_anotacao", "codigo", "ano", "bioma", "sigla", "programa", "edital"]:
     if key not in st.session_state.filtros_indicadores:
         st.session_state.filtros_indicadores[key] = []
 
@@ -1183,7 +1186,28 @@ biomas_unicos = sorted(set(todos_biomas))
 
 df_base["sigla"] = df_base["sigla"].fillna("")
 df_base["programa"] = df_base["programa"].fillna("")
+df_base["edital"] = df_base["edital"].fillna("")
 
+def ordenar_editais(lista_editais):
+    """
+    Ordena editais numericamente, mesmo estando salvos como string.
+
+    Exemplos:
+    1
+    2
+    10
+    13
+    13.1
+    14
+    """
+
+    def chave(valor):
+        try:
+            return float(str(valor).replace(",", "."))
+        except:
+            return float("inf")
+
+    return sorted(lista_editais, key=chave)
 
 with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
     # ===== FORM DE FILTROS =====
@@ -1219,7 +1243,7 @@ with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
                 placeholder=""
             )
 
-        col4, col5, col6 = st.columns(3)
+        col4, col5, col6, col7 = st.columns(4)
         with col4:
 
             # Explode lista de programas em valores únicos
@@ -1236,15 +1260,23 @@ with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
                 key="filtro_programa",
                 placeholder=""
             )
-            
+
         with col5:
+            edital_sel = st.multiselect(
+                "Filtrar por edital",
+                ordenar_editais([e for e in df_base["edital"].unique() if e]),
+                key="filtro_edital",
+                placeholder=""
+            )
+            
+        with col6:
             bioma_sel = st.multiselect(
                 "Filtrar por bioma",
                 biomas_unicos,
                 key="filtro_bioma",
                 placeholder=""
             )
-        with col6:
+        with col7:
             ano_sel = st.multiselect(
                 "Filtrar por ano",
                 sorted(df_base["ano"].unique()),
@@ -1264,6 +1296,7 @@ with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
             "programa": st.session_state.filtro_programa,
             "bioma": st.session_state.filtro_bioma,
             "ano": st.session_state.filtro_ano,
+            "edital": st.session_state.filtro_edital,
         }
 
 
