@@ -2536,15 +2536,53 @@ with lista:
         st.session_state["pagina_rodape"] = 1
 
 
-    # Corrigir valores caso o filtro reduza o número de páginas
-    st.session_state["pagina_atual"] = min(st.session_state["pagina_atual"], total_paginas)
-    st.session_state["pagina_topo"] = min(st.session_state["pagina_topo"], total_paginas)
-    st.session_state["pagina_rodape"] = min(st.session_state["pagina_rodape"], total_paginas)
+    # ==================================================
+    # GARANTIR QUE VALORES DE PAGINAÇÃO NUNCA SEJAM NONE
+    # ==================================================
 
-    # Garantir mínimo
-    st.session_state["pagina_atual"] = max(st.session_state["pagina_atual"], 1)
-    st.session_state["pagina_topo"] = max(st.session_state["pagina_topo"], 1)
-    st.session_state["pagina_rodape"] = max(st.session_state["pagina_rodape"], 1)
+    if st.session_state.get("pagina_atual") is None:
+        st.session_state["pagina_atual"] = 1
+
+    if st.session_state.get("pagina_topo") is None:
+        st.session_state["pagina_topo"] = 1
+
+    if st.session_state.get("pagina_rodape") is None:
+        st.session_state["pagina_rodape"] = 1
+
+    # Garantir que total_paginas nunca seja None
+    total_paginas = total_paginas or 1
+
+    # Corrigir limites máximos
+    st.session_state["pagina_atual"] = min(
+        int(st.session_state["pagina_atual"]),
+        int(total_paginas)
+    )
+
+    st.session_state["pagina_topo"] = min(
+        int(st.session_state["pagina_topo"]),
+        int(total_paginas)
+    )
+
+    st.session_state["pagina_rodape"] = min(
+        int(st.session_state["pagina_rodape"]),
+        int(total_paginas)
+    )
+
+    # Garantir mínimo = 1
+    st.session_state["pagina_atual"] = max(
+        int(st.session_state["pagina_atual"]),
+        1
+    )
+
+    st.session_state["pagina_topo"] = max(
+        int(st.session_state["pagina_topo"]),
+        1
+    )
+
+    st.session_state["pagina_rodape"] = max(
+        int(st.session_state["pagina_rodape"]),
+        1
+    )
 
     # --- Funções de callback para sincronização ---
     def atualizar_topo():
@@ -2653,6 +2691,17 @@ with lista:
 with mapa:
     st.subheader("Mapa de distribuição de projetos")
 
+    # ==========================================================
+    # MODO DE VISUALIZAÇÃO DO MAPA
+    # ==========================================================
+
+    modo_mapa = st.radio(
+        "Visualização",
+        ["Cluster", "Pontos"],
+        horizontal=True,
+        index=0
+    )
+
     @st.cache_data(show_spinner=False)
     def carregar_municipios():
         url = "https://raw.githubusercontent.com/kelvins/Municipios-Brasileiros/master/csv/municipios.csv"
@@ -2665,58 +2714,137 @@ with mapa:
 
     @st.cache_data(show_spinner=False)
     def preparar_df_coords(df_projetos_codigos, df_filtrado, df_munis):
-        # Extrair código do município
+
+        # ==========================================================
+        # EXTRAI CÓDIGO DO MUNICÍPIO PRINCIPAL
+        # ==========================================================
+
         df_projetos_codigos['codigo_municipio'] = [
-            m.split(",")[0].strip() if m else "" 
+            m.split(",")[0].strip() if m else ""
             for m in df_projetos_codigos['Município Principal']
         ]
 
-        # Filtrar
-        df_filtrado_proj = df_projetos_codigos[df_projetos_codigos["Código"].isin(df_filtrado["Código"])].copy()
-        df_filtrado_proj['codigo_municipio'] = df_filtrado_proj['Município Principal'].astype(str)
-        df_filtrado_proj['Ano'] = df_filtrado_proj['Ano'].astype(str).str.replace(".0", "", regex=False)
+        # ==========================================================
+        # FILTRA SOMENTE OS PROJETOS VISÍVEIS
+        # ==========================================================
 
-        # Merge para coordenadas
+        df_filtrado_proj = df_projetos_codigos[
+            df_projetos_codigos["Código"].isin(df_filtrado["Código"])
+        ].copy()
+
+        df_filtrado_proj['codigo_municipio'] = (
+            df_filtrado_proj['Município Principal'].astype(str)
+        )
+
+        df_filtrado_proj['Ano'] = (
+            df_filtrado_proj['Ano']
+            .astype(str)
+            .str.replace(".0", "", regex=False)
+        )
+
+        # ==========================================================
+        # MERGE COM COORDENADAS DOS MUNICÍPIOS
+        # ==========================================================
+
         df_coords = df_filtrado_proj.merge(
             df_munis,
             left_on='codigo_municipio',
             right_on='codigo_municipio',
             how='left'
-        ).dropna(subset=['latitude', 'longitude']).drop_duplicates(subset='Código')
+        )
+
+        df_coords = (
+            df_coords
+            .dropna(subset=['latitude', 'longitude'])
+            .drop_duplicates(subset='Código')
+        )
 
         return df_coords
-    
+
     @st.cache_data(show_spinner=False)
     def carregar_pontos_focais(_projetos):
-        ids = [p["ponto_focal"] for p in _projetos if isinstance(p.get("ponto_focal"), ObjectId)]
+
+        ids = [
+            p["ponto_focal"]
+            for p in _projetos
+            if isinstance(p.get("ponto_focal"), ObjectId)
+        ]
+
         if not ids:
             return {}
 
-        pessoas = list(db["pessoas"].find(
-            {"_id": {"$in": ids}},
-            {"_id": 1, "nome_completo": 1}
-        ))
+        pessoas = list(
+            db["pessoas"].find(
+                {"_id": {"$in": ids}},
+                {"_id": 1, "nome_completo": 1}
+            )
+        )
 
-        return {p["_id"]: p.get("nome_completo", "Não encontrado") for p in pessoas}
+        return {
+            p["_id"]: p.get("nome_completo", "Não encontrado")
+            for p in pessoas
+        }
 
+    df_coords_projetos = preparar_df_coords(
+        df_projetos_codigos,
+        df_filtrado,
+        df_munis
+    )
 
-    df_coords_projetos = preparar_df_coords(df_projetos_codigos, df_filtrado, df_munis)
     num_proj_mapa = len(df_coords_projetos)
+
     pontos_focais_dict = carregar_pontos_focais(todos_projetos)
+
     st.write(f"{num_proj_mapa} projetos no mapa")
 
     @st.cache_data(show_spinner=False)
-    def gerar_mapa(df_coords_projetos, _todos_projetos, df_munis):
-        
-        m = folium.Map(location=[-15.78, -47.93], zoom_start=4, tiles="CartoDB positron", height="800px")
-        cluster = MarkerCluster().add_to(m)
+    def gerar_mapa(
+        df_coords_projetos,
+        _todos_projetos,
+        df_munis,
+        usar_cluster=True
+    ):
+
+        # ==========================================================
+        # MAPA BASE
+        # ==========================================================
+
+        m = folium.Map(
+            location=[-15.78, -47.93],
+            zoom_start=4,
+            tiles="CartoDB positron",
+            height="800px"
+        )
+
+        # ==========================================================
+        # DEFINE DESTINO DOS MARCADORES
+        # ==========================================================
+
+        if usar_cluster:
+            camada_destino = MarkerCluster().add_to(m)
+        else:
+            camada_destino = m
+
+        # ==========================================================
+        # ADICIONA MARCADORES
+        # ==========================================================
 
         for _, row in df_coords_projetos.iterrows():
+
             lat, lon = row['latitude'], row['longitude']
+
             codigo = row['Código']
+
             ano_de_aprovacao = row['Ano']
 
-            projeto = next((p for p in todos_projetos if p.get("codigo") == codigo), None)
+            projeto = next(
+                (
+                    p for p in todos_projetos
+                    if p.get("codigo") == codigo
+                ),
+                None
+            )
+
             if not projeto:
                 continue
 
@@ -2727,32 +2855,91 @@ with mapa:
             sigla = projeto.get("sigla")
             edital = projeto.get("edital")
 
-            # Ponto focal
-            ponto_focal_obj = projeto.get("ponto_focal")
-            nome_ponto_focal = pontos_focais_dict.get(ponto_focal_obj, "Não informado")
+            # ==========================================================
+            # PONTO FOCAL
+            # ==========================================================
 
-            # Município principal
-            muni_principal_codigo = str(row.get('codigo_municipio', '')).strip()
-            muni_principal_info = df_munis[df_munis['codigo_municipio'] == muni_principal_codigo]
+            ponto_focal_obj = projeto.get("ponto_focal")
+
+            nome_ponto_focal = pontos_focais_dict.get(
+                ponto_focal_obj,
+                "Não informado"
+            )
+
+            # ==========================================================
+            # MUNICÍPIO PRINCIPAL
+            # ==========================================================
+
+            muni_principal_codigo = str(
+                row.get('codigo_municipio', '')
+            ).strip()
+
+            muni_principal_info = df_munis[
+                df_munis['codigo_municipio'] == muni_principal_codigo
+            ]
+
             if not muni_principal_info.empty:
-                nome_muni_principal = muni_principal_info.iloc[0]['nome'].title()
-                uf_sigla_principal = codigo_uf_para_sigla.get(str(int(muni_principal_info.iloc[0]['codigo_uf'])), "")
-                muni_principal_str = f"{nome_muni_principal} - {uf_sigla_principal}"
+
+                nome_muni_principal = (
+                    muni_principal_info.iloc[0]['nome'].title()
+                )
+
+                uf_sigla_principal = codigo_uf_para_sigla.get(
+                    str(int(muni_principal_info.iloc[0]['codigo_uf'])),
+                    ""
+                )
+
+                muni_principal_str = (
+                    f"{nome_muni_principal} - {uf_sigla_principal}"
+                )
+
             else:
+
                 muni_principal_str = "Não informado"
 
-            # Demais municípios
-            codigos_municipios_projeto = [c.strip() for c in str(row.get('Município(s)', '')).split(',') if c.strip()]
+            # ==========================================================
+            # DEMAIS MUNICÍPIOS
+            # ==========================================================
+
+            codigos_municipios_projeto = [
+                c.strip()
+                for c in str(row.get('Município(s)', '')).split(',')
+                if c.strip()
+            ]
+
             demais_municipios = []
+
             for cod in codigos_municipios_projeto:
+
                 if cod == muni_principal_codigo:
                     continue
-                muni_info = df_munis[df_munis['codigo_municipio'] == cod]
+
+                muni_info = df_munis[
+                    df_munis['codigo_municipio'] == cod
+                ]
+
                 if not muni_info.empty:
+
                     nome_muni = muni_info.iloc[0]['nome'].title()
-                    uf_sigla = codigo_uf_para_sigla.get(str(int(muni_info.iloc[0]['codigo_uf'])), "")
-                    demais_municipios.append(f"{nome_muni} - {uf_sigla}")
-            demais_municipios_html = "<br>".join(demais_municipios) if demais_municipios else "Nenhum"
+
+                    uf_sigla = codigo_uf_para_sigla.get(
+                        str(int(muni_info.iloc[0]['codigo_uf'])),
+                        ""
+                    )
+
+                    demais_municipios.append(
+                        f"{nome_muni} - {uf_sigla}"
+                    )
+
+            demais_municipios_html = (
+                "<br>".join(demais_municipios)
+                if demais_municipios
+                else "Nenhum"
+            )
+
+            # ==========================================================
+            # POPUP
+            # ==========================================================
 
             popup_html = f"""
                 <b>Proponente:</b> {proponente}<br>
@@ -2770,10 +2957,30 @@ with mapa:
 
             folium.Marker(
                 location=[lat, lon],
-                popup=folium.Popup(popup_html, max_width=400)
-            ).add_to(cluster)
+                popup=folium.Popup(popup_html, max_width=400),
+
+                icon=folium.Icon(color="green")
+
+            ).add_to(camada_destino)
 
         return m
 
-    mapa_folium = gerar_mapa(df_coords_projetos, todos_projetos, df_munis)
-    st_folium(mapa_folium, width=None, height=800, returned_objects=[])
+    # ==========================================================
+    # CONTROLE CLUSTER / PONTOS
+    # ==========================================================
+
+    usar_cluster = modo_mapa == "Cluster"
+
+    mapa_folium = gerar_mapa(
+        df_coords_projetos,
+        todos_projetos,
+        df_munis,
+        usar_cluster=usar_cluster
+    )
+
+    st_folium(
+        mapa_folium,
+        width=None,
+        height=800,
+        returned_objects=[]
+    )
