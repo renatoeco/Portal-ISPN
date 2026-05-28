@@ -1980,6 +1980,7 @@ colunas = [
     "municipios",
     "tipo",
     "municipio_principal",
+    "lat_long_principal",
     "cnpj",
     "programa",
     "temas",
@@ -2011,6 +2012,7 @@ df_projetos = df_projetos[colunas].rename(columns={
     "municipios": "Município(s)",
     "tipo": "Tipo",
     "municipio_principal": "Município Principal",
+    "lat_long_principal": "Latitude/Longitude",
     "cnpj": "CNPJ",
     "cpf": "CPF",
     "proponente": "Proponente",
@@ -2628,6 +2630,7 @@ with lista:
         if c not in [
             "Tipo",
             "Município(s)",
+            "Latitude/Longitude",
             "CNPJ",
             "CPF",
             "Proponente",
