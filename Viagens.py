@@ -1473,6 +1473,15 @@ with solicitacoes_externas:
                     type="primary"
                 )
 
+            # else:
+
+            #     col6.link_button(
+            #         "Enviar relatório",
+            #         width="stretch",
+            #         icon=":material/description:",
+            #         url=jotform_rvs_url
+            #     )
+
             st.divider()
 
 
