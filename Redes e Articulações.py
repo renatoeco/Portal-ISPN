@@ -144,11 +144,157 @@ def mostrar_detalhes(rede_doc):
     # Aba 1: Informações gerais
     # =====================
     with tabs[0]:
-        modo_edicao = st.toggle("Editar", value=False, disabled=usuario_visitante)
 
-        if not modo_edicao:
+        if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)"}:
+            modo_edicao = st.toggle("Editar", value=False, disabled=usuario_visitante)
+
+            if not modo_edicao:
+                # Exibição simples
+
+                st.write(f"**Rede/Articulação:** {rede_doc.get('rede_articulacao', '')}")
+                st.write(f"**Descrição da rede:** {rede_doc.get('descricao', '')}")
+                st.write(f"**Ponto(s) Focal(is):** {rede_doc.get('ponto_focal', '')}")
+
+                col1, col2 = st.columns(2)
+
+                col1.write(f"**Tema:** {rede_doc.get('tema', '')}")
+                col2.write(f"**Tipo de Rede:** {rede_doc.get('tipo_rede', '')}")
+
+                col1, col2, col3, col4 = st.columns(4)
+
+                col1.write(f"**Programa:** {rede_doc.get('programa', '')}")
+                col2.write(f"**Grau de Prioridade:** {rede_doc.get('prioridade', '')}")
+                col3.write(f"**Dedicação:** {rede_doc.get('dedicacao', '')}")
+                col4.write(f"**Status:** {rede_doc.get('status', 'ativa')}")
+
+
+            else:
+                # =====================
+                # Opções dinâmicas do banco
+                # =====================
+                prioridades_opcoes = sorted({r.get("prioridade") for r in redes.find() if r.get("prioridade")})
+                dedicacao_opcoes = sorted({r.get("dedicacao") for r in redes.find() if r.get("dedicacao")})
+
+                temas_opcoes = sorted({
+                    t.strip()
+                    for r in redes.find()
+                    if r.get("tema")
+                    for t in re.split(r",|;", r.get("tema"))
+                    if t.strip()
+                })
+
+                pessoas_opcoes = sorted({p.get("nome_completo") for p in pessoas.find() if p.get("nome_completo")})
+
+                programas_opcoes = [
+                    "",
+                    "Cerrado",
+                    "Coordenação",
+                    "Iniciativas Comunitárias",
+                    "Maranhão",
+                    "Povos Indígenas",
+                    "Sociobiodiversidade",
+                ]
+
+                # Opções fixas para status
+                status_opcoes = ["ativa", "inativa"]
+                
+                tipos_rede_opcoes = [" ","tipo 1", "tipo 2", "tipo 3"]
+
+                # =====================
+                # Campos editáveis
+                # =====================
+                
+                rede_edit = st.text_input("Rede/Articulação", value=rede_doc.get("rede_articulacao", ""))
+
+                descricao_edit = st.text_area("Descrição da rede", value=rede_doc.get("descricao", ""))
+
+                ponto_focal_str = rede_doc.get("ponto_focal", "")
+                ponto_focal_list = [p.strip() for p in ponto_focal_str.split(",")] if ponto_focal_str else []
+
+                ponto_focal_edit = st.multiselect(
+                    "Ponto(s) Focal(is)",
+                    options=pessoas_opcoes,
+                    default=[p for p in ponto_focal_list if p in pessoas_opcoes]
+                )
+
+
+                col1, col2 = st.columns(2)
+
+                temas_default = [
+                    t.strip()
+                    for t in re.split(r",|;", rede_doc.get("tema", ""))
+                    if t.strip() and t.strip() in temas_opcoes
+                ]
+
+                temas_selecionados = col1.multiselect(
+                    "Temas",
+                    options=temas_opcoes,
+                    default=temas_default,
+                )
+                
+                tipo_rede_edit = col2.selectbox(
+                    "Tipo de Rede",
+                    options=tipos_rede_opcoes,
+                    index=tipos_rede_opcoes.index(rede_doc.get("tipo_rede")) 
+                    if rede_doc.get("tipo_rede") in tipos_rede_opcoes else 0,
+                )
+                
+                col1, col2, col3, col4 = st.columns(4)
+                
+                programa_edit = col1.selectbox(
+                    "Programa",
+                    options=programas_opcoes,
+                    index=programas_opcoes.index(rede_doc.get("programa")) if rede_doc.get("programa") in programas_opcoes else 0,
+                )
+
+                prioridade_edit = col2.selectbox(
+                    "Grau de Prioridade",
+                    options=prioridades_opcoes,
+                    index=prioridades_opcoes.index(rede_doc.get("prioridade")) if rede_doc.get("prioridade") in prioridades_opcoes else 0,
+                )
+
+                dedicacao_edit = col3.selectbox(
+                    "Dedicação",
+                    options=dedicacao_opcoes,
+                    index=dedicacao_opcoes.index(rede_doc.get("dedicacao")) if rede_doc.get("dedicacao") in dedicacao_opcoes else 0,
+                )
+
+
+                status_edit = col4.selectbox(
+                    "Status",
+                    options=status_opcoes,
+                    index=status_opcoes.index(rede_doc.get("status", "ativa")) if rede_doc.get("status", "ativa") in status_opcoes else 0,
+                )
+
+
+                st.write("")
+
+                if st.button("Salvar alterações", icon=":material/check:", type="primary"):
+                    redes.update_one(
+                        {"_id": rede_doc["_id"]},
+                        {
+                            "$set": {
+                                "rede_articulacao": rede_edit,
+                                "descricao": descricao_edit,
+                                "descricao": descricao_edit,
+                                "tema": ", ".join(temas_selecionados),
+                                "ponto_focal": ", ".join(ponto_focal_edit),
+                                "prioridade": prioridade_edit,
+                                "dedicacao": dedicacao_edit,
+                                "programa": programa_edit,
+                                "status": status_edit, 
+                                "tipo_rede": tipo_rede_edit,
+                            }
+                        },
+                    )
+
+                    st.success("Alterações salvas com sucesso!")
+                    time.sleep(2)
+                    st.rerun(scope="fragment")
+
+        else:
             # Exibição simples
-
+            st.write("")
             st.write(f"**Rede/Articulação:** {rede_doc.get('rede_articulacao', '')}")
             st.write(f"**Descrição da rede:** {rede_doc.get('descricao', '')}")
             st.write(f"**Ponto(s) Focal(is):** {rede_doc.get('ponto_focal', '')}")
@@ -166,149 +312,15 @@ def mostrar_detalhes(rede_doc):
             col4.write(f"**Status:** {rede_doc.get('status', 'ativa')}")
 
 
-        else:
-            # =====================
-            # Opções dinâmicas do banco
-            # =====================
-            prioridades_opcoes = sorted({r.get("prioridade") for r in redes.find() if r.get("prioridade")})
-            dedicacao_opcoes = sorted({r.get("dedicacao") for r in redes.find() if r.get("dedicacao")})
-
-            temas_opcoes = sorted({
-                t.strip()
-                for r in redes.find()
-                if r.get("tema")
-                for t in re.split(r",|;", r.get("tema"))
-                if t.strip()
-            })
-
-            pessoas_opcoes = sorted({p.get("nome_completo") for p in pessoas.find() if p.get("nome_completo")})
-
-            programas_opcoes = [
-                "",
-                "Cerrado",
-                "Coordenação",
-                "Iniciativas Comunitárias",
-                "Maranhão",
-                "Povos Indígenas",
-                "Sociobiodiversidade",
-            ]
-
-            # Opções fixas para status
-            status_opcoes = ["ativa", "inativa"]
-            
-            tipos_rede_opcoes = [" ","tipo 1", "tipo 2", "tipo 3"]
-
-            # =====================
-            # Campos editáveis
-            # =====================
-            
-            rede_edit = st.text_input("Rede/Articulação", value=rede_doc.get("rede_articulacao", ""))
-
-            descricao_edit = st.text_area("Descrição da rede", value=rede_doc.get("descricao", ""))
-
-            ponto_focal_str = rede_doc.get("ponto_focal", "")
-            ponto_focal_list = [p.strip() for p in ponto_focal_str.split(",")] if ponto_focal_str else []
-
-            ponto_focal_edit = st.multiselect(
-                "Ponto(s) Focal(is)",
-                options=pessoas_opcoes,
-                default=[p for p in ponto_focal_list if p in pessoas_opcoes]
-            )
-
-
-            col1, col2 = st.columns(2)
-
-            temas_default = [
-                t.strip()
-                for t in re.split(r",|;", rede_doc.get("tema", ""))
-                if t.strip() and t.strip() in temas_opcoes
-            ]
-
-            temas_selecionados = col1.multiselect(
-                "Temas",
-                options=temas_opcoes,
-                default=temas_default,
-            )
-            
-            tipo_rede_edit = col2.selectbox(
-                "Tipo de Rede",
-                options=tipos_rede_opcoes,
-                index=tipos_rede_opcoes.index(rede_doc.get("tipo_rede")) 
-                if rede_doc.get("tipo_rede") in tipos_rede_opcoes else 0,
-            )
-            
-            col1, col2, col3, col4 = st.columns(4)
-            
-            programa_edit = col1.selectbox(
-                "Programa",
-                options=programas_opcoes,
-                index=programas_opcoes.index(rede_doc.get("programa")) if rede_doc.get("programa") in programas_opcoes else 0,
-            )
-
-            prioridade_edit = col2.selectbox(
-                "Grau de Prioridade",
-                options=prioridades_opcoes,
-                index=prioridades_opcoes.index(rede_doc.get("prioridade")) if rede_doc.get("prioridade") in prioridades_opcoes else 0,
-            )
-
-            dedicacao_edit = col3.selectbox(
-                "Dedicação",
-                options=dedicacao_opcoes,
-                index=dedicacao_opcoes.index(rede_doc.get("dedicacao")) if rede_doc.get("dedicacao") in dedicacao_opcoes else 0,
-            )
-
-
-            status_edit = col4.selectbox(
-                "Status",
-                options=status_opcoes,
-                index=status_opcoes.index(rede_doc.get("status", "ativa")) if rede_doc.get("status", "ativa") in status_opcoes else 0,
-            )
-
-
-            st.write("")
-
-            if st.button("Salvar alterações", icon=":material/check:", type="primary"):
-                redes.update_one(
-                    {"_id": rede_doc["_id"]},
-                    {
-                        "$set": {
-                            "rede_articulacao": rede_edit,
-                            "descricao": descricao_edit,
-                            "descricao": descricao_edit,
-                            "tema": ", ".join(temas_selecionados),
-                            "ponto_focal": ", ".join(ponto_focal_edit),
-                            "prioridade": prioridade_edit,
-                            "dedicacao": dedicacao_edit,
-                            "programa": programa_edit,
-                            "status": status_edit, 
-                            "tipo_rede": tipo_rede_edit,
-                        }
-                    },
-                )
-
-                st.success("Alterações salvas com sucesso!")
-                time.sleep(2)
-                st.rerun(scope="fragment")
-
-
     # Aba 2: Acompanhamento / Memória
     with tabs[1]:
         usuario_logado = st.session_state.get("nome", "Desconhecido")
-        tipo_usuario = st.session_state.get("tipo_usuario", "")
-
-
-
-
-
 
         # Recarrega documento atualizado do Mongo
         rede_doc = redes.find_one({"_id": rede_doc["_id"]})
 
         # Obtém anotações atualizadas
         anotacoes = rede_doc.get("anotacoes") or []
-
-
-
 
         # ---------------- EXPANDER PARA ADICIONAR ANOTAÇÃO ----------------
         with st.expander("Adicionar novo acompanhamento", expanded=False, icon=":material/add_notes:"):
@@ -426,44 +438,12 @@ def mostrar_detalhes(rede_doc):
                     else:
                         st.warning("O campo do acompanhamento não pode estar vazio.")
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
         # # ---------------- EXPANDER PARA ADICIONAR ANOTAÇÃO ----------------
         # with st.expander("Adicionar novo acompanhamento", expanded=False, icon=":material/add_notes:"):
         #     nova_data = datetime.now().date()
             
         #     # Campo de texto ------------------------------------------------------------
         #     novo_texto = st.text_area("Texto do acompanhamento", key="nova_anotacao", height="content", disabled=usuario_visitante)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
         #     # Upload de arquivos ------------------------------------------------------------
 
@@ -473,21 +453,6 @@ def mostrar_detalhes(rede_doc):
         #         type=["jpg", "png", "pdf", "jpeg", "webp", "docx"],
         #         key=f"upload_rede_{rede_doc['_id']}"
         #     )
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
         #     # Lista de nomes ------------------------------------------------------------
         #     pessoas_opcoes = sorted({
@@ -592,25 +557,8 @@ def mostrar_detalhes(rede_doc):
         #         else:
         #             st.warning("O campo do acompanhamento não pode estar vazio.")
 
-
-
-
-
-
-
-
-
-
-
         st.write("")
         st.write("**Acompanhamentos registrados:**")
-
-
-
-
-
-
-
 
         # ---------------- LISTA DE Acompanhamento / Memória ----------------
         # Ordena por data (decrescente)
