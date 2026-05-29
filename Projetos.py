@@ -587,7 +587,7 @@ def dialog_cadastrar_projeto():
             coordenador_options = [""] + pessoas_options
 
             coordenador = col2.selectbox(
-                "Coordenador",
+                "Coordenador(a)",
                 options=coordenador_options,
                 format_func=lambda x:
                     "" if x == "" else
@@ -663,7 +663,7 @@ def dialog_cadastrar_projeto():
             col1, col2, col3 = st.columns(3)
 
             coordenador = col1.selectbox(
-                "Coordenador",
+                "Coordenador(a)",
                 options=coordenador_options,
                 format_func=lambda x: "" if x == "" else df_pessoas_ativas
                     .loc[df_pessoas_ativas["_id"].astype(str) == x, "nome_completo"]
@@ -1252,7 +1252,7 @@ def dialog_editar_projeto():
             )
 
             coordenador = col2.selectbox(
-                "Coordenador",
+                "Coordenador(a)",
                 options=coordenador_options,
                 index=(
                     coordenador_options.index(coordenador_atual)
@@ -1408,7 +1408,7 @@ def dialog_editar_projeto():
             )
 
             coordenador = col1.selectbox(
-                "Coordenador",
+                "Coordenador(a)",
                 options=coordenador_options,
                 format_func=lambda x: "" if x == "" else df_pessoas
                     .loc[df_pessoas["_id"].astype(str) == x, "nome_completo"]
