@@ -882,7 +882,7 @@ abas_labels = [
     ":material/flight_takeoff: Minhas Viagens",
     ":material/add: Nova Solicitação de Viagem",
     ":material/group: Solicitações para Terceiros",
-    ":material/account_child_invert: Solicitações Externas",
+    ":material/co_present: Solicitações Externas",
 ]
 
 # Perfis com acesso à aba Pendências
@@ -1498,14 +1498,14 @@ with solicitacoes_externas:
                     type="primary"
                 )
 
-            else:
+            # else:
 
-                col6.link_button(
-                    "Enviar relatório",
-                    width="stretch",
-                    icon=":material/description:",
-                    url=jotform_rvs_url
-                )
+            #     col6.link_button(
+            #         "Enviar relatório",
+            #         width="stretch",
+            #         icon=":material/description:",
+            #         url=jotform_rvs_url
+            #     )
 
             st.divider()
 
