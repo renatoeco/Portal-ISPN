@@ -145,7 +145,23 @@ def mostrar_detalhes(rede_doc):
     # =====================
     with tabs[0]:
 
-        if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)"}:
+        # Nome do usuário logado
+        usuario_logado = st.session_state.get("nome", "")
+
+        # Lista de pontos focais da rede
+        pontos_focais_rede = [
+            p.strip()
+            for p in rede_doc.get("ponto_focal", "").split(",")
+            if p.strip()
+        ]
+
+        # Permissão de edição
+        pode_editar_rede = (
+            set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)"}
+            or usuario_logado in pontos_focais_rede
+        )
+
+        if pode_editar_rede:
             modo_edicao = st.toggle("Editar", value=False, disabled=usuario_visitante)
 
             if not modo_edicao:
