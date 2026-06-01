@@ -291,12 +291,20 @@ def mostrar_detalhes_sav(row):
     df_trechos.rename(columns={"Tipo de transporte": "Transporte", "Horário de preferência": "Horário"}, inplace=True)
 
     # TRATAMENTO DAS DIÁRIAS
-    # Transformar as diárias em uma lista de dicionários
-    diarias = parse_diarias(row["Diárias"])
-    # Criar um DataFrame a partir da lista de dicionários
-    df_diarias = pd.DataFrame(diarias)
-    # Substituir os campos com None por ""
-    df_diarias.fillna("", inplace=True)
+
+    df_diarias = pd.DataFrame()
+
+    if "Diárias" in row.index:
+
+        diarias_texto = row.get("Diárias", "")
+
+        if isinstance(diarias_texto, str) and diarias_texto.strip():
+
+            diarias = parse_diarias(diarias_texto)
+
+            df_diarias = pd.DataFrame(diarias)
+
+            df_diarias.fillna("", inplace=True)
 
     # TRATAMENTO DO LINK DE EDIÇÃO
     sumbission_id = row["Submission ID"]
@@ -316,7 +324,9 @@ def mostrar_detalhes_sav(row):
         st.write(f"**Nome do(a) viajante:** {row['Nome do(a) viajante:']}")
     st.write(f"**Código da viagem:** {row['Código da viagem:']}")
     st.write(f"**Data da solicitação:** {row['Submission Date']}")
-    st.write(f"**Objetivo:** {row['Descrição do objetivo da viagem:']}")
+    objetivo = row.get("Descrição do objetivo da viagem:", "")
+    if objetivo:
+        st.write(f"**Objetivo:** {objetivo}")
     st.write(f"**Fonte de recurso:** {row['Qual é a fonte do recurso?']}")
 
     # Exibir os detalhes do itinerário como tabela
@@ -324,10 +334,15 @@ def mostrar_detalhes_sav(row):
     st.dataframe(df_trechos, hide_index=True)
 
     # Exibir os detalhes das diárias como tabela
-    st.write("**Diárias:**")
-    st.dataframe(df_diarias,  hide_index=True)
+    if not df_diarias.empty:
+        st.write("**Diárias:**")
+        st.dataframe(df_diarias, hide_index=True)
 
-    st.write(f"**Custo pago pelo anfitrião:** {row['A viagem tem algum custo pago pelo anfitrião?']}")
+    if "A viagem tem algum custo pago pelo anfitrião?" in row.index:
+        st.write(
+            f"**Custo pago pelo anfitrião:** "
+            f"{row['A viagem tem algum custo pago pelo anfitrião?']}"
+        )
 
     st.write(f"**Será necessário um veículo?** {row['Será necessário locação de veículo?']}")
 
@@ -1325,37 +1340,54 @@ with terceiros:
 # #######################################################################
 
 with solicitacoes_externas:
-
-    st.write("**Viagens em que você é o responsável pela SAV**")
+    
+    st.write("**Solicitações externas vinculadas a você**")
     st.write("")
 
     # ----------------------------------------------------------
-    # NORMALIZA CPF DO RESPONSÁVEL
+    # CARREGA DADOS DAS SOLICITAÇÕES EXTERNAS
     # ----------------------------------------------------------
 
-    df_savs_terceiros["CPF do responsável pela SAV:"] = (
-        df_savs_terceiros["CPF do responsável pela SAV:"]
+    df_savs_externas = carregar_savs_ext()
+
+    df_savs_externas = df_savs_externas.rename(
+        columns={
+            "Insira aqui os seus deslocamentos. Cada trecho em uma nova linha:": "Itinerário:"
+        }
+    )
+
+    df_rvss_externas = carregar_rvss_ext()
+
+    # ----------------------------------------------------------
+    # FILTRO PELO E-MAIL DO PONTO FOCAL
+    # ----------------------------------------------------------
+
+    id_usuario = st.session_state.get("id_usuario")
+    usuario = get_usuario_normalizado(pessoas, id_usuario)
+
+    nome_completo = str(usuario.get("nome_completo", "")).strip()
+
+    partes_nome = nome_completo.split()
+
+    if len(partes_nome) >= 2:
+        nome_usuario = f"{partes_nome[0]} {partes_nome[-1]}"
+    else:
+        nome_usuario = nome_completo
+
+    nome_usuario = nome_usuario.lower()
+
+    df_solicitacoes_externas = df_savs_externas[
+        df_savs_externas[
+            "Nome do ponto focal no ISPN (a pessoa que está convidando)"
+        ]
         .astype(str)
-        .str.replace(r"\D", "", regex=True)
-    )
-
-    cpf_usuario_numeros = re.sub(
-        r"\D",
-        "",
-        str(st.session_state.cpf)
-    )
-
-    # ----------------------------------------------------------
-    # FILTRA APENAS AS SAVS EM QUE O USUÁRIO É RESPONSÁVEL
-    # ----------------------------------------------------------
-
-    df_solicitacoes_externas = df_savs_terceiros[
-        df_savs_terceiros["CPF do responsável pela SAV:"]
-        == cpf_usuario_numeros
+        .str.strip()
+        .str.lower()
+        == nome_usuario
     ].copy()
 
     # ----------------------------------------------------------
-    # TRATAMENTO DE CAMPOS
+    # TRATAMENTO DOS CAMPOS
     # ----------------------------------------------------------
 
     df_solicitacoes_externas["Data da viagem:"] = (
@@ -1370,27 +1402,22 @@ with solicitacoes_externas:
         df_solicitacoes_externas["Itinerário:"]
         .apply(
             lambda x: " > ".join(
-                re.findall(destinos_regex, x)
+                re.findall(destinos_regex, str(x))
             )
         )
     )
 
     # ----------------------------------------------------------
-    # TABELA VAZIA
+    # SEM REGISTROS
     # ----------------------------------------------------------
 
     if df_solicitacoes_externas.empty:
 
         st.caption(
-            "Você ainda não foi marcado como responsável "
-            "em solicitações externas."
+            "Nenhuma solicitação externa vinculada a você."
         )
 
     else:
-
-        # ------------------------------------------------------
-        # CABEÇALHO
-        # ------------------------------------------------------
 
         col1, col2, col3, col4, col5, col6 = st.columns(
             [2, 2, 4, 6, 3, 3]
@@ -1398,61 +1425,12 @@ with solicitacoes_externas:
 
         col1.write("Código")
         col2.write("Data")
-        col3.write("Nome do(a) viajante")
+        col3.write("Viajante")
         col4.write("Destinos")
-        col5.write("Solicitações")
-        col6.write("Relatórios")
+        col5.write("Solicitação")
+        col6.write("Relatório")
 
-        # ------------------------------------------------------
-        # LISTA
-        # ------------------------------------------------------
-
-        for index, row in (
-            df_solicitacoes_externas[::-1]
-            .iterrows()
-        ):
-
-            # ----------------------------------------------
-            # PREPARAÇÃO DO LINK DE RVS
-            # ----------------------------------------------
-
-            trechos = parse_itinerario(
-                row["Itinerário:"]
-            )
-
-            data_inicial = trechos[0]["Data"]
-            data_final = trechos[-1]["Data"]
-
-            periodo_viagem = (
-                f"{data_inicial} a {data_final}"
-                .replace("-", "/")
-            )
-
-            cidades_chegada = [
-                viagem["Cidade de chegada"]
-                for viagem in trechos
-            ]
-
-            destinos = ", ".join(cidades_chegada)
-
-            params = {
-                "codigoDa": row["Código da viagem:"],
-                "qualE": row["Qual é a fonte do recurso?"],
-                "responsavel": row["Responsável pela SAV:"],
-                "nome_viajante": row["Nome do(a) viajante:"],
-                "email": row["E-mail:"],
-                "cidadesDe": destinos,
-                "periodoDa": periodo_viagem
-            }
-
-            jotform_rvs_url = (
-                f"{st.secrets['links']['url_rvs_trc']}?"
-                f"{encode_params(params)}"
-            )
-
-            # ----------------------------------------------
-            # LINHA
-            # ----------------------------------------------
+        for index, row in df_solicitacoes_externas[::-1].iterrows():
 
             col1, col2, col3, col4, col5, col6 = st.columns(
                 [2, 2, 4, 6, 3, 3]
@@ -1460,7 +1438,7 @@ with solicitacoes_externas:
 
             col1.write(row["Código da viagem:"])
             col2.write(row["Data da viagem:"])
-            col3.write(row["Nome do(a) viajante:"])
+            col3.write(row["Nome completo:"])
             col4.write(row["Destinos:"])
 
             col5.button(
@@ -1472,16 +1450,13 @@ with solicitacoes_externas:
                 icon=":material/info:"
             )
 
-            # ----------------------------------------------
-            # STATUS DO RELATÓRIO
-            # ----------------------------------------------
-
             possui_relatorio = (
                 row["Código da viagem:"].upper()
                 in
-                df_rvss_terceiros[
+                df_rvss_externas[
                     "Código da viagem:"
                 ]
+                .astype(str)
                 .str.upper()
                 .values
             )
@@ -1492,20 +1467,11 @@ with solicitacoes_externas:
                     "Relatório entregue",
                     key=f"rvs_ext_{index}",
                     on_click=mostrar_detalhes_rvs,
-                    args=(row, df_rvss_terceiros),
+                    args=(row, df_rvss_externas),
                     width="stretch",
                     icon=":material/check:",
                     type="primary"
                 )
-
-            # else:
-
-            #     col6.link_button(
-            #         "Enviar relatório",
-            #         width="stretch",
-            #         icon=":material/description:",
-            #         url=jotform_rvs_url
-            #     )
 
             st.divider()
 
@@ -1513,7 +1479,6 @@ with solicitacoes_externas:
 # #######################################################################
 # ABA DE PENDÊNCIAS
 # #######################################################################
-
 
 
 # Se o tipo de usuário for admin, coordenador(a) ou gestao_viagens
@@ -1590,7 +1555,7 @@ if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_viag
                         df_exibicao,
                         height=altura_dataframe(df_exibicao, linhas_adicionais=0),
                         hide_index=True,
-                        use_container_width=True,
+                        width="content",
                         column_config={
                             "Fim da viagem": st.column_config.DateColumn(
                                 format="DD/MM/YYYY"
@@ -1674,7 +1639,7 @@ if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_viag
                         df_exibicao,
                         height=altura_dataframe(df_exibicao, linhas_adicionais=0),
                         hide_index=True,
-                        use_container_width=True,
+                        width="content",
                         column_config={
                             "Fim da viagem": st.column_config.DateColumn(
                                 format="DD/MM/YYYY"
@@ -1767,7 +1732,7 @@ if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_viag
                         df_exibicao,
                         height=altura_dataframe(df_exibicao, linhas_adicionais=0),
                         hide_index=True,
-                        use_container_width=True,
+                        width="content",
                         column_config={
                             "Fim da viagem": st.column_config.DateColumn(
                                 format="DD/MM/YYYY"
