@@ -2700,7 +2700,7 @@ with mapa:
 
     modo_mapa = st.radio(
         "Visualização",
-        ["Cluster", "Pontos"],
+        ["Cluster (município principal)", "Pontos (lat long principal)"],
         horizontal=True,
         index=0
     )
@@ -2716,7 +2716,7 @@ with mapa:
     df_munis = carregar_municipios()
 
     @st.cache_data(show_spinner=False)
-    def preparar_df_coords(df_projetos_codigos, df_filtrado, df_munis):
+    def preparar_df_coords(df_projetos_codigos, df_filtrado, df_munis, usar_latlong_exata=False):
 
         # ==========================================================
         # EXTRAI CÓDIGO DO MUNICÍPIO PRINCIPAL
@@ -2735,31 +2735,69 @@ with mapa:
             df_projetos_codigos["Código"].isin(df_filtrado["Código"])
         ].copy()
 
-        df_filtrado_proj['codigo_municipio'] = (
-            df_filtrado_proj['Município Principal'].astype(str)
-        )
-
-        df_filtrado_proj['Ano'] = (
-            df_filtrado_proj['Ano']
+        df_filtrado_proj["Ano"] = (
+            df_filtrado_proj["Ano"]
             .astype(str)
             .str.replace(".0", "", regex=False)
         )
 
         # ==========================================================
-        # MERGE COM COORDENADAS DOS MUNICÍPIOS
+        # MODO PONTOS → USA lat_long_principal
         # ==========================================================
+
+        if usar_latlong_exata:
+
+            def extrair_lat_lon(valor):
+                try:
+                    if not valor:
+                        return pd.Series([None, None])
+
+                    partes = [p.strip() for p in str(valor).split(",")]
+
+                    if len(partes) != 2:
+                        return pd.Series([None, None])
+
+                    lat = float(partes[0])
+                    lon = float(partes[1])
+
+                    return pd.Series([lat, lon])
+
+                except Exception:
+                    return pd.Series([None, None])
+
+            df_filtrado_proj[["latitude", "longitude"]] = (
+                df_filtrado_proj["Latitude/Longitude"]
+                .apply(extrair_lat_lon)
+            )
+
+            df_coords = (
+                df_filtrado_proj
+                .dropna(subset=["latitude", "longitude"])
+                .drop_duplicates(subset="Código")
+            )
+
+            return df_coords
+
+        # ==========================================================
+        # MODO CLUSTER → USA MUNICÍPIO PRINCIPAL
+        # ==========================================================
+
+        df_filtrado_proj["codigo_municipio"] = (
+            df_filtrado_proj["Município Principal"]
+            .astype(str)
+        )
 
         df_coords = df_filtrado_proj.merge(
             df_munis,
-            left_on='codigo_municipio',
-            right_on='codigo_municipio',
-            how='left'
+            left_on="codigo_municipio",
+            right_on="codigo_municipio",
+            how="left"
         )
 
         df_coords = (
             df_coords
-            .dropna(subset=['latitude', 'longitude'])
-            .drop_duplicates(subset='Código')
+            .dropna(subset=["latitude", "longitude"])
+            .drop_duplicates(subset="Código")
         )
 
         return df_coords
@@ -2791,7 +2829,8 @@ with mapa:
     df_coords_projetos = preparar_df_coords(
         df_projetos_codigos,
         df_filtrado,
-        df_munis
+        df_munis,
+        usar_latlong_exata=(modo_mapa == "Pontos (lat long principal)")
     )
 
     num_proj_mapa = len(df_coords_projetos)
@@ -2962,7 +3001,7 @@ with mapa:
                 location=[lat, lon],
                 popup=folium.Popup(popup_html, max_width=400),
 
-                icon=folium.Icon(color="green")
+                icon=folium.Icon(color="blue")
 
             ).add_to(camada_destino)
 
@@ -2972,7 +3011,7 @@ with mapa:
     # CONTROLE CLUSTER / PONTOS
     # ==========================================================
 
-    usar_cluster = modo_mapa == "Cluster"
+    usar_cluster = modo_mapa == "Cluster (município principal)"
 
     mapa_folium = gerar_mapa(
         df_coords_projetos,
