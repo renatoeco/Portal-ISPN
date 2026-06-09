@@ -8,6 +8,7 @@ from funcoes_auxiliares import conectar_mongo_portal_ispn
 import smtplib
 from email.mime.text import MIMEText
 import datetime as dt
+from io import BytesIO
 
 
 # Configura a página do Streamlit para layout mais amplo
@@ -87,6 +88,12 @@ st.session_state["pagina_anterior"] = PAGINA_ID
 dados_pessoas = list(pessoas.find())
 dados_programas = list(programas_areas.find())
 dados_projetos_ispn = list(projetos_ispn.find())
+
+# Mapeia ObjectId -> nome do programa
+id_para_nome_programa = {
+    p["_id"]: p.get("nome_programa_area", "")
+    for p in dados_programas
+}
 
 # FUNÇÃO AUXILIAR PARA CALCULAR IDADE
 def calcular_idade(data_nascimento_str):
@@ -224,6 +231,56 @@ opcoes_cargos = [
 ]
 
 
+def gerar_excel_colaboradores(dados_pessoas, id_para_nome_programa):
+    """
+    Gera um arquivo XLSX com os dados dos colaboradores.
+    """
+
+    registros = []
+
+    for pessoa in dados_pessoas:
+
+        # Ignora visitantes
+        if "visitante" in str(pessoa.get("tipo de usuário", "")).lower():
+            continue
+
+        programas_ids = pessoa.get("programa_area", [])
+
+        # Compatibilidade com registros antigos
+        if not isinstance(programas_ids, list):
+            programas_ids = [programas_ids] if programas_ids else []
+
+        nomes_programas = [
+            id_para_nome_programa.get(pid, "")
+            for pid in programas_ids
+            if pid in id_para_nome_programa
+        ]
+
+        registros.append({
+            "nome_completo": pessoa.get("nome_completo", ""),
+            "gênero": pessoa.get("gênero", ""),
+            "status": pessoa.get("status", ""),
+            "cargo": pessoa.get("cargo", ""),
+            "escolaridade": pessoa.get("escolaridade", ""),
+            "raca": pessoa.get("raca", ""),
+            "escritorio": pessoa.get("escritorio", ""),
+            "programa_area": ", ".join(sorted(filter(None, nomes_programas)))
+        })
+
+    df_exportacao = pd.DataFrame(registros)
+
+    output = BytesIO()
+
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        df_exportacao.to_excel(
+            writer,
+            sheet_name="Colaboradores",
+            index=False
+        )
+
+    output.seek(0)
+
+    return output.getvalue()
 
 
 # Função para enviar e-mail de registro da previdência
@@ -2349,15 +2406,38 @@ def enviar_email_notificacao(destinatarios, assunto, corpo):
 ######################################################################################################
 
 
-# Botão de gerenciar colaboradores só para alguns tipos de usuário
-# Container horizontal de botões
-container_botoes = st.container(horizontal=True, horizontal_alignment="right")
-# Roteamento de tipo de usuário
-if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_pessoas"}:
+# Botão de gerenciar colaboradores e baixar xls só para alguns tipos de usuário
+container_botoes = st.container(
+    horizontal=True,
+    horizontal_alignment="right"
+)
 
-    # Botão para abrir o diálogo de gerenciamento de colaboradores
-    container_botoes.button("Cadastrar colaborador", on_click=gerenciar_pessoas, icon=":material/person_add:")
-    st.write('')
+if set(st.session_state.tipo_usuario) & {
+    "admin",
+    "coordenador(a)",
+    "gestao_pessoas"
+}:
+
+    arquivo_excel = gerar_excel_colaboradores(
+        dados_pessoas,
+        id_para_nome_programa
+    )
+
+    container_botoes.download_button(
+        "Baixar planilha de colaboradores",
+        data=arquivo_excel,
+        file_name=f"colaboradores_{datetime.date.today():%Y%m%d}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        icon=":material/download:"
+    )
+
+    container_botoes.button(
+        "Cadastrar colaborador",
+        on_click=gerenciar_pessoas,
+        icon=":material/person_add:"
+    )
+
+    st.write("")
 
 
 
