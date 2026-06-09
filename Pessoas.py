@@ -1078,7 +1078,7 @@ def gerenciar_pessoas(pessoa_id=None):
                     value=data_recurso_dt,   # None → campo vazio
                     format="DD/MM/YYYY",
                     key=f"recurso_garantido_{pessoa_id}",
-                    width=250
+                    width=250,
                 )
 
                 if usuario_pode_editar_contratos:
@@ -1133,8 +1133,8 @@ def gerenciar_pessoas(pessoa_id=None):
 
 
                     cols = st.columns(2)
-                    inicio_contrato = cols[0].date_input("Data de início do contrato:", format="DD/MM/YYYY", value="today")
-                    fim_contrato = cols[1].date_input("Data de fim do contrato:", format="DD/MM/YYYY", value=None)
+                    inicio_contrato = cols[0].date_input("Data de início do contrato:", format="DD/MM/YYYY", value="today", min_value=datetime.date(1995, 1, 1))
+                    fim_contrato = cols[1].date_input("Data de fim do contrato:", format="DD/MM/YYYY", value=None, min_value=datetime.date(1995, 1, 1))
 
                     anotacoes_contrato = st.text_area("Anotações sobre o contrato:")
 
@@ -1210,7 +1210,8 @@ def gerenciar_pessoas(pessoa_id=None):
                                 "Data de início",
                                 value=data_inicio_dt,   # None = campo vazio
                                 format="DD/MM/YYYY",
-                                key=f"inicio_{contrato_key}"
+                                key=f"inicio_{contrato_key}",
+                                min_value=datetime.date(1995, 1, 1)
                             )
 
                             contrato["data_inicio"] = (
@@ -1236,7 +1237,8 @@ def gerenciar_pessoas(pessoa_id=None):
                                 "Data de fim",
                                 value=data_fim_dt,   # None = campo vazio
                                 format="DD/MM/YYYY",
-                                key=f"fim_{contrato_key}"
+                                key=f"fim_{contrato_key}",
+                                min_value=datetime.date(1995, 1, 1)
                             )
 
                             contrato["data_fim"] = (
