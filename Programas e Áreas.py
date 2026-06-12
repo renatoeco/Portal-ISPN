@@ -4236,7 +4236,10 @@ for i, aba in enumerate(abas):
         with aba_relatorio:                            
             
             st.write("")
+            
+            st.write("")
 
+            modo_edicao = False
             modo_edicao = False
 
             tipos_usuario = set(
