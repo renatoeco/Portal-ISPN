@@ -4208,14 +4208,10 @@ for i, aba in enumerate(abas):
                                 st.caption("Nenhuma entrega vinculada a esta ação estratégica do programa.")
 
         with aba_relatorio:                            
-            programa_doc = programas_areas.find_one(
-                {"_id": ObjectId(id_programa)}
-            )
+            
+            st.write("")
 
-            relatorios_anuais = programa_doc.get(
-                "relatorios_anuais",
-                {}
-            )
+            modo_edicao = False
 
             tipos_usuario = set(
                 st.session_state.get("tipo_usuario", [])
@@ -4226,28 +4222,61 @@ for i, aba in enumerate(abas):
                 or "coordenador(a)" in tipos_usuario
             )
 
-            anos_existentes = sorted(
-                [int(a) for a in relatorios_anuais.keys()],
-                reverse=True
+            if pode_editar_relatorio:
+                col_toggle_1, col_toggle_2, col_toggle_3 = st.columns([2,4,1])
+
+                modo_edicao = col_toggle_3.toggle(
+                    "Modo de edição",
+                    value=False,
+                    key=f"modo_edicao_relatorio_{id_programa}"
+                )
+                
+                st.write("")
+
+            col1, col2 = st.columns(2)
+
+            programa_doc = programas_areas.find_one(
+                {"_id": ObjectId(id_programa)}
+            )
+
+            relatorios_anuais = programa_doc.get(
+                "relatorios_anuais",
+                {}
             )
 
             ano_atual = datetime.datetime.now().year
 
-            if ano_atual not in anos_existentes:
-                anos_existentes.insert(0, ano_atual)
+            # Lista de anos de 2025 até o ano atual
+            anos_existentes = list(
+                range(ano_atual, 2024, -1)
+            )
 
-            col1, col2 = st.columns(2)
+            ano_padrao = ano_atual - 1
+
+            index_padrao = (
+                anos_existentes.index(ano_padrao)
+                if ano_padrao in anos_existentes
+                else 0
+            )
 
             ano_relatorio = col1.selectbox(
                 "Ano de referência",
                 options=anos_existentes,
-                index=0,
-                key=f"ano_relatorio_{id_programa}"
+                index=index_padrao,
+                key=f"ano_relatorio_{id_programa}",
+                width=150
             )
 
+            st.write("")
+    
             dados_relatorio = relatorios_anuais.get(
                 str(ano_relatorio),
                 {}
+            )
+
+            responsavel_relatorio = dados_relatorio.get(
+                "responsavel",
+                ""
             )
 
             respostas = dados_relatorio.get(
@@ -4255,29 +4284,35 @@ for i, aba in enumerate(abas):
                 {}
             )
 
-            col2.text_input(
-                "Nome do responsável pelo preenchimento",
-                value=st.session_state.get("nome", ""),
-                disabled=True,
-                key=f"responsavel_relatorio_{id_programa}"
-            )
+            st.write("")
+
+            if modo_edicao:
+
+                st.text_input(
+                    "Nome do responsável pelo preenchimento",
+                    value=(
+                        responsavel_relatorio
+                        if responsavel_relatorio
+                        else st.session_state.get("nome", "")
+                    ),
+                    disabled=True,
+                    key=f"responsavel_relatorio_{id_programa}_{ano_relatorio}"
+                )
+
+            else:
+
+                st.markdown(
+                    "##### Nome do responsável pelo preenchimento"
+                )
+
+                st.write(
+                    responsavel_relatorio
+                    if responsavel_relatorio
+                    else "--"
+                )
 
             st.write("")
 
-            modo_edicao = False
-
-
-
-            if pode_editar_relatorio:
-                st.write("")
-                col1, col2, col3 = st.columns([2,4,1])
-                modo_edicao = col3.toggle(
-                    "Modo de edição",
-                    value=False,
-                    key=f"modo_edicao_relatorio_{id_programa}"
-                )
-                
-                st.write("")
 
             def obter_perguntas_relatorio(nome_programa):
 
@@ -4400,19 +4435,19 @@ for i, aba in enumerate(abas):
                                 "help": """
                         Informe:
 
-                        • Valor executado
-                        • Financiador
-                        • Parceiros regionais
-                        • Consórcio (quando houver)
-                        • Objetivo
-                        • Destaques
+                        Valor executado /
+                        Financiador /
+                        Parceiros regionais /
+                        Consórcio (quando houver) /
+                        Objetivo /
+                        Destaques /
 
                         Exemplos de destaques:
-                        • incidência em políticas públicas
-                        • capacitação/oficinas
-                        • mobilização e articulações locais
-                        • resultados de comunicação
-                        • publicações lançadas
+                        incidência em políticas públicas,
+                        capacitação/oficinas,
+                        ,mobilização e articulações locais
+                        ,resultados de comunicação
+                        ,publicações lançadas
                         """
                             }
                         )
@@ -4443,12 +4478,12 @@ for i, aba in enumerate(abas):
                 for pergunta in perguntas:
 
                     st.markdown(
-                        f"#### {pergunta['titulo']}"
+                        f"##### {pergunta['titulo']}"
                     )
 
                     resposta = respostas.get(
                         pergunta["id"],
-                        "-"
+                        "--"
                     )
 
                     st.write(
@@ -4476,13 +4511,16 @@ for i, aba in enumerate(abas):
                                 pergunta["id"],
                                 ""
                             ),
-                            height=250,
+                            height="content",
                             help=pergunta.get("help"),
                             key=f"{id_programa}_{ano_relatorio}_{pergunta['id']}"
                         )
 
+                        st.write("")
+
                     salvar = st.form_submit_button(
-                        "Salvar relatório"
+                        "Salvar relatório",
+                        icon=":material/save:"
                     )
 
                     if salvar:
@@ -4501,7 +4539,7 @@ for i, aba in enumerate(abas):
                         )
 
                         st.success(
-                            "Relatório salvo com sucesso!"
+                            "Relatório salvo com sucesso!", icon=":material/check:"
                         )
 
                         time.sleep(2)
