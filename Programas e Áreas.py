@@ -3517,7 +3517,7 @@ for i, aba in enumerate(abas):
             [
                 "Equipe",
                 "Projetos",
-                "Relatório Anual"
+                "Relatórios Anuais"
             ]
         )
 
@@ -4340,7 +4340,7 @@ for i, aba in enumerate(abas):
             st.write("")
 
 
-            def obter_perguntas_relatorio(nome_programa):
+            def obter_perguntas_relatorio(nome_programa, ano_relatorio):
 
                 perguntas = []
 
@@ -4422,6 +4422,21 @@ for i, aba in enumerate(abas):
                             "titulo": "Produção de Conteúdo"
                         }
                     ]
+                    
+                elif nome_programa == "Coordenação":
+
+                    perguntas = [
+                        {
+                            "id": "texto_apresentacao",
+                            "titulo": (
+                                "Texto de Apresentação - Escreva aqui a mensagem de abertura "
+                                "do relatório, com um destaque do ano. Por exemplo, em 2024, "
+                                "o texto focou em reestruturações, nos 30 anos do Fundo Ecos "
+                                "e na presença na COP16. (máx. de 1.500 caracteres)"
+                            ),
+                            "titulo_visualizacao": "Texto de Apresentação"
+                        }
+                    ]
 
                 # ==========================================================
                 # PROGRAMAS
@@ -4435,6 +4450,38 @@ for i, aba in enumerate(abas):
                             "titulo": "Breve descrição do programa"
                         }
                     ]
+                    
+                    def projeto_vigente_no_ano(projeto, ano):
+                        """
+                        Retorna True se o projeto teve vigência em algum momento
+                        do ano informado.
+                        """
+
+                        try:
+                            data_inicio = datetime.datetime.strptime(
+                                projeto.get("data_inicio_contrato", ""),
+                                "%d/%m/%Y"
+                            )
+                        except:
+                            return False
+
+                        try:
+                            data_fim = datetime.datetime.strptime(
+                                projeto.get("data_fim_contrato", ""),
+                                "%d/%m/%Y"
+                            )
+                        except:
+                            # Caso não exista data de fim,
+                            # considera projeto ainda vigente
+                            data_fim = datetime.datetime.max
+
+                        inicio_ano = datetime.datetime(ano, 1, 1)
+                        fim_ano = datetime.datetime(ano, 12, 31)
+
+                        return (
+                            data_inicio <= fim_ano
+                            and data_fim >= inicio_ano
+                        )
 
                     projetos_ativos = [
                         p
@@ -4444,8 +4491,10 @@ for i, aba in enumerate(abas):
                             in normalizar_lista_ids(
                                 p.get("programas", [])
                             )
-                            and p.get("status")
-                            in ["Em andamento", "Estratégico"]
+                            and projeto_vigente_no_ano(
+                                p,
+                                ano_relatorio
+                            )
                         )
                     ]
 
@@ -4457,6 +4506,8 @@ for i, aba in enumerate(abas):
                         perguntas.append(
                             {
                                 "id": f"projeto_{str(projeto['_id'])}",
+                                "id_projeto": str(projeto["_id"]),
+                                "tipo": "projeto",
                                 "titulo": f"Projeto: {projeto.get('nome_do_projeto', '')}",
                                 "help": """
                         Informe:
@@ -4496,21 +4547,41 @@ for i, aba in enumerate(abas):
                 return perguntas
             
             perguntas = obter_perguntas_relatorio(
-                titulo_programa
+                titulo_programa,
+                ano_relatorio
             )
+            
+            projetos_respostas = {
+                item["id_projeto"]: item["resposta"]
+                for item in respostas.get("projetos", [])
+            }
 
             if not modo_edicao:
 
                 for pergunta in perguntas:
 
-                    st.markdown(
-                        f"##### {pergunta['titulo']}"
+                    titulo_exibicao = pergunta.get(
+                        "titulo_visualizacao",
+                        pergunta["titulo"]
                     )
 
-                    resposta = respostas.get(
-                        pergunta["id"],
-                        "--"
+                    st.markdown(
+                        f"##### {titulo_exibicao}"
                     )
+
+                    if pergunta.get("tipo") == "projeto":
+
+                        resposta = projetos_respostas.get(
+                            pergunta["id_projeto"],
+                            "--"
+                        )
+
+                    else:
+
+                        resposta = respostas.get(
+                            pergunta["id"],
+                            "--"
+                        )
 
                     st.write(
                         resposta if resposta else "-"
@@ -4526,23 +4597,73 @@ for i, aba in enumerate(abas):
                 ):
 
                     novas_respostas = {}
+                    respostas_projetos = []
+                    
+                    # Exibe orientações apenas para programas
+                    if titulo_programa not in [
+                        "ADM Brasília",
+                        "ADM Santa Inês",
+                        "Advocacy",
+                        "Comunicação",
+                        "Coordenação"
+                    ]:
+                        st.markdown(
+                            """
+                            **Para cada projeto, informe de forma objetiva: Valor executado /
+                            Financiador /
+                            Parceiros regionais /
+                            Consórcio (quando houver) /
+                            Objetivo do projeto /
+                            Principais destaques e resultados alcançados no período.**
+                            
+                            **Exemplos de destaques:** incidência em políticas públicas,
+                            capacitações e oficinas, mobilização e articulações locais,
+                            resultados de comunicação, publicações lançadas, eventos realizados
+                            e outros resultados relevantes.
+                            """
+                        )
+
+                        st.write("")
 
                     for pergunta in perguntas:
 
-                        novas_respostas[
-                            pergunta["id"]
-                        ] = st.text_area(
+                        valor_resposta = st.text_area(
                             pergunta["titulo"],
-                            value=respostas.get(
-                                pergunta["id"],
-                                ""
+                            value=(
+                                projetos_respostas.get(
+                                    pergunta["id_projeto"],
+                                    ""
+                                )
+                                if pergunta.get("tipo") == "projeto"
+                                else respostas.get(
+                                    pergunta["id"],
+                                    ""
+                                )
                             ),
                             height="content",
                             help=pergunta.get("help"),
                             key=f"{id_programa}_{ano_relatorio}_{pergunta['id']}"
                         )
 
+                        if pergunta.get("tipo") == "projeto":
+
+                            respostas_projetos.append(
+                                {
+                                    "id_projeto": pergunta["id_projeto"],
+                                    "resposta": valor_resposta
+                                }
+                            )
+
+                        else:
+
+                            novas_respostas[
+                                pergunta["id"]
+                            ] = valor_resposta
+
                         st.write("")
+                        
+                    if respostas_projetos:
+                        novas_respostas["projetos"] = respostas_projetos
 
                     salvar = st.form_submit_button(
                         "Salvar relatório",
