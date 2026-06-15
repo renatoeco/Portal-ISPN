@@ -2887,7 +2887,34 @@ def gerenciar_pessoas(pessoa_sel):
                 key=lambda x: x[1],
                 reverse=True
             )
+
+            # Ordena contratos do mais recente para o mais antigo
+            contratos_ordenados = []
+
+            for idx, contrato in enumerate(contratos):
+
+                data_inicio_str = contrato.get("data_inicio", "")
+                data_inicio_dt = datetime.datetime.min
+
+                if data_inicio_str:
+                    try:
+                        data_inicio_dt = datetime.datetime.strptime(
+                            data_inicio_str,
+                            "%d/%m/%Y"
+                        )
+                    except:
+                        pass
+
+                contratos_ordenados.append(
+                    (idx, data_inicio_dt, contrato)
+                )
+
+            contratos_ordenados.sort(
+                key=lambda x: x[1],
+                reverse=True
+            )
             # CARD DE CADA CONTRATO ------------------------------------------------------------
+            for i, _, contrato in contratos_ordenados:
             for i, _, contrato in contratos_ordenados:
                 contrato_key = f"contrato_{pessoa['_id']}_{i}"
                 toggle_key = f"toggle_edicao_contrato_{contrato_key}"
