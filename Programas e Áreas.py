@@ -4645,7 +4645,8 @@ for i, aba in enumerate(abas):
                             ),
                             height="content",
                             help=pergunta.get("help"),
-                            key=f"{id_programa}_{ano_relatorio}_{pergunta['id']}"
+                            key=f"{id_programa}_{ano_relatorio}_{pergunta['id']}",
+                            max_chars=1500
                         )
 
                         if pergunta.get("tipo") == "projeto":
