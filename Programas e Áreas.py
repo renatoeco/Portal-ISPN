@@ -4435,7 +4435,7 @@ for i, aba in enumerate(abas):
                                 "Texto de Apresentação - Escreva aqui a mensagem de abertura "
                                 "do relatório, com um destaque do ano. Por exemplo, em 2024, "
                                 "o texto focou em reestruturações, nos 30 anos do Fundo Ecos "
-                                "e na presença na COP16. (máx. de 1.500 caracteres)"
+                                "e na presença na COP16."
                             ),
                             "titulo_visualizacao": "Texto de Apresentação"
                         }
@@ -4602,32 +4602,6 @@ for i, aba in enumerate(abas):
                     novas_respostas = {}
                     respostas_projetos = []
                     
-                    # Exibe orientações apenas para programas
-                    if titulo_programa not in [
-                        "ADM Brasília",
-                        "ADM Santa Inês",
-                        "Advocacy",
-                        "Comunicação",
-                        "Coordenação"
-                    ]:
-                        st.markdown(
-                            """
-                            **Para cada projeto, informe de forma objetiva: Valor executado /
-                            Financiador /
-                            Parceiros regionais /
-                            Consórcio (quando houver) /
-                            Objetivo do projeto /
-                            Principais destaques e resultados alcançados no período.**
-                            
-                            **Exemplos de destaques:** incidência em políticas públicas,
-                            capacitações e oficinas, mobilização e articulações locais,
-                            resultados de comunicação, publicações lançadas, eventos realizados
-                            e outros resultados relevantes.
-                            """
-                        )
-
-                        st.write("")
-
                     for pergunta in perguntas:
 
                         valor_resposta = st.text_area(
@@ -4648,6 +4622,29 @@ for i, aba in enumerate(abas):
                             key=f"{id_programa}_{ano_relatorio}_{pergunta['id']}",
                             max_chars=1500
                         )
+
+                        # Exibe orientações apenas para programas
+                        if pergunta["id"] == "descricao_programa":
+                            st.write("")
+                            st.write("")
+
+                            st.markdown(
+                                """
+                                **Para cada projeto, informe de forma objetiva: Valor executado /
+                                Financiador /
+                                Parceiros regionais /
+                                Consórcio (quando houver) /
+                                Objetivo do projeto /
+                                Principais destaques e resultados alcançados no período.**
+                                
+                                **Exemplos de destaques:** incidência em políticas públicas,
+                                capacitações e oficinas, mobilização e articulações locais,
+                                resultados de comunicação, publicações lançadas, eventos realizados
+                                e outros resultados relevantes.
+                                """
+                            )
+
+                            #st.write("")
 
                         if pergunta.get("tipo") == "projeto":
 
