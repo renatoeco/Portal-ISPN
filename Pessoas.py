@@ -231,6 +231,13 @@ opcoes_cargos = [
 ]
 
 
+def contrato_mais_recente(contratos):
+    return max(
+        contratos,
+        key=lambda c: parse_date(c.get("data_inicio")) or datetime.date.min,
+        default=None
+    )
+
 def gerar_excel_colaboradores(dados_pessoas, id_para_nome_programa):
     """
     Gera um arquivo XLSX com os dados dos colaboradores.
@@ -242,6 +249,22 @@ def gerar_excel_colaboradores(dados_pessoas, id_para_nome_programa):
 
         # Ignora visitantes
         if "visitante" in str(pessoa.get("tipo de usuário", "")).lower():
+            continue
+        
+        # Ignora registros que possuem apenas nome_completo e status preenchidos
+        campos_ignorados = {
+            "_id",
+            "nome_completo",
+            "status"
+        }
+
+        possui_outro_dado = any(
+            valor not in [None, "", [], {}]
+            for chave, valor in pessoa.items()
+            if chave not in campos_ignorados
+        )
+
+        if not possui_outro_dado:
             continue
 
         programas_ids = pessoa.get("programa_area", [])
@@ -256,6 +279,11 @@ def gerar_excel_colaboradores(dados_pessoas, id_para_nome_programa):
             if pid in id_para_nome_programa
         ]
 
+        # Contrato mais recente
+        contrato_recente = contrato_mais_recente(
+            pessoa.get("contratos", [])
+        )
+
         registros.append({
             "nome_completo": pessoa.get("nome_completo", ""),
             "gênero": pessoa.get("gênero", ""),
@@ -264,7 +292,15 @@ def gerar_excel_colaboradores(dados_pessoas, id_para_nome_programa):
             "escolaridade": pessoa.get("escolaridade", ""),
             "raca": pessoa.get("raca", ""),
             "escritorio": pessoa.get("escritorio", ""),
-            "programa_area": ", ".join(sorted(filter(None, nomes_programas)))
+            "programa_area": ", ".join(sorted(filter(None, nomes_programas))),
+            "data_inicio_contrato_+_recente": (
+                contrato_recente.get("data_inicio", "")
+                if contrato_recente else ""
+            ),
+            "data_fim_contrato_+_recente": (
+                contrato_recente.get("data_fim", "")
+                if contrato_recente else ""
+            )
         })
 
     df_exportacao = pd.DataFrame(registros)
