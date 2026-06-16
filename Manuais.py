@@ -311,10 +311,10 @@ with st.expander("POLÍTICA DE VIAGEM"):
     diretrizes sobre transporte, hospedagem, alimentação e seguro de viagem.""")
     
     with st.container(horizontal=True):
-        st.write("Versão: abril de 2025")
+        st.write("Versão: junho de 2026")
         st.link_button(
             label="Ver documento",
-            url="https://ispn.org.br/wp-content/uploads/2025/10/Politica-para-viagens-1.pdf", 
+            url="https://ispn.org.br/wp-content/uploads/2026/06/Politica_de_Viagens_V1_16062026.pdf", 
             type="tertiary",
             icon=":material/open_in_new:"
         )
