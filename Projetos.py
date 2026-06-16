@@ -1839,7 +1839,7 @@ st.write('')
 container_selecao = st.container(horizontal=True, horizontal_alignment="right")
 
 # Botão para cadastrar projeto ------------------------------------
-if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)"}:
+if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_projetos"}:
     if container_selecao.button("Cadastrar projeto", icon=":material/add:", width=300):
         dialog_cadastrar_projeto()
 
@@ -2222,7 +2222,7 @@ with st.container(horizontal=True):
     # --------------------------------------------------
     # REGRAS DE PERMISSÃO
     # --------------------------------------------------
-    eh_admin = "admin" in tipos_usuario
+    eh_admin = "admin" in tipos_usuario or "gestao_projetos" in tipos_usuario 
     eh_coord_projeto = usuario_id == coordenador_projeto_id
     eh_coord_programa = usuario_id == coordenador_programa_id
     eh_gestor_projeto = usuario_id in gestores_ids
@@ -2454,7 +2454,7 @@ projeto_id = df_projetos_ispn.loc[
 ].values[0]
 
 
-if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)"}:
+if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_projetos"}:
 
     # ABAS
     tab_equipe, tab_indicadores, tab_entregas, tab_anotacoes = st.tabs([":material/group: Equipe", ":material/show_chart: Indicadores", ":material/package_2: Entregas", ":material/notes: Anotações"])
@@ -2895,7 +2895,7 @@ with tab_indicadores:
 # ##########################################################
 
 
-if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)"}:
+if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_projetos"}:
 
     with tab_entregas:
         st.write("")
