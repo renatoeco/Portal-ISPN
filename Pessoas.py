@@ -873,14 +873,14 @@ def gerenciar_pessoas(pessoa_id=None):
 
                         # Opções possíveis para o campo "tipo de usuário"
                         opcoes_tipo_usuario = [
-                            "coordenador(a)", "admin", "gestao_pessoas", "gestao_ferias", "supervisao_ferias", 
+                            "coordenador(a)", "admin", "gestao_pessoas", "gestao_projetos", "gestao_ferias", "supervisao_ferias", 
                             "gestao_pls", "gestao_doadores", "gestao_fundo_ecos", "gestao_viagens", "gestao_eventos"
                         ]
 
                     else: # Se não for admin, não aparece a permissão admin disponível
                         # Opções possíveis para o campo "tipo de usuário"
                         opcoes_tipo_usuario = [
-                            "coordenador(a)", "gestao_pessoas", "gestao_ferias", "supervisao_ferias", 
+                            "coordenador(a)", "gestao_pessoas", "gestao_projetos", "gestao_ferias", "supervisao_ferias", 
                             "gestao_pls", "gestao_doadores", "gestao_fundo_ecos", "gestao_viagens", "gestao_eventos"
                         ]
 
@@ -922,6 +922,11 @@ def gerenciar_pessoas(pessoa_id=None):
                         col1, col2 = st.columns([1, 2])
                         col1.write("**gestao_pessoas**")
                         col2.write("Faz a gestão de pessoas.")
+
+                        # gestao_projetos
+                        col1, col2 = st.columns([1, 2])
+                        col1.write("**gestao_projetos**")
+                        col2.write("Faz a gestão dos Projetos Institucionais.")
 
                         # gestao_ferias
                         col1, col2 = st.columns([1, 2])
@@ -2122,14 +2127,14 @@ def gerenciar_pessoas(pessoa_id=None):
 
                 # Opções possíveis para o campo "tipo de usuário"
                 opcoes_tipo_usuario = [
-                    "coordenador(a)", "admin", "gestao_pessoas", "gestao_ferias", "supervisao_ferias", 
+                    "coordenador(a)", "admin", "gestao_pessoas", "gestao_projetos", "gestao_ferias", "supervisao_ferias", 
                     "gestao_pls", "gestao_doadores", "gestao_fundo_ecos", "gestao_viagens"
                 ]
 
             else: # Se não for admin, não aparece a permissão admin disponível
                 # Opções possíveis para o campo "tipo de usuário"
                 opcoes_tipo_usuario = [
-                    "coordenador(a)", "gestao_pessoas", "gestao_ferias", "supervisao_ferias", 
+                    "coordenador(a)", "gestao_pessoas", "gestao_projetos", "gestao_ferias", "supervisao_ferias", 
                     "gestao_pls", "gestao_doadores","gestao_fundo_ecos", "gestao_viagens"
                 ]
 
@@ -2155,6 +2160,11 @@ def gerenciar_pessoas(pessoa_id=None):
                 col1, col2 = st.columns([1, 2])
                 col1.write("**gestao_pessoas**")
                 col2.write("Faz a gestão de pessoas.")
+
+                # gestao_projetos
+                col1, col2 = st.columns([1, 2])
+                col1.write("**gestao_projetos**")
+                col2.write("Faz a gestão dos Projetos Institucionais.")
 
                 # gestao_ferias
                 col1, col2 = st.columns([1, 2])
