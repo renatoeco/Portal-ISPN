@@ -4511,7 +4511,7 @@ for i, aba in enumerate(abas):
                                 "id": f"projeto_{str(projeto['_id'])}",
                                 "id_projeto": str(projeto["_id"]),
                                 "tipo": "projeto",
-                                "titulo": f"Projeto: {projeto.get('nome_do_projeto', '')}",
+                                "titulo": f"Projeto: {projeto.get('nome_do_projeto') or 'Sem título'}",
                                 "help": """
                         Informe:
 
