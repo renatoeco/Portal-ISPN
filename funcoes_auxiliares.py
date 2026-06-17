@@ -196,8 +196,6 @@ def convert_objectid(obj):
         return obj
 
 
-
-
 # Função do diálogo para gerenciar entregas
 @st.dialog("Editar Entregas", width="large", on_dismiss="rerun")
 def dialog_editar_entregas():
