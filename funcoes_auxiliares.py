@@ -608,7 +608,7 @@ def dialog_editar_entregas():
         aba_entregas, aba_lancamentos_entregas = st.tabs(
             [
                 ":material/package_2: Gerenciar entregas",
-                ":material/rocket_launch: Lançamentos de entregas"
+                ":material/rocket_launch: Registros de entregas"
             ]
         )
     else:
@@ -1266,7 +1266,7 @@ def dialog_editar_entregas():
                 st.info("Este projeto ainda não possui entregas cadastradas.")
                 return
 
-            with st.expander("Adicionar lançamento", expanded=False):
+            with st.expander("Adicionar registro", expanded=False):
 
                 with st.form("form_adicionar_lancamento", border=False):
 
@@ -1294,7 +1294,7 @@ def dialog_editar_entregas():
                     anos_disponiveis = list(range(ano_inicial, ano_final + 1))
                     
                     ano_lancamento = st.selectbox(
-                        "Ano do lançamento",
+                        "Ano do registro",
                         options=anos_disponiveis,
                         index=anos_disponiveis.index(ano_atual)
                     )
@@ -1351,7 +1351,7 @@ def dialog_editar_entregas():
                     # SUBMIT
                     # =========================
                     salvar = st.form_submit_button(
-                        "Salvar lançamento",
+                        "Salvar registro",
                         icon=":material/save:"
                     )
 
@@ -1359,7 +1359,7 @@ def dialog_editar_entregas():
                 if salvar:
 
                     if not ano_lancamento:
-                        st.warning("Informe o ano do lançamento.")
+                        st.warning("Informe o ano do registro.")
                         return
 
                     novo_lancamento_entrega = {
@@ -1407,75 +1407,213 @@ def dialog_editar_entregas():
                             "id_lanc_entrega": id_lanc_entrega
                         })
 
-                    st.success("Lançamento salvo com sucesso!")
+                    st.success("Registro salvo com sucesso!")
                     time.sleep(2)
                     st.rerun(scope="fragment")
                     
-            st.markdown("### Lançamentos cadastrados:")
-            for entrega_idx, entrega in enumerate(entregas_existentes):
+            st.write("")
+            st.markdown("### Registros cadastrados")
+            st.write("")
+            
+            # Verifica se existe pelo menos um lançamento
+            tem_registros = any(
+                entrega.get("lancamentos_entregas", [])
+                for entrega in entregas_existentes
+            )
 
-                lancamentos = entrega.get("lancamentos_entregas", [])
+            if not tem_registros:
+                st.caption("Nenhum registro nesta entrega.")
+                
+            else:
+                st.write("")
 
-                if lancamentos:
-                    
+                if "editar_lancamento_entrega_id" not in st.session_state:
+                    st.session_state["editar_lancamento_entrega_id"] = None
 
-                    for idx, lanc in enumerate(lancamentos):
+                colunas = [1, 2, 2, 2, 1]
 
-                        key_base = f"entrega_{entrega_idx}_lanc_{idx}"
+                # --------------------------------
+                # Cabeçalho
+                # --------------------------------
+                c1, c2, c3, c4, c5 = st.columns(colunas)
+
+                with c1:
+                    st.markdown("**Ano**")
+
+                with c2:
+                    st.markdown("**Entrega**")
+
+                with c3:
+                    st.markdown("**Autor(a)**")
+
+                with c4:
+                    st.markdown("**Indicadores**")
+
+                with c5:
+                    st.markdown("")
+
+                st.divider()
+
+                # --------------------------------
+                # Registros
+                # --------------------------------
+                for entrega_idx, entrega in enumerate(entregas_existentes):
 
                     nome_entrega = entrega.get("nome_da_entrega", "Entrega")
 
-                    with st.expander(
-                        f"Lançamento - {nome_entrega} - {lanc.get('ano', '-')}",
-                        expanded=False
-                    ):
+                    lancamentos = entrega.get("lancamentos_entregas", [])
 
+                    for idx_lanc, lanc in enumerate(lancamentos):
 
-                        modo_edicao = st.toggle(
-                            "Modo de edição",
-                            key=f"toggle_{key_base}"
-                        )
+                        c1, c2, c3, c4, c5 = st.columns(colunas)
 
-                        if not modo_edicao:
-                            st.write(f"**Ano:** {lanc.get('ano', '-')}")
-                            st.write(
-                                f"**Anotações:** {lanc.get('anotacoes', '-') or '-'}"
+                        with c1:
+                            st.write(lanc.get("ano", ""))
+
+                        with c2:
+                            st.write(nome_entrega)
+
+                        with c3:
+                            st.write(lanc.get("autor", ""))
+
+                        with c4:
+
+                            with st.popover(
+                                "Indicadores",
+                                type="tertiary"
+                            ):
+
+                                id_lanc_entrega = lanc.get("_id")
+
+                                registros_indicadores = list(
+                                    colecao_lancamentos.find(
+                                        {
+                                            "id_lanc_entrega": ObjectId(id_lanc_entrega)
+                                        }
+                                    )
+                                )
+
+                                if not registros_indicadores:
+                                    st.caption("Nenhum indicador lançado.")
+
+                                else:
+
+                                    for reg in registros_indicadores:
+
+                                        nome_indicador = mapa_indicadores.get(
+                                            str(reg["id_do_indicador"]),
+                                            "Indicador não encontrado"
+                                        )
+
+                                        st.markdown(
+                                            f"**{formatar_nome_legivel(nome_indicador)}:** "
+                                            f"{reg.get('valor')}"
+                                        )
+
+                                        if reg.get("observacoes"):
+                                            st.caption(reg["observacoes"])
+
+                        with c5:
+
+                            editar = st.toggle(
+                                ":material/edit: Editar",
+                                value=(
+                                    st.session_state["editar_lancamento_entrega_id"]
+                                    == str(lanc["_id"])
+                                ),
+                                key=f"editar_lancamento_entrega_{lanc['_id']}"
                             )
 
-                        else:
-
-                            with st.form(f"form_editar_{key_base}", border=False):
-
-                                novo_ano = st.selectbox(
-                                    "Ano do lançamento",
-                                    options=anos_disponiveis,
-                                    index=anos_disponiveis.index(int(lanc.get("ano"))),
+                            if editar:
+                                st.session_state["editar_lancamento_entrega_id"] = str(
+                                    lanc["_id"]
                                 )
 
-                                novas_anotacoes = st.text_area(
-                                    "Anotações do lançamento",
-                                    value=lanc.get("anotacoes", "")
-                                )
+                            elif (
+                                st.session_state["editar_lancamento_entrega_id"]
+                                == str(lanc["_id"])
+                            ):
+                                st.session_state["editar_lancamento_entrega_id"] = None
 
-                                salvar_edicao = st.form_submit_button(
-                                    "Salvar alterações",
-                                    icon=":material/save:"
-                                )
+                        # ==================================
+                        # FORMULÁRIO DE EDIÇÃO
+                        # ==================================
+                        if (
+                            st.session_state["editar_lancamento_entrega_id"]
+                            == str(lanc["_id"])
+                        ):
 
-                            if salvar_edicao:
-                                lanc["ano"] = str(novo_ano)
-                                lanc["anotacoes"] = novas_anotacoes
+                            with st.container(border=True):
 
-                                entregas_existentes[entrega_idx]["lancamentos_entregas"][idx] = lanc
+                                st.markdown("**Editar registro**")
 
-                                projetos_ispn.update_one(
-                                    {"_id": projeto_info["_id"]},
-                                    {"$set": {"entregas": entregas_existentes}}
-                                )
+                                with st.form(
+                                    f"form_editar_lancamento_entrega_{lanc['_id']}",
+                                    border=False
+                                ):
 
-                                st.success("Lançamento atualizado!")
-                                time.sleep(2)
-                                st.rerun(scope="fragment")
+                                    ano_atual = datetime.now().year
+
+                                    anos_disponiveis = list(
+                                        range(
+                                            ano_atual - 1,
+                                            ano_atual + 7
+                                        )
+                                    )
+
+                                    try:
+                                        idx_ano = anos_disponiveis.index(
+                                            int(lanc.get("ano"))
+                                        )
+                                    except:
+                                        idx_ano = 0
+
+                                    novo_ano = st.selectbox(
+                                        "Ano do registro",
+                                        options=anos_disponiveis,
+                                        index=idx_ano
+                                    )
+
+                                    novas_anotacoes = st.text_area(
+                                        "Anotações",
+                                        value=lanc.get("anotacoes", ""),
+                                        height=120
+                                    )
+
+                                    salvar = st.form_submit_button(
+                                        "Salvar alterações",
+                                        icon=":material/save:"
+                                    )
+
+                                if salvar:
+
+                                    lanc["ano"] = str(novo_ano)
+                                    lanc["anotacoes"] = novas_anotacoes
+
+                                    entregas_existentes[entrega_idx][
+                                        "lancamentos_entregas"
+                                    ][idx_lanc] = lanc
+
+                                    projetos_ispn.update_one(
+                                        {"_id": projeto_info["_id"]},
+                                        {
+                                            "$set": {
+                                                "entregas": entregas_existentes
+                                            }
+                                        }
+                                    )
+
+                                    st.success("Registro atualizado.")
+
+                                    st.session_state[
+                                        "editar_lancamento_entrega_id"
+                                    ] = None
+
+                                    time.sleep(2)
+
+                                    st.rerun(scope="fragment")
+
+                        st.divider()
 
 
 def atualizar_entrega_no_projeto(
