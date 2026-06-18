@@ -3512,59 +3512,14 @@ for i, aba in enumerate(abas):
             )
 
         st.write("")
-        
-        # Programas que podem acessar os relatórios
-        programas_com_acesso_relatorio = {
-            "Coordenação",
-            "Comunicação",
-            "Advocacy",
-            "Monitoramento"
-        }
 
-        # Programas do usuário logado
-        programas_usuario = []
-        
-        usuario = pessoas.find_one(
-            {"_id": ObjectId(st.session_state["id_usuario"])}
+        aba_equipe, aba_projetos, aba_relatorio = st.tabs(
+            [
+                "Equipe",
+                "Projetos",
+                "Relatórios Anuais"
+            ]
         )
-
-        programas_usuario_ids = usuario.get("programa_area", [])
-
-        if not isinstance(programas_usuario_ids, list):
-            programas_usuario_ids = [programas_usuario_ids]
-
-        programas_usuario = [
-            mapa_id_para_nome_programa.get(str(pid))
-            for pid in programas_usuario_ids
-            if mapa_id_para_nome_programa.get(str(pid))
-        ]
-
-        programas_com_acesso_relatorio = {
-            "Coordenação",
-            "Comunicação",
-            "Advocacy",
-            "Monitoramento"
-        }
-
-        pode_ver_relatorio = bool(
-            set(programas_usuario) & programas_com_acesso_relatorio
-        )
-
-        if pode_ver_relatorio:
-            aba_equipe, aba_projetos, aba_relatorio = st.tabs(
-                [
-                    "Equipe",
-                    "Projetos",
-                    "Relatórios Anuais"
-                ]
-            )
-        else:
-            aba_equipe, aba_projetos = st.tabs(
-                [
-                    "Equipe",
-                    "Projetos"
-                ]
-            )
 
         with aba_equipe:
 
@@ -4278,463 +4233,462 @@ for i, aba in enumerate(abas):
                             else:
                                 st.caption("Nenhuma entrega vinculada a esta ação estratégica do programa.")
 
-        if pode_ver_relatorio:
-            with aba_relatorio:                            
+        with aba_relatorio:                            
             
-                st.write("")
+            st.write("")
+            
+            st.write("")
+
+            modo_edicao = False
+            modo_edicao = False
+
+            tipos_usuario = set(
+                st.session_state.get("tipo_usuario", [])
+            )
+
+            pode_editar_relatorio = (
+                "admin" in tipos_usuario
+                or "coordenador(a)" in tipos_usuario
+            )
+
+            if pode_editar_relatorio:
+                col_toggle_1, col_toggle_2, col_toggle_3 = st.columns([2,4,1])
+
+                modo_edicao = col_toggle_3.toggle(
+                    "Modo de edição",
+                    value=False,
+                    key=f"modo_edicao_relatorio_{id_programa}"
+                )
                 
                 st.write("")
 
-                modo_edicao = False
-                modo_edicao = False
+            col1, col2 = st.columns(2)
 
-                tipos_usuario = set(
-                    st.session_state.get("tipo_usuario", [])
+            programa_doc = programas_areas.find_one(
+                {"_id": ObjectId(id_programa)}
+            )
+
+            relatorios_anuais = programa_doc.get(
+                "relatorios_anuais",
+                {}
+            )
+
+            ano_atual = datetime.datetime.now().year
+
+            # Lista de anos de 2025 até o ano atual
+            anos_existentes = list(
+                range(ano_atual, 2024, -1)
+            )
+
+            ano_padrao = ano_atual - 1
+
+            index_padrao = (
+                anos_existentes.index(ano_padrao)
+                if ano_padrao in anos_existentes
+                else 0
+            )
+
+            ano_relatorio = col1.selectbox(
+                "Ano de referência",
+                options=anos_existentes,
+                index=index_padrao,
+                key=f"ano_relatorio_{id_programa}",
+                width=150
+            )
+
+            st.write("")
+    
+            dados_relatorio = relatorios_anuais.get(
+                str(ano_relatorio),
+                {}
+            )
+
+            responsavel_relatorio = dados_relatorio.get(
+                "responsavel",
+                ""
+            )
+
+            respostas = dados_relatorio.get(
+                "respostas",
+                {}
+            )
+
+            st.write("")
+
+            if modo_edicao:
+
+                st.text_input(
+                    "Nome do responsável pelo preenchimento",
+                    value=(
+                        responsavel_relatorio
+                        if responsavel_relatorio
+                        else st.session_state.get("nome", "")
+                    ),
+                    disabled=True,
+                    key=f"responsavel_relatorio_{id_programa}_{ano_relatorio}"
                 )
 
-                pode_editar_relatorio = (
-                    "admin" in tipos_usuario
-                    or "coordenador(a)" in tipos_usuario
+            else:
+
+                st.markdown(
+                    "##### Nome do responsável pelo preenchimento"
                 )
 
-                if pode_editar_relatorio:
-                    col_toggle_1, col_toggle_2, col_toggle_3 = st.columns([2,4,1])
+                st.write(
+                    responsavel_relatorio
+                    if responsavel_relatorio
+                    else "--"
+                )
 
-                    modo_edicao = col_toggle_3.toggle(
-                        "Modo de edição",
-                        value=False,
-                        key=f"modo_edicao_relatorio_{id_programa}"
-                    )
+            st.write("")
+
+
+            def obter_perguntas_relatorio(nome_programa, ano_relatorio):
+
+                perguntas = []
+
+                # ==========================================================
+                # ÁREAS
+                # ==========================================================
+
+                if nome_programa in ["ADM Brasília", "ADM Santa Inês"]:
+
+                    perguntas = [
+                        {
+                            "id": "descricao_area",
+                            "titulo": "Breve descrição da área"
+                        },
+                        {
+                            "id": "principais_destaques",
+                            "titulo": "Principais destaques do ano"
+                        },
+                        {
+                            "id": "gestao_rh_dho",
+                            "titulo": "Gestão de Recursos Humanos e DHO"
+                        },
+                        {
+                            "id": "gestao_adm_financeira",
+                            "titulo": "Gestão Administrativa e Financeira"
+                        }
+                    ]
+
+                elif nome_programa == "Advocacy":
+
+                    perguntas = [
+                        {
+                            "id": "descricao_area",
+                            "titulo": "Breve descrição da área"
+                        },
+                        {
+                            "id": "principais_destaques",
+                            "titulo": "Principais destaques do ano"
+                        },
+                        {
+                            "id": "congresso_nacional",
+                            "titulo": "Atuação no Congresso Nacional e Processos Legislativos"
+                        },
+                        {
+                            "id": "politicas_publicas",
+                            "titulo": "Contribuições para Políticas Públicas e Nacionais"
+                        },
+                        {
+                            "id": "protagonismo_internacional",
+                            "titulo": "Protagonismo Internacional"
+                        }
+                    ]
+
+                elif nome_programa == "Comunicação":
+
+                    perguntas = [
+                        {
+                            "id": "descricao_area",
+                            "titulo": "Breve descrição da área"
+                        },
+                        {
+                            "id": "principais_destaques",
+                            "titulo": "Principais destaques do ano"
+                        },
+                        {
+                            "id": "campanhas_comunicacao",
+                            "titulo": "Campanhas de Comunicação"
+                        },
+                        {
+                            "id": "oficinas_comunicacao",
+                            "titulo": "Oficinas de Comunicação"
+                        },
+                        {
+                            "id": "assessoria_imprensa",
+                            "titulo": "Assessoria de Imprensa"
+                        },
+                        {
+                            "id": "producao_conteudo",
+                            "titulo": "Produção de Conteúdo"
+                        }
+                    ]
                     
-                    st.write("")
+                elif nome_programa == "Coordenação":
 
-                col1, col2 = st.columns(2)
+                    perguntas = [
+                        {
+                            "id": "texto_apresentacao",
+                            "titulo": (
+                                "Texto de Apresentação - Escreva aqui a mensagem de abertura "
+                                "do relatório, com um destaque do ano. Por exemplo, em 2024, "
+                                "o texto focou em reestruturações, nos 30 anos do Fundo Ecos "
+                                "e na presença na COP16."
+                            ),
+                            "titulo_visualizacao": "Texto de Apresentação"
+                        }
+                    ]
 
-                programa_doc = programas_areas.find_one(
-                    {"_id": ObjectId(id_programa)}
-                )
-
-                relatorios_anuais = programa_doc.get(
-                    "relatorios_anuais",
-                    {}
-                )
-
-                ano_atual = datetime.datetime.now().year
-
-                # Lista de anos de 2025 até o ano atual
-                anos_existentes = list(
-                    range(ano_atual, 2024, -1)
-                )
-
-                ano_padrao = ano_atual - 1
-
-                index_padrao = (
-                    anos_existentes.index(ano_padrao)
-                    if ano_padrao in anos_existentes
-                    else 0
-                )
-
-                ano_relatorio = col1.selectbox(
-                    "Ano de referência",
-                    options=anos_existentes,
-                    index=index_padrao,
-                    key=f"ano_relatorio_{id_programa}",
-                    width=150
-                )
-
-                st.write("")
-        
-                dados_relatorio = relatorios_anuais.get(
-                    str(ano_relatorio),
-                    {}
-                )
-
-                responsavel_relatorio = dados_relatorio.get(
-                    "responsavel",
-                    ""
-                )
-
-                respostas = dados_relatorio.get(
-                    "respostas",
-                    {}
-                )
-
-                st.write("")
-
-                if modo_edicao:
-
-                    st.text_input(
-                        "Nome do responsável pelo preenchimento",
-                        value=(
-                            responsavel_relatorio
-                            if responsavel_relatorio
-                            else st.session_state.get("nome", "")
-                        ),
-                        disabled=True,
-                        key=f"responsavel_relatorio_{id_programa}_{ano_relatorio}"
-                    )
+                # ==========================================================
+                # PROGRAMAS
+                # ==========================================================
 
                 else:
 
+                    perguntas = [
+                        {
+                            "id": "descricao_programa",
+                            "titulo": "Breve descrição do programa"
+                        }
+                    ]
+                    
+                    def projeto_vigente_no_ano(projeto, ano):
+                        """
+                        Retorna True se o projeto teve vigência em algum momento
+                        do ano informado.
+                        """
+
+                        try:
+                            data_inicio = datetime.datetime.strptime(
+                                projeto.get("data_inicio_contrato", ""),
+                                "%d/%m/%Y"
+                            )
+                        except:
+                            return False
+
+                        try:
+                            data_fim = datetime.datetime.strptime(
+                                projeto.get("data_fim_contrato", ""),
+                                "%d/%m/%Y"
+                            )
+                        except:
+                            # Caso não exista data de fim,
+                            # considera projeto ainda vigente
+                            data_fim = datetime.datetime.max
+
+                        inicio_ano = datetime.datetime(ano, 1, 1)
+                        fim_ano = datetime.datetime(ano, 12, 31)
+
+                        return (
+                            data_inicio <= fim_ano
+                            and data_fim >= inicio_ano
+                        )
+
+                    projetos_ativos = [
+                        p
+                        for p in dados_projetos_ispn
+                        if (
+                            str(id_programa)
+                            in normalizar_lista_ids(
+                                p.get("programas", [])
+                            )
+                            and projeto_vigente_no_ano(
+                                p,
+                                ano_relatorio
+                            )
+                        )
+                    ]
+
+                    for projeto in sorted(
+                        projetos_ativos,
+                        key=lambda x: x.get("sigla", "")
+                    ):
+
+                        perguntas.append(
+                            {
+                                "id": f"projeto_{str(projeto['_id'])}",
+                                "id_projeto": str(projeto["_id"]),
+                                "tipo": "projeto",
+                                "titulo": f"Projeto: {projeto.get('nome_do_projeto') or 'Sem título'}",
+                                "help": """
+                        Informe:
+
+                        Valor executado /
+                        Financiador /
+                        Parceiros regionais /
+                        Consórcio (quando houver) /
+                        Objetivo /
+                        Destaques /
+
+                        Exemplos de destaques:
+                        incidência em políticas públicas,
+                        capacitação/oficinas,
+                        ,mobilização e articulações locais
+                        ,resultados de comunicação
+                        ,publicações lançadas
+                        """
+                            }
+                        )
+
+                # ==========================================================
+                # PERGUNTAS FINAIS (TODOS)
+                # ==========================================================
+
+                perguntas.extend([
+                    {
+                        "id": "link_pasta_arquivos",
+                        "titulo": "Link da Pasta de Arquivos"
+                    },
+                    {
+                        "id": "legendas_creditos",
+                        "titulo": "Legendas e Créditos"
+                    }
+                ])
+
+                return perguntas
+            
+            perguntas = obter_perguntas_relatorio(
+                titulo_programa,
+                ano_relatorio
+            )
+            
+            projetos_respostas = {
+                item["id_projeto"]: item["resposta"]
+                for item in respostas.get("projetos", [])
+            }
+
+            if not modo_edicao:
+
+                for pergunta in perguntas:
+
+                    titulo_exibicao = pergunta.get(
+                        "titulo_visualizacao",
+                        pergunta["titulo"]
+                    )
+
                     st.markdown(
-                        "##### Nome do responsável pelo preenchimento"
+                        f"##### {titulo_exibicao}"
                     )
 
-                    st.write(
-                        responsavel_relatorio
-                        if responsavel_relatorio
-                        else "--"
-                    )
+                    if pergunta.get("tipo") == "projeto":
 
-                st.write("")
-
-
-                def obter_perguntas_relatorio(nome_programa, ano_relatorio):
-
-                    perguntas = []
-
-                    # ==========================================================
-                    # ÁREAS
-                    # ==========================================================
-
-                    if nome_programa in ["ADM Brasília", "ADM Santa Inês"]:
-
-                        perguntas = [
-                            {
-                                "id": "descricao_area",
-                                "titulo": "Breve descrição da área"
-                            },
-                            {
-                                "id": "principais_destaques",
-                                "titulo": "Principais destaques do ano"
-                            },
-                            {
-                                "id": "gestao_rh_dho",
-                                "titulo": "Gestão de Recursos Humanos e DHO"
-                            },
-                            {
-                                "id": "gestao_adm_financeira",
-                                "titulo": "Gestão Administrativa e Financeira"
-                            }
-                        ]
-
-                    elif nome_programa == "Advocacy":
-
-                        perguntas = [
-                            {
-                                "id": "descricao_area",
-                                "titulo": "Breve descrição da área"
-                            },
-                            {
-                                "id": "principais_destaques",
-                                "titulo": "Principais destaques do ano"
-                            },
-                            {
-                                "id": "congresso_nacional",
-                                "titulo": "Atuação no Congresso Nacional e Processos Legislativos"
-                            },
-                            {
-                                "id": "politicas_publicas",
-                                "titulo": "Contribuições para Políticas Públicas e Nacionais"
-                            },
-                            {
-                                "id": "protagonismo_internacional",
-                                "titulo": "Protagonismo Internacional"
-                            }
-                        ]
-
-                    elif nome_programa == "Comunicação":
-
-                        perguntas = [
-                            {
-                                "id": "descricao_area",
-                                "titulo": "Breve descrição da área"
-                            },
-                            {
-                                "id": "principais_destaques",
-                                "titulo": "Principais destaques do ano"
-                            },
-                            {
-                                "id": "campanhas_comunicacao",
-                                "titulo": "Campanhas de Comunicação"
-                            },
-                            {
-                                "id": "oficinas_comunicacao",
-                                "titulo": "Oficinas de Comunicação"
-                            },
-                            {
-                                "id": "assessoria_imprensa",
-                                "titulo": "Assessoria de Imprensa"
-                            },
-                            {
-                                "id": "producao_conteudo",
-                                "titulo": "Produção de Conteúdo"
-                            }
-                        ]
-                        
-                    elif nome_programa == "Coordenação":
-
-                        perguntas = [
-                            {
-                                "id": "texto_apresentacao",
-                                "titulo": (
-                                    "Texto de Apresentação - Escreva aqui a mensagem de abertura "
-                                    "do relatório, com um destaque do ano. Por exemplo, em 2024, "
-                                    "o texto focou em reestruturações, nos 30 anos do Fundo Ecos "
-                                    "e na presença na COP16."
-                                ),
-                                "titulo_visualizacao": "Texto de Apresentação"
-                            }
-                        ]
-
-                    # ==========================================================
-                    # PROGRAMAS
-                    # ==========================================================
+                        resposta = projetos_respostas.get(
+                            pergunta["id_projeto"],
+                            "--"
+                        )
 
                     else:
 
-                        perguntas = [
-                            {
-                                "id": "descricao_programa",
-                                "titulo": "Breve descrição do programa"
-                            }
-                        ]
-                        
-                        def projeto_vigente_no_ano(projeto, ano):
-                            """
-                            Retorna True se o projeto teve vigência em algum momento
-                            do ano informado.
-                            """
+                        resposta = respostas.get(
+                            pergunta["id"],
+                            "--"
+                        )
 
-                            try:
-                                data_inicio = datetime.datetime.strptime(
-                                    projeto.get("data_inicio_contrato", ""),
-                                    "%d/%m/%Y"
-                                )
-                            except:
-                                return False
+                    st.write(
+                        resposta if resposta else "-"
+                    )
 
-                            try:
-                                data_fim = datetime.datetime.strptime(
-                                    projeto.get("data_fim_contrato", ""),
-                                    "%d/%m/%Y"
-                                )
-                            except:
-                                # Caso não exista data de fim,
-                                # considera projeto ainda vigente
-                                data_fim = datetime.datetime.max
+                    st.write("")
 
-                            inicio_ano = datetime.datetime(ano, 1, 1)
-                            fim_ano = datetime.datetime(ano, 12, 31)
+            else:
 
-                            return (
-                                data_inicio <= fim_ano
-                                and data_fim >= inicio_ano
-                            )
+                with st.form(
+                    f"form_relatorio_{id_programa}_{ano_relatorio}",
+                    border=False
+                ):
 
-                        projetos_ativos = [
-                            p
-                            for p in dados_projetos_ispn
-                            if (
-                                str(id_programa)
-                                in normalizar_lista_ids(
-                                    p.get("programas", [])
-                                )
-                                and projeto_vigente_no_ano(
-                                    p,
-                                    ano_relatorio
-                                )
-                            )
-                        ]
-
-                        for projeto in sorted(
-                            projetos_ativos,
-                            key=lambda x: x.get("sigla", "")
-                        ):
-
-                            perguntas.append(
-                                {
-                                    "id": f"projeto_{str(projeto['_id'])}",
-                                    "id_projeto": str(projeto["_id"]),
-                                    "tipo": "projeto",
-                                    "titulo": f"Projeto: {projeto.get('sigla')} - {projeto.get('nome_do_projeto') or 'Sem título'}",
-                                    "help": """
-                            Informe:
-
-                            Valor executado /
-                            Financiador /
-                            Parceiros regionais /
-                            Consórcio (quando houver) /
-                            Objetivo /
-                            Destaques /
-
-                            Exemplos de destaques:
-                            incidência em políticas públicas,
-                            capacitação/oficinas,
-                            ,mobilização e articulações locais
-                            ,resultados de comunicação
-                            ,publicações lançadas
-                            """
-                                }
-                            )
-
-                    # ==========================================================
-                    # PERGUNTAS FINAIS (TODOS)
-                    # ==========================================================
-
-                    perguntas.extend([
-                        {
-                            "id": "link_pasta_arquivos",
-                            "titulo": "Link da Pasta de Arquivos"
-                        },
-                        {
-                            "id": "legendas_creditos",
-                            "titulo": "Legendas e Créditos"
-                        }
-                    ])
-
-                    return perguntas
-                
-                perguntas = obter_perguntas_relatorio(
-                    titulo_programa,
-                    ano_relatorio
-                )
-                
-                projetos_respostas = {
-                    item["id_projeto"]: item["resposta"]
-                    for item in respostas.get("projetos", [])
-                }
-
-                if not modo_edicao:
-
+                    novas_respostas = {}
+                    respostas_projetos = []
+                    
                     for pergunta in perguntas:
 
-                        titulo_exibicao = pergunta.get(
-                            "titulo_visualizacao",
-                            pergunta["titulo"]
+                        valor_resposta = st.text_area(
+                            pergunta["titulo"],
+                            value=(
+                                projetos_respostas.get(
+                                    pergunta["id_projeto"],
+                                    ""
+                                )
+                                if pergunta.get("tipo") == "projeto"
+                                else respostas.get(
+                                    pergunta["id"],
+                                    ""
+                                )
+                            ),
+                            height="content",
+                            help=pergunta.get("help"),
+                            key=f"{id_programa}_{ano_relatorio}_{pergunta['id']}",
+                            max_chars=1500
                         )
 
-                        st.markdown(
-                            f"##### {titulo_exibicao}"
-                        )
+                        # Exibe orientações apenas para programas
+                        if pergunta["id"] == "descricao_programa":
+                            st.write("")
+                            st.write("")
+
+                            st.markdown(
+                                """
+                                **Para cada projeto, informe de forma objetiva: Valor executado /
+                                Financiador /
+                                Parceiros regionais /
+                                Consórcio (quando houver) /
+                                Objetivo do projeto /
+                                Principais destaques e resultados alcançados no período.**
+                                
+                                **Exemplos de destaques:** incidência em políticas públicas,
+                                capacitações e oficinas, mobilização e articulações locais,
+                                resultados de comunicação, publicações lançadas, eventos realizados
+                                e outros resultados relevantes.
+                                """
+                            )
+
+                            #st.write("")
 
                         if pergunta.get("tipo") == "projeto":
 
-                            resposta = projetos_respostas.get(
-                                pergunta["id_projeto"],
-                                "--"
+                            respostas_projetos.append(
+                                {
+                                    "id_projeto": pergunta["id_projeto"],
+                                    "resposta": valor_resposta
+                                }
                             )
 
                         else:
 
-                            resposta = respostas.get(
-                                pergunta["id"],
-                                "--"
-                            )
-
-                        st.write(
-                            resposta if resposta else "--"
-                        )
+                            novas_respostas[
+                                pergunta["id"]
+                            ] = valor_resposta
 
                         st.write("")
-
-                else:
-
-                    with st.form(
-                        f"form_relatorio_{id_programa}_{ano_relatorio}",
-                        border=False
-                    ):
-
-                        novas_respostas = {}
-                        respostas_projetos = []
                         
-                        for pergunta in perguntas:
+                    if respostas_projetos:
+                        novas_respostas["projetos"] = respostas_projetos
 
-                            valor_resposta = st.text_area(
-                                pergunta["titulo"],
-                                value=(
-                                    projetos_respostas.get(
-                                        pergunta["id_projeto"],
-                                        ""
-                                    )
-                                    if pergunta.get("tipo") == "projeto"
-                                    else respostas.get(
-                                        pergunta["id"],
-                                        ""
-                                    )
-                                ),
-                                height="content",
-                                help=pergunta.get("help"),
-                                key=f"{id_programa}_{ano_relatorio}_{pergunta['id']}",
-                                max_chars=1500
-                            )
+                    salvar = st.form_submit_button(
+                        "Salvar relatório",
+                        icon=":material/save:"
+                    )
 
-                            # Exibe orientações apenas para programas
-                            if pergunta["id"] == "descricao_programa":
-                                st.write("")
-                                st.write("")
+                    if salvar:
 
-                                st.markdown(
-                                    """
-                                    **Para cada projeto, informe de forma objetiva: Valor executado /
-                                    Financiador /
-                                    Parceiros regionais /
-                                    Consórcio (quando houver) /
-                                    Objetivo do projeto /
-                                    Principais destaques e resultados alcançados no período.**
-                                    
-                                    **Exemplos de destaques:** incidência em políticas públicas,
-                                    capacitações e oficinas, mobilização e articulações locais,
-                                    resultados de comunicação, publicações lançadas, eventos realizados
-                                    e outros resultados relevantes.
-                                    """
-                                )
-
-                                #st.write("")
-
-                            if pergunta.get("tipo") == "projeto":
-
-                                respostas_projetos.append(
-                                    {
-                                        "id_projeto": pergunta["id_projeto"],
-                                        "resposta": valor_resposta
-                                    }
-                                )
-
-                            else:
-
-                                novas_respostas[
-                                    pergunta["id"]
-                                ] = valor_resposta
-
-                            st.write("")
-                            
-                        if respostas_projetos:
-                            novas_respostas["projetos"] = respostas_projetos
-
-                        salvar = st.form_submit_button(
-                            "Salvar relatório",
-                            icon=":material/save:"
-                        )
-
-                        if salvar:
-
-                            programas_areas.update_one(
-                                {"_id": ObjectId(id_programa)},
-                                {
-                                    "$set": {
-                                        f"relatorios_anuais.{ano_relatorio}": {
-                                            "responsavel": st.session_state.get("nome"),
-                                            "data_preenchimento": datetime.datetime.now().strftime("%d/%m/%Y"),
-                                            "respostas": novas_respostas
-                                        }
+                        programas_areas.update_one(
+                            {"_id": ObjectId(id_programa)},
+                            {
+                                "$set": {
+                                    f"relatorios_anuais.{ano_relatorio}": {
+                                        "responsavel": st.session_state.get("nome"),
+                                        "data_preenchimento": datetime.datetime.now().strftime("%d/%m/%Y"),
+                                        "respostas": novas_respostas
                                     }
                                 }
-                            )
+                            }
+                        )
 
-                            st.success(
-                                "Relatório salvo com sucesso!", icon=":material/check:"
-                            )
+                        st.success(
+                            "Relatório salvo com sucesso!", icon=":material/check:"
+                        )
 
-                            time.sleep(2)
-                            st.rerun()
+                        time.sleep(2)
+                        st.rerun()
