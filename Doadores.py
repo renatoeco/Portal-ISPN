@@ -687,10 +687,16 @@ with tab2:
 
             # Formata cada valor com símbolo e separa por " | "
             valores_formatados = []
+
             for moeda, valor in somas_moeda.items():
-                simbolo = "R$" if moeda == "Reais" else "US$"
+                simbolo = r"R\$" if moeda == "Reais" else r"US\$"
                 valor_fmt = f"{simbolo} {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
                 valores_formatados.append(valor_fmt)
+
+            # for moeda, valor in somas_moeda.items():
+            #     simbolo = "R$" if moeda == "Reais" else "US$"
+            #     valor_fmt = f"{simbolo} {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+            #     valores_formatados.append(valor_fmt)
 
             # Junta os valores separados por " | "
             valor_total_formatado = " | ".join(valores_formatados)
