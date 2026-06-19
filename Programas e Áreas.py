@@ -4265,8 +4265,8 @@ for i, aba in enumerate(abas):
                 )
 
                 pode_editar_relatorio = (
-                    "admin" in tipos_usuario
-                    or "coordenador(a)" in tipos_usuario
+                    usuario_id == coordenador_programa_id
+                    or "admin" in tipos_usuario
                 )
 
                 if pode_editar_relatorio:
@@ -4605,7 +4605,7 @@ for i, aba in enumerate(abas):
                             )
 
                         st.write(
-                            resposta if resposta else "-"
+                            resposta if resposta else "--"
                         )
 
                         st.write("")
