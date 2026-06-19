@@ -1683,15 +1683,26 @@ def dialog_editar_projeto():
                 str(d["_id"]): d.get("nome_doador", "Não informado")
                 for d in dados_doadores
             }
-            
-            doador_options = list(mapa_doador.keys())
-            doador_atual = projeto_info.get("doador", "")
-            index_doador = doador_options.index(doador_atual) if doador_atual in doador_options else 0
+
+            doador_atual = projeto_info.get("doador")
+
+            # Converte para string para comparar com as opções
+            doador_atual = str(doador_atual) if doador_atual else ""
+
+            # Opções com vazio no topo
+            doador_options = [""] + list(mapa_doador.keys())
+
+            index_doador = (
+                doador_options.index(doador_atual)
+                if doador_atual in doador_options
+                else 0
+            )
+
             doador = col3.selectbox(
                 "Doador",
                 options=doador_options,
-                format_func=lambda x: mapa_doador[x],
-                index=index_doador
+                index=index_doador,
+                format_func=lambda x: "" if x == "" else mapa_doador[x]
             )
             
             # -----------------------------------
