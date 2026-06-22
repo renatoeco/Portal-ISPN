@@ -1365,26 +1365,47 @@ with solicitacoes_externas:
     id_usuario = st.session_state.get("id_usuario")
     usuario = get_usuario_normalizado(pessoas, id_usuario)
 
-    nome_completo = str(usuario.get("nome_completo", "")).strip()
+    nome_completo = str(
+        usuario.get("nome_completo", "")
+    ).strip()
 
     partes_nome = nome_completo.split()
 
+    # ----------------------------------------------------------
+    # TENTA PRIMEIRO NOME + ÚLTIMO NOME
+    # ----------------------------------------------------------
+
     if len(partes_nome) >= 2:
-        nome_usuario = f"{partes_nome[0]} {partes_nome[-1]}"
+        nome_busca = f"{partes_nome[0]} {partes_nome[-1]}".lower()
     else:
-        nome_usuario = nome_completo
+        nome_busca = nome_completo.lower()
 
-    nome_usuario = nome_usuario.lower()
-
-    df_solicitacoes_externas = df_savs_externas[
+    coluna_ponto_focal = (
         df_savs_externas[
             "Nome do ponto focal no ISPN (a pessoa que está convidando)"
         ]
         .astype(str)
         .str.strip()
         .str.lower()
-        == nome_usuario
+    )
+
+    df_solicitacoes_externas = df_savs_externas[
+        coluna_ponto_focal == nome_busca
     ].copy()
+
+    # ----------------------------------------------------------
+    # SE NÃO ENCONTROU, TENTA PRIMEIRO NOME + NOME DO MEIO
+    # ----------------------------------------------------------
+
+    if df_solicitacoes_externas.empty and len(partes_nome) >= 3:
+
+        nome_busca = (
+            f"{partes_nome[0]} {partes_nome[1]}"
+        ).lower()
+
+        df_solicitacoes_externas = df_savs_externas[
+            coluna_ponto_focal == nome_busca
+        ].copy()
 
     # ----------------------------------------------------------
     # TRATAMENTO DOS CAMPOS
