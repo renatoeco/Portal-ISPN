@@ -1690,7 +1690,7 @@ def dialog_editar_projeto():
             doador_atual = str(doador_atual) if doador_atual else ""
 
             # Opções com vazio no topo
-            doador_options = [""] + list(mapa_doador.keys())
+            doador_options = list(mapa_doador.keys())
 
             index_doador = (
                 doador_options.index(doador_atual)
