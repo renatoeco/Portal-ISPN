@@ -828,7 +828,45 @@ def gerenciar_pessoas(pessoa_id=None):
                     if coordenador_nome:
                         coordenador_id = next(
                             c["id"] for c in coordenadores_possiveis if c["nome"] == coordenador_nome
-                        )        
+                        )   
+
+                    cols = st.columns(2)   
+
+                    # Data de entrada
+                    data_entrada_str = pessoa.get("data_entrada", "")
+                    if data_entrada_str:
+                        data_entrada = datetime.datetime.strptime(
+                            data_entrada_str,
+                            "%d/%m/%Y"
+                        )
+                    else:
+                        data_entrada = None
+
+                    data_entrada = cols[0].date_input(
+                        "Data de entrada:",
+                        format="DD/MM/YYYY",
+                        value=data_entrada,
+                        min_value=datetime.date(1920, 1, 1),
+                        key=f"editar_data_entrada_{pessoa_id}"
+                    )
+
+                    # Data de desligamento
+                    data_desligamento_str = pessoa.get("data_desligamento", "")
+                    if data_desligamento_str:
+                        data_desligamento = datetime.datetime.strptime(
+                            data_desligamento_str,
+                            "%d/%m/%Y"
+                        )
+                    else:
+                        data_desligamento = None
+
+                    data_desligamento = cols[1].date_input(
+                        "Data de desligamento:",
+                        format="DD/MM/YYYY",
+                        value=data_desligamento,
+                        min_value=datetime.date(1920, 1, 1),
+                        key=f"editar_data_desligamento_{pessoa_id}"
+                    )
 
                     # ===============================
                     # CAMPOS ADICIONAIS SE FOR PJ
@@ -1029,6 +1067,8 @@ def gerenciar_pessoas(pessoa_id=None):
                             "escritorio": escritorio,
                             "tipo de usuário": ", ".join(tipo_usuario) if tipo_usuario else "",
                             "status": status,
+                            "data_entrada": data_entrada.strftime("%d/%m/%Y") if data_entrada else None,
+                            "data_desligamento": data_desligamento.strftime("%d/%m/%Y") if data_desligamento else None,
                         }
 
                         if tipo_contratacao in ["PJ1", "PJ2"]:
@@ -2025,7 +2065,7 @@ def gerenciar_pessoas(pessoa_id=None):
             # Cargo e nome do coordenador
             # -------------------------------------------------
 
-            cols = st.columns([3, 2])
+            cols = st.columns([3, 2, 2])
 
             # Cargo
             cargo = cols[0].selectbox("Cargo:", opcoes_cargos, index=None, placeholder="")
@@ -2052,6 +2092,12 @@ def gerenciar_pessoas(pessoa_id=None):
                 if c["nome"] == coordenador:
                     coordenador_id = c["id"]
                     break
+
+            data_entrada = cols[2].date_input(
+                "Data de entrada:",
+                format="DD/MM/YYYY",
+                value=None
+            )
 
             # ===============================
             # CAMPOS ADICIONAIS SE FOR PJ
@@ -2294,7 +2340,11 @@ def gerenciar_pessoas(pessoa_id=None):
                         "status": "ativo",
                         "e_mail": email,
                         "coordenador": coordenador_id,
-
+                        "data_entrada": (
+                            data_entrada.strftime("%d/%m/%Y")
+                            if data_entrada else None
+                        ),
+                        "data_desligamento": None,
                         "anotacoes": [
                             {
                                 "data_anotacao": datetime.datetime.today().strftime("%d/%m/%Y %H:%M"),
