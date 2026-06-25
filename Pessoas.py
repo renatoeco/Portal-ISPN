@@ -293,6 +293,8 @@ def gerar_excel_colaboradores(dados_pessoas, id_para_nome_programa):
             "raca": pessoa.get("raca", ""),
             "escritorio": pessoa.get("escritorio", ""),
             "programa_area": ", ".join(sorted(filter(None, nomes_programas))),
+            "data_entrada": pessoa.get("data_entrada", ""),
+            "data_desligamento": pessoa.get("data_desligamento", ""),
             "data_inicio_contrato_+_recente": (
                 contrato_recente.get("data_inicio", "")
                 if contrato_recente else ""
