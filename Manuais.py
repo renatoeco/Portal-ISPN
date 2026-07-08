@@ -147,10 +147,10 @@ with st.expander("MANUAL DE CARGOS E POLÍTICA DE REMUNERAÇÃO"):
              não discriminação e clareza nas funções e possibilidades de crescimento profissional dentro da instituição.""")
     
     with st.container(horizontal=True):
-        st.write("Versão: julho de 2025")
+        st.write("Versão: junho de 2026")
         st.link_button(
             label="Ver documento",
-            url="https://ispn.org.br/wp-content/uploads/2025/10/ISPN_MANUAL-DE-CARGOS-E-REMUNERACAO_VFINAL-1-1.pdf", 
+            url="https://ispn.org.br/wp-content/uploads/2026/07/ISPN_Manual-de-Cargos-junho-2026.pdf", 
             type="tertiary",
             icon=":material/open_in_new:"
         )
