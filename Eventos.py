@@ -313,7 +313,7 @@ def pode_editar_status(evento_cpf):
     tipos_usuario = set(st.session_state.get("tipo_usuario", []))
 
     # Perfis com permissão global
-    if tipos_usuario & {"admin", "coordenador(a)", "gestao_pessoas"}:
+    if tipos_usuario & {"admin", "coordenador(a)", "gestao_eventos"}:
         return True
 
     # Solicitante do evento
