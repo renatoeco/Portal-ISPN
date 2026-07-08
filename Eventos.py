@@ -611,7 +611,7 @@ def usuario_pode_editar_algum_evento():
         .zfill(11)
     )
 
-    if tipos_usuario & {"admin", "coordenador(a)", "gestao_pessoas"}:
+    if tipos_usuario & {"admin", "coordenador(a)", "gestao_eventos"}:
         return True
 
     if cpf_usuario in set(df_eventos["CPF"]):
