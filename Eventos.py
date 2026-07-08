@@ -302,27 +302,6 @@ def sincronizar_eventos_novos(df_eventos, eventos_collection):
     eventos_collection.insert_many(documentos)
 
 
-def pode_editar_status(evento_cpf):
-    cpf_usuario = (
-        str(st.session_state.get("cpf", ""))
-        .replace(".", "")
-        .replace("-", "")
-        .zfill(11)
-    )
-
-    tipos_usuario = set(st.session_state.get("tipo_usuario", []))
-
-    # Perfis com permissão global
-    if tipos_usuario & {"admin", "coordenador(a)", "gestao_eventos"}:
-        return True
-
-    # Solicitante do evento
-    if cpf_usuario == evento_cpf:
-        return True
-
-    return False
-
-
 def atualizar_status_evento(codigo_evento, novo_status):
     result = eventos.update_one(
         {"codigo": str(codigo_evento).strip()},
@@ -485,7 +464,7 @@ def todos_os_eventos():
         col4.write(row['Técnico(a) responsável:'])
         col5.write(row['Data do evento'])
 
-        pode_editar = pode_editar_status(row["CPF"])
+        pode_editar = usuario_pode_editar_algum_evento()
 
         status_atual = row["Status"]
         key_status = f"status_todos_{row['Código do evento:']}"
@@ -552,7 +531,7 @@ def meus_eventos():
         col3.write(row['Atividade:'])
         col4.write(row['Técnico(a) responsável:'])
         col5.write(row['Data do evento'])
-        pode_editar = pode_editar_status(row["CPF"])
+        pode_editar = usuario_pode_editar_algum_evento()
 
         status_atual = row["Status"]
         key_status = f"status_meus_{row['Código do evento:']}"
@@ -602,22 +581,22 @@ def nova_solicitacao():
 
 def usuario_pode_editar_algum_evento():
 
-    tipos_usuario = set(st.session_state.get("tipo_usuario", []))
+    tipos = st.session_state.get("tipo_usuario", [])
 
-    cpf_usuario = (
-        str(st.session_state.get("cpf", ""))
-        .replace(".", "")
-        .replace("-", "")
-        .zfill(11)
+    # Garante funcionamento caso tipo_usuario seja string
+    if isinstance(tipos, str):
+        tipos = [tipos]
+
+    tipos_usuario = set(tipos)
+
+    return bool(
+        tipos_usuario & {
+            "admin",
+            "coordenador(a)",
+            "gestao_eventos"
+        }
     )
 
-    if tipos_usuario & {"admin", "coordenador(a)", "gestao_eventos"}:
-        return True
-
-    if cpf_usuario in set(df_eventos["CPF"]):
-        return True
-
-    return False
 
 def render_toggle_edicao(key_toggle):
 
