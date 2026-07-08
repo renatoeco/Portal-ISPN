@@ -1358,27 +1358,14 @@ with solicitacoes_externas:
 
     df_rvss_externas = carregar_rvss_ext()
 
-    # ----------------------------------------------------------
-    # FILTRO PELO E-MAIL DO PONTO FOCAL
-    # ----------------------------------------------------------
-
     id_usuario = st.session_state.get("id_usuario")
     usuario = get_usuario_normalizado(pessoas, id_usuario)
 
-    nome_completo = str(
-        usuario.get("nome_completo", "")
-    ).strip()
-
-    partes_nome = nome_completo.split()
-
-    # ----------------------------------------------------------
-    # TENTA PRIMEIRO NOME + ÚLTIMO NOME
-    # ----------------------------------------------------------
-
-    if len(partes_nome) >= 2:
-        nome_busca = f"{partes_nome[0]} {partes_nome[-1]}".lower()
-    else:
-        nome_busca = nome_completo.lower()
+    nome_busca = (
+        str(usuario.get("nome_completo", ""))
+        .strip()
+        .lower()
+    )
 
     coluna_ponto_focal = (
         df_savs_externas[
@@ -1392,20 +1379,6 @@ with solicitacoes_externas:
     df_solicitacoes_externas = df_savs_externas[
         coluna_ponto_focal == nome_busca
     ].copy()
-
-    # ----------------------------------------------------------
-    # SE NÃO ENCONTROU, TENTA PRIMEIRO NOME + NOME DO MEIO
-    # ----------------------------------------------------------
-
-    if df_solicitacoes_externas.empty and len(partes_nome) >= 3:
-
-        nome_busca = (
-            f"{partes_nome[0]} {partes_nome[1]}"
-        ).lower()
-
-        df_solicitacoes_externas = df_savs_externas[
-            coluna_ponto_focal == nome_busca
-        ].copy()
 
     # ----------------------------------------------------------
     # TRATAMENTO DOS CAMPOS
