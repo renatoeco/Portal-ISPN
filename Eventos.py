@@ -179,8 +179,27 @@ def montar_eventos_calendario(df_eventos):
         except:
             continue
 
+        # ----------------------------------------------------------
+        # Define o prefixo do escritório
+        # Brasília -> [BSB]
+        # Santa Inês -> [Sta Inês]
+        # Caso não seja identificado, não adiciona prefixo
+        # ----------------------------------------------------------
+        escritorio = str(
+            row.get("Escritório responsável pelo evento:", "")
+        ).strip().lower()
+
+        if "santa" in escritorio and "inês" in escritorio:
+            prefixo = "[Sta Inês]"
+        elif "brasília" in escritorio or "brasilia" in escritorio:
+            prefixo = "[BSB]"
+        else:
+            prefixo = ""
+
+        titulo = f"{prefixo} {row['Atividade:']}".strip()
+
         eventos_cal.append({
-            "title": f"{row['Atividade:']} ({row['Código do evento:']})",
+            "title": f"{titulo} ({row['Código do evento:']})",
             "start": inicio_iso,
             "end": fim_iso,
             "allDay": True,
@@ -460,7 +479,7 @@ def todos_os_eventos():
 
         col1.write(row['Código do evento:'])
         col2.write(row['Data da solicitação:'])
-        col3.write(row['Atividade:'])
+        col3.write(f"{row['Prefixo Escritório']} {row['Atividade:']}".strip())
         col4.write(row['Técnico(a) responsável:'])
         col5.write(row['Data do evento'])
 
@@ -528,7 +547,7 @@ def meus_eventos():
 
         col1.write(row['Código do evento:'])
         col2.write(row['Data da solicitação:'])
-        col3.write(row['Atividade:'])
+        col3.write(f"{row['Prefixo Escritório']} {row['Atividade:']}".strip())
         col4.write(row['Técnico(a) responsável:'])
         col5.write(row['Data do evento'])
         pode_editar = usuario_pode_editar_algum_evento()
@@ -664,6 +683,23 @@ def extrair_datas(texto):
 
 # Criar a nova coluna
 df_eventos["Data do evento"] = df_eventos["Datas e horário do evento:"].apply(extrair_datas)
+
+# --------------------------------------------------
+# Prefixo do escritório
+# --------------------------------------------------
+def obter_prefixo_escritorio(escritorio):
+    escritorio = str(escritorio).strip().lower()
+
+    if "santa" in escritorio and "inês" in escritorio:
+        return "[Sta Inês]"
+    elif "brasília" in escritorio or "brasilia" in escritorio:
+        return "[BSB]"
+    else:
+        return ""
+
+df_eventos["Prefixo Escritório"] = df_eventos[
+    "Escritório responsável pelo evento:"
+].apply(obter_prefixo_escritorio)
 
 
 # ##################################################################
