@@ -185,21 +185,17 @@ def enviar_email(destinatarios, assunto, corpo):
 # Função auxiliar para evitar repetição
 def exibir_banco(prefixo, banco_dict):
     """
-    Exibe os dados do banco com prefixo (PF/PJ) no label.
+    Exibe os dados do banco com prefixo (PF/PJ) no modo de visualização.
+    Caso os campos estejam vazios, exibe "-".
     """
     banco_dict = banco_dict or {}
 
-    # Verifica se tem algum dado preenchido
-    if any(banco_dict.get(campo) for campo in ["nome_banco", "agencia", "conta", "tipo_conta"]):
+    sufixo = f" ({prefixo})" if prefixo else ""
 
-        sufixo = f"{prefixo}" if prefixo else ""
-
-        linha(f"Banco ({sufixo}):", banco_dict.get("nome_banco"))
-        linha(f"Agência ({sufixo}):", banco_dict.get("agencia"))
-        linha(f"Tipo de conta ({sufixo}):", banco_dict.get("tipo_conta"))
-        linha(f"Número da conta ({sufixo}):", banco_dict.get("conta"))
-
-        #st.write("")
+    linha(f"Banco{sufixo}:", banco_dict.get("nome_banco"))
+    linha(f"Agência{sufixo}:", banco_dict.get("agencia"))
+    linha(f"Tipo de conta{sufixo}:", banco_dict.get("tipo_conta"))
+    linha(f"Número da conta{sufixo}:", banco_dict.get("conta"))
 
 
 def input_banco(prefixo, banco_dict):
