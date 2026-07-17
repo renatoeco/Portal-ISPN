@@ -90,6 +90,8 @@ SITES = {
     "Capta": st.secrets["sites_analytics"]["site_capta"],
     "Agroindústria": st.secrets["sites_analytics"]["site_agroindustria"],
     "Cerrado": st.secrets["sites_analytics"]["site_cerrado"],
+    "Tamo de Olho": st.secrets["sites_analytics"]["site_tamo_de_olho"],
+    "ÓSócioBio": st.secrets["sites_analytics"]["site_osociobio"],
 }
 
 

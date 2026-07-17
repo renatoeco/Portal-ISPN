@@ -10,7 +10,7 @@ import datetime
 import io
 from bson import ObjectId
 import plotly.express as px
-from folium.plugins import MarkerCluster
+from folium.plugins import MarkerCluster, OverlappingMarkerSpiderfier
 from plotly.colors import diverging, sequential
 from streamlit_folium import st_folium
 import geopandas as gpd
@@ -2700,9 +2700,12 @@ with mapa:
 
     modo_mapa = st.radio(
         "Visualização",
-        ["Cluster (município principal)", "Pontos (lat long principal)"],
-        horizontal=True,
-        index=0
+        [
+            "Cluster (município principal)",
+            "Spider (município principal)",
+            "Pontos (lat long principal)"
+        ],
+        horizontal=True
     )
 
     @st.cache_data(show_spinner=False)
@@ -2862,8 +2865,13 @@ with mapa:
         # DEFINE DESTINO DOS MARCADORES
         # ==========================================================
 
-        if usar_cluster:
+        if modo_spider:
+            camada_destino = folium.FeatureGroup(name="Projetos")
+            camada_destino.add_to(m)
+
+        elif usar_cluster:
             camada_destino = MarkerCluster().add_to(m)
+
         else:
             camada_destino = m
 
@@ -3005,6 +3013,12 @@ with mapa:
 
             ).add_to(camada_destino)
 
+        if modo_spider:
+            OverlappingMarkerSpiderfier(
+                keep_spiderfied=True,
+                nearby_distance=20,
+            ).add_to(m)
+
         return m
 
     # ==========================================================
@@ -3012,6 +3026,7 @@ with mapa:
     # ==========================================================
 
     usar_cluster = modo_mapa == "Cluster (município principal)"
+    modo_spider = modo_mapa == "Spider (município principal)"
 
     mapa_folium = gerar_mapa(
         df_coords_projetos,
