@@ -2845,9 +2845,10 @@ with mapa:
     @st.cache_data(show_spinner=False)
     def gerar_mapa(
         df_coords_projetos,
-        _todos_projetos,
-        df_munis,
-        usar_cluster=True
+        _projetos_dict,
+        _municipios_dict,
+        usar_cluster=True,
+        modo_spider=False
     ):
 
         # ==========================================================
@@ -2887,13 +2888,7 @@ with mapa:
 
             ano_de_aprovacao = row['Ano']
 
-            projeto = next(
-                (
-                    p for p in todos_projetos
-                    if p.get("codigo") == codigo
-                ),
-                None
-            )
+            projeto = _projetos_dict.get(codigo)
 
             if not projeto:
                 continue
@@ -2924,24 +2919,18 @@ with mapa:
                 row.get('codigo_municipio', '')
             ).strip()
 
-            muni_principal_info = df_munis[
-                df_munis['codigo_municipio'] == muni_principal_codigo
-            ]
+            muni_principal_info = _municipios_dict.get(muni_principal_codigo)
 
-            if not muni_principal_info.empty:
+            if muni_principal_info:
 
-                nome_muni_principal = (
-                    muni_principal_info.iloc[0]['nome'].title()
-                )
+                nome_muni_principal = muni_principal_info["nome"].title()
 
                 uf_sigla_principal = codigo_uf_para_sigla.get(
-                    str(int(muni_principal_info.iloc[0]['codigo_uf'])),
+                    str(int(muni_principal_info["codigo_uf"])),
                     ""
                 )
 
-                muni_principal_str = (
-                    f"{nome_muni_principal} - {uf_sigla_principal}"
-                )
+                muni_principal_str = f"{nome_muni_principal} - {uf_sigla_principal}"
 
             else:
 
@@ -2964,16 +2953,14 @@ with mapa:
                 if cod == muni_principal_codigo:
                     continue
 
-                muni_info = df_munis[
-                    df_munis['codigo_municipio'] == cod
-                ]
+                muni_info = municipios_dict.get(cod)
 
-                if not muni_info.empty:
+                if muni_info:
 
-                    nome_muni = muni_info.iloc[0]['nome'].title()
+                    nome_muni = muni_info["nome"].title()
 
                     uf_sigla = codigo_uf_para_sigla.get(
-                        str(int(muni_info.iloc[0]['codigo_uf'])),
+                        str(int(muni_info["codigo_uf"])),
                         ""
                     )
 
@@ -3028,10 +3015,21 @@ with mapa:
     usar_cluster = modo_mapa == "Cluster (município principal)"
     modo_spider = modo_mapa == "Spider (município principal)"
 
+    projetos_dict = {
+        p["codigo"]: p
+        for p in todos_projetos
+    }
+
+    municipios_dict = (
+        df_munis
+        .set_index("codigo_municipio")
+        .to_dict("index")
+    )
+
     mapa_folium = gerar_mapa(
         df_coords_projetos,
-        todos_projetos,
-        df_munis,
+        projetos_dict,
+        municipios_dict,
         usar_cluster=usar_cluster
     )
 
