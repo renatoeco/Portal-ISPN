@@ -4,7 +4,7 @@ from funcoes_auxiliares import conectar_mongo_portal_ispn
 
 st.set_page_config(layout="wide")
 st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
-st.header("Manuais")
+st.header("Políticas e Manuais")
 st.write('')
 
 
@@ -23,7 +23,7 @@ estatistica = db["estatistica"]
 
 
 PAGINA_ID = "pagina_manuais"
-nome_pagina = "Manuais"
+nome_pagina = "Políticas e Manuais"
 
 hoje = datetime.now().strftime("%d/%m/%Y")
 
@@ -154,6 +154,24 @@ with st.expander("MANUAL DE CARGOS E POLÍTICA DE REMUNERAÇÃO"):
             type="tertiary",
             icon=":material/open_in_new:"
         )
+
+
+
+# MANUAL DE PROCEDIMENTOS PARA ELABORAÇÃO DE PROJETOS DO ISPN
+with st.expander("MANUAL DE PROCEDIMENTOS PARA ELABORAÇÃO DE PROJETOS DO ISPN"):
+    st.write("""Orienta todo o processo de elaboração de projetos, desde sua concepção até sua submissão, 
+            possibilitando que sejam coerentes com as diretrizes do Instituto e estejam dentro de um padrão.""")
+    
+    with st.container(horizontal=True):
+        st.write("Versão: 1.0 - julho de 2026")
+        st.link_button(
+            label="Ver documento",
+            url="https://ispn.org.br/wp-content/uploads/2026/07/MANUAL-DE-PROCEDIMENTOS-PARA-ELABORACAO-DE-PROJETOS-DO-ISPN.pdf", 
+            type="tertiary",
+            icon=":material/open_in_new:"
+        )
+
+
 
 
 # MANUAL DO ISPN
