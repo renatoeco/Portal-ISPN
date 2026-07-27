@@ -528,7 +528,7 @@ def dialog_cadastrar_projeto():
         st.subheader("Dados do projeto")
         st.write("")
 
-         # =========================================================
+        # =========================================================
         # FORMULÁRIO REDUZIDO - PROJETO ESTRATÉGICO
         # =========================================================
 
@@ -698,8 +698,27 @@ def dialog_cadastrar_projeto():
                 placeholder=""
             )
 
-            # --- Objetivo Geral ---
-            objetivo_geral = st.text_area("Objetivo Geral", value="")
+
+            # -----------------------------------
+            # Objetivo geral
+            # -----------------------------------
+
+            objetivo_geral = st.text_area(
+                "Objetivo Geral",
+                value=""
+            )
+
+            # -----------------------------------
+            # Resumo do projeto
+            # -----------------------------------
+
+            resumo_projeto = st.text_area(
+                "Resumo do projeto (sem resultados, máximo de 2000 caracteres)",
+                value="",
+                max_chars=2000
+            )
+
+
 
             # =========================================================
             # INFORMAÇÕES FINANCEIRAS
@@ -1022,6 +1041,7 @@ def dialog_cadastrar_projeto():
                         if data_fim else None
                     ),
                     "objetivo_geral": objetivo_geral,
+                    "resumo_projeto": resumo_projeto,
                     "regioes_atuacao": regioes_atuacao,  
                     "orcamento_por_ano": {
                         ano: float_to_br(v)
@@ -1485,11 +1505,27 @@ def dialog_editar_projeto():
                 placeholder=""
             )
 
+            # -----------------------------------
             # Objetivo geral
+            # -----------------------------------
+
             objetivo_geral = st.text_area(
                 "Objetivo Geral",
                 value=str(projeto_info.get("objetivo_geral", "")) if pd.notna(projeto_info.get("objetivo_geral")) else ""
             )
+
+            # -----------------------------------
+            # Resumo do projeto
+            # -----------------------------------
+
+            resumo_projeto = st.text_area(
+                "Resumo do projeto (sem resultados, máximo de 2000 caracteres)",
+                max_chars=2000,
+                value=str(projeto_info.get("resumo_projeto", "")) if pd.notna(projeto_info.get("resumo_projeto")) else ""
+            )
+
+
+
 
             #######################################################################
             # INFORMAÇÕES FINANCEIRAS
@@ -1801,6 +1837,7 @@ def dialog_editar_projeto():
                         "data_inicio_contrato": data_inicio.strftime("%d/%m/%Y"),
                         "data_fim_contrato": data_fim.strftime("%d/%m/%Y"),
                         "objetivo_geral": objetivo_geral,
+                        "resumo_projeto": resumo_projeto,
                         "regioes_atuacao": regioes_atuacao,
                         "orcamento_por_ano": {
                             ano: float_to_br(v)
@@ -2425,10 +2462,28 @@ def render_visualizacao_projeto_normal():
     objetivo_geral = df_projetos_ispn.loc[
         df_projetos_ispn["sigla"] == projeto_selecionado, "objetivo_geral"
     ].values[0]
+
     # Verificando se é NaN ou vazio
     if pd.isna(objetivo_geral) or objetivo_geral == "":
         objetivo_geral = "_Não cadastrado_"
+
     st.write(f'**Objetivo geral:** {objetivo_geral}')
+
+    # Resumo do projeto
+
+    resumo_do_projeto = df_projetos_ispn.loc[
+        df_projetos_ispn["sigla"] == projeto_selecionado, "resumo_projeto"
+    ].values[0]
+
+    # Verificando se é NaN ou vazio
+    if pd.isna(resumo_do_projeto) or resumo_do_projeto == "":
+        st.markdown(
+            "**Resumo do projeto:** <span style='color:#F59E0B; font-style: italic;'>Não cadastrado</span>",
+            unsafe_allow_html=True
+        )
+    else:
+        st.write(f"**Resumo do projeto:** {resumo_do_projeto}")
+
 
     st.write('')
 
