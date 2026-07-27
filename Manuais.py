@@ -160,7 +160,7 @@ with st.expander("MANUAL DE CARGOS E POLÍTICA DE REMUNERAÇÃO"):
 # MANUAL DE PROCEDIMENTOS PARA ELABORAÇÃO DE PROJETOS DO ISPN
 with st.expander("MANUAL DE PROCEDIMENTOS PARA ELABORAÇÃO DE PROJETOS DO ISPN"):
     st.write("""Orienta todo o processo de elaboração de projetos, desde sua concepção até sua submissão, 
-            possibilitando que sejam coerentes com as diretrizes do Instituto e estejam dentro de um padrão.""")
+            possibilitando que sejam coerentes com as diretrizes do Instituto.""")
     
     with st.container(horizontal=True):
         st.write("Versão: 1.0 - julho de 2026")
@@ -170,7 +170,6 @@ with st.expander("MANUAL DE PROCEDIMENTOS PARA ELABORAÇÃO DE PROJETOS DO ISPN"
             type="tertiary",
             icon=":material/open_in_new:"
         )
-
 
 
 
@@ -190,6 +189,7 @@ with st.expander("MANUAL DO ISPN"):
             type="tertiary",
             icon=":material/open_in_new:"
         )
+
 
 
 # MANUAL OPERACIONAL DO FUNDO ECOS
