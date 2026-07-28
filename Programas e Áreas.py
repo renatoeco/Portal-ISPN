@@ -213,6 +213,7 @@ def gerenciar_programa_dialog(programa):
     mapa_eixos = {}
     mapa_mp = {}
     mapa_lp = {}
+    mapa_objetivos = {}
 
     for doc in dados_estrategia:
 
@@ -228,9 +229,14 @@ def gerenciar_programa_dialog(programa):
         for r in doc.get("resultados_longo_prazo", {}).get("resultados_lp", []):
             mapa_lp[str(r["_id"])] = r["titulo"]
             
+        # Objetivos Estratégicos Organizacionais
+        for obj in (doc.get("objetivos_estrategicos_institucionais", {}).get("obj_estrat_inst", [])):
+            mapa_objetivos[str(obj["_id"])] = obj["titulo"]
+            
     opcoes_eixos = list(mapa_eixos.keys())
     opcoes_mp = list(mapa_mp.keys())
     opcoes_lp = list(mapa_lp.keys())
+    opcoes_objetivos = list(mapa_objetivos.keys())
 
 
 
@@ -344,6 +350,13 @@ def gerenciar_programa_dialog(programa):
                     format_func=lambda x: mapa_lp.get(x, ""),
                     placeholder=""
                 )
+                
+                objetivos_sel = st.multiselect(
+                    "Contribui com quais objetivos estratégicos organizacionais?",
+                    options=opcoes_objetivos,
+                    format_func=lambda x: mapa_objetivos.get(x, ""),
+                    placeholder=""
+                )
 
 
                 st.write("")
@@ -356,6 +369,7 @@ def gerenciar_programa_dialog(programa):
                         "eixo_relacionado": [ObjectId(i) for i in eixo_sel],
                         "resultados_medio_prazo_relacionados": [ObjectId(i) for i in resultados_mp_sel],
                         "resultados_longo_prazo_relacionados": [ObjectId(i) for i in resultados_lp_sel],
+                        "objetivos_estrategicos_relacionados": [ObjectId(i) for i in objetivos_sel]
                     }
 
                     programas_areas.update_one(
@@ -381,6 +395,7 @@ def gerenciar_programa_dialog(programa):
                 eixo_atual = [str(i) for i in acao.get("eixo_relacionado", [])]
                 mp_atual = [str(i) for i in acao.get("resultados_medio_prazo_relacionados", [])]
                 lp_atual = [str(i) for i in acao.get("resultados_longo_prazo_relacionados", [])]
+                objetivos_atual = [str(i) for i in acao.get("objetivos_estrategicos_relacionados", [])]
 
                 with st.expander(titulo_atual or "Sem título", expanded=False):
 
@@ -429,6 +444,15 @@ def gerenciar_programa_dialog(programa):
                             key=f"lp_edit_{acao_id}",
                             placeholder=""
                         )
+                        
+                        objetivos_sel = st.multiselect(
+                            "Objetivos estratégicos organizacionais",
+                            options=opcoes_objetivos,
+                            default=objetivos_atual,
+                            format_func=lambda x: mapa_objetivos.get(x, ""),
+                            key=f"obj_edit_{acao_id}",
+                            placeholder=""
+                        )
 
                         if st.button("Salvar alterações", key=f"salvar_acao_{acao_id}"):
 
@@ -443,6 +467,7 @@ def gerenciar_programa_dialog(programa):
                                         "acoes_estrategicas.$.eixo_relacionado": [ObjectId(i) for i in eixo_sel],
                                         "acoes_estrategicas.$.resultados_medio_prazo_relacionados": [ObjectId(i) for i in resultados_mp_sel],
                                         "acoes_estrategicas.$.resultados_longo_prazo_relacionados": [ObjectId(i) for i in resultados_lp_sel],
+                                        "acoes_estrategicas.$.objetivos_estrategicos_relacionados": [ObjectId(i) for i in objetivos_sel]
                                     }
                                 }
                             )
@@ -472,6 +497,18 @@ def gerenciar_programa_dialog(programa):
                             st.markdown("**Contribui com os resultados de longo prazo:**")
                             for r in lp_atual:
                                 st.markdown(f"- {mapa_lp.get(r, '')}")
+                                
+                        st.write("")
+
+                        if objetivos_atual:
+                            st.markdown(
+                                "**Contribui com os objetivos estratégicos organizacionais:**"
+                            )
+
+                            for obj in objetivos_atual:
+                                st.markdown(
+                                    f"- {mapa_objetivos.get(obj, '')}"
+                                )
 
     # ======================================================
     # ABA 3 - RESULTADOS DO PROGRAMA
@@ -505,6 +542,13 @@ def gerenciar_programa_dialog(programa):
                     format_func=lambda x: mapa_lp.get(x, ""),
                     placeholder=""
                 )
+                
+                objetivos_sel = st.multiselect(
+                    "Contribui com quais objetivos estratégicos organizacionais?",
+                    options=opcoes_objetivos,
+                    format_func=lambda x: mapa_objetivos.get(x, ""),
+                    placeholder=""
+                )
 
                 st.write("")
 
@@ -518,6 +562,7 @@ def gerenciar_programa_dialog(programa):
                         "eixo_relacionado": [ObjectId(i) for i in eixo_sel],
                         "resultados_medio_prazo_relacionados": [ObjectId(i) for i in resultados_mp_sel],
                         "resultados_longo_prazo_relacionados": [ObjectId(i) for i in resultados_lp_sel],
+                        "objetivos_estrategicos_relacionados": [ObjectId(i) for i in objetivos_sel]
                     }
 
                     programas_areas.update_one(
@@ -543,6 +588,7 @@ def gerenciar_programa_dialog(programa):
                 eixo_atual = [str(i) for i in resultado.get("eixo_relacionado", [])]
                 mp_atual = [str(i) for i in resultado.get("resultados_medio_prazo_relacionados", [])]
                 lp_atual = [str(i) for i in resultado.get("resultados_longo_prazo_relacionados", [])]
+                objetivos_atual = [str(i) for i in resultado.get("objetivos_estrategicos_relacionados", [])]
 
                 with st.expander(descricao or "Sem título"):
 
@@ -593,6 +639,14 @@ def gerenciar_programa_dialog(programa):
                                 format_func=lambda x: mapa_lp.get(x, ""),
                                 key=f"lp_res_{resultado_id}"
                             )
+                            
+                            objetivos_sel = st.multiselect(
+                                "Contribui com quais objetivos estratégicos organizacionais?",
+                                options=opcoes_objetivos,
+                                default=objetivos_atual,
+                                format_func=lambda x: mapa_objetivos.get(x, ""),
+                                key=f"obj_res_{resultado_id}"
+                            )
 
                             st.write("")
 
@@ -613,6 +667,7 @@ def gerenciar_programa_dialog(programa):
                                             "resultados_programa.$.eixo_relacionado": [ObjectId(i) for i in eixo_sel],
                                             "resultados_programa.$.resultados_medio_prazo_relacionados": [ObjectId(i) for i in mp_sel],
                                             "resultados_programa.$.resultados_longo_prazo_relacionados": [ObjectId(i) for i in lp_sel],
+                                            "resultados_programa.$.objetivos_estrategicos_relacionados": [ObjectId(i) for i in objetivos_sel]
                                         }
                                     }
                                 )
@@ -640,6 +695,16 @@ def gerenciar_programa_dialog(programa):
                             st.markdown("**Resultados de longo prazo:**")
                             for r in lp_atual:
                                 st.markdown(f"- {mapa_lp.get(r, '')}")
+                                
+                        if objetivos_atual:
+                            st.markdown(
+                                "**Objetivos estratégicos organizacionais:**"
+                            )
+
+                            for obj in objetivos_atual:
+                                st.markdown(
+                                    f"- {mapa_objetivos.get(obj, '')}"
+                                )
 
 
 def gerar_anos_intervalo(data_inicio, data_fim):
