@@ -3450,456 +3450,186 @@ st.header("Programas e Áreas")
 st.write("")
 st.write("")
 
-abas = st.tabs(titulos_abas)
+abas = st.tabs(titulos_abas, on_change="rerun")
 
 
 # Cria a aba para cada programa ------------------------------
 for i, aba in enumerate(abas):
-    with aba:
+    
+    if aba.open:
+        with aba:
 
-        programa = lista_programas[i]
-        titulo_programa = programa['titulo']
-        id_programa = programa['id'] 
+            programa = lista_programas[i]
+            titulo_programa = programa['titulo']
+            id_programa = programa['id'] 
 
-        
+            
 
-        # Filtra o df_equipe para o programa atual
+            # Filtra o df_equipe para o programa atual
 
-        # Filtra no df original (que tem a coluna 'Programa')
-        df_equipe_filtrado = df_equipe[
-            df_equipe['Programa'].str.contains(titulo_programa, na=False)
-        ].copy()
+            # Filtra no df original (que tem a coluna 'Programa')
+            df_equipe_filtrado = df_equipe[
+                df_equipe['Programa'].str.contains(titulo_programa, na=False)
+            ].copy()
 
-        # Para exibir, pega só as linhas do df_equipe_exibir correspondentes
-        df_equipe_exibir_filtrado = df_equipe_exibir.loc[df_equipe_filtrado.index].copy()
-        df_equipe_exibir_filtrado.index = range(1, len(df_equipe_exibir_filtrado) + 1)
+            # Para exibir, pega só as linhas do df_equipe_exibir correspondentes
+            df_equipe_exibir_filtrado = df_equipe_exibir.loc[df_equipe_filtrado.index].copy()
+            df_equipe_exibir_filtrado.index = range(1, len(df_equipe_exibir_filtrado) + 1)
 
-        # Prepara genero e prefixo só pra pronomes de tratamento na tela
-        if not programa["coordenador"]:
-            prefixo = ""
-        else:
-            genero = programa['genero_coordenador']
-            prefixo = (
-                "Coordenador" if genero == "Masculino"
-                else "Coordenadora" if genero == "Feminino"
-                else "Coordenador(a)"
-            )
-
-        st.write("")
-
-        programas_dialog = list(programas_areas.find({}))
-
-        # ---------------------------------------------
-        # CONTROLE DE PERMISSÃO
-        # ---------------------------------------------
-
-        usuario_id = str(st.session_state.get("id_usuario"))
-        tipos_usuario = set(st.session_state.get("tipo_usuario", []))
-
-        # Busca o programa no banco (para garantir coordenador atualizado)
-        programa_doc = programas_areas.find_one({"_id": ObjectId(id_programa)})
-        coordenador_programa_id = str(programa_doc.get("coordenador_id", ""))
-
-        # Regra de permissão
-        pode_gerenciar = (
-            usuario_id == coordenador_programa_id
-            or "admin" in tipos_usuario
-        )
-
-        # ---------------------------------------------
-        # BOTÃO
-        # ---------------------------------------------
-
-        if pode_gerenciar:
-
-            container_botoes = st.container(horizontal=True, horizontal_alignment="right")
-
-            container_botoes.button(
-                "Gerenciar programa",
-                key=f"btn_gerenciar_{programa['id']}",
-                on_click=lambda prog=programa: gerenciar_programa_dialog(prog),
-                width=260,
-                icon=":material/contract_edit:"
-            )
-
-        st.write("")
-
-        # Não mostra aba de relatórios para "ADM Santa Inês"
-        if titulo_programa == "ADM Santa Inês":
-
-            aba_equipe, aba_projetos = st.tabs(
-                [
-                    "Equipe",
-                    "Projetos"
-                ]
-            )
-
-        # Mostra aba de relatórios para os outros programas/áreas
-        else:
-
-            aba_equipe, aba_projetos, aba_relatorio = st.tabs(
-                [
-                    "Equipe",
-                    "Projetos",
-                    "Relatórios Anuais"
-                ]
-            )
-
-
-
-        with aba_equipe:
+            # Prepara genero e prefixo só pra pronomes de tratamento na tela
+            if not programa["coordenador"]:
+                prefixo = ""
+            else:
+                genero = programa['genero_coordenador']
+                prefixo = (
+                    "Coordenador" if genero == "Masculino"
+                    else "Coordenadora" if genero == "Feminino"
+                    else "Coordenador(a)"
+                )
 
             st.write("")
 
-            col1, col2 = st.columns([2, 1])
+            programas_dialog = list(programas_areas.find({}))
 
-            with col1:
-                
-                # Nome do programa
-                st.subheader(f"{titulo_programa}")
-                
-                # Coordenador(a)
-                if programa["coordenador"]:
-                    st.write(f"**{prefixo}:** {programa['coordenador']}")
-                else:
-                    st.write("")
-                    st.write("")
+            # ---------------------------------------------
+            # CONTROLE DE PERMISSÃO
+            # ---------------------------------------------
 
-                # Equipe --------------------------------------------------------------------------
-                st.write('')
-                st.markdown('#### **Equipe**')
-                st.write(f'{len(df_equipe_exibir_filtrado)} colaboradores(as):')
-
-            with col2:
-
-                # Gráfico de pizza por gênero
-                cores = {
-                    "Masculino": "#ADD8E6",    # azul claro
-                    "Feminino": "#FFC0CB",     # rosa claro
-                    "Não binário": "#C6F4D6",  # verde claro
-                    "Outro": "#F5F5DC",        # bege claro
-                }
-
-                fig = px.pie(
-                    df_equipe_exibir_filtrado,
-                    names='Gênero',
-                    values=None,        # opcional, pode usar contagem automática
-                    color='Gênero',     # <-- necessário para que color_discrete_map funcione
-                    color_discrete_map=cores,
-                    # diminuir o tamanho do gráfico
-                    width=250,
-                    height=250
-                )
-
-                st.plotly_chart(fig, key=f"pizza_genero_{i}")
-
-
-            # Tabela de colaboradores
-            df_tabela = df_equipe_exibir_filtrado.copy()
-
-            colunas_contrato = {"Início do contrato", "Fim do contrato"}
-
-            colunas_existentes = colunas_contrato & set(df_tabela.columns)
-
-            if colunas_existentes:
-                df_tabela[list(colunas_existentes)] = (
-                    df_tabela[list(colunas_existentes)].fillna("")
-                )
-
-            def criar_callback_equipe(df_visivel, key_df):
-
-                def handle_selecao():
-                    estado = st.session_state.get(key_df, {})
-                    linhas = estado.get("selection", {}).get("rows", [])
-
-                    if not linhas:
-                        st.session_state["pessoa_selecionada"] = None
-                        return
-
-                    idx = linhas[0]
-
-                    nome = df_visivel.iloc[idx]["Nome"]
-
-                    pessoa_encontrada = next(
-                        (p for p in colaboradores_raw if p.get("nome_completo") == nome),
-                        None
-                    )
-
-                    if pessoa_encontrada:
-                        st.session_state["pessoa_selecionada"] = str(pessoa_encontrada["_id"])
-                        st.session_state["abrir_dialog_pessoa"] = True
-
-                return handle_selecao
-            
             usuario_id = str(st.session_state.get("id_usuario"))
             tipos_usuario = set(st.session_state.get("tipo_usuario", []))
 
+            # Busca o programa no banco (para garantir coordenador atualizado)
             programa_doc = programas_areas.find_one({"_id": ObjectId(id_programa)})
             coordenador_programa_id = str(programa_doc.get("coordenador_id", ""))
 
-            pode_editar_pessoas = (
-                "admin" in tipos_usuario
-                or "gestao_pessoas" in tipos_usuario
-                or "coordenador(a)" in tipos_usuario
+            # Regra de permissão
+            pode_gerenciar = (
+                usuario_id == coordenador_programa_id
+                or "admin" in tipos_usuario
             )
-            
-            # Cria uma key única para o dataframe da equipe
-            key_df = f"df_equipe_programa_{id_programa}"
-            
-            if pode_editar_pessoas:
 
-                callback = criar_callback_equipe(df_tabela, key_df)
+            # ---------------------------------------------
+            # BOTÃO
+            # ---------------------------------------------
 
-                st.dataframe(
-                    df_tabela,
-                    hide_index=True,
-                    selection_mode="single-row",
-                    on_select=callback,
-                    key=key_df
+            if pode_gerenciar:
+
+                container_botoes = st.container(horizontal=True, horizontal_alignment="right")
+
+                container_botoes.button(
+                    "Gerenciar programa",
+                    key=f"btn_gerenciar_{programa['id']}",
+                    on_click=lambda prog=programa: gerenciar_programa_dialog(prog),
+                    width=260,
+                    icon=":material/contract_edit:"
+                )
+
+            st.write("")
+
+            # ADM Santa Inês não possui relatório
+            if titulo_programa == "ADM Santa Inês":
+
+                pagina = st.segmented_control(
+                    "Controle",
+                    ["Equipe", "Projetos"],
+                    key=f"menu_{id_programa}",
+                    default="Equipe",
+                    label_visibility="collapsed"
                 )
 
             else:
-                # Somente visualização
-                st.dataframe(
-                    df_tabela,
-                    hide_index=True
+
+                pagina = st.segmented_control(
+                    "Controle",
+                    ["Equipe", "Projetos", "Relatórios Anuais"],
+                    key=f"menu_{id_programa}",
+                    default="Equipe",
+                    label_visibility="collapsed"
                 )
-            
-            pessoa_sel = st.session_state.get("pessoa_selecionada")
 
-            if st.session_state.get("abrir_dialog_pessoa") and pessoa_sel:
 
-                gerenciar_pessoas(pessoa_sel)
 
-                st.session_state["abrir_dialog_pessoa"] = False
+            if pagina == "Equipe":
 
-            # Gráfico timeline de contratos de pessoas
-            
-            if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_pessoas"}:
+                st.write("")
 
-                linhas_timeline = []
-                
-                
+                col1, col2 = st.columns([2, 1])
 
-                for colab_doc in colaboradores_raw:
-
-                    if colab_doc.get("status", "").lower() != "ativo":
-                        continue
-
-                    nome = colab_doc.get("nome_completo", "Desconhecido")
+                with col1:
                     
-                    programa_area_ids = colab_doc.get("programa_area", [])
+                    # Nome do programa
+                    st.subheader(f"{titulo_programa}")
+                    
+                    # Coordenador(a)
+                    if programa["coordenador"]:
+                        st.write(f"**{prefixo}:** {programa['coordenador']}")
+                    else:
+                        st.write("")
+                        st.write("")
 
-                    if not isinstance(programa_area_ids, list):
-                        programa_area_ids = [programa_area_ids] if programa_area_ids else []
+                    # Equipe --------------------------------------------------------------------------
+                    st.write('')
+                    st.markdown('#### **Equipe**')
+                    st.write(f'{len(df_equipe_exibir_filtrado)} colaboradores(as):')
 
-                    nomes_programas = [
-                        mapa_id_para_nome_programa.get(str(pid), "")
-                        for pid in programa_area_ids
-                    ]
+                with col2:
 
-                    if titulo_programa not in nomes_programas:
-                        continue
+                    # Gráfico de pizza por gênero
+                    cores = {
+                        "Masculino": "#ADD8E6",    # azul claro
+                        "Feminino": "#FFC0CB",     # rosa claro
+                        "Não binário": "#C6F4D6",  # verde claro
+                        "Outro": "#F5F5DC",        # bege claro
+                    }
 
-                    for contrato in colab_doc.get("contratos", []):
-
-                        if contrato.get("status_contrato") not in STATUS_CONTRATOS_VALIDOS:
-                            continue
-
-                        try:
-                            data_inicio = datetime.datetime.strptime(
-                                contrato.get("data_inicio", ""), "%d/%m/%Y"
-                            )
-                            data_fim = datetime.datetime.strptime(
-                                contrato.get("data_fim", ""), "%d/%m/%Y"
-                            )
-                        except:
-                            continue
-
-                        projetos = []
-                        for pid in contrato.get("projeto_pagador", []):
-                            sigla = mapa_id_para_sigla_projeto.get(str(pid))
-                            if sigla:
-                                projetos.append(sigla)
-
-                        projeto_str = ", ".join(projetos) if projetos else "Sem projeto"
-
-                        linhas_timeline.append({
-                            "Nome": nome,
-                            "Projeto": projeto_str,
-                            "Início do contrato": data_inicio,
-                            "Fim do contrato": data_fim
-                        })
-                
-
-                # Ordenar por ordem decrescente de data_fim_contrato
-                if "Fim do contrato" in df_equipe_exibir_filtrado.columns:
-                    df_equipe_exibir_filtrado = df_equipe_exibir_filtrado.sort_values(
-                        by="Fim do contrato",
-                        ascending=False
+                    fig = px.pie(
+                        df_equipe_exibir_filtrado,
+                        names='Gênero',
+                        values=None,        # opcional, pode usar contagem automática
+                        color='Gênero',     # <-- necessário para que color_discrete_map funcione
+                        color_discrete_map=cores,
+                        # diminuir o tamanho do gráfico
+                        width=250,
+                        height=250
                     )
 
-                # Tentando calcular a altura do gráfico dinamicamente
-                altura_base = 300  # altura mínima
-                altura_extra = sum([10 / (1 + i * 0.01) for i in range(len(df_equipe_exibir_filtrado))])
-                altura = int(altura_base + altura_extra)
-            
-                
-                df_timeline = pd.DataFrame(linhas_timeline)
+                    st.plotly_chart(fig, key=f"pizza_genero_{i}")
 
-                if df_timeline.empty:
-                    st.caption("Nenhum contrato ativo para exibir no timeline.")
-                else:
-                    # Ordena pelo fim do contrato
-                    df_timeline = df_timeline.sort_values(
-                        by="Fim do contrato",
-                        ascending=False
+
+                # Tabela de colaboradores
+                df_tabela = df_equipe_exibir_filtrado.copy()
+
+                colunas_contrato = {"Início do contrato", "Fim do contrato"}
+
+                colunas_existentes = colunas_contrato & set(df_tabela.columns)
+
+                if colunas_existentes:
+                    df_tabela[list(colunas_existentes)] = (
+                        df_tabela[list(colunas_existentes)].fillna("")
                     )
 
-                    # Altura dinâmica
-                    altura_base = 300
-                    altura = altura_base + len(df_timeline) * 20
-
-                    fig = px.timeline(
-                        df_timeline,
-                        x_start="Início do contrato",
-                        x_end="Fim do contrato",
-                        y="Nome",
-                        color="Projeto",
-                        hover_data=["Projeto"],
-                        height=altura
-                    )
-
-                    fig.update_traces(
-                        opacity=0.6,
-                    )
-
-                    fig.update_layout(yaxis_title=None)
-                    fig.add_vline(
-                        x=datetime.date.today(),
-                        line_width=1,
-                        line_dash="dash",
-                        line_color="gray"
-                    )
-
-                    st.plotly_chart(fig, key=f"timeline_pessoas_{i}")
-
-            st.divider()
-
-        with aba_projetos:
-
-            st.write("")
-                
-            # PROJETOS #################################################################################################
-
-            st.write('')
-            st.markdown("#### **Projetos**")
-
-            col1, col2, col3 = st.columns(3)
-            situacao_filtro = col1.selectbox(
-                "Situação",
-                ["Todos", "Em andamento", "Finalizado", "Estratégico", ""],
-                index=1,
-                key=f"situacao_{i}"
-            )
-
-            projetos_do_programa = [
-                p for p in dados_projetos_ispn
-                if str(id_programa) in normalizar_lista_ids(p.get("programas", []))
-            ]
-
-            # Ordena por código
-            projetos_do_programa_ordenados = sorted(
-                projetos_do_programa,
-                key=lambda p: p.get("codigo", "")
-            )
-
-            # Aplica o filtro de situação
-            if situacao_filtro != "Todos":
-                projetos_do_programa_ordenados = [
-                    p for p in projetos_do_programa_ordenados
-                    if p.get("status", "Não informado") == situacao_filtro
-                ]
-
-            if projetos_do_programa_ordenados:
-                dados_projetos = {
-                    "Sigla": [],
-                    "Nome do projeto": [],
-                    "Início": [],
-                    "Fim": [],
-                    "Valor": [],
-                    "Doador": [],
-                    "Situação": []
-                }
-
-                for projeto in projetos_do_programa_ordenados:
-                    # Usa a sigla como identificador principal (resolve problema de busca)
-                    dados_projetos["Sigla"].append(projeto.get("sigla", ""))
-                    dados_projetos["Nome do projeto"].append(projeto.get("nome_do_projeto", "Sem nome"))
-                    dados_projetos["Início"].append(projeto.get("data_inicio_contrato", "Não informado"))
-                    dados_projetos["Fim"].append(projeto.get("data_fim_contrato", "Não informado"))
-
-                    valor_bruto = projeto.get("valor", 0) or 0
-                    moeda_bruta = projeto.get("moeda", "reais")  # padrão "reais" caso não exista
-                    valor_formatado = formatar_valor(valor_bruto, moeda_bruta)
-                    dados_projetos["Valor"].append(valor_formatado)
-
-                    id_doador = projeto.get("doador")
-                    nome_doador = mapa_doador_id_para_nome.get(str(id_doador), "Não informado")
-                    dados_projetos["Doador"].append(nome_doador)
-
-                    dados_projetos["Situação"].append(projeto.get("status", "Não informado"))
-
-                df_projetos = pd.DataFrame(dados_projetos)
-                df_projetos.index += 1
-                quantidade = len(df_projetos)
-                plural = "projetos vinculados" if quantidade != 1 else "projeto vinculado"
-
-                areas = ["Comunicação", "ADM Brasília", "ADM Santa Inês", "Advocacy", "Coordenação"]
-
-                if titulo_programa in areas:
-                    st.write(f"{quantidade} {plural} à área **{titulo_programa}**:")
-                else:
-                    st.write(f"{quantidade} {plural} ao programa **{titulo_programa}**:")
-
-                pode_editar = (
-                    usuario_id == coordenador_programa_id
-                    or "admin" in tipos_usuario
-                )
-
-                if pode_editar:
-
-                    container_cadastro_projeto = st.container(horizontal=True, horizontal_alignment="right")
-
-                    if container_cadastro_projeto.button(
-                        "Cadastrar projeto",
-                        icon=":material/add:",
-                        width=200,
-                        key=f"btn_cadastrar_projeto_{id_programa}" 
-                    ):
-
-                        dialog_cadastrar_projeto()
-
-                    st.write("")
-                
-                def criar_callback_projeto_programa(df_visivel, key_df):
+                def criar_callback_equipe(df_visivel, key_df):
 
                     def handle_selecao():
                         estado = st.session_state.get(key_df, {})
                         linhas = estado.get("selection", {}).get("rows", [])
 
-                        # Se desmarcar → limpa
                         if not linhas:
-                            st.session_state["projeto_selecionado"] = None
+                            st.session_state["pessoa_selecionada"] = None
                             return
 
                         idx = linhas[0]
 
-                        # Aqui usamos o código (ou sigla)
-                        sigla = df_visivel.iloc[idx]["Sigla"]
+                        nome = df_visivel.iloc[idx]["Nome"]
 
-                        st.session_state["projeto_selecionado"] = sigla
-                        st.session_state["abrir_dialog_projeto"] = True
+                        pessoa_encontrada = next(
+                            (p for p in colaboradores_raw if p.get("nome_completo") == nome),
+                            None
+                        )
+
+                        if pessoa_encontrada:
+                            st.session_state["pessoa_selecionada"] = str(pessoa_encontrada["_id"])
+                            st.session_state["abrir_dialog_pessoa"] = True
 
                     return handle_selecao
                 
@@ -3909,19 +3639,21 @@ for i, aba in enumerate(abas):
                 programa_doc = programas_areas.find_one({"_id": ObjectId(id_programa)})
                 coordenador_programa_id = str(programa_doc.get("coordenador_id", ""))
 
-                df_original = df_projetos.copy()
+                pode_editar_pessoas = (
+                    "admin" in tipos_usuario
+                    or "gestao_pessoas" in tipos_usuario
+                    or "coordenador(a)" in tipos_usuario
+                )
+                
+                # Cria uma key única para o dataframe da equipe
+                key_df = f"df_equipe_programa_{id_programa}"
+                
+                if pode_editar_pessoas:
 
-                key_df = f"df_projetos_programa_{id_programa}"
-
-                if pode_editar:
-
-                    callback = criar_callback_projeto_programa(
-                        df_projetos,
-                        key_df
-                    )
+                    callback = criar_callback_equipe(df_tabela, key_df)
 
                     st.dataframe(
-                        df_projetos,
+                        df_tabela,
                         hide_index=True,
                         selection_mode="single-row",
                         on_select=callback,
@@ -3929,341 +3661,609 @@ for i, aba in enumerate(abas):
                     )
 
                 else:
-                    # Usuário comum → somente visualização
+                    # Somente visualização
                     st.dataframe(
-                        df_projetos,
+                        df_tabela,
                         hide_index=True
                     )
                 
-                projeto_selecionado = st.session_state.get("projeto_selecionado")
+                pessoa_sel = st.session_state.get("pessoa_selecionada")
 
-                if st.session_state.get("abrir_dialog_projeto") and projeto_selecionado:
+                if st.session_state.get("abrir_dialog_pessoa") and pessoa_sel:
 
-                    dialog_editar_projeto()
+                    gerenciar_pessoas(pessoa_sel)
 
-                    st.session_state["abrir_dialog_projeto"] = False
+                    st.session_state["abrir_dialog_pessoa"] = False
+
+                # Gráfico timeline de contratos de pessoas
+                
+                if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_pessoas"}:
+
+                    linhas_timeline = []
                     
-            else:
-                # cria o df_projetos vazio
-                df_projetos = pd.DataFrame({
-                    "Código": [],
-                    "Nome do projeto": [],
-                    "Início": [],
-                    "Fim": [],
-                    "Valor": [],
-                    "Doador": [],
-                    "Situação": []
-                })
-                st.caption("Nenhum projeto")
+                    
 
+                    for colab_doc in colaboradores_raw:
 
-
-            if not df_projetos.empty:
-                # Gráfico timeline com plotly express, com um projeto por linha
-
-                # Tentando calcular a altura do gráfico dinamicamente
-                altura_base = 300  # altura mínima
-                altura_extra = sum([10 / (1 + i * 0.01) for i in range(len(df_projetos))])
-                altura = int(altura_base + altura_extra)
-                
-                df_projetos = df_projetos[
-                    df_projetos["Situação"] != "Estratégico"
-                ].copy()
-
-                # Converte para datetime
-                df_projetos["Início"] = pd.to_datetime(
-                    df_projetos["Início"],
-                    dayfirst=True
-                )
-
-                df_projetos["Fim"] = pd.to_datetime(
-                    df_projetos["Fim"],
-                    dayfirst=True
-                )
-
-                # Ordena os projetos em ordem decrescente da data de fim do contrato
-                df_projetos = df_projetos.sort_values(by='Fim', ascending=False)
-
-                fig = px.timeline(
-                    df_projetos,
-                    x_start="Início",
-                    x_end="Fim",
-                    y="Sigla",
-                    color="Situação",
-                    hover_data=["Sigla"],
-                    height=altura
-                )
-
-                fig.update_layout(
-                    yaxis_title=None,
-                )
-                fig.add_vline(x=datetime.date.today(), line_width=1, line_dash="dash", line_color="gray")
-                st.plotly_chart(fig, key=f"timeline_projetos_{i}")
-
-            st.divider()
-            
-            if set(st.session_state.get("tipo_usuario", [])) & {"admin", "coordenador(a)"}:
-
-                # AÇÕES ESTRATÉGICAS DO PROGRAMA ################################################################
-                
-                st.markdown("#### **Ações Estratégicas do Programa**")
-
-                # ===============================
-                # FILTROS DE ENTREGAS DO PROGRAMA
-                # ===============================
-
-                with st.form(f"filtros_entregas_programa_{id_programa}", border=False):
-
-                    col1, col2, col3 = st.columns(3)
-
-                    # Projetos (siglas) — apenas do programa
-                    siglas_programa = sorted({
-                        e["projeto_sigla"]
-                        for e in entregas_base
-                        if e["projeto_sigla"]
-                    })
-
-                    with col1:
-                        filtro_entregas_projetos = st.multiselect(
-                            "Projeto",
-                            options=siglas_programa,
-                            default=st.session_state.get(f"filtro_entregas_projetos_{id_programa}", []),
-                            placeholder=""
-                        )
-
-                    # Situação
-                    situacoes_programa = sorted({
-                        e["situacao"]
-                        for e in entregas_base
-                        if e["situacao"]
-                    })
-
-                    with col2:
-                        filtro_entregas_situacoes = st.multiselect(
-                            "Situação",
-                            options=situacoes_programa,
-                            default=st.session_state.get(f"filtro_entregas_situacoes_{id_programa}", []),
-                            placeholder=""
-                        )
-
-                    # Ano de referência
-                    anos_programa = sorted({
-                        ano
-                        for e in entregas_base
-                        for ano in e["anos_referencia"]
-                    })
-
-                    with col3:
-                        filtro_entregas_anos = st.multiselect(
-                            "Ano",
-                            options=anos_programa,
-                            default=st.session_state.get(f"filtro_entregas_anos_{id_programa}", []),
-                            placeholder=""
-                        )
-
-                    aplicar = st.form_submit_button(
-                        "Aplicar filtros",
-                        icon=":material/filter_alt:"
-                    )
-
-                if aplicar:
-                    st.session_state[f"filtro_entregas_projetos_{id_programa}"] = filtro_entregas_projetos
-                    st.session_state[f"filtro_entregas_situacoes_{id_programa}"] = filtro_entregas_situacoes
-                    st.session_state[f"filtro_entregas_anos_{id_programa}"] = filtro_entregas_anos
-                    st.rerun()
-
-                # ===============================
-                # FILTROS DE ENTREGAS (ISOLADOS)
-                # ===============================
-
-                filtro_entregas_projetos = st.session_state.get(
-                    f"filtro_entregas_projetos_{id_programa}", []
-                )
-
-                filtro_entregas_situacoes = st.session_state.get(
-                    f"filtro_entregas_situacoes_{id_programa}", []
-                )
-
-                filtro_entregas_anos = st.session_state.get(
-                    f"filtro_entregas_anos_{id_programa}", []
-                )
-
-
-                # 1. Busca a estratégia do programa atual
-                estrategia_programa = db.programas_areas.find_one({
-                    "nome_programa_area": titulo_programa
-                })
-
-                if not estrategia_programa or not estrategia_programa.get("acoes_estrategicas"):
-                    st.caption("Nenhuma ação estratégica cadastrada para este programa.")
-        
-                else:
-
-                    st.write("")
-
-                    acoes_estrategicas = estrategia_programa["acoes_estrategicas"]
-
-                    # ==========================================================
-                    # BUSCA TODOS OS PROJETOS
-                    # As entregas podem aparecer em múltiplos programas
-                    # ==========================================================
-
-                    projetos_com_entregas = []
-
-                    for p in dados_projetos_ispn:
-
-                        sigla_proj = p.get("sigla", "")
-
-                        # -----------------------------
-                        # FILTRO DE PROJETOS (SIGLA)
-                        # -----------------------------
-                        if (
-                            filtro_entregas_projetos
-                            and sigla_proj not in filtro_entregas_projetos
-                        ):
+                        if colab_doc.get("status", "").lower() != "ativo":
                             continue
 
-                        projetos_com_entregas.append(p)
+                        nome = colab_doc.get("nome_completo", "Desconhecido")
+                        
+                        programa_area_ids = colab_doc.get("programa_area", [])
 
-                    # 3. Loop pelas ações estratégicas
-                    for i, acao in enumerate(acoes_estrategicas):
-                        nome_acao = acao["acao_estrategica"]
+                        if not isinstance(programa_area_ids, list):
+                            programa_area_ids = [programa_area_ids] if programa_area_ids else []
 
-                        with st.expander(nome_acao, expanded=True):
+                        nomes_programas = [
+                            mapa_id_para_nome_programa.get(str(pid), "")
+                            for pid in programa_area_ids
+                        ]
 
-                            # ==========================================================
-                            # AGRUPA ENTREGAS E ACUMULA TODOS OS PROJETOS RELACIONADOS
-                            # ==========================================================
+                        if titulo_programa not in nomes_programas:
+                            continue
 
-                            mapa_entregas = {}
+                        for contrato in colab_doc.get("contratos", []):
 
-                            for projeto_doc in projetos_com_entregas:
+                            if contrato.get("status_contrato") not in STATUS_CONTRATOS_VALIDOS:
+                                continue
 
-                                sigla_projeto = projeto_doc.get("sigla", "")
-
-                                for entrega_doc in projeto_doc.get("entregas", []):
-
-                                    acao_id = str(acao["_id"])
-
-                                    ids_acoes_da_entrega = normalizar_lista_ids(
-                                        entrega_doc.get("acoes_relacionadas", [])
-                                    )
-
-                                    if acao_id not in ids_acoes_da_entrega:
-                                        continue
-
-                                    # -----------------------------
-                                    # FILTROS
-                                    # -----------------------------
-
-                                    if filtro_entregas_projetos and sigla_projeto not in filtro_entregas_projetos:
-                                        continue
-
-                                    if filtro_entregas_situacoes:
-                                        if entrega_doc.get("situacao") not in filtro_entregas_situacoes:
-                                            continue
-
-                                    if filtro_entregas_anos:
-                                        anos_entrega = entrega_doc.get("anos_de_referencia", []) or []
-
-                                        if not set(anos_entrega) & set(filtro_entregas_anos):
-                                            continue
-
-                                    # -----------------------------
-                                    # CHAVE DA ENTREGA
-                                    # -----------------------------
-
-                                    chave_entrega = (
-                                        entrega_doc.get("nome_da_entrega", ""),
-                                        entrega_doc.get("situacao", ""),
-                                        entrega_doc.get("previsao_da_conclusao", ""),
-                                        tuple(sorted(entrega_doc.get("anos_de_referencia", []))),
-                                        entrega_doc.get("progresso")
-                                    )
-
-                                    # -----------------------------
-                                    # CRIA REGISTRO
-                                    # -----------------------------
-
-                                    if chave_entrega not in mapa_entregas:
-
-                                        progresso = entrega_doc.get("progresso")
-
-                                        mapa_entregas[chave_entrega] = {
-                                            "Projetos": set(),
-                                            "Entrega": entrega_doc.get("nome_da_entrega", ""),
-                                            "Situação": entrega_doc.get("situacao", ""),
-                                            "Previsão": entrega_doc.get("previsao_da_conclusao", ""),
-                                            "Ano(s) de Referência": ", ".join(
-                                                map(str, sorted(entrega_doc.get("anos_de_referencia", [])))
-                                            ),
-                                            "Progresso": (
-                                                f"{progresso}%"
-                                                if progresso not in [None, ""]
-                                                else ""
-                                            )
-                                        }
-
-                                    # ---------------------------------------------------------
-                                    # Adiciona o projeto principal da entrega
-                                    # ---------------------------------------------------------
-                                    if sigla_projeto:
-                                        mapa_entregas[chave_entrega]["Projetos"].add(sigla_projeto)
-
-                                    # ---------------------------------------------------------
-                                    # Adiciona também os projetos relacionados
-                                    # ---------------------------------------------------------
-                                    projetos_relacionados = entrega_doc.get("projetos_relacionados", [])
-
-                                    # Garante compatibilidade caso venha um único valor
-                                    if not isinstance(projetos_relacionados, list):
-                                        projetos_relacionados = [projetos_relacionados]
-
-                                    for projeto_rel in projetos_relacionados:
-
-                                        # Normaliza ObjectId -> string
-                                        projeto_rel_str = str(projeto_rel)
-
-                                        # Busca sigla do projeto relacionado
-                                        sigla_rel = mapa_id_para_sigla_projeto.get(projeto_rel_str)
-
-                                        if sigla_rel:
-                                            mapa_entregas[chave_entrega]["Projetos"].add(sigla_rel)
-
-                            # ==========================================================
-                            # CONVERTE PARA LISTA FINAL
-                            # ==========================================================
-
-                            entregas_relacionadas = []
-
-                            for entrega in mapa_entregas.values():
-
-                                entrega["Projetos"] = ", ".join(
-                                    sorted(entrega["Projetos"])
+                            try:
+                                data_inicio = datetime.datetime.strptime(
+                                    contrato.get("data_inicio", ""), "%d/%m/%Y"
                                 )
-
-                                entregas_relacionadas.append(entrega)
-
-                            if entregas_relacionadas:
-
-                                st.markdown("**Entregas:**")
-
-                                df_entregas = pd.DataFrame(entregas_relacionadas)
-
-                                ui.table(
-                                    data=df_entregas,
-                                    maxHeight=400,
-                                    key=f"tabela_entregas_{id_programa}_{acao_id}"   # key só aqui
+                                data_fim = datetime.datetime.strptime(
+                                    contrato.get("data_fim", ""), "%d/%m/%Y"
                                 )
+                            except:
+                                continue
 
-                            else:
-                                st.caption("Nenhuma entrega vinculada a esta ação estratégica do programa.")
+                            projetos = []
+                            for pid in contrato.get("projeto_pagador", []):
+                                sigla = mapa_id_para_sigla_projeto.get(str(pid))
+                                if sigla:
+                                    projetos.append(sigla)
 
-        # Não mostra aba de relatórios para "ADM Santa Inês"
-        if titulo_programa != "ADM Santa Inês":
+                            projeto_str = ", ".join(projetos) if projetos else "Sem projeto"
 
-            with aba_relatorio:                            
+                            linhas_timeline.append({
+                                "Nome": nome,
+                                "Projeto": projeto_str,
+                                "Início do contrato": data_inicio,
+                                "Fim do contrato": data_fim
+                            })
+                    
+
+                    # Ordenar por ordem decrescente de data_fim_contrato
+                    if "Fim do contrato" in df_equipe_exibir_filtrado.columns:
+                        df_equipe_exibir_filtrado = df_equipe_exibir_filtrado.sort_values(
+                            by="Fim do contrato",
+                            ascending=False
+                        )
+
+                    # Tentando calcular a altura do gráfico dinamicamente
+                    altura_base = 300  # altura mínima
+                    altura_extra = sum([10 / (1 + i * 0.01) for i in range(len(df_equipe_exibir_filtrado))])
+                    altura = int(altura_base + altura_extra)
                 
+                    
+                    df_timeline = pd.DataFrame(linhas_timeline)
+
+                    if df_timeline.empty:
+                        st.caption("Nenhum contrato ativo para exibir no timeline.")
+                    else:
+                        # Ordena pelo fim do contrato
+                        df_timeline = df_timeline.sort_values(
+                            by="Fim do contrato",
+                            ascending=False
+                        )
+
+                        # Altura dinâmica
+                        altura_base = 300
+                        altura = altura_base + len(df_timeline) * 20
+
+                        fig = px.timeline(
+                            df_timeline,
+                            x_start="Início do contrato",
+                            x_end="Fim do contrato",
+                            y="Nome",
+                            color="Projeto",
+                            hover_data=["Projeto"],
+                            height=altura
+                        )
+
+                        fig.update_traces(
+                            opacity=0.6,
+                        )
+
+                        fig.update_layout(yaxis_title=None)
+                        fig.add_vline(
+                            x=datetime.date.today(),
+                            line_width=1,
+                            line_dash="dash",
+                            line_color="gray"
+                        )
+
+                        st.plotly_chart(fig, key=f"timeline_pessoas_{i}")
+
+                st.divider()
+
+            elif pagina == "Projetos":
+
+                st.write("")
+                    
+                # PROJETOS #################################################################################################
+
+                st.write('')
+                st.markdown("#### **Projetos**")
+
+                col1, col2, col3 = st.columns(3)
+                situacao_filtro = col1.selectbox(
+                    "Situação",
+                    ["Todos", "Em andamento", "Finalizado", "Estratégico", ""],
+                    index=1,
+                    key=f"situacao_{i}"
+                )
+
+                projetos_do_programa = [
+                    p for p in dados_projetos_ispn
+                    if str(id_programa) in normalizar_lista_ids(p.get("programas", []))
+                ]
+
+                # Ordena por código
+                projetos_do_programa_ordenados = sorted(
+                    projetos_do_programa,
+                    key=lambda p: p.get("codigo", "")
+                )
+
+                # Aplica o filtro de situação
+                if situacao_filtro != "Todos":
+                    projetos_do_programa_ordenados = [
+                        p for p in projetos_do_programa_ordenados
+                        if p.get("status", "Não informado") == situacao_filtro
+                    ]
+
+                if projetos_do_programa_ordenados:
+                    dados_projetos = {
+                        "Sigla": [],
+                        "Nome do projeto": [],
+                        "Início": [],
+                        "Fim": [],
+                        "Valor": [],
+                        "Doador": [],
+                        "Situação": []
+                    }
+
+                    for projeto in projetos_do_programa_ordenados:
+                        # Usa a sigla como identificador principal (resolve problema de busca)
+                        dados_projetos["Sigla"].append(projeto.get("sigla", ""))
+                        dados_projetos["Nome do projeto"].append(projeto.get("nome_do_projeto", "Sem nome"))
+                        dados_projetos["Início"].append(projeto.get("data_inicio_contrato", "Não informado"))
+                        dados_projetos["Fim"].append(projeto.get("data_fim_contrato", "Não informado"))
+
+                        valor_bruto = projeto.get("valor", 0) or 0
+                        moeda_bruta = projeto.get("moeda", "reais")  # padrão "reais" caso não exista
+                        valor_formatado = formatar_valor(valor_bruto, moeda_bruta)
+                        dados_projetos["Valor"].append(valor_formatado)
+
+                        id_doador = projeto.get("doador")
+                        nome_doador = mapa_doador_id_para_nome.get(str(id_doador), "Não informado")
+                        dados_projetos["Doador"].append(nome_doador)
+
+                        dados_projetos["Situação"].append(projeto.get("status", "Não informado"))
+
+                    df_projetos = pd.DataFrame(dados_projetos)
+                    df_projetos.index += 1
+                    quantidade = len(df_projetos)
+                    plural = "projetos vinculados" if quantidade != 1 else "projeto vinculado"
+
+                    areas = ["Comunicação", "ADM Brasília", "ADM Santa Inês", "Advocacy", "Coordenação"]
+
+                    if titulo_programa in areas:
+                        st.write(f"{quantidade} {plural} à área **{titulo_programa}**:")
+                    else:
+                        st.write(f"{quantidade} {plural} ao programa **{titulo_programa}**:")
+
+                    pode_editar = (
+                        usuario_id == coordenador_programa_id
+                        or "admin" in tipos_usuario
+                    )
+
+                    if pode_editar:
+
+                        container_cadastro_projeto = st.container(horizontal=True, horizontal_alignment="right")
+
+                        if container_cadastro_projeto.button(
+                            "Cadastrar projeto",
+                            icon=":material/add:",
+                            width=200,
+                            key=f"btn_cadastrar_projeto_{id_programa}" 
+                        ):
+
+                            dialog_cadastrar_projeto()
+
+                        st.write("")
+                    
+                    def criar_callback_projeto_programa(df_visivel, key_df):
+
+                        def handle_selecao():
+                            estado = st.session_state.get(key_df, {})
+                            linhas = estado.get("selection", {}).get("rows", [])
+
+                            # Se desmarcar → limpa
+                            if not linhas:
+                                st.session_state["projeto_selecionado"] = None
+                                return
+
+                            idx = linhas[0]
+
+                            # Aqui usamos o código (ou sigla)
+                            sigla = df_visivel.iloc[idx]["Sigla"]
+
+                            st.session_state["projeto_selecionado"] = sigla
+                            st.session_state["abrir_dialog_projeto"] = True
+
+                        return handle_selecao
+                    
+                    usuario_id = str(st.session_state.get("id_usuario"))
+                    tipos_usuario = set(st.session_state.get("tipo_usuario", []))
+
+                    programa_doc = programas_areas.find_one({"_id": ObjectId(id_programa)})
+                    coordenador_programa_id = str(programa_doc.get("coordenador_id", ""))
+
+                    df_original = df_projetos.copy()
+
+                    key_df = f"df_projetos_programa_{id_programa}"
+
+                    if pode_editar:
+
+                        callback = criar_callback_projeto_programa(
+                            df_projetos,
+                            key_df
+                        )
+
+                        st.dataframe(
+                            df_projetos,
+                            hide_index=True,
+                            selection_mode="single-row",
+                            on_select=callback,
+                            key=key_df
+                        )
+
+                    else:
+                        # Usuário comum → somente visualização
+                        st.dataframe(
+                            df_projetos,
+                            hide_index=True
+                        )
+                    
+                    projeto_selecionado = st.session_state.get("projeto_selecionado")
+
+                    if st.session_state.get("abrir_dialog_projeto") and projeto_selecionado:
+
+                        dialog_editar_projeto()
+
+                        st.session_state["abrir_dialog_projeto"] = False
+                        
+                else:
+                    # cria o df_projetos vazio
+                    df_projetos = pd.DataFrame({
+                        "Código": [],
+                        "Nome do projeto": [],
+                        "Início": [],
+                        "Fim": [],
+                        "Valor": [],
+                        "Doador": [],
+                        "Situação": []
+                    })
+                    st.caption("Nenhum projeto")
+
+
+
+                if not df_projetos.empty:
+                    # Gráfico timeline com plotly express, com um projeto por linha
+
+                    # Tentando calcular a altura do gráfico dinamicamente
+                    altura_base = 300  # altura mínima
+                    altura_extra = sum([10 / (1 + i * 0.01) for i in range(len(df_projetos))])
+                    altura = int(altura_base + altura_extra)
+                    
+                    df_projetos = df_projetos[
+                        df_projetos["Situação"] != "Estratégico"
+                    ].copy()
+
+                    # Converte para datetime
+                    df_projetos["Início"] = pd.to_datetime(
+                        df_projetos["Início"],
+                        dayfirst=True
+                    )
+
+                    df_projetos["Fim"] = pd.to_datetime(
+                        df_projetos["Fim"],
+                        dayfirst=True
+                    )
+
+                    # Ordena os projetos em ordem decrescente da data de fim do contrato
+                    df_projetos = df_projetos.sort_values(by='Fim', ascending=False)
+
+                    fig = px.timeline(
+                        df_projetos,
+                        x_start="Início",
+                        x_end="Fim",
+                        y="Sigla",
+                        color="Situação",
+                        hover_data=["Sigla"],
+                        height=altura
+                    )
+
+                    fig.update_layout(
+                        yaxis_title=None,
+                    )
+                    fig.add_vline(x=datetime.date.today(), line_width=1, line_dash="dash", line_color="gray")
+                    st.plotly_chart(fig, key=f"timeline_projetos_{i}")
+
+                st.divider()
+                
+                if set(st.session_state.get("tipo_usuario", [])) & {"admin", "coordenador(a)"}:
+
+                    # AÇÕES ESTRATÉGICAS DO PROGRAMA ################################################################
+                    
+                    st.markdown("#### **Ações Estratégicas do Programa**")
+
+                    # ===============================
+                    # FILTROS DE ENTREGAS DO PROGRAMA
+                    # ===============================
+
+                    with st.form(f"filtros_entregas_programa_{id_programa}", border=False):
+
+                        col1, col2, col3 = st.columns(3)
+
+                        # Projetos (siglas) — apenas do programa
+                        siglas_programa = sorted({
+                            e["projeto_sigla"]
+                            for e in entregas_base
+                            if e["projeto_sigla"]
+                        })
+
+                        with col1:
+                            filtro_entregas_projetos = st.multiselect(
+                                "Projeto",
+                                options=siglas_programa,
+                                default=st.session_state.get(f"filtro_entregas_projetos_{id_programa}", []),
+                                placeholder=""
+                            )
+
+                        # Situação
+                        situacoes_programa = sorted({
+                            e["situacao"]
+                            for e in entregas_base
+                            if e["situacao"]
+                        })
+
+                        with col2:
+                            filtro_entregas_situacoes = st.multiselect(
+                                "Situação",
+                                options=situacoes_programa,
+                                default=st.session_state.get(f"filtro_entregas_situacoes_{id_programa}", []),
+                                placeholder=""
+                            )
+
+                        # Ano de referência
+                        anos_programa = sorted({
+                            ano
+                            for e in entregas_base
+                            for ano in e["anos_referencia"]
+                        })
+
+                        with col3:
+                            filtro_entregas_anos = st.multiselect(
+                                "Ano",
+                                options=anos_programa,
+                                default=st.session_state.get(f"filtro_entregas_anos_{id_programa}", []),
+                                placeholder=""
+                            )
+
+                        aplicar = st.form_submit_button(
+                            "Aplicar filtros",
+                            icon=":material/filter_alt:"
+                        )
+
+                    if aplicar:
+                        st.session_state[f"filtro_entregas_projetos_{id_programa}"] = filtro_entregas_projetos
+                        st.session_state[f"filtro_entregas_situacoes_{id_programa}"] = filtro_entregas_situacoes
+                        st.session_state[f"filtro_entregas_anos_{id_programa}"] = filtro_entregas_anos
+                        st.rerun()
+
+                    # ===============================
+                    # FILTROS DE ENTREGAS (ISOLADOS)
+                    # ===============================
+
+                    filtro_entregas_projetos = st.session_state.get(
+                        f"filtro_entregas_projetos_{id_programa}", []
+                    )
+
+                    filtro_entregas_situacoes = st.session_state.get(
+                        f"filtro_entregas_situacoes_{id_programa}", []
+                    )
+
+                    filtro_entregas_anos = st.session_state.get(
+                        f"filtro_entregas_anos_{id_programa}", []
+                    )
+
+
+                    # 1. Busca a estratégia do programa atual
+                    estrategia_programa = db.programas_areas.find_one({
+                        "nome_programa_area": titulo_programa
+                    })
+
+                    if not estrategia_programa or not estrategia_programa.get("acoes_estrategicas"):
+                        st.caption("Nenhuma ação estratégica cadastrada para este programa.")
+            
+                    else:
+
+                        st.write("")
+
+                        acoes_estrategicas = estrategia_programa["acoes_estrategicas"]
+
+                        # ==========================================================
+                        # BUSCA TODOS OS PROJETOS
+                        # As entregas podem aparecer em múltiplos programas
+                        # ==========================================================
+
+                        projetos_com_entregas = []
+
+                        for p in dados_projetos_ispn:
+
+                            sigla_proj = p.get("sigla", "")
+
+                            # -----------------------------
+                            # FILTRO DE PROJETOS (SIGLA)
+                            # -----------------------------
+                            if (
+                                filtro_entregas_projetos
+                                and sigla_proj not in filtro_entregas_projetos
+                            ):
+                                continue
+
+                            projetos_com_entregas.append(p)
+
+                        # 3. Loop pelas ações estratégicas
+                        for i, acao in enumerate(acoes_estrategicas):
+                            nome_acao = acao["acao_estrategica"]
+
+                            with st.expander(nome_acao, expanded=True):
+
+                                # ==========================================================
+                                # AGRUPA ENTREGAS E ACUMULA TODOS OS PROJETOS RELACIONADOS
+                                # ==========================================================
+
+                                mapa_entregas = {}
+
+                                for projeto_doc in projetos_com_entregas:
+
+                                    sigla_projeto = projeto_doc.get("sigla", "")
+
+                                    for entrega_doc in projeto_doc.get("entregas", []):
+
+                                        acao_id = str(acao["_id"])
+
+                                        ids_acoes_da_entrega = normalizar_lista_ids(
+                                            entrega_doc.get("acoes_relacionadas", [])
+                                        )
+
+                                        if acao_id not in ids_acoes_da_entrega:
+                                            continue
+
+                                        # -----------------------------
+                                        # FILTROS
+                                        # -----------------------------
+
+                                        if filtro_entregas_projetos and sigla_projeto not in filtro_entregas_projetos:
+                                            continue
+
+                                        if filtro_entregas_situacoes:
+                                            if entrega_doc.get("situacao") not in filtro_entregas_situacoes:
+                                                continue
+
+                                        if filtro_entregas_anos:
+                                            anos_entrega = entrega_doc.get("anos_de_referencia", []) or []
+
+                                            if not set(anos_entrega) & set(filtro_entregas_anos):
+                                                continue
+
+                                        # -----------------------------
+                                        # CHAVE DA ENTREGA
+                                        # -----------------------------
+
+                                        chave_entrega = (
+                                            entrega_doc.get("nome_da_entrega", ""),
+                                            entrega_doc.get("situacao", ""),
+                                            entrega_doc.get("previsao_da_conclusao", ""),
+                                            tuple(sorted(entrega_doc.get("anos_de_referencia", []))),
+                                            entrega_doc.get("progresso")
+                                        )
+
+                                        # -----------------------------
+                                        # CRIA REGISTRO
+                                        # -----------------------------
+
+                                        if chave_entrega not in mapa_entregas:
+
+                                            progresso = entrega_doc.get("progresso")
+
+                                            mapa_entregas[chave_entrega] = {
+                                                "Projetos": set(),
+                                                "Entrega": entrega_doc.get("nome_da_entrega", ""),
+                                                "Situação": entrega_doc.get("situacao", ""),
+                                                "Previsão": entrega_doc.get("previsao_da_conclusao", ""),
+                                                "Ano(s) de Referência": ", ".join(
+                                                    map(str, sorted(entrega_doc.get("anos_de_referencia", [])))
+                                                ),
+                                                "Progresso": (
+                                                    f"{progresso}%"
+                                                    if progresso not in [None, ""]
+                                                    else ""
+                                                )
+                                            }
+
+                                        # ---------------------------------------------------------
+                                        # Adiciona o projeto principal da entrega
+                                        # ---------------------------------------------------------
+                                        if sigla_projeto:
+                                            mapa_entregas[chave_entrega]["Projetos"].add(sigla_projeto)
+
+                                        # ---------------------------------------------------------
+                                        # Adiciona também os projetos relacionados
+                                        # ---------------------------------------------------------
+                                        projetos_relacionados = entrega_doc.get("projetos_relacionados", [])
+
+                                        # Garante compatibilidade caso venha um único valor
+                                        if not isinstance(projetos_relacionados, list):
+                                            projetos_relacionados = [projetos_relacionados]
+
+                                        for projeto_rel in projetos_relacionados:
+
+                                            # Normaliza ObjectId -> string
+                                            projeto_rel_str = str(projeto_rel)
+
+                                            # Busca sigla do projeto relacionado
+                                            sigla_rel = mapa_id_para_sigla_projeto.get(projeto_rel_str)
+
+                                            if sigla_rel:
+                                                mapa_entregas[chave_entrega]["Projetos"].add(sigla_rel)
+
+                                # ==========================================================
+                                # CONVERTE PARA LISTA FINAL
+                                # ==========================================================
+
+                                entregas_relacionadas = []
+
+                                for entrega in mapa_entregas.values():
+
+                                    entrega["Projetos"] = ", ".join(
+                                        sorted(entrega["Projetos"])
+                                    )
+
+                                    entregas_relacionadas.append(entrega)
+
+                                if entregas_relacionadas:
+
+                                    st.markdown("**Entregas:**")
+
+                                    df_entregas = pd.DataFrame(entregas_relacionadas)
+
+                                    ui.table(
+                                        data=df_entregas,
+                                        maxHeight=400,
+                                        key=f"tabela_entregas_{id_programa}_{acao_id}"   # key só aqui
+                                    )
+
+                                else:
+                                    st.caption("Nenhuma entrega vinculada a esta ação estratégica do programa.")
+
+            # Não mostra aba de relatórios para "ADM Santa Inês"
+            elif titulo_programa != "ADM Santa Inês" and pagina == "Relatórios Anuais":                 
+                    
                 st.write("")
                 
                 st.write("")
