@@ -315,7 +315,7 @@ def gerenciar_programa_dialog(programa):
                             "coordenador_id": ObjectId(coordenador_id_novo) if coordenador_id_novo else None
                         }}
                     )
-                    st.success("Informações atualizadas com sucesso!")
+                    st.success("Informações atualizadas com sucesso!", icon=":material/check:")
                     time.sleep(2)
                     st.rerun(scope="fragment")
 
@@ -377,7 +377,7 @@ def gerenciar_programa_dialog(programa):
                         {"$push": {"acoes_estrategicas": nova_entrada}}
                     )
 
-                    st.success("Nova ação adicionada com sucesso!")
+                    st.success("Nova ação adicionada com sucesso!", icon=":material/check:")
                     time.sleep(2)
                     st.rerun(scope="fragment")
 
@@ -472,7 +472,7 @@ def gerenciar_programa_dialog(programa):
                                 }
                             )
 
-                            st.success("Ação estratégica atualizada com sucesso!")
+                            st.success("Ação estratégica atualizada com sucesso!", icon=":material/check:")
                             time.sleep(2)
                             st.rerun(scope="fragment")
 
@@ -570,7 +570,7 @@ def gerenciar_programa_dialog(programa):
                         {"$push": {"resultados_programa": nova_entrada}}
                     )
 
-                    st.success("Resultado adicionado com sucesso!")
+                    st.success("Resultado adicionado com sucesso!", icon=":material/check:")
                     time.sleep(2)
                     st.rerun(scope="fragment")
             
@@ -672,7 +672,7 @@ def gerenciar_programa_dialog(programa):
                                     }
                                 )
 
-                                st.success("Resultado atualizado!")
+                                st.success("Resultado atualizado!", icon=":material/check:")
                                 time.sleep(2)
                                 st.rerun(scope="fragment")
 
@@ -1267,7 +1267,7 @@ def dialog_cadastrar_projeto():
 
                 projetos_ispn.insert_one(doc)
 
-                st.success("Projeto estratégico cadastrado com sucesso!")
+                st.success("Projeto estratégico cadastrado com sucesso!", icon=":material/check:")
 
                 time.sleep(2)
                 st.rerun()
@@ -1337,7 +1337,7 @@ def dialog_cadastrar_projeto():
 
                 # --- Inserir no MongoDB ---
                 projetos_ispn.insert_one(doc)
-                st.success("Projeto cadastrado com sucesso!")
+                st.success("Projeto cadastrado com sucesso!", icon=":material/check:")
                 time.sleep(2)
                 st.rerun()
 
@@ -2094,7 +2094,7 @@ def dialog_editar_projeto():
                     {"$set": update_doc}
                 )
 
-                st.success("Projeto estratégico atualizado com sucesso!")
+                st.success("Projeto estratégico atualizado com sucesso!", icon=":material/check:")
 
                 time.sleep(2)
                 st.rerun()
@@ -2152,7 +2152,7 @@ def dialog_editar_projeto():
                 }
 
                 projetos_ispn.update_one({"_id": ObjectId(projeto_info["_id"])}, {"$set": update_doc})
-                st.success("Projeto atualizado com sucesso!")
+                st.success("Projeto atualizado com sucesso!", icon=":material/check:")
                 time.sleep(2)
                 st.rerun()
 
@@ -2928,7 +2928,7 @@ def gerenciar_pessoas(pessoa_sel):
                             {"$set": {"contratos": contratos}}
                         )
 
-                        st.success("Novo contrato adicionado com sucesso!")
+                        st.success("Novo contrato adicionado com sucesso!", icon=":material/check:")
                         time.sleep(2)
                         st.rerun(scope="fragment")
 
@@ -3120,7 +3120,7 @@ def gerenciar_pessoas(pessoa_sel):
                                         }
                                     }
                                 )
-                                st.success("Contrato atualizado com sucesso!")
+                                st.success("Contrato atualizado com sucesso!", icon=":material/check:")
                                 time.sleep(2)
                                 st.rerun(scope="fragment")
                             except Exception as e:
@@ -3154,7 +3154,7 @@ def gerenciar_pessoas(pessoa_sel):
                             {"_id": ObjectId(pessoa["_id"])},
                             {"$set": {"anotacoes": anotacoes}}
                         )
-                        st.success("Nova anotação adicionada com sucesso!")
+                        st.success("Nova anotação adicionada com sucesso!", icon=":material/check:")
                         time.sleep(2)
                         st.rerun(scope="fragment")
                     else:
@@ -3230,7 +3230,7 @@ def gerenciar_pessoas(pessoa_sel):
                                 {"_id": ObjectId(pessoa["_id"])},
                                 {"$set": {"anotacoes": anotacoes}}
                             )
-                            st.success("Anotação atualizada com sucesso!")
+                            st.success("Anotação atualizada com sucesso!", icon=":material/check:")
                             time.sleep(2)
                             st.rerun(scope="fragment")
 
@@ -3255,7 +3255,7 @@ def gerenciar_pessoas(pessoa_sel):
                                         {"_id": ObjectId(pessoa["_id"])},
                                         {"$set": {"anotacoes": anotacoes}}
                                     )
-                                    st.success("Anotação apagada com sucesso!")
+                                    st.success("Anotação apagada com sucesso!", icon=":material/check:")
                                     st.session_state[delete_key] = False
                                     time.sleep(2)
                                     st.rerun(scope="fragment")
