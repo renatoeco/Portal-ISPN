@@ -15,6 +15,7 @@ from funcoes_auxiliares import conectar_mongo_portal_ispn
 import streamlit_shadcn_ui as ui
 
 
+
 st.set_page_config(layout="wide")
 st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
 
@@ -22,35 +23,16 @@ st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
 container_logo = st.container(horizontal=True, horizontal_alignment="center")
 container_logo.image("images/logo_fundo_ecos.png", width=300)
 
-
 ######################################################################################################
 # CONEXÃO COM O BANCO DE DADOS MONGODB
 ######################################################################################################
 
 
-def get_db():
-    return conectar_mongo_portal_ispn()
+db = conectar_mongo_portal_ispn()
 
-db = get_db()
-
-
-######################################################################################################
-# CARREGAMENTO CACHEADO DAS COLEÇÕES PRINCIPAIS
-######################################################################################################
-
-
-# Antes: pj, pf e projetos_ispn eram buscados do Mongo em TODO rerun do Streamlit
-# (ou seja, a cada clique, filtro aplicado, página virada etc.). Agora ficam em
-# cache por 5 minutos, e só voltam ao banco quando o TTL expira.
-@st.cache_data(ttl=300, show_spinner=False)
-def carregar_colecoes_projetos():
-    _db = get_db()
-    pj = list(_db["projetos_pj"].find())
-    pf = list(_db["projetos_pf"].find())
-    projetos_ispn = list(_db["projetos_ispn"].find())
-    return pj, pf, projetos_ispn
-
-pj, pf, projetos_ispn = carregar_colecoes_projetos()
+pj = list(db["projetos_pj"].find())
+pf = list(db["projetos_pf"].find())
+projetos_ispn = list(db["projetos_ispn"].find())
 
 colecao_doadores = db["doadores"]
 ufs_municipios = db["ufs_municipios"]
@@ -63,101 +45,42 @@ indicadores = db["indicadores"]
 colecao_lancamentos = db["lancamentos_indicadores"]
 
 
-######################################################################################################
-# CARREGAMENTO CACHEADO E CENTRALIZADO DE ufs_municipios (regiões de atuação)
-######################################################################################################
-
-
-# Antes: essa coleção era buscada e reprocessada do zero DUAS vezes — uma dentro
-# de mostrar_detalhes() e outra dentro de form_projeto() — toda vez que qualquer
-# um desses diálogos era aberto. Agora é uma única função cacheada, reutilizada
-# nos dois lugares.
-
-@st.cache_data(ttl=600, show_spinner=False)
-def carregar_dados_regioes():
-    _db = get_db()
-    docs = list(_db["ufs_municipios"].find({}))
-
-    dados_ufs = []
-    dados_municipios = []
-    dados_assentamentos = []
-    dados_ti = []
-    dados_quilombos = []
-    dados_uc = []
-    bacias = []
-
-    for doc in docs:
-        if "ufs" in doc:
-            dados_ufs = doc["ufs"]
-        elif "municipios" in doc:
-            dados_municipios = doc["municipios"]
-        elif "assentamentos" in doc:
-            dados_assentamentos = doc["assentamentos"]
-        elif "tis" in doc:
-            dados_ti = doc["tis"]
-        elif "quilombos" in doc:
-            dados_quilombos = doc["quilombos"]
-        elif "ucs" in doc:
-            dados_uc = doc["ucs"]
-        elif "bacias_hidrograficas" in doc:
-            bacias = doc["bacias_hidrograficas"]
-
-    dados_bacias_macro = [
-        {"codigo": b["codigo_bacia_nivel_2"], "label": b["nome_bacia_nivel_2"]}
-        for b in bacias if "nome_bacia_nivel_2" in b
-    ]
-    dados_bacias_meso = [
-        {"codigo": b["codigo_bacia_nivel_3"], "label": b["nome_bacia_nivel_3"]}
-        for b in bacias if "nome_bacia_nivel_3" in b
-    ]
-    dados_bacias_micro = [
-        {"codigo": b["codigo_bacia_nivel_4"], "label": b["nome_bacia_nivel_4"]}
-        for b in bacias if "nome_bacia_nivel_4" in b
-    ]
-
-    return {
-        "ufs": dados_ufs,
-        "municipios": dados_municipios,
-        "assentamentos": dados_assentamentos,
-        "ti": dados_ti,
-        "quilombos": dados_quilombos,
-        "uc": dados_uc,
-        "bacias_macro": dados_bacias_macro,
-        "bacias_meso": dados_bacias_meso,
-        "bacias_micro": dados_bacias_micro,
-    }
-
-_dados_regioes = carregar_dados_regioes()
-
-
-######################################################################################################
+###########################################################################################################
 # CONTADOR DE ACESSOS À PÁGINA
-######################################################################################################
+###########################################################################################################
 
 
 PAGINA_ID = "pagina_fundo_ecos"
 nome_pagina = "Fundo Ecos"
+
 hoje = datetime.datetime.now().strftime("%d/%m/%Y")
 
 pagina_anterior = st.session_state.get("pagina_anterior")
 navegou_para_esta_pagina = (pagina_anterior != PAGINA_ID)
 
 if navegou_para_esta_pagina:
-    # Continua fazendo no máximo as consultas necessárias, mas só quando o
-    # usuário realmente navega para a página (não a cada rerun).
-    doc = estatistica.find_one({}, {nome_pagina: 1})
 
-    if not doc or nome_pagina not in doc:
-        estatistica.update_one({}, {"$set": {nome_pagina: []}})
+    # Obter o único documento
+    doc = estatistica.find_one({})
+
+    # Criar o campo caso não exista
+    if nome_pagina not in doc:
+        estatistica.update_one(
+            {},
+            {"$set": {nome_pagina: []}}
+        )
 
     estatistica.update_one(
-        {},
-        {"$inc": {f"{nome_pagina}.$[elem].numero_de_acessos": 1}},
-        array_filters=[{"elem.data": hoje}]
-    )
+            {},
+            {"$inc": {f"{nome_pagina}.$[elem].numero_de_acessos": 1}},
+            array_filters=[{"elem.data": hoje}]
+        )
+
     estatistica.update_one(
         {f"{nome_pagina}.data": {"$ne": hoje}},
-        {"$push": {nome_pagina: {"data": hoje, "numero_de_acessos": 1}}}
+        {"$push": {
+            nome_pagina: {"data": hoje, "numero_de_acessos": 1}
+        }}
     )
 
 # Registrar página anterior
@@ -174,6 +97,7 @@ st.markdown(
 <style>
 div[data-testid="stDialog"] div[role="dialog"]:has(.big-dialog) {
     width: 75vw;
+    
 }
 </style>
 """,
@@ -186,6 +110,7 @@ div[data-testid="stDialog"] div[role="dialog"]:has(.big-dialog) {
 ######################################################################################################
 
 
+# listas de controle
 indicadores_float = [
     "Área com manejo ecológico do fogo (ha)",
     "Área com manejo agroecológico (ha)",
@@ -198,9 +123,9 @@ indicadores_float = [
     "Valor da contrapartida não financeira projetinhos",
     "Valor mobilizado de novos recursos"
 ]
-
 indicador_texto = "Espécies"
 
+# Lista de nomes legíveis na ordem definida
 ordem_indicadores = [
     "Número de organizações apoiadas",
     "Número de comunidades fortalecidas",
@@ -310,27 +235,33 @@ nomes_legiveis = {
 
 
 ######################################################################################################
-# FUNÇÕES AUXILIARES DE CONVERSÃO 
+# FUNÇÕES
 ######################################################################################################
 
 
+# Função para converter lista de códigos em lista de nomes
 @st.cache_data(ttl=600, show_spinner=False)
 def converter_codigos_para_nomes(valor):
     if not valor:
         return ""
+
     try:
+        # Divide por vírgula, remove espaços e filtra vazios
         partes = [v.strip() for v in valor.split(",") if v.strip()]
         nomes = []
+
         for parte in partes:
             if parte.isdigit():
+                # Tenta mapear o código (int convertido para str)
                 nome = codigo_para_nome.get(parte, parte)
                 nomes.append(nome)
             else:
+                # Já é nome (ex: 'Brasília')
                 nomes.append(parte)
-        return ", ".join(nomes)
-    except Exception:
-        return valor
 
+        return ", ".join(nomes)
+    except Exception as e:
+        return valor
 
 @st.cache_data(ttl=600, show_spinner=False)
 def converter_uf_codigo_para_nome(valor):
@@ -340,73 +271,143 @@ def converter_uf_codigo_para_nome(valor):
     """
     if not valor:
         return ""
+
     try:
         partes = [v.strip() for v in valor.split(",") if v.strip()]
         nomes = []
+
         for parte in partes:
             if parte.isdigit():
                 nome = uf_para_nome.get(parte, parte)
                 nomes.append(nome)
             else:
                 nomes.append(parte)
-        return ", ".join(nomes)
-    except Exception:
-        return valor
 
+        return ", ".join(nomes)
+    except Exception as e:
+        return valor
+    
 
 @st.dialog("Detalhes do projeto", width="large")
 def mostrar_detalhes(codigo_proj: str):
-
+    
     st.html("<span class='big-dialog'></span>")
+
     projeto = projetos_por_codigo.get(codigo_proj, {})
+
     proj_id = projeto.get("_id")  # ObjectId do projeto
+    
 
-    # Antes: essa função reabria db["ufs_municipios"].find({}) e reconstruía
-    # todos os dicionários de código→label a cada abertura do diálogo.
-    # Agora reaproveita o resultado já cacheado em _dados_regioes.
-    dados_assentamentos = _dados_regioes["assentamentos"]
-    dados_ti = _dados_regioes["ti"]
-    dados_quilombos = _dados_regioes["quilombos"]
-    dados_uc = _dados_regioes["uc"]
-    dados_bacias_macro = _dados_regioes["bacias_macro"]
-    dados_bacias_meso = _dados_regioes["bacias_meso"]
-    dados_bacias_micro = _dados_regioes["bacias_micro"]
+    ######################################################################
+    # CARREGAR DADOS DA COLEÇÃO ufs_municipios
+    ######################################################################
 
-    # Regiões de Atuação
+    colecao_ufs = db["ufs_municipios"]
+
+    # ---- Buscar todos os documentos ----
+    docs = list(colecao_ufs.find({}))
+
+    # Inicializar variáveis
+
+    dados_assentamentos = []
+    dados_ti = []
+    dados_quilombos = []
+    dados_uc = []
+    
+    # Encontrar o documento que tem o campo bacias_hidrograficas
+    doc_bacias = next((d for d in docs if "bacias_hidrograficas" in d), None)
+    bacias = doc_bacias.get("bacias_hidrograficas", []) if doc_bacias else []
+
+    # Normalizar os dados das bacias (criar dict padronizado)
+    dados_bacias_macro = [
+        {"codigo": b["codigo_bacia_nivel_2"], "label": b["nome_bacia_nivel_2"]}
+        for b in bacias if "nome_bacia_nivel_2" in b
+    ]
+
+    dados_bacias_meso = [
+        {"codigo": b["codigo_bacia_nivel_3"], "label": b["nome_bacia_nivel_3"]}
+        for b in bacias if "nome_bacia_nivel_3" in b
+    ]
+
+    dados_bacias_micro = [
+        {"codigo": b["codigo_bacia_nivel_4"], "label": b["nome_bacia_nivel_4"]}
+        for b in bacias if "nome_bacia_nivel_4" in b
+    ]
+
+    # ---- Identificar cada documento pela chave existente ----
+    for doc in docs:
+        if "assentamentos" in doc:
+            dados_assentamentos = doc["assentamentos"]
+
+        elif "tis" in doc:
+            dados_ti = doc["tis"]
+
+        elif "quilombos" in doc:
+            dados_quilombos = doc["quilombos"]
+
+        elif "ucs" in doc:
+            dados_uc = doc["ucs"]
+    
+    #  Regiões de Atuação 
+
     assent_codigo_para_label = {
         a["codigo_assentamento"]: f"{a['nome_assentamento']}"
         for a in dados_assentamentos
     }
+
     quilombo_codigo_para_label = {
         q["codigo_quilombo"]: f"{q['nome_quilombo']}"
         for q in dados_quilombos
     }
+
     ti_codigo_para_label = {
         ti["codigo_ti"]: f"{ti['nome_ti']}"
         for ti in dados_ti
     }
+
     uc_codigo_para_label = {
         u["codigo_uc"]: f"{u['nome_uc']}"
         for u in dados_uc
     }
-    bacia_macro_codigo_para_label = {b["codigo"]: f"{b['label']}" for b in dados_bacias_macro}
-    bacia_meso_codigo_para_label = {b["codigo"]: f"{b['label']}" for b in dados_bacias_meso}
-    bacia_micro_codigo_para_label = {b["codigo"]: f"{b['label']}" for b in dados_bacias_micro}
 
+    bacia_macro_codigo_para_label = {
+        b["codigo"]: f"{b['label']}" 
+        for b in dados_bacias_macro
+    }
+
+    bacia_meso_codigo_para_label = {
+        b["codigo"]: f"{b['label']}" 
+        for b in dados_bacias_meso
+    }
+
+    bacia_micro_codigo_para_label = {
+        b["codigo"]: f"{b['label']}" 
+        for b in dados_bacias_micro
+    }
+
+
+    # Código do projeto
     codigo_projeto = projeto['codigo']
+
+    # Sigla do projeto
     sigla_projeto = projeto['sigla']
+
+    # Título do projeto
     titulo_projeto = st.session_state.get("titulo_projeto", "")
+    
 
     st.subheader(f'{codigo_projeto} - {sigla_projeto}')
     st.write('')
 
+    # Código do projeto
     aba_detalhes, aba_indicadores = st.tabs([":material/assignment: Detalhes", ":material/show_chart: Indicadores"])
+
 
     with aba_detalhes:
         st.write(titulo_projeto)
+
         codigo_proj = str(codigo_proj).strip()
         df_filtrado = st.session_state.get("df_filtrado", pd.DataFrame())
-
         if df_filtrado.empty:
             st.error("Não há dados filtrados no momento.")
             return
@@ -418,23 +419,27 @@ def mostrar_detalhes(codigo_proj: str):
 
         projeto_df = df_filtrado.loc[mask].iloc[0]
 
+        
+
         nome_ponto_focal = "Não informado"
         ponto_focal_obj = projeto.get("ponto_focal")
         if isinstance(ponto_focal_obj, ObjectId):
             pessoa = db["pessoas"].find_one(
                 {"_id": ponto_focal_obj},
-                {"nome_completo": 1, "_id": 0}
+                {"nome_completo": 1, "_id": 0}  # Projeta apenas o campo necessário → mais rápido
             )
             if pessoa:
                 nome_ponto_focal = pessoa.get("nome_completo", "Não encontrado")
+
+        # Corpo do diálogo
 
         st.write(f"**Situação:** {projeto.get('status', '')}")
         st.write(f"**Proponente:** {projeto.get('proponente', '')}")
         st.write(f"**Nome do projeto:** {projeto.get('nome_do_projeto', '')}")
         st.write(f"**Objetivo geral:** {projeto.get('objetivo_geral', '')}")
-
+        
         col1, col2 = st.columns(2)
-
+        
         col1.write(f"**Tipo:** {projeto.get('tipo', '')}")
         col1.write(f"**Edital:** {projeto_df['Edital']}")
         col1.write(f"**Doador:** {projeto_df['Doador']}")
@@ -454,13 +459,18 @@ def mostrar_detalhes(codigo_proj: str):
         col1.write(f"**Bioma:** {projeto.get('bioma', '')}")
 
         with col2:
+
             st.write('**Ponto principal:**')
+
             lat_long_str = projeto.get('lat_long_principal', '')
+
             if lat_long_str and "," in lat_long_str:
                 try:
                     partes = [p.strip() for p in lat_long_str.split(",")]
+
                     if len(partes) == 2:
                         lat, lon = float(partes[0]), float(partes[1])
+
                         df = pd.DataFrame({"lat": [lat], "lon": [lon]})
                         st.map(df, zoom=6)
                     else:
@@ -468,13 +478,26 @@ def mostrar_detalhes(codigo_proj: str):
                 except Exception:
                     st.warning("Erro ao interpretar latitude/longitude.")
             else:
-                st.caption("Coordenadas não informadas.")
-
+                st.caption("Coordenadas não informadas.") 
+                
         # ---------------------------------------------------------
         #  TABELA COMPLETA DE REGIÕES DE ATUAÇÃO
         # ---------------------------------------------------------
+
         st.write("**Regiões de atuação:**")
 
+        # Criar DF vazio com todas as colunas
+        df_regioes = pd.DataFrame(columns=[
+            "Terra Indígena",
+            "UC",
+            "Assentamento",
+            "Quilombo",
+            "Bacia Hidrográfica Nível 2",
+            "Bacia Hidrográfica Nível 3",
+            "Bacia Hidrográfica Nível 4"
+        ])
+
+        # Mapeamento tipo → coluna do DF e dicionário de labels
         mapa_tipos = {
             "terra_indigena": ("Terra Indígena", ti_codigo_para_label),
             "uc": ("UC", uc_codigo_para_label),
@@ -486,51 +509,48 @@ def mostrar_detalhes(codigo_proj: str):
         }
 
         linhas = []
+
         for reg in projeto.get("regioes_atuacao", []):
             tipo = reg.get("tipo", "").lower().strip()
             codigo = str(reg.get("codigo", "")).strip()
 
+            # Ignorar estados e municípios
             if tipo in ["estado", "municipio", "bioma"] or codigo == "":
                 continue
+
             if tipo not in mapa_tipos:
                 continue
 
             nome_coluna, label_dict = mapa_tipos[tipo]
             nome = label_dict.get(codigo, f"Desconhecido ({codigo})")
-            linhas.append({"Tipo de região": nome_coluna, "Nome": nome, "Código": codigo})
+
+            linhas.append({
+                "Tipo de região": nome_coluna,
+                "Nome": nome,
+                "Código": codigo
+            })
 
         df_regioes = pd.DataFrame(linhas)
-        st.dataframe(df_regioes, width="content", hide_index=True)
+
+        st.dataframe(df_regioes, use_container_width=True, hide_index=True)    
+
 
     with aba_indicadores:
 
-        lancamentos = list(db["lancamentos_indicadores"].find({"projeto": proj_id}))
-        linhas = []
+        
+        # Tratamento dos dados
 
+        lancamentos = list(db["lancamentos_indicadores"].find({"projeto": proj_id}))
+
+        linhas = []
         if not lancamentos:
             st.info("Não há lançamentos de indicadores para este projeto.")
         else:
-            # Otimização: busca todos os indicadores citados nos lançamentos de
-            # uma só vez, em vez de um find_one por lançamento dentro do loop.
-            ids_indicadores = set()
+            
             for lan in lancamentos:
                 ind_id = lan.get("id_do_indicador")
-                if isinstance(ind_id, str):
-                    try:
-                        ids_indicadores.add(ObjectId(ind_id))
-                    except Exception:
-                        pass
-                elif isinstance(ind_id, ObjectId):
-                    ids_indicadores.add(ind_id)
-
-            indicadores_por_id = {
-                doc["_id"]: doc
-                for doc in db["indicadores"].find({"_id": {"$in": list(ids_indicadores)}})
-            } if ids_indicadores else {}
-
-            for lan in lancamentos:
-                ind_id = lan.get("id_do_indicador")
-
+    
+                # Garantir que seja ObjectId para consulta
                 if isinstance(ind_id, str):
                     try:
                         ind_id_obj = ObjectId(ind_id)
@@ -542,33 +562,38 @@ def mostrar_detalhes(codigo_proj: str):
                     ind_id_obj = None
 
                 indicador_nome = str(ind_id)
-
+                
                 if ind_id_obj:
-                    indicador_doc = indicadores_por_id.get(ind_id_obj)
+                    indicador_doc = db["indicadores"].find_one({"_id": ind_id_obj})
                     if indicador_doc:
                         indicador_nome = (
-                            indicador_doc.get("nome_legivel") or
-                            indicador_doc.get("nome_indicador") or
-                            indicador_doc.get("nome") or
+                            indicador_doc.get("nome_legivel") or 
+                            indicador_doc.get("nome_indicador") or 
+                            indicador_doc.get("nome") or 
                             str(ind_id)
                         )
-
+                
+                # Traduzir via nomes_legiveis se aplicável
                 nome_legivel_traduzido = nomes_legiveis.get(indicador_nome, indicador_nome)
 
+                # Converte a data da anotação para str
                 data_anotacao = lan.get("data_anotacao", "")
                 if isinstance(data_anotacao, str):
                     try:
+                        # tenta interpretar no formato ISO (ex: 2025-10-16 ou 2025-10-16T14:30:00)
                         data_anotacao = datetime.datetime.fromisoformat(data_anotacao)
                     except ValueError:
                         try:
+                            # tenta no formato brasileiro
                             data_anotacao = datetime.datetime.strptime(data_anotacao, "%d/%m/%Y")
                         except ValueError:
                             data_anotacao = None
 
-                if isinstance(data_anotacao, (datetime.datetime, datetime.date)):
+                if isinstance(data_anotacao, datetime.datetime) or isinstance(data_anotacao, datetime.date):
                     data_anotacao_str = data_anotacao.strftime("%d/%m/%Y")
                 else:
                     data_anotacao_str = ""
+
 
                 linhas.append({
                     "Indicador": nome_legivel_traduzido,
@@ -579,9 +604,12 @@ def mostrar_detalhes(codigo_proj: str):
                     "Data anotação": data_anotacao_str,
                 })
 
+
+        # Cria o DataFrame mesmo que linhas esteja vazio
         df_indicadores = pd.DataFrame(linhas, columns=["Indicador", "Valor", "Ano", "Autor(a)", "Data anotação", "Observações"])
         df_indicadores["Valor_num"] = df_indicadores["Valor"].apply(parse_valor)
 
+        # Resumo por indicador
         df_resumo = (
             df_indicadores.groupby("Indicador", as_index=False)["Valor_num"]
             .sum(min_count=1)
@@ -592,34 +620,68 @@ def mostrar_detalhes(codigo_proj: str):
         autor_nome = st.session_state.get("nome", "")
         tipo_usuario = st.session_state.get("tipo_usuario", [])
 
+
+
+
+
+        # Interface dos indicadores ######################################################################
+
         st.write('')
+
         linha_toggles = st.container(horizontal=True, gap="large")
 
+
+        # ====================
+        # Toggle para gerenciar os indicadores
         editar = linha_toggles.toggle(":material/edit: Gerenciar indicadores")
 
+        # st.write('')
+
+        
+        # Modo de visualização (padrão)
         if not editar:
+
+            # ====================
+            # Toggle para ver consolidado ou todos os lançamentos
             ver_lancamentos = linha_toggles.toggle(":material/visibility: Ver lançamentos detalhados")
 
+
+            # Mostra os indicadores consolidados ----------------------------
             if not ver_lancamentos:
+
                 st.write('')
                 st.write('**INDICADORES CONSOLIDADOS:**')
+
                 ui.table(data=df_resumo)
+
+
+            # Mostra todos os lançamentos detalhados -------------------------
             else:
+
                 st.write('')
                 st.write('**TODOS OS LANÇAMENTOS:**')
+
+                # st.write("**Indicadores consolidados:**")
                 st.dataframe(
                     df_indicadores.drop(columns=["Valor_num"], errors="ignore"),
                     hide_index=True,
                     width='stretch'
                 )
 
+
+
+
+
+            # Carrega indicadores
             indicadores_lista = list(db["indicadores"].find({}, {"_id": 1, "nome_indicador": 1}))
             indicadores_opcoes = {
                 nomes_legiveis.get(i["nome_indicador"], i["nome_indicador"]): i
                 for i in indicadores_lista
             }
-            
+
+        # Modo de edição
         else:
+
             st.write('')
             tab_add, tab_edit, tab_delete = st.tabs([
                 ":material/add: Adicionar",
@@ -627,13 +689,16 @@ def mostrar_detalhes(codigo_proj: str):
                 ":material/delete: Excluir"
             ])
 
+            # ------------------------- ABA ADICIONAR -------------------------
             with tab_add:
                 st.subheader("Novo lançamento de indicador")
+
                 indicadores_lista = list(indicadores.find({}, {"_id": 1, "nome_indicador": 1}))
                 indicadores_opcoes = {
                     nomes_legiveis.get(i["nome_indicador"], i["nome_indicador"]): i
                     for i in indicadores_lista
                 }
+
                 indicador_legivel = st.selectbox(
                     "Indicador",
                     [""] + [i for i in ordem_indicadores if i in indicadores_opcoes]
@@ -659,7 +724,9 @@ def mostrar_detalhes(codigo_proj: str):
                         ano_atual = datetime.datetime.now().year
                         anos = ["até 2024"] + [str(ano) for ano in range(2025, ano_atual + 2)]
                         ano = col2.selectbox("Ano", anos)
+
                         observacoes = st.text_area("Observações", height=100)
+
                         submit = st.form_submit_button(":material/save: Salvar lançamento")
 
                     if submit:
@@ -672,11 +739,12 @@ def mostrar_detalhes(codigo_proj: str):
                         elif tipo_valor == "int":
                             valor = int(valor)
 
+                        # Determinar o tipo do projeto
                         if db["projetos_pj"].find_one({"_id": proj_id}):
                             tipo_projeto = "PJ"
                         elif db["projetos_pf"].find_one({"_id": proj_id}):
                             tipo_projeto = "PF"
-
+                        
                         novo_lancamento = {
                             "id_do_indicador": indicador_oid,
                             "projeto": proj_id,
@@ -687,25 +755,26 @@ def mostrar_detalhes(codigo_proj: str):
                             "data_anotacao": datetime.datetime.now(),
                             "tipo": tipo_projeto
                         }
+
                         colecao_lancamentos.insert_one(novo_lancamento)
                         st.success("Lançamento salvo com sucesso!")
                         time.sleep(2)
                         st.cache_data.clear()
                         st.rerun()
 
+            # ------------------------- ABA EDITAR -------------------------
             with tab_edit:
                 st.subheader("Editar lançamento")
-                
+
                 lancamentos_proj = list(
                     colecao_lancamentos.find({"projeto": proj_id}).sort("data_anotacao", -1)
                 )
-                
+
                 if "admin" not in tipo_usuario:
                     lancamentos_proj = [l for l in lancamentos_proj if l.get("autor_anotacao") == autor_nome]
 
                 if not lancamentos_proj:
                     st.info("Nenhum lançamento de sua autoria disponível para edição.")
-                    
                 else:
                     lanc_opcoes = {}
                     for l in lancamentos_proj:
@@ -714,19 +783,20 @@ def mostrar_detalhes(codigo_proj: str):
                         indicador = indicadores.find_one({"_id": l["id_do_indicador"]})
                         nome_original = indicador["nome_indicador"] if indicador else ""
                         indicador_nome = nomes_legiveis.get(nome_original, nome_original)
+
                         label = f"{data_str} - {autor} - {indicador_nome}"
                         lanc_opcoes[label] = l["_id"]
 
                     lanc_sel = st.selectbox("Selecione o lançamento", [""] + list(lanc_opcoes.keys()), key=f"select_lanc_{proj_id}")
 
                     if lanc_sel != "":
-                        
                         lanc_id = lanc_opcoes[lanc_sel]
                         doc = colecao_lancamentos.find_one({"_id": lanc_id})
                         indicador = indicadores.find_one({"_id": doc["id_do_indicador"]})
                         nome_original = indicador["nome_indicador"] if indicador else ""
                         indicador_nome_edit = nomes_legiveis.get(nome_original, nome_original)
-                        
+
+
                         col1, col2 = st.columns(2)
 
                         if indicador_nome_edit == indicador_texto:
@@ -743,11 +813,10 @@ def mostrar_detalhes(codigo_proj: str):
 
                         anos = ["até 2024"] + [str(ano) for ano in range(2025, datetime.datetime.now().year + 2)]
                         ano_str = doc.get("ano", "2025")
-                        
                         if ano_str not in anos:
                             anos.insert(0, ano_str)
-
                         novo_ano = col2.selectbox("Ano", anos, index=anos.index(ano_str))
+
                         novas_obs = st.text_area("Observações", value=doc.get("observacoes", ""))
 
                         if st.button(":material/save: Salvar alterações"):
@@ -764,11 +833,14 @@ def mostrar_detalhes(codigo_proj: str):
                             st.cache_data.clear()
                             st.rerun()
 
+            # ------------------------- ABA EXCLUIR -------------------------
             with tab_delete:
                 st.subheader("Excluir lançamento")
+
                 lancamentos_proj = list(
                     colecao_lancamentos.find({"projeto": proj_id}).sort("data_anotacao", -1)
                 )
+
                 if "admin" not in tipo_usuario:
                     lancamentos_proj = [l for l in lancamentos_proj if l.get("autor_anotacao") == autor_nome]
 
@@ -782,10 +854,11 @@ def mostrar_detalhes(codigo_proj: str):
                         indicador = indicadores.find_one({"_id": l["id_do_indicador"]})
                         nome_original = indicador["nome_indicador"] if indicador else ""
                         indicador_nome = nomes_legiveis.get(nome_original, nome_original)
+
                         label = f"{data_str} - {autor} - {indicador_nome}"
                         lanc_opcoes[label] = l["_id"]
 
-                    lanc_sel = st.selectbox("Selecione o lançamento", [""] + list(lanc_opcoes.keys()), key="select_lanc_2")
+                    lanc_sel = st.selectbox("Selecione o lançamento", [""] + list(lanc_opcoes.keys()), key=f"select_lanc_2")
 
                     if lanc_sel != "":
                         lanc_id = lanc_opcoes[lanc_sel]
@@ -793,6 +866,7 @@ def mostrar_detalhes(codigo_proj: str):
                         indicador = indicadores.find_one({"_id": doc["id_do_indicador"]})
                         nome_original = indicador["nome_indicador"] if indicador else ""
                         indicador_nome_exluir = nomes_legiveis.get(nome_original, nome_original)
+
                         valor_lanc = doc.get("valor", "Sem valor")
 
                         st.warning(
@@ -811,91 +885,186 @@ def mostrar_detalhes(codigo_proj: str):
 # Formulário de cadastro e edição de projetos
 def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_ispn_dict):
     form_key = f"form_projeto_{str(projeto.get('_id', 'novo'))}"
-    #colecao = db["projetos_pf"] if tipo_projeto == "PF" else db["projetos_pj"]
 
-    # Otimização: reaproveita os dados de ufs_municipios já cacheados em
-    # _dados_regioes, em vez de buscar e reprocessar a coleção de novo.
-    dados_ufs = _dados_regioes["ufs"]
-    dados_municipios = _dados_regioes["municipios"]
-    dados_assentamentos = _dados_regioes["assentamentos"]
-    dados_ti = _dados_regioes["ti"]
-    dados_quilombos = _dados_regioes["quilombos"]
-    dados_uc = _dados_regioes["uc"]
-    dados_bacias_macro = _dados_regioes["bacias_macro"]
-    dados_bacias_meso = _dados_regioes["bacias_meso"]
-    dados_bacias_micro = _dados_regioes["bacias_micro"]
+    colecao = db["projetos_pf"] if tipo_projeto == "PF" else db["projetos_pj"]
 
-    modo = st.session_state.get("modo_formulario", "adicionar")
+    
+    ######################################################################
+    # CARREGAR DADOS DA COLEÇÃO ufs_municipios
+    ######################################################################
 
+    colecao_ufs = db["ufs_municipios"]
+
+    # ---- Buscar todos os documentos ----
+    docs = list(colecao_ufs.find({}))
+
+    # Inicializar variáveis
+    dados_ufs = []
+    dados_municipios = []
+    dados_assentamentos = []
+    dados_ti = []
+    dados_quilombos = []
+    dados_uc = []
+
+
+    # Encontrar o documento que tem o campo bacias_hidrograficas
+    doc_bacias = next((d for d in docs if "bacias_hidrograficas" in d), None)
+    bacias = doc_bacias.get("bacias_hidrograficas", []) if doc_bacias else []
+
+    # Normalizar os dados das bacias (criar dict padronizado)
+    dados_bacias_macro = [
+        {"codigo": b["codigo_bacia_nivel_2"], "label": b["nome_bacia_nivel_2"]}
+        for b in bacias if "nome_bacia_nivel_2" in b
+    ]
+
+    dados_bacias_meso = [
+        {"codigo": b["codigo_bacia_nivel_3"], "label": b["nome_bacia_nivel_3"]}
+        for b in bacias if "nome_bacia_nivel_3" in b
+    ]
+
+    dados_bacias_micro = [
+        {"codigo": b["codigo_bacia_nivel_4"], "label": b["nome_bacia_nivel_4"]}
+        for b in bacias if "nome_bacia_nivel_4" in b
+    ]
+    
+
+    # ---- Identificar cada documento pela chave existente ----
+    for doc in docs:
+        if "ufs" in doc:
+            dados_ufs = doc["ufs"]
+
+        elif "municipios" in doc:
+            dados_municipios = doc["municipios"]
+
+        elif "assentamentos" in doc:
+            dados_assentamentos = doc["assentamentos"]
+
+        elif "tis" in doc:
+            dados_ti = doc["tis"]
+
+        elif "quilombos" in doc:
+            dados_quilombos = doc["quilombos"]
+
+        elif "ucs" in doc:
+            dados_uc = doc["ucs"]
+
+
+    # --- Detecta se é adicionar ou editar ---
+    modo = st.session_state.get("modo_formulario", "adicionar")  # valor padrão
+
+    # Obtemos categorias e moedas únicas a partir das duas coleções
     colecoes_projetos = [db["projetos_pf"], db["projetos_pj"]]
     categorias_set = set()
     moedas_set = set()
-    for colecao_p in colecoes_projetos:
-        categorias_set.update(filter(None, [p.get("categoria", "").strip() for p in colecao_p.find()]))
-        moedas_set.update(filter(None, [p.get("moeda", "").strip() for p in colecao_p.find()]))
+    for colecao in colecoes_projetos:
+        categorias_set.update(filter(None, [p.get("categoria", "").strip() for p in colecao.find()]))
+        moedas_set.update(filter(None, [p.get("moeda", "").strip() for p in colecao.find()]))
+
     opcoes_categoria = sorted(categorias_set)
     opcoes_moeda = sorted(moedas_set)
 
+    # --- Carrega dados do Mongo ---
+    doc_ufs = ufs_municipios.find_one({"ufs": {"$exists": True}})
+    doc_municipios = ufs_municipios.find_one({"municipios": {"$exists": True}})
+
+    dados_ufs = doc_ufs.get("ufs", []) if doc_ufs else []
+    dados_municipios = doc_municipios.get("municipios", []) if doc_municipios else []
+
+    # Mapas para nome <-> código
     ufs_dict = {uf["nome_uf"]: int(uf["codigo_uf"]) for uf in dados_ufs}
     ufs_codigo_para_nome = {int(uf["codigo_uf"]): uf["nome_uf"] for uf in dados_ufs}
 
+
+    # Criar mapeamento código -> "Município - UF"
     municipios_codigo_para_label = {
         int(m["codigo_municipio"]): f"{m['nome_municipio']} - {codigo_uf_para_sigla[str(m['codigo_municipio'])[:2]]}"
         for m in dados_municipios
     }
+
     assent_codigo_para_label = {
         a["codigo_assentamento"]: f"{a['nome_assentamento']} ({a['codigo_assentamento']})"
         for a in dados_assentamentos
     }
+
     quilombo_codigo_para_label = {
         q["codigo_quilombo"]: f"{q['nome_quilombo']} ({q['codigo_quilombo']})"
         for q in dados_quilombos
     }
+
     ti_codigo_para_label = {
         ti["codigo_ti"]: f"{ti['nome_ti']} ({ti['codigo_ti']})"
         for ti in dados_ti
     }
+
     uc_codigo_para_label = {
         u["codigo_uc"]: f"{u['nome_uc']} ({u['codigo_uc']})"
         for u in dados_uc
     }
-    bacia_macro_codigo_para_label = {b["codigo"]: f"{b['label']} ({b['codigo']})" for b in dados_bacias_macro}
-    bacia_meso_codigo_para_label = {b["codigo"]: f"{b['label']} ({b['codigo']})" for b in dados_bacias_meso}
-    bacia_micro_codigo_para_label = {b["codigo"]: f"{b['label']} ({b['codigo']})" for b in dados_bacias_micro}
 
+    bacia_macro_codigo_para_label = {
+        b["codigo"]: f"{b['label']} ({b['codigo']})" 
+        for b in dados_bacias_macro
+    }
+
+    bacia_meso_codigo_para_label = {
+        b["codigo"]: f"{b['label']} ({b['codigo']})" 
+        for b in dados_bacias_meso
+    }
+
+    bacia_micro_codigo_para_label = {
+        b["codigo"]: f"{b['label']} ({b['codigo']})" 
+        for b in dados_bacias_micro
+    }
+
+    # Converte ufs do projeto, que estão salvos como string separada por vírgula, para lista de códigos (int)
     ufs_codigos = []
     ufs_str = projeto.get("ufs", "")
     if isinstance(ufs_str, str):
         ufs_codigos = [int(c.strip()) for c in ufs_str.split(",") if c.strip()]
+
     ufs_valor_nome = [ufs_codigo_para_nome.get(c) for c in ufs_codigos if c in ufs_codigo_para_nome]
 
+    # municipio_principal do projeto (string), converte para int para buscar label
     municipio_principal_codigo = projeto.get("municipio_principal", None)
     if municipio_principal_codigo is not None:
         try:
             municipio_principal_codigo = int(municipio_principal_codigo)
-        except Exception:
+        except:
             municipio_principal_codigo = None
 
+    # municipios de atuação (string separada por vírgula)
     municipios_codigos = []
     municipios_str = projeto.get("municipios", "")
     if isinstance(municipios_str, str):
         municipios_codigos = [int(c.strip()) for c in municipios_str.split(",") if c.strip()]
 
     with st.form(key=f"formulario_{form_key}", border=False):
-        col1, col2, col3 = st.columns([1, 1, 3])
+
+        # Linha 0 - Status
+        col1, col2, col3 = st.columns([1,1,3])
+
+
+        # Campos comuns
         opcoes_status = ["Em andamento", "Finalizado", "Cancelado"]
         status_valor = projeto.get("status", opcoes_status[0])
+
         status = col1.selectbox(
-            "Status*",
-            options=opcoes_status,
+            "Status*", 
+            options=opcoes_status, 
             index=opcoes_status.index(status_valor) if status_valor in opcoes_status else 0,
             key=f"status_{str(projeto.get('_id', 'novo'))}"
         )
 
-        col1, col2, col3 = st.columns([1, 1, 3])
+
+
+        # Linha 1 - Código, Sigla e Proponente /////////////////////////////
+        col1, col2, col3 = st.columns([1,1,3])
+
+        # Campos comuns
         codigo = col1.text_input("Código*", projeto.get("codigo", ""))
         sigla = col2.text_input("Sigla*", projeto.get("sigla", ""))
-
+        
+        # Buscar proponentes do banco
         if tipo_projeto == "PF":
             proponentes_cursor = pessoas_beneficiarias.find()
             proponentes_dict = {
@@ -916,16 +1085,21 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
                 for p in proponentes_cursor
             }
 
+        # --- Garantir que o proponente salvo no projeto apareça na lista ---
         proponente_salvo = projeto.get("proponente", "")
         if proponente_salvo and not any(v["nome"] == proponente_salvo for v in proponentes_dict.values()):
+            # cria uma opção fake para mostrar o proponente atual mesmo que não esteja em pessoas/org_beneficiarias
             proponentes_dict["proponente_atual"] = {"nome": proponente_salvo}
 
+        # --- Montar opções (inclui "" e "Cadastrar proponente") ---
         proponentes_options = {"": ""}
         proponentes_options.update({
             k: v["nome"] for k, v in sorted(proponentes_dict.items(), key=lambda item: item[1]["nome"].lower())
         })
 
+        # Seleção (default = proponente atual do projeto)
         default_key = next((k for k, v in proponentes_options.items() if v == proponente_salvo), "")
+
         proponente_selecionado = col3.selectbox(
             "Proponente*",
             options=list(proponentes_options.keys()),
@@ -934,6 +1108,8 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
             key=f"select_proponente_{tipo_projeto}_{projeto.get('_id', '')}"
         )
 
+        
+        # Preencher automaticamente os campos ligados ao proponente
         if proponente_selecionado and proponente_selecionado in proponentes_dict:
             dados_proponente = proponentes_dict[proponente_selecionado]
             if tipo_projeto == "PF":
@@ -947,8 +1123,11 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         else:
             cpf, genero, cnpj = "", "", ""
 
+
+        # Linha 2 - Nome do projeto, categoria, edital e ano de aprovação //////////////////////////////////////////////
         col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
         nome_do_projeto = col1.text_input("Nome do projeto*", projeto.get("nome_do_projeto", ""))
+
         categoria_valor = projeto.get("categoria", "")
         categoria = col2.selectbox(
             "Categoria*",
@@ -957,20 +1136,32 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
             placeholder="",
             key=f"categoria_{form_key}"
         )
+
+        # Edital como text_input
         edital = col3.text_input("Edital", projeto.get("edital", ""), key=f"edital_{form_key}")
+        
         ano_aprovacao = col4.number_input("Ano de aprovação*", value=projeto.get("ano_de_aprovacao", 2025), step=1, key=f"ano_aprovacao_{form_key}")
 
+
+        # Linha 2.1 - Objetivo geral //////////////////////////////////////////////////////////////////////////////////
         objetivo_geral = st.text_area(
             "Objetivo geral*",
             projeto.get("objetivo_geral", ""),
             key=f"objetivo_geral_{projeto.get('_id', 'novo')}"
         )
+
         st.divider()
+
 
         ######################################################################
         # REGIÕES DE ATUAÇÃO
         ######################################################################
+
+
+        # Linha 3 - UFs, município principal e municípios de atuação //////////////////////////////////////////////
         col1, col2, col3 = st.columns(3)
+
+        # --- Seleção de estados (não afeta municípios) ---
         ufs_selecionados = col1.multiselect(
             "Estado(s)",
             options=sorted(ufs_dict.keys()),
@@ -978,21 +1169,24 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
             placeholder=""
         )
 
+
         lista_municipios = sorted(municipios_codigo_para_label.keys())
+
         if municipio_principal_codigo in lista_municipios:
             idx = lista_municipios.index(municipio_principal_codigo)
         else:
-            idx = None
+            idx = None   # ← ISSO FAZ O PLACEHOLDER FUNCIONAR
 
         municipio_principal = col2.selectbox(
             "Município principal*",
             options=lista_municipios,
             format_func=lambda codigo: municipios_codigo_para_label.get(codigo, ""),
             index=idx,
-            key=f"municipio_principal_{form_key}",
+            key=f"municipio_principal_{form_key}", 
             placeholder=""
         )
 
+        # --- Municípios de atuação (todos os municípios) ---
         municipios_atuacao = col3.multiselect(
             "Municípios de atuação*",
             options=sorted(municipios_codigo_para_label.keys()),
@@ -1002,15 +1196,24 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
             placeholder=""
         )
 
+
+        # Linha 4 - Latitude e longitude, observações sobre o local //////////////////////////////////////////////
         col1, col2 = st.columns([1, 2])
+
+        # --- Latitude e longitude ---
+
         latlong = col1.text_input(
             "Latitude, Longitude",
-            value=projeto.get("lat_long_principal", ""),
+            value=projeto.get("lat_long_principal", ""),   # 🔹 usa o valor salvo no projeto
+            # placeholder="-23.175173, -45.856398",
             key=f"latlong_{form_key}",
             help="Você pode usar o Google Maps para obter as coordenadas nesse formato '-23.175173, -45.856398'"
         )
 
+        
+        # Listas de códigos já selecionados no projeto
         regioes = projeto.get("regioes_atuacao", [])
+
         ti_default = [r["codigo"] for r in regioes if r["tipo"] == "terra_indigena"]
         uc_default = [r["codigo"] for r in regioes if r["tipo"] == "uc"]
         assent_default = [r["codigo"] for r in regioes if r["tipo"] == "assentamento"]
@@ -1019,6 +1222,9 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         bacia_meso_default = [r["codigo"] for r in regioes if r["tipo"] == "bacia_nivel_3"]
         bacia_macro_default = [r["codigo"] for r in regioes if r["tipo"] == "bacia_nivel_2"]
 
+
+        # ----------------------- UNIDADES DE CONSERVAÇÃO -----------------------
+
         ucs_selecionadas = col2.multiselect(
             "Unidades de Conservação",
             options=list(uc_codigo_para_label.values()),
@@ -1026,19 +1232,30 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
             placeholder=""
         )
 
+
+
+        # ----------------------- TERRAS INDÍGENAS -----------------------
+       
         col1, col2, col3 = st.columns(3)
+       
         tis_selecionadas = col1.multiselect(
             "Terras Indígenas",
-            options=list(ti_codigo_para_label.values()),
+            options=list(ti_codigo_para_label.values()),  # lista de labels
             default=[ti_codigo_para_label[c] for c in ti_default if c in ti_codigo_para_label],
             placeholder=""
         )
+
+        # ----------------------- ASSENTAMENTOS -----------------------
+        
         assentamentos_selecionados = col2.multiselect(
             "Assentamentos",
             options=list(assent_codigo_para_label.values()),
             default=[assent_codigo_para_label[c] for c in assent_default],
             placeholder=""
         )
+
+
+        # ----------------------- QUILOMBOS -----------------------
         quilombos_selecionados = col3.multiselect(
             "Quilombos",
             options=list(quilombo_codigo_para_label.values()),
@@ -1046,25 +1263,35 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
             placeholder=""
         )
 
+
+
+        # ----------------------- BACIAS HIDROGRÁFICAS -----------------------
         col1, col2, col3 = st.columns(3)
+        
         bacias_macro_sel = col1.multiselect(
             "Bacias Hidrográficas - Nível 2",
             options=list(bacia_macro_codigo_para_label.values()),
             default=[bacia_macro_codigo_para_label[c] for c in bacia_macro_default],
             placeholder=""
         )
+        
+
         bacias_meso_sel = col2.multiselect(
             "Bacias Hidrográficas - Nível 3",
             options=list(bacia_meso_codigo_para_label.values()),
             default=[bacia_meso_codigo_para_label[c] for c in bacia_meso_default],
             placeholder=""
         )
+        
         bacias_micro_sel = col3.multiselect(
             "Bacias Hidrográficas - Nível 4",
             options=list(bacia_micro_codigo_para_label.values()),
             default=[bacia_micro_codigo_para_label[c] for c in bacia_micro_default],
             placeholder=""
         )
+        
+        
+        # --- Observações sobre o local ---
 
         local_obs = st.text_area(
             "Observações sobre o local",
@@ -1072,26 +1299,33 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
             key=f"obs_local_{form_key}",
             placeholder="Anote o nome do local se for alguma localização especial, como Terra Indígena, Assentamento, Unidade de Conservação, área urbana, etc."
         )
-
+        
         st.divider()
 
         if modo == "editar":
+
+            # Linha 5 - Duração, data início e data fim //////////////////////////////////////////////
+            # --- Duração em meses ---
             col1, col2, col3, col4 = st.columns(4)
             duracao_val = col1.number_input(
                 "Duração (em meses)*",
                 value=int(projeto.get("duracao_original_meses", 0) or 0),
                 step=1,
+                
             )
             duracao = str(duracao_val)
 
+            # Data início
             data_inicio_date = col2.date_input(
                 "Data início do contrato*",
-                value=datetime.datetime.strptime(projeto.get("data_inicio_do_contrato", ""), "%d/%m/%Y").date()
+
+                value = datetime.datetime.strptime(projeto.get("data_inicio_do_contrato", ""), "%d/%m/%Y").date()
                 if projeto.get("data_inicio_do_contrato") else None,
                 format="DD/MM/YYYY"
             )
             data_inicio = data_inicio_date.strftime("%d/%m/%Y") if data_inicio_date else ""
 
+            # Data fim
             data_fim_date = col3.date_input(
                 "Data fim do contrato*",
                 value=datetime.datetime.strptime(projeto.get("data_final_do_contrato", ""), "%d/%m/%Y").date()
@@ -1100,6 +1334,7 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
             )
             data_fim = data_fim_date.strftime("%d/%m/%Y") if data_fim_date else ""
 
+            # Data relatório
             data_relatorio_date = col4.date_input(
                 "Data relatório final",
                 value=datetime.datetime.strptime(projeto.get("data_relatorio_monitoramento_final", ""), "%d/%m/%Y").date()
@@ -1107,15 +1342,19 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
                 format="DD/MM/YYYY"
             )
             data_relatorio = data_relatorio_date.strftime("%d/%m/%Y") if data_relatorio_date else ""
+
+        # Modo adicionar
         else:
             col1, col2, col3 = st.columns(3)
             duracao_val = col1.number_input(
                 "Duração (em meses)*",
                 value=int(projeto.get("duracao_original_meses", 0) or 0),
                 step=1,
+                
             )
             duracao = str(duracao_val)
 
+            # Data início
             data_inicio_date = col2.date_input(
                 "Data início do contrato*",
                 value=datetime.datetime.strptime(projeto.get("data_inicio_do_contrato", ""), "%d/%m/%Y").date()
@@ -1124,6 +1363,7 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
             )
             data_inicio = data_inicio_date.strftime("%d/%m/%Y") if data_inicio_date else ""
 
+            # Data fim
             data_fim_date = col3.date_input(
                 "Data fim do contrato*",
                 value=datetime.datetime.strptime(projeto.get("data_final_do_contrato", ""), "%d/%m/%Y").date()
@@ -1131,10 +1371,11 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
                 format="DD/MM/YYYY"
             )
             data_fim = data_fim_date.strftime("%d/%m/%Y") if data_fim_date else ""
-
+            
             data_relatorio = ""
 
-        col1, col2, col3 = st.columns([1, 2, 6])
+        # Linha 6 - Moeda e valor //////////////////////////////////////////////////
+        col1, col2, col3 = st.columns([1,2,6])
         moeda_valor = projeto.get("moeda", "")
         moeda = col1.selectbox(
             "Moeda*",
@@ -1144,57 +1385,77 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
             key=f"moeda_{form_key}"
         )
 
+        # --- Valor ---
+        # pega valor do projeto
         valor_raw = projeto.get("valor", 0) or 0
+
+        # se vier como string no padrão brasileiro → converte para float
         if isinstance(valor_raw, str):
             try:
                 valor_raw = float(valor_raw.replace(".", "").replace(",", "."))
             except ValueError:
-                valor_raw = 0.0
+                valor_raw = 0.0  # fallback seguro caso venha algo inválido
         else:
             valor_raw = float(valor_raw)
 
+        # agora usa no number_input
         valor_val = col2.number_input(
             "Valor*",
             value=valor_raw,
             step=1.0,
-            format="%.2f"
+            format="%.2f"   # exibe com 2 casas decimais
         )
+
+
         valor = f"{valor_val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
+
+        # Linha 7 - Temas, público e bioma //////////////////////////////////////////////////
         col1, col2, col3 = st.columns(3)
         opcoes_temas = [
             "Agroecologia", "Agroextrativismo - Beneficiamento e Comercialização", "Água", "Apicultura e meliponicultura",
             "Artesanato", "Articulação", "Capacitação", "Certificação", "Conservação da biodiversidade", "Criação de animais", "Cultura",
-            "Educação Ambiental", "Energia Renovável", "Fauna", "Fogo", "Gestão Territorial", "Manejo da biodiversidade", "Pesquisa",
+            "Educação Ambiental", "Energia Renovável", "Fauna", "Fogo", "Gestão Territorial", "Manejo da biodiversidade", "Pesquisa", 
             "Plantas medicinais", "Política Pública", "Recuperação de áreas degradadas", "Sistemas Agroflorestais - SAFs", "Turismo", "Outro"
         ]
-        opcoes_publico = ["Agricultores Familiares", "Assentados da Reforma Agrária", "Comunidade Tradicional", "Garimpeiros",
-                            "Idosos", "Indígenas", "Jovens", "Mulheres", "Pescador Artesanal", "Quilombola", "Urbano", "Outro"]
+        opcoes_publico = ["Agricultores Familiares", "Assentados da Reforma Agrária", "Comunidade Tradicional", "Garimpeiros", 
+                            "Idosos", "Indígenas", "Jovens", "Mulheres", "Pescador Artesanal", "Quilombola", "Urbano", "Outro" ]
         opcoes_bioma = ["Amazônia", "Caatinga", "Cerrado", "Mata Atlântica", "Pampas", "Pantanal"]
+        # opcoes_status = ["Em andamento", "Finalizado", "Cancelado"]
 
-        temas_valor = [p.strip() for p in projeto.get("temas", "").split(",") if p.strip() in opcoes_temas]
+        temas_valor = [
+            p.strip()
+            for p in projeto.get("temas", "").split(",")
+            if p.strip() in opcoes_temas
+        ]
+
         publico_valor = [p.strip() for p in projeto.get("publico", "").split(",") if p.strip()]
         bioma_valor = [b.strip() for b in projeto.get("bioma", "").split(",") if b.strip()]
+        # status_valor = projeto.get("status", opcoes_status[0])
 
         temas = col1.multiselect("Temas*", options=opcoes_temas, default=temas_valor, placeholder="", key=f"temas_{str(projeto.get('_id', 'novo'))}")
         publico = col2.multiselect("Público*", options=opcoes_publico, default=publico_valor, placeholder="", key=f"publico_{str(projeto.get('_id', 'novo'))}")
         bioma = col3.multiselect("Bioma*", options=opcoes_bioma, default=bioma_valor, placeholder="", key=f"bioma_{str(projeto.get('_id', 'novo'))}")
 
+        # Linha 8 - Ponto focal e programas //////////////////////////////////////////////////
         col1, col2, col3 = st.columns(3)
         pessoas_options = {str(k): v for k, v in sorted(pessoas_dict.items(), key=lambda item: item[1].lower())}
         ponto_focal_default = str(projeto.get("ponto_focal", ""))
         ponto_focal_keys = list(pessoas_options.keys())
+
+        # insere opção vazia na primeira posição
         opcoes_ponto_focal = [""] + ponto_focal_keys
 
+        # calcula índice ajustado
         if ponto_focal_default in ponto_focal_keys:
-            index_ajustado = ponto_focal_keys.index(ponto_focal_default) + 1
+            index_ajustado = ponto_focal_keys.index(ponto_focal_default) + 1  # +1 pela opção vazia
         else:
-            index_ajustado = 0
+            index_ajustado = 0  # opção vazia selecionada por padrão
 
         ponto_focal = col1.selectbox(
             "Ponto focal*",
             options=opcoes_ponto_focal,
-            format_func=lambda x: pessoas_options.get(x, "") if x else "",
+            format_func=lambda x: pessoas_options.get(x, "") if x else "",  # mostra vazio para a opção ""
             index=index_ajustado,
             placeholder="Selecione..."
         )
@@ -1209,30 +1470,38 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         }
         programa_default = str(projeto.get("programa", ""))
         programa_keys = list(programas_options.keys())
+
+        # insere opção vazia na primeira posição
         opcoes_programa = [""] + programa_keys
 
+        # calcula índice ajustado
         if programa_default in programa_keys:
-            index_ajustado = programa_keys.index(programa_default) + 1
+            index_ajustado = programa_keys.index(programa_default) + 1  # +1 pela opção vazia
         else:
-            index_ajustado = 0
+            index_ajustado = 0  # opção vazia selecionada por padrão
 
         programa = col2.selectbox(
             "Programa*",
             options=opcoes_programa,
-            format_func=lambda x: programas_options.get(x, "") if x else "",
+            format_func=lambda x: programas_options.get(x, "") if x else "",  # mostra vazio para a opção ""
             index=index_ajustado,
             placeholder="Selecione..."
         )
 
-        projetos_pai_options = {str(k): v for k, v in projetos_ispn_dict.items() if v.strip()}
+        projetos_pai_options = {
+            str(k): v for k, v in projetos_ispn_dict.items() if v.strip()
+        }
         sorted_keys = sorted(projetos_pai_options, key=lambda x: projetos_pai_options[x].lower())
         codigo_pai_default = str(projeto.get("codigo_projeto_pai", ""))
+
+        # insere opção vazia na primeira posição
         opcoes_projeto_pai = [""] + sorted_keys
 
+        # calcula índice ajustado
         if codigo_pai_default in sorted_keys:
-            index_ajustado = sorted_keys.index(codigo_pai_default) + 1
+            index_ajustado = sorted_keys.index(codigo_pai_default) + 1  # +1 porque adicionamos a opção vazia
         else:
-            index_ajustado = 0
+            index_ajustado = 0  # opção vazia selecionada por padrão
 
         codigo_pai = col3.selectbox(
             "Projeto financiador*",
@@ -1243,32 +1512,41 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
         )
 
         st.write("")
+
+        # -------------------------
+        # Botão de salvar
+        # -------------------------
         salvar = st.form_submit_button("Salvar", icon=":material/save:")
 
         if salvar:
+            # --- Campos obrigatórios ---
             campos_obrigatorios = [
-                codigo, sigla, nome_do_projeto, proponente_selecionado, categoria, ano_aprovacao,
-                ponto_focal, programa, objetivo_geral, duracao, data_inicio, data_fim,
-                moeda, valor, bioma, status, temas, publico, codigo_pai, ufs_selecionados,
+                codigo, sigla, nome_do_projeto, proponente_selecionado, categoria, ano_aprovacao, 
+                ponto_focal, programa, objetivo_geral, duracao, data_inicio, data_fim, 
+                moeda, valor, bioma, status, temas, publico, codigo_pai, ufs_selecionados, 
                 municipio_principal, municipios_atuacao
             ]
+
             if not all(campos_obrigatorios):
                 st.warning("Preencha todos os campos obrigatórios (*) antes de salvar.")
                 return None
 
+            # --- Verificar duplicidade ---
             filtro_codigo = {"codigo": codigo} if codigo else None
             filtro_sigla = {"sigla": sigla} if sigla else None
 
             if modo == "editar" and projeto.get("_id"):
                 try:
                     proj_id = ObjectId(projeto["_id"]) if isinstance(projeto["_id"], str) else projeto["_id"]
-                except Exception:
+                except:
                     proj_id = projeto["_id"]
+
                 if codigo:
                     filtro_codigo = {"$and": [{"_id": {"$ne": proj_id}}, {"codigo": codigo}]}
                 if sigla:
                     filtro_sigla = {"$and": [{"_id": {"$ne": proj_id}}, {"sigla": sigla}]}
-
+        
+            # Checa duplicidade em PF e PJ
             codigo_existente, sigla_existente = None, None
             for col in [db["projetos_pf"], db["projetos_pj"]]:
                 if filtro_codigo and not codigo_existente:
@@ -1276,11 +1554,13 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
                 if filtro_sigla and not sigla_existente:
                     sigla_existente = col.find_one(filtro_sigla)
 
+            # --- Validação de latitude/longitude ---
             padrao = r"^-?\d{1,3}\.\d{1,20},\s*-?\d{1,3}\.\d{1,20}$"
             if latlong and not re.match(padrao, latlong):
                 st.error("Formato de coordenadas inválido! Use o padrão: -23.175173, -45.856398")
-                return None
+                return None  
 
+            # --- Mensagens de duplicidade ---
             if codigo_existente and sigla_existente:
                 st.warning(f"Já existe um projeto com o código '{codigo}' e com a sigla '{sigla}'.")
                 return None
@@ -1290,7 +1570,8 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
             elif sigla_existente:
                 st.warning(f"Já existe um projeto com a sigla '{sigla}'.")
                 return None
-
+            
+            # ---------- Montagem da lista final ----------
             def extrair_codigos(lista):
                 codigos = []
                 for item in lista:
@@ -1302,13 +1583,17 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
                 return codigos
 
             regioes_atuacao = []
+
+            # --- Adiciona UFs selecionadas como regiões de atuação ---
             for uf_nome in ufs_selecionados:
                 if uf_nome in ufs_dict:
                     regioes_atuacao.append({"tipo": "estado", "codigo": str(ufs_dict[uf_nome])})
 
+            # --- Adiciona municípios de atuação como regiões de atuação ---
             for codigo_muni in municipios_atuacao:
                 regioes_atuacao.append({"tipo": "municipio", "codigo": str(codigo_muni)})
-
+                
+            # ----------------------- BIOMAS -----------------------
             biomas_dict = {
                 "Amazônia": 1,
                 "Caatinga": 2,
@@ -1317,12 +1602,14 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
                 "Pampas": 5,
                 "Pantanal": 6
             }
-
-            for bioma_nome in bioma:
+                
+            # --- Adiciona biomas selecionados como regiões de atuação ---
+            for bioma_nome in bioma:  
                 codigo_bioma = biomas_dict.get(bioma_nome)
                 if codigo_bioma is not None:
                     regioes_atuacao.append({"tipo": "bioma", "codigo": str(codigo_bioma)})
 
+            # --- Agora adiciona os demais tipos (TI, UC, bioma, assentamentos, etc.) ---
             for tipo, selecionados in [
                 ("terra_indigena", tis_selecionadas),
                 ("uc", ucs_selecionadas),
@@ -1335,6 +1622,7 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
                 for codigo_regioes in extrair_codigos(selecionados):
                     regioes_atuacao.append({"tipo": tipo, "codigo": codigo_regioes})
 
+            # --- Se passou em todas as verificações ---
             doc = {
                 "codigo": codigo,
                 "sigla": sigla,
@@ -1365,19 +1653,20 @@ def form_projeto(projeto, tipo_projeto, pessoas_dict, programas_dict, projetos_i
                 "municipios": ",".join(str(codigo) for codigo in municipios_atuacao),
                 "regioes_atuacao": regioes_atuacao,
             }
-
             if tipo_projeto == "PF":
                 doc["cpf"] = proponentes_dict.get(proponente_selecionado, {}).get("cpf", "")
                 doc["genero"] = proponentes_dict.get(proponente_selecionado, {}).get("genero", "")
             else:
                 doc["cnpj"] = proponentes_dict.get(proponente_selecionado, {}).get("cnpj", "")
-
+                
+    
             return doc
-
+    
 
 @st.dialog("Cadastrar proponente", width="large")
 def cadastrar_proponente():
-
+    
+    #--- Cadastro de novo proponente ---
     tipo_cadastro = st.pills(
         "Selecione o tipo",
         ["Organização", "Pessoa"],
@@ -1415,6 +1704,7 @@ def cadastrar_proponente():
                 ["Masculino", "Feminino", "Não binário", "Outro"],
                 key=f"tipo_genero_{projeto.get('_id', '')}"
             )
+
             st.write("")
             cadastrar = st.form_submit_button("Cadastrar pessoa")
 
@@ -1436,103 +1726,116 @@ def cadastrar_proponente():
 
 @st.dialog("Gerenciar projetos", width="large", on_dismiss="rerun")
 def gerenciar_projetos():
+
     st.html("<span class='big-dialog'></span>")
+
     abas = st.tabs(["Adicionar", "Editar", "Excluir"])
 
     pessoas_dict = {p["_id"]: p.get("nome_completo", "") for p in pessoas.find()}
     programas_dict = {p["_id"]: p.get("nome_programa_area", "") for p in db["programas_areas"].find()}
     projetos_ispn_dict = {p["_id"]: p.get("codigo", "") for p in db["projetos_ispn"].find()}
 
+    # --- Adicionar ---
     with abas[0]:
         st.session_state["modo_formulario"] = "adicionar"
         tipo_projeto = st.pills("Tipo de projeto", ["PF", "PJ"], selection_mode="single", default="PJ")
         colecao = db["projetos_pf"] if tipo_projeto == "PF" else db["projetos_pj"]
         novo = form_projeto({}, tipo_projeto, pessoas_dict, programas_dict, projetos_ispn_dict)
-
         if novo:
             colecao.insert_one(novo)
             st.success("Projeto adicionado com sucesso.")
             time.sleep(2)
-            st.cache_data.clear()
             st.rerun(scope="fragment")
 
+    # --- Editar ---
     with abas[1]:
         st.session_state["modo_formulario"] = "editar"
-        todos_projetos_loc = [(p, "PF") for p in pf] + [(p, "PJ") for p in pj]
+        todos_projetos = [(p, "PF") for p in pf] + [(p, "PJ") for p in pj]
+
+        # formarta as opções com Código e Sigla
         opcoes = {
             str(proj["_id"]): f"{proj.get('codigo', '')} ({proj.get('sigla', '')})"
-            for proj, tipo in todos_projetos_loc
+            for proj, tipo in todos_projetos
         }
+
+
 
         if not opcoes:
             st.info("Nenhum projeto encontrado para editar.")
         else:
+            # insere a opção vazia na frente
             chaves = [""] + list(opcoes.keys())
+
             selecionado_id = st.selectbox(
                 "Selecione o projeto",
                 chaves,
-                format_func=lambda x: opcoes[x] if x in opcoes else ""
+                format_func=lambda x: opcoes[x] if x in opcoes else ""  # mostra vazio para a opção ""
             )
+
             st.divider()
 
-            if selecionado_id:
-                tipo = "PF" if selecionado_id in [str(p["_id"]) for p, t in todos_projetos_loc if t == "PF"] else "PJ"
+            if selecionado_id:  # só continua se um projeto for realmente escolhido
+                tipo = "PF" if selecionado_id in [str(p["_id"]) for p, t in todos_projetos if t == "PF"] else "PJ"
                 colecao = db["projetos_pf"] if tipo == "PF" else db["projetos_pj"]
                 projeto = colecao.find_one({"_id": ObjectId(selecionado_id)})
                 atualizado = form_projeto(projeto, tipo, pessoas_dict, programas_dict, projetos_ispn_dict)
-
                 if atualizado:
                     colecao.update_one({"_id": ObjectId(selecionado_id)}, {"$set": atualizado})
                     st.success("Projeto atualizado com sucesso.")
                     time.sleep(2)
-                    st.cache_data.clear()
                     st.rerun(scope="fragment")
 
+    # ---------------------- Excluir ----------------------
     with abas[2]:
+ 
+        # Roteamento de tipo de usuário especial
         if set(st.session_state.tipo_usuario) & {"admin"}:
-            todos_projetos_loc = [(p, "PF") for p in pf] + [(p, "PJ") for p in pj]
+
+            todos_projetos = [(p, "PF") for p in pf] + [(p, "PJ") for p in pj]
+
             opcoes = {
                 str(proj["_id"]): f"{proj.get('codigo', '')} ({proj.get('sigla', '')})"
-                for proj, tipo in todos_projetos_loc
+                for proj, tipo in todos_projetos
             }
 
             if not opcoes:
                 st.info("Nenhum projeto encontrado para excluir.")
             else:
                 selecionado_id = st.selectbox("Selecione o projeto para excluir", list(opcoes.keys()), format_func=lambda x: opcoes[x])
-                tipo = "PF" if selecionado_id in [str(p["_id"]) for p, t in todos_projetos_loc if t == "PF"] else "PJ"
+                tipo = "PF" if selecionado_id in [str(p["_id"]) for p, t in todos_projetos if t == "PF"] else "PJ"
                 colecao = db["projetos_pf"] if tipo == "PF" else db["projetos_pj"]
                 projeto = colecao.find_one({"_id": ObjectId(selecionado_id)})
+
                 st.write("")
 
-                if st.button("Excluir projeto"):
+                if st.button(f"Excluir projeto"):
                     colecao.delete_one({"_id": ObjectId(selecionado_id)})
                     st.success("Projeto excluído com sucesso.")
                     time.sleep(2)
-                    st.cache_data.clear()
                     st.rerun(scope="fragment")
 
 
 @st.cache_data(ttl=600, show_spinner=False)
 def extrair_itens_distintos(series: pd.Series) -> pd.Series:
-    """
-    Recebe uma Series de strings (ex: 'Acre, Rondônia') e retorna uma Series
-    'longa' com cada item já limpo, 1 item por linha.
-    """
-    if series.empty:
-        return pd.Series(dtype=str)
+        """
+        Recebe uma Series de strings (ex: 'Acre, Rondônia') e retorna uma Series
+        'longa' com cada item já limpo, 1 item por linha.
+        """
+        if series.empty:
+            return pd.Series(dtype=str)
 
-    s = (
-        series.fillna("")
-        .astype(str)
-        .str.split(",")
-        .explode()
-        .str.strip()
-    )
-    s = s[(s != "") & (s.str.lower() != "nan")]
-    return s
-
-
+        s = (
+            series.fillna("")                   # garante string
+            .astype(str)
+            .str.split(",")                     # divide
+            .explode()                          # 1 item por linha
+            .str.strip()                        # remove espaços
+        )
+        # remove vazios e nans textuais
+        s = s[(s != "") & (s.str.lower() != "nan")]
+        return s
+        
+               
 def parse_valor(valor):
     """Converte valor string para float, retornando 0.0 se não for possível."""
     if isinstance(valor, (int, float)):
@@ -1541,6 +1844,7 @@ def parse_valor(valor):
         valor = valor.strip()
         if valor == "":
             return 0.0
+        # Remover separadores de milhar e converter vírgula decimal para ponto
         valor = valor.replace(".", "").replace(",", ".")
         try:
             return float(valor)
@@ -1558,17 +1862,145 @@ def edital_key(x):
     try:
         return float(x)
     except ValueError:
-        return float('inf')
+        return float('inf')  # valores não numéricos vão pro final
 
 
 ######################################################################################################
-# MAIN — MONTAGEM DO DATAFRAME PRINCIPAL, TOTALMENTE CACHEADA
+# MAIN
 ######################################################################################################
-# Antes: todo esse bloco (combinar projetos, montar mapas doador/uf/município,
-# formatar valores linha a linha) era refeito a cada rerun do Streamlit, mesmo
-# sem nenhuma mudança nos dados. Agora está encapsulado numa função cacheada,
-# reexecutada só quando pj/pf/projetos_ispn realmente mudam (a cada 5 min no
-# máximo, por causa do TTL de carregar_colecoes_projetos).
+
+
+# Combine os dados
+todos_projetos = pj + pf
+
+projetos_por_codigo = {str(p.get("codigo", "")).strip(): p for p in todos_projetos if p.get("codigo") is not None}
+
+dados_municipios = list(ufs_municipios.find())
+
+mapa_nome_doador = {
+    str(d["_id"]): d.get("nome_doador", "") for d in colecao_doadores.find()
+}
+
+mapa_doador = {}
+for proj in projetos_ispn:
+    id_proj = str(proj["_id"])
+    id_doador = proj.get("doador")
+    
+    if isinstance(id_doador, ObjectId):
+        nome_doador = mapa_nome_doador.get(str(id_doador), "")
+        mapa_doador[id_proj] = nome_doador
+    else:
+        mapa_doador[id_proj] = ""
+
+# Criar dicionário código_uf -> nome_uf
+uf_para_nome = {}
+for doc in dados_municipios:
+    for uf in doc.get("ufs", []):
+        uf_para_nome[str(uf["codigo_uf"])] = uf["nome_uf"]
+
+# Criar dicionário de mapeamento código -> nome
+codigo_para_nome = {}
+for doc in dados_municipios:
+    for m in doc.get("municipios", []):
+        codigo_para_nome[str(m["codigo_municipio"])] = m["nome_municipio"]
+         
+for projeto in todos_projetos:
+    projeto_pai_id = projeto.get("codigo_projeto_pai")
+    if projeto_pai_id:
+        projeto["doador"] = mapa_doador.get(str(projeto_pai_id), "")
+    else:
+        projeto["doador"] = ""
+
+
+# for projeto in todos_projetos:
+    valor_bruto = projeto.get("valor")
+
+    if isinstance(valor_bruto, str):
+        valor_limpo = valor_bruto.replace(".", "").replace(",", ".")
+        try:
+            projeto["valor"] = float(valor_limpo)
+        except:
+            projeto["valor"] = None
+    elif isinstance(valor_bruto, (int, float)):
+        projeto["valor"] = float(valor_bruto)
+    else:
+        projeto["valor"] = None
+
+
+# Transforme em DataFrame
+df_projetos = pd.DataFrame(todos_projetos)
+
+# Dicionário de símbolos por moeda
+simbolos = {
+    "reais": "R$",
+    "real": "R$",
+    "dólares": "US$",
+    "dólar": "US$",
+    "euros": "€",  # Incluído para futuro uso
+    "euro": "€"
+}
+
+# Lista base de colunas obrigatórias
+colunas = [
+    "codigo",
+    "sigla",
+    "edital",
+    "valor",
+    "categoria",
+    "ano_de_aprovacao",
+    "ufs",
+    "municipios",
+    "tipo",
+    "municipio_principal",
+    "lat_long_principal",
+    "cnpj",
+    "programa",
+    "temas",
+    "bioma",
+    "publico",
+    "genero",
+    "status",
+    "cpf",
+    "proponente",
+    "ponto_focal",
+    "data_inicio_do_contrato",
+    "data_final_do_contrato"
+]
+
+# Adiciona "doador" se ela estiver presente no DataFrame
+if "doador" in df_projetos.columns:
+    colunas.insert(3, "doador")  # Mantém a ordem: após "proponente"
+
+# Seleciona apenas as colunas existentes
+df_projetos = df_projetos[colunas].rename(columns={
+    "codigo": "Código",
+    "sigla": "Sigla",
+    "edital": "Edital",
+    "doador": "Doador",
+    "valor": "Valor",
+    "categoria": "Categoria",
+    "ano_de_aprovacao": "Ano",
+    "ufs": "Estado(s)",
+    "municipios": "Município(s)",
+    "tipo": "Tipo",
+    "municipio_principal": "Município Principal",
+    "lat_long_principal": "Latitude/Longitude",
+    "cnpj": "CNPJ",
+    "cpf": "CPF",
+    "proponente": "Proponente",
+    "programa": "Programa",
+    "temas": "Temas",
+    "publico": "Público",
+    "bioma": "Bioma",
+    "genero": "Gênero",
+    "status": "Status",
+    "ponto_focal": "Ponto Focal",
+    "data_inicio_do_contrato": "Data Início",
+    "data_final_do_contrato": "Data Fim"
+})
+
+
+# Criar dicionário código_uf -> sigla
 codigo_uf_para_sigla = {
     '11': 'RO', '12': 'AC', '13': 'AM', '14': 'RR', '15': 'PA', '16': 'AP', '17': 'TO',
     '21': 'MA', '22': 'PI', '23': 'CE', '24': 'RN', '25': 'PB', '26': 'PE', '27': 'AL', '28': 'SE', '29': 'BA',
@@ -1578,131 +2010,70 @@ codigo_uf_para_sigla = {
 }
 
 
-@st.cache_data(ttl=300, show_spinner=False)
-def montar_dataframe_projetos(_pj, _pf, _projetos_ispn):
-    _db = get_db()
+df_projetos_codigos = df_projetos.copy()
 
-    todos_projetos = _pj + _pf
-    projetos_por_codigo = {str(p.get("codigo", "")).strip(): p for p in todos_projetos if p.get("codigo") is not None}
 
-    dados_municipios = list(_db["ufs_municipios"].find())
+# Garantir que todos os campos estão como string
+df_projetos = df_projetos.fillna("").astype(str)
 
-    mapa_nome_doador = {
-        str(d["_id"]): d.get("nome_doador", "") for d in _db["doadores"].find()
-    }
+df_projetos["Data Início"] = pd.to_datetime(
+    df_projetos["Data Início"],
+    format="%d/%m/%Y",
+    errors="coerce"
+)
 
-    mapa_doador = {}
-    for proj in _projetos_ispn:
-        id_proj = str(proj["_id"])
-        id_doador = proj.get("doador")
-        if isinstance(id_doador, ObjectId):
-            mapa_doador[id_proj] = mapa_nome_doador.get(str(id_doador), "")
+df_projetos["Data Fim"] = pd.to_datetime(
+    df_projetos["Data Fim"],
+    format="%d/%m/%Y",
+    errors="coerce"
+)
+
+# Aplicar a função na coluna 'Municípios'
+df_projetos["Município(s)"] = df_projetos["Município(s)"].apply(converter_codigos_para_nomes)
+df_projetos["Município Principal"] = df_projetos["Município Principal"].apply(converter_codigos_para_nomes)
+
+# Corrigir a coluna 'Ano' para remover ".0"
+df_projetos["Ano"] = df_projetos["Ano"].str.replace(".0", "", regex=False)
+
+df_projetos["Estado(s)"] = [
+    converter_uf_codigo_para_nome(proj.get("ufs", "")) for proj in todos_projetos
+]
+
+valores_formatados = []
+for i, projeto in enumerate(todos_projetos):
+    valor = df_projetos.at[i, "Valor"]
+    moeda = projeto.get("moeda", "reais").lower()
+
+    
+    simbolo = simbolos.get(moeda, "")
+
+    # Limpar o valor original antes da conversão
+    valor_limpo = valor.replace("R$", "").replace("US$", "").replace("€", "").replace(" ", "")
+
+    try:
+        # Detectar se está no formato brasileiro (vírgula como decimal)
+        if "," in valor_limpo and valor_limpo.count(",") == 1 and valor_limpo.count(".") >= 0:
+            # Substitui "." por "" (remove separadores de milhar) e "," por "." (converte decimal brasileiro)
+            valor_float = float(valor_limpo.replace(".", "").replace(",", "."))
+
         else:
-            mapa_doador[id_proj] = ""
+            valor_float = float(valor_limpo.replace(",", ""))
 
-    uf_para_nome_loc = {}
-    for doc in dados_municipios:
-        for uf in doc.get("ufs", []):
-            uf_para_nome_loc[str(uf["codigo_uf"])] = uf["nome_uf"]
+        valor_formatado = f"{simbolo} {valor_float:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    except:
+        valor_formatado = f"{simbolo} {valor}" if valor else ""
 
-    codigo_para_nome_loc = {}
-    for doc in dados_municipios:
-        for m in doc.get("municipios", []):
-            codigo_para_nome_loc[str(m["codigo_municipio"])] = m["nome_municipio"]
+    valores_formatados.append(valor_formatado)
 
-    for projeto in todos_projetos:
-        projeto_pai_id = projeto.get("codigo_projeto_pai")
-        projeto["doador"] = mapa_doador.get(str(projeto_pai_id), "") if projeto_pai_id else ""
-
-        valor_bruto = projeto.get("valor")
-        if isinstance(valor_bruto, str):
-            valor_limpo = valor_bruto.replace(".", "").replace(",", ".")
-            try:
-                projeto["valor"] = float(valor_limpo)
-            except Exception:
-                projeto["valor"] = None
-        elif isinstance(valor_bruto, (int, float)):
-            projeto["valor"] = float(valor_bruto)
-        else:
-            projeto["valor"] = None
-
-    df_projetos_loc = pd.DataFrame(todos_projetos)
-
-    colunas = [
-        "codigo", "sigla", "edital", "valor", "categoria", "ano_de_aprovacao",
-        "ufs", "municipios", "tipo", "municipio_principal", "lat_long_principal",
-        "cnpj", "programa", "temas", "bioma", "publico", "genero", "status",
-        "cpf", "proponente", "ponto_focal", "data_inicio_do_contrato", "data_final_do_contrato"
-    ]
-    if "doador" in df_projetos_loc.columns:
-        colunas.insert(3, "doador")
-
-    df_projetos_loc = df_projetos_loc[colunas].rename(columns={
-        "codigo": "Código", "sigla": "Sigla", "edital": "Edital", "doador": "Doador",
-        "valor": "Valor", "categoria": "Categoria", "ano_de_aprovacao": "Ano",
-        "ufs": "Estado(s)", "municipios": "Município(s)", "tipo": "Tipo",
-        "municipio_principal": "Município Principal", "lat_long_principal": "Latitude/Longitude",
-        "cnpj": "CNPJ", "cpf": "CPF", "proponente": "Proponente", "programa": "Programa",
-        "temas": "Temas", "publico": "Público", "bioma": "Bioma", "genero": "Gênero",
-        "status": "Status", "ponto_focal": "Ponto Focal", "data_inicio_do_contrato": "Data Início",
-        "data_final_do_contrato": "Data Fim"
-    })
-
-    df_projetos_codigos_loc = df_projetos_loc.copy()
-
-    df_projetos_loc = df_projetos_loc.fillna("").astype(str)
-    df_projetos_loc["Data Início"] = pd.to_datetime(df_projetos_loc["Data Início"], format="%d/%m/%Y", errors="coerce")
-    df_projetos_loc["Data Fim"] = pd.to_datetime(df_projetos_loc["Data Fim"], format="%d/%m/%Y", errors="coerce")
-
-    df_projetos_loc["Município(s)"] = df_projetos_loc["Município(s)"].apply(converter_codigos_para_nomes)
-    df_projetos_loc["Município Principal"] = df_projetos_loc["Município Principal"].apply(converter_codigos_para_nomes)
-    df_projetos_loc["Ano"] = df_projetos_loc["Ano"].str.replace(".0", "", regex=False)
-    df_projetos_loc["Estado(s)"] = [converter_uf_codigo_para_nome(proj.get("ufs", "")) for proj in todos_projetos]
-
-    simbolos = {"reais": "R$", "real": "R$", "dólares": "US$", "dólar": "US$", "euros": "€", "euro": "€"}
-    valores_formatados = []
-
-    for i, projeto in enumerate(todos_projetos):
-        valor = df_projetos_loc.at[i, "Valor"]
-        moeda = projeto.get("moeda", "reais").lower()
-        simbolo = simbolos.get(moeda, "")
-        valor_limpo = valor.replace("R$", "").replace("US$", "").replace("€", "").replace(" ", "")
-        try:
-            if "," in valor_limpo and valor_limpo.count(",") == 1:
-                valor_float = float(valor_limpo.replace(".", "").replace(",", "."))
-            else:
-                valor_float = float(valor_limpo.replace(",", ""))
-            valor_formatado = f"{simbolo} {valor_float:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-        except Exception:
-            valor_formatado = f"{simbolo} {valor}" if valor else ""
-        valores_formatados.append(valor_formatado)
-
-    df_projetos_loc["Valor"] = valores_formatados
-
-    return (
-        df_projetos_loc,
-        df_projetos_codigos_loc,
-        projetos_por_codigo,
-        uf_para_nome_loc,
-        codigo_para_nome_loc,
-        todos_projetos,
-    )
-
-
-(
-    df_projetos,
-    df_projetos_codigos,
-    projetos_por_codigo,
-    uf_para_nome,
-    codigo_para_nome,
-    todos_projetos,
-) = montar_dataframe_projetos(pj, pf, projetos_ispn)
+df_projetos["Valor"] = valores_formatados
 
 
 # ##################################################################
 # Início da interface
 # ##################################################################
+
 st.header("Fundo Ecos")
+
 st.write('')
 
 with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
@@ -1710,13 +2081,16 @@ with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
         df_base = df_projetos.copy()
         mask = pd.Series(True, index=df_base.index)
 
+        # ===== PRIMEIRA LINHA =====
         col1, col2 = st.columns([1, 5])
         tipos_disponiveis = ["Projetos PJ", "Projetos PF"]
         tipo_sel = col1.pills("Tipo", tipos_disponiveis, selection_mode="multi")
         busca_geral = col2.text_input("Buscar por Sigla, Proponente, CNPJ ou CPF").strip()
 
+        # ===== Segunda Linha =====
         pessoas_dict = {str(p["_id"]): p["nome_completo"] for p in pessoas.find()}
         programas_dict = {str(p["_id"]): p["nome_programa_area"] for p in programas.find()}
+
         df_base["Ponto Focal"] = df_base["Ponto Focal"].apply(lambda x: pessoas_dict.get(str(x), "Não informado") if pd.notna(x) else "Não informado")
         df_base["Programa"] = df_base["Programa"].apply(lambda x: programas_dict.get(str(x), "Não informado") if pd.notna(x) else "Não informado")
 
@@ -1726,40 +2100,70 @@ with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
         programa_sel = col3.multiselect("Programa", sorted(df_base["Programa"].dropna().unique()), placeholder="Todos")
         genero_sel = col4.multiselect("Gênero", sorted(df_base["Gênero"].dropna().unique()), placeholder="Todos")
 
+        # ===== Terceira Linha =====
         col1, col2, col3, col4 = st.columns(4)
         edital_sel = col1.multiselect("Edital", sorted(df_base["Edital"].dropna().unique(), key=edital_key), placeholder="Todos")
         ano_sel = col2.multiselect("Ano do edital", sorted(df_base["Ano"].dropna().unique()), placeholder="Todos")
         doador_sel = col3.multiselect("Doador", sorted(df_base["Doador"].dropna().unique()), placeholder="Todos")
         codigo_sel = col4.multiselect("Código", sorted(df_base["Código"].dropna().unique()), placeholder="Todos")
 
+        # ===== Quarta Linha =====
         col1, col2, col3, col4 = st.columns(4)
         temas_disponiveis = sorted(df_base["Temas"].dropna().apply(lambda x: [m.strip() for m in x.split(",")]).explode().unique(), key=normalizar)
         temas_sel = col1.multiselect("Temas", temas_disponiveis, placeholder="Todos")
+
         publicos_disponiveis = sorted(df_base["Público"].dropna().apply(lambda x: [m.strip() for m in x.split(",")]).explode().unique(), key=normalizar)
         publicos_sel = col2.multiselect("Público", publicos_disponiveis, placeholder="Todos")
+
         biomas_disponiveis = sorted(df_base["Bioma"].dropna().apply(lambda x: [m.strip() for m in x.split(",")]).explode().unique(), key=normalizar)
         biomas_sel = col3.multiselect("Bioma", biomas_disponiveis, placeholder="Todos")
+
         status_sel = col4.multiselect("Status", sorted(df_base["Status"].dropna().unique()), placeholder="Todos")
 
+        # ===== Quinta Linha =====
         col1, col2, col3, col4 = st.columns(4)
-        data_inicio_filtro = col1.date_input("Data início do projeto", value=None, min_value=datetime.date(1990, 1, 1), format="DD/MM/YYYY")
-        data_fim_filtro = col2.date_input("Data fim do projeto", value=None, min_value=datetime.date(1990, 1, 1), format="DD/MM/YYYY")
+        
+        data_inicio_filtro = col1.date_input(
+            "Data início do projeto",
+            value=None,
+            min_value=datetime.date(1990, 1, 1),
+            format="DD/MM/YYYY"
+        )
+
+        data_fim_filtro = col2.date_input(
+            "Data fim do projeto",
+            value=None,
+            min_value=datetime.date(1990, 1, 1),
+            format="DD/MM/YYYY"
+        )
 
         estados_unicos = sorted(
-            df_base["Estado(s)"].dropna().apply(lambda x: [m.strip() for m in x.split(",")]).explode().unique()
+            df_base["Estado(s)"]
+            .dropna()
+            .apply(lambda x: [m.strip() for m in x.split(",")])
+            .explode()
+            .unique()
         )
         uf_sel = col3.multiselect("Estado(s)", estados_unicos, placeholder="Todos")
 
         municipios_unicos = sorted(
-            df_base["Município(s)"].dropna().apply(lambda x: [m.strip() for m in x.split(",")]).explode().unique()
+            df_base["Município(s)"]
+            .dropna()
+            .apply(lambda x: [m.strip() for m in x.split(",")])
+            .explode()
+            .unique()
         )
         municipio_sel = col4.multiselect("Município(s)", municipios_unicos, placeholder="Todos")
 
+        # ===== Botão =====
         aplicar = st.form_submit_button("Aplicar filtros")
 
+    # ===== Valor padrão =====
     df_filtrado = df_base.copy()
 
+    # ===== Se clicou, aplica =====
     if aplicar:
+        # Aplica todos os filtros (como no código anterior)
         if tipo_sel:
             if "Projetos PJ" in tipo_sel and "Projetos PF" not in tipo_sel:
                 mask &= (df_base["Tipo"] == "PJ")
@@ -1768,7 +2172,6 @@ with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
 
         if busca_geral:
             termo = normalizar(busca_geral)
-
             def corresponde(row):
                 return (
                     termo in normalizar(row["Sigla"]) or
@@ -1776,9 +2179,9 @@ with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
                     termo in normalizar(row["CNPJ"]) or
                     termo in normalizar(row["CPF"])
                 )
-
             mask &= df_base.apply(corresponde, axis=1)
 
+        # Demais filtros...
         if categoria_sel: mask &= df_base["Categoria"].isin(categoria_sel)
         if ponto_focal_sel: mask &= df_base["Ponto Focal"].isin(ponto_focal_sel)
         if programa_sel: mask &= df_base["Programa"].isin(programa_sel)
@@ -1795,24 +2198,38 @@ with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
         if municipio_sel: mask &= df_base["Município(s)"].apply(lambda x: any(m.strip() in municipio_sel for m in x.split(",")) if isinstance(x, str) else False)
 
         if data_inicio_filtro:
-            mask &= (df_base["Data Início"].notna() & (df_base["Data Início"].dt.date >= data_inicio_filtro))
+            mask &= (
+                df_base["Data Início"].notna() &
+                (df_base["Data Início"].dt.date >= data_inicio_filtro)
+            )
+
         if data_fim_filtro:
-            mask &= (df_base["Data Fim"].notna() & (df_base["Data Fim"].dt.date <= data_fim_filtro))
+            mask &= (
+                df_base["Data Fim"].notna() &
+                (df_base["Data Fim"].dt.date <= data_fim_filtro)
+            )
 
         df_filtrado = df_base.loc[mask].copy()
 
         if df_filtrado.empty:
             st.warning("Nenhum projeto encontrado")
+        #else:
+            #st.success(f"{len(df_filtrado)} projetos encontrados")
 
+
+# Salva no session_state para o diálogo de detalhes
 st.session_state["df_filtrado"] = df_filtrado
 
 geral, lista, mapa = st.tabs(["Visão geral", "Projetos", "Mapa"], on_change="rerun")
 
 if geral.open:
     with geral:
-
+    
+        # Separar projetos PF e PJ
         df_pf = df_filtrado[df_filtrado['Tipo'] == 'PF']
         df_pj = df_filtrado[df_filtrado['Tipo'] == 'PJ']
+
+
         total_projetos_pf = len(df_pf)
         total_projetos_pj = len(df_pj)
         total_projetos = len(df_filtrado)
@@ -1823,28 +2240,45 @@ if geral.open:
         municipios_series = extrair_itens_distintos(df_filtrado["Município(s)"])
         total_municipios = municipios_series.nunique()
 
+        # Total de editais únicos (remover vazios)
         total_editais = df_filtrado["Edital"].replace("", pd.NA).dropna().nunique()
+
+        # Total de doadores únicos (remover vazios)
         total_doador = df_filtrado["Doador"].replace("", pd.NA).dropna().nunique()
 
+        # Apresentar em colunas organizadas
         col1, col2, col3 = st.columns(3)
-
+        
+        # Contar CNPJs únicos (organizações apoiadas)
         total_organizacoes = df_pj["CNPJ"].replace("", pd.NA).dropna().nunique()
+
         col1.metric("Editais", f"{total_editais}")
         col1.metric("Doadores", f"{total_doador}")
         col1.metric("Organizações apoiadas", f"{total_organizacoes}")
 
+        
         col2.metric("Total de apoios", f"{total_projetos}")
         col2.metric("Apoios a Pessoa Jurídica", f"{total_projetos_pj}")
         col2.metric("Apoios a Pessoa Física", f"{total_projetos_pf}")
+        
 
         col3.metric("Estados", f"{total_ufs}")
         col3.metric("Municípios", f"{total_municipios}")
 
         st.divider()
 
+        # Inicializar acumuladores
+        valor_total_dolar_corrigido = 0.0
+        valor_nominal_dolar = 0.0
+        valor_nominal_real = 0.0
+
+        # Criar set de códigos filtrados
         codigos_filtrados = set(df_filtrado["Código"].astype(str).str.strip())
+
+        # Filtrar apenas os projetos que estão em df_filtrado
         projetos_filtrados = [p for p in todos_projetos if str(p.get("codigo", "")).strip() in codigos_filtrados]
 
+        # Inicializar acumuladores
         valor_total_dolar_corrigido = 0.0
         valor_nominal_dolar = 0.0
         valor_nominal_real = 0.0
@@ -1852,36 +2286,71 @@ if geral.open:
         for projeto in projetos_filtrados:
             moeda = str(projeto.get("moeda", "")).strip().lower()
 
+            # Valor nominal em US$ (sem correção)
             valor_dolar_original = projeto.get("valor_dolar_original")
             if valor_dolar_original is None or valor_dolar_original == "":
-                valor_dolar_original = projeto.get("valor", 0) if moeda in ("dólar") else 0
+                if moeda in ("dólar"):
+                    valor_dolar_original = projeto.get("valor", 0)
+                else:
+                    valor_dolar_original = 0
             valor_nominal_dolar += parse_valor(valor_dolar_original)
 
+            # Valor atualizado em US$ (corrigido até 2024)
             valor_dolar_atualizado = projeto.get("valor_dolar_atualizado", 0)
             valor_total_dolar_corrigido += parse_valor(valor_dolar_atualizado)
 
+            # Valor nominal em R$ (somente para projetos em real)
             if moeda in ("real"):
                 valor_nominal_real += parse_valor(projeto.get("valor", 0))
 
+
+
+        # Exibição das métricas
         col1, col2, col3 = st.columns(3)
-        col1.metric("Valor total em US$ corrigido até 2025", f"{valor_total_dolar_corrigido:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-        col2.metric("Valor nominal dos contratos em US$", f"{valor_nominal_dolar:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-        col3.metric("Valor nominal dos contratos em R$", f"{valor_nominal_real:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+
+        col1.metric(
+            "Valor total em US$ corrigido até 2025",
+            f"{valor_total_dolar_corrigido:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        )
+
+        col2.metric(
+            "Valor nominal dos contratos em US$",
+            f"{valor_nominal_dolar:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        )
+
+        col3.metric(
+            "Valor nominal dos contratos em R$",
+            f"{valor_nominal_real:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        )
+
 
         st.write("")
         st.write("")
+    
 
+
+
+        # Gráfico  -------------------------------------------------------------------------------------------------------
+
+        # Garantir que os campos são string
         df_filtrado["Ano"] = df_filtrado["Ano"].astype(str)
         df_filtrado["Doador"] = df_filtrado["Doador"].astype(str)
 
-        dados = df_filtrado.groupby(["Ano", "Doador"]).size().reset_index(name="apoios")
-
+        # Agrupamento dos apoios existentes
+        dados = (
+            df_filtrado
+            .groupby(["Ano", "Doador"])
+            .size()
+            .reset_index(name="apoios")
+        )
+        
         if df_filtrado.empty:
-            anos_todos = []
+            anos_todos = []  # garante variável existente
         else:
             try:
                 anos_min = pd.to_numeric(df_filtrado["Ano"], errors="coerce").min()
                 anos_max = pd.to_numeric(df_filtrado["Ano"], errors="coerce").max()
+
                 if pd.notna(anos_min) and pd.notna(anos_max):
                     anos_todos = list(map(str, range(int(anos_min), int(anos_max) + 1)))
                 else:
@@ -1890,15 +2359,47 @@ if geral.open:
                 st.error(f"Erro ao calcular anos disponíveis: {e}")
                 anos_todos = []
 
+        # Preencher com 0 onde não há apoio (para doadores já existentes)
         doadores = dados["Doador"].unique()
         todos_anos_doador = pd.MultiIndex.from_product([anos_todos, doadores], names=["Ano", "Doador"])
         dados_completos = dados.set_index(["Ano", "Doador"]).reindex(todos_anos_doador, fill_value=0).reset_index()
 
         paleta_cores = [
-            "#9F7AEA", "#3B82F6", "#06B6D4", "#22C55E", "#EAB308", "#FB923C", "#EF4444",
-            "#4C1D95", "#1E3A8A", "#155E75", "#166534", "#A16207", "#C2410C", "#991B1B",
-            "#C4B5FD", "#93C5FD", "#67E8F9", "#86EFAC", "#FDE047", "#FDBA74", "#FCA5A5",
-        ]
+        # =====================
+        # MÉDIAS (prioridade 1)
+        # =====================
+        "#9F7AEA",  # violeta
+        "#3B82F6",  # azul
+        "#06B6D4",  # ciano
+        "#22C55E",  # verde
+        "#EAB308",  # amarelo
+        "#FB923C",  # laranja
+        "#EF4444",  # vermelho
+
+        # =====================
+        # ESCURAS (prioridade 2)
+        # =====================
+        "#4C1D95",  # violeta
+        "#1E3A8A",  # azul
+        "#155E75",  # ciano
+        "#166534",  # verde
+        "#A16207",  # amarelo
+        "#C2410C",  # laranja
+        "#991B1B",  # vermelho
+
+        # =====================
+        # CLARAS (ajustadas)
+        # =====================
+        "#C4B5FD",  # violeta (antes muito clara)
+        "#93C5FD",  # azul
+        "#67E8F9",  # ciano
+        "#86EFAC",  # verde
+        "#FDE047",  # amarelo
+        "#FDBA74",  # laranja
+        "#FCA5A5",  # vermelho
+    ]
+
+
 
         fig = px.bar(
             dados_completos,
@@ -1912,30 +2413,49 @@ if geral.open:
             height=600,
             category_orders={"Ano": anos_todos}
         )
-        fig.update_traces(marker=dict(line=dict(width=1, color="white")))
+
+
+        fig.update_traces(
+            marker=dict(
+                line=dict(
+                    width=1,
+                    color="white"
+                )
+            )
+        )
+
+        # Estética
         fig.update_layout(
             xaxis_tickangle=-45,
             xaxis=dict(type='category'),
             legend_font_size=17,
-            bargap=0.1,
-            bargroupgap=0.05,
+            bargap=0.1,         # espaço entre anos
+            bargroupgap=0.05,   # barras mais grossas
             margin=dict(t=60, b=60, l=40, r=10)
         )
 
+        # Mostrar
         st.plotly_chart(fig)
+
 
 if lista.open:
     with lista:
+
         st.write("")
 
+        # Gera o Excel em memória
         output = io.BytesIO()
         df_filtrado.to_excel(output, index=False)
         output.seek(0)
 
+        # Nome do arquivo
         data_de_hoje = datetime.date.today().strftime("%d-%m-%Y")
 
         if set(st.session_state.tipo_usuario) & {"admin", "gestao_fundo_ecos"}:
+            
+
             container_botoes = st.container(horizontal=True, horizontal_alignment="right")
+
             container_botoes.download_button(
                 label="Baixar tabela",
                 data=output,
@@ -1944,9 +2464,19 @@ if lista.open:
                 width=260,
                 icon=":material/file_download:"
             )
-            container_botoes.button("Cadastrar proponente", on_click=cadastrar_proponente, width=260, icon=":material/add_business:")
-            container_botoes.button("Gerenciar projetos", on_click=gerenciar_projetos, width=260, icon=":material/contract_edit:")
+
+            container_botoes.button("Cadastrar proponente", on_click=cadastrar_proponente, 
+                                    width=260, 
+                                    icon=":material/add_business:")
+
+            container_botoes.button("Gerenciar projetos", on_click=gerenciar_projetos, 
+                                    width=260, 
+                                    icon=":material/contract_edit:")
+            
+            
+
         else:
+
             container_botoes = st.container(horizontal=True, horizontal_alignment="center")
             container_botoes.download_button(
                 label="Baixar projetos filtrados",
@@ -1957,6 +2487,8 @@ if lista.open:
                 icon=":material/file_download:"
             )
 
+
+        # --- Ordenar Ano desc, Código asc ---
         df_exibir = (
             st.session_state["df_filtrado"]
             .copy()
@@ -1964,34 +2496,71 @@ if lista.open:
             .reset_index(drop=True)
         )
 
+        # --- Paginação ---
         itens_por_pagina = 50
         total_linhas = len(df_exibir)
         total_paginas = max(math.ceil(total_linhas / itens_por_pagina), 1)
-
+        
+        # Inicializar paginação
         if "pagina_atual" not in st.session_state:
             st.session_state["pagina_atual"] = 1
+
         if "pagina_topo" not in st.session_state:
             st.session_state["pagina_topo"] = 1
+
         if "pagina_rodape" not in st.session_state:
             st.session_state["pagina_rodape"] = 1
 
+
+        # ==================================================
+        # GARANTIR QUE VALORES DE PAGINAÇÃO NUNCA SEJAM NONE
+        # ==================================================
+
         if st.session_state.get("pagina_atual") is None:
             st.session_state["pagina_atual"] = 1
+
         if st.session_state.get("pagina_topo") is None:
             st.session_state["pagina_topo"] = 1
+
         if st.session_state.get("pagina_rodape") is None:
             st.session_state["pagina_rodape"] = 1
 
+        # Garantir que total_paginas nunca seja None
         total_paginas = total_paginas or 1
 
-        st.session_state["pagina_atual"] = min(int(st.session_state["pagina_atual"]), int(total_paginas))
-        st.session_state["pagina_topo"] = min(int(st.session_state["pagina_topo"]), int(total_paginas))
-        st.session_state["pagina_rodape"] = min(int(st.session_state["pagina_rodape"]), int(total_paginas))
+        # Corrigir limites máximos
+        st.session_state["pagina_atual"] = min(
+            int(st.session_state["pagina_atual"]),
+            int(total_paginas)
+        )
 
-        st.session_state["pagina_atual"] = max(int(st.session_state["pagina_atual"]), 1)
-        st.session_state["pagina_topo"] = max(int(st.session_state["pagina_topo"]), 1)
-        st.session_state["pagina_rodape"] = max(int(st.session_state["pagina_rodape"]), 1)
+        st.session_state["pagina_topo"] = min(
+            int(st.session_state["pagina_topo"]),
+            int(total_paginas)
+        )
 
+        st.session_state["pagina_rodape"] = min(
+            int(st.session_state["pagina_rodape"]),
+            int(total_paginas)
+        )
+
+        # Garantir mínimo = 1
+        st.session_state["pagina_atual"] = max(
+            int(st.session_state["pagina_atual"]),
+            1
+        )
+
+        st.session_state["pagina_topo"] = max(
+            int(st.session_state["pagina_topo"]),
+            1
+        )
+
+        st.session_state["pagina_rodape"] = max(
+            int(st.session_state["pagina_rodape"]),
+            1
+        )
+
+        # --- Funções de callback para sincronização ---
         def atualizar_topo():
             st.session_state["pagina_atual"] = st.session_state["pagina_topo"]
             st.session_state["pagina_rodape"] = st.session_state["pagina_topo"]
@@ -2000,37 +2569,72 @@ if lista.open:
             st.session_state["pagina_atual"] = st.session_state["pagina_rodape"]
             st.session_state["pagina_topo"] = st.session_state["pagina_rodape"]
 
-        col1, col2, col3 = st.columns([1, 2, 5])
-        col1.number_input("Página", min_value=1, max_value=total_paginas, step=1, key="pagina_topo", on_change=atualizar_topo)
+        # --- Controle topo ---
+        col1, col2, col3 = st.columns([1,2,5])
 
+
+        col1.number_input(
+            "Página",
+            min_value=1,
+            max_value=total_paginas,
+            step=1,
+            key="pagina_topo",
+            on_change=atualizar_topo
+        )
+
+        # --- Definir intervalo de linhas ---
         inicio = (st.session_state["pagina_atual"] - 1) * itens_por_pagina
         fim = inicio + itens_por_pagina
         df_paginado = df_exibir.iloc[inicio:fim]
 
+
+
+        # --- Informação de contagem ---
+        # with col1:
+        # st.write("")
         st.write(f"Mostrando **{inicio + 1}** a **{min(fim, total_linhas)}** de **{total_linhas}** projetos")
         st.write("")
         st.write("")
 
+
+        # --- Layout da tabela customizada ---
+        # colunas_visiveis = [c for c in df_exibir.columns]  # personalizar se quiser excluir colunas
         colunas_visiveis = [
             c for c in df_exibir.columns
             if c not in [
-                "Tipo", "Município(s)", "Latitude/Longitude", "CNPJ", "CPF", "Proponente",
-                "Programa", "Temas", "Público", "Bioma", "Gênero", "Status", "Ponto Focal",
-                "Data Início", "Data Fim"
+                "Tipo",
+                "Município(s)",
+                "Latitude/Longitude",
+                "CNPJ",
+                "CPF",
+                "Proponente",
+                "Programa",
+                "Temas",
+                "Público",
+                "Bioma",
+                "Gênero",
+                "Status",
+                "Ponto Focal",
+                "Data Início",
+                "Data Fim"
             ]
         ]
+
         headers = colunas_visiveis + ["Detalhes"]
-        col_sizes = [2, 2, 1, 2, 2, 2, 1, 2, 3, 3]
+
+        col_sizes = [2, 2, 1, 2, 2, 2, 1, 2, 3, 3]  
 
         header_cols = st.columns(col_sizes)
         for col, header in zip(header_cols, headers):
             col.markdown(f"**{header}**")
+
         st.divider()
 
         for _, row in df_paginado.iterrows():
             cols = st.columns(col_sizes)
             for j, key in enumerate(colunas_visiveis):
                 cols[j].write(row[key])
+
             codigo_proj = str(row["Código"]).strip()
             cols[-1].button(
                 "Detalhes",
@@ -2042,8 +2646,21 @@ if lista.open:
             )
             st.divider()
 
-        col1, col2, col3 = st.columns([1, 2, 5])
-        col1.number_input("Página", min_value=1, max_value=total_paginas, step=1, key="pagina_rodape", on_change=atualizar_rodape)
+        # --- Controle rodapé ---
+        col1, col2, col3 = st.columns([1,2,5])
+
+
+        # --- Informação de contagem ---
+
+        col1.number_input(
+            "Página",
+            min_value=1,
+            max_value=total_paginas,
+            step=1,
+            key="pagina_rodape",
+            on_change=atualizar_rodape
+        )
+
         st.write(f"**Mostrando {inicio + 1} a {min(fim, total_linhas)} de {total_linhas} projetos**")
         st.write("")
         st.write("")
@@ -2052,9 +2669,17 @@ if mapa.open:
     with mapa:
         st.subheader("Mapa de distribuição de projetos")
 
+        # ==========================================================
+        # MODO DE VISUALIZAÇÃO DO MAPA
+        # ==========================================================
+
         modo_mapa = st.radio(
             "Visualização",
-            ["Cluster (município principal)", "Spider (município principal)", "Pontos (lat long principal)"],
+            [
+                "Cluster (município principal)",
+                "Spider (município principal)",
+                "Pontos (lat long principal)"
+            ],
             horizontal=True
         )
 
@@ -2070,44 +2695,114 @@ if mapa.open:
 
         @st.cache_data(show_spinner=False)
         def preparar_df_coords(df_projetos_codigos, df_filtrado, df_munis, usar_latlong_exata=False):
+
+            # ==========================================================
+            # EXTRAI CÓDIGO DO MUNICÍPIO PRINCIPAL
+            # ==========================================================
+
             df_projetos_codigos['codigo_municipio'] = [
                 m.split(",")[0].strip() if m else ""
                 for m in df_projetos_codigos['Município Principal']
             ]
 
+            # ==========================================================
+            # FILTRA SOMENTE OS PROJETOS VISÍVEIS
+            # ==========================================================
+
             df_filtrado_proj = df_projetos_codigos[
                 df_projetos_codigos["Código"].isin(df_filtrado["Código"])
             ].copy()
-            df_filtrado_proj["Ano"] = df_filtrado_proj["Ano"].astype(str).str.replace(".0", "", regex=False)
+
+            df_filtrado_proj["Ano"] = (
+                df_filtrado_proj["Ano"]
+                .astype(str)
+                .str.replace(".0", "", regex=False)
+            )
+
+            # ==========================================================
+            # MODO PONTOS → USA lat_long_principal
+            # ==========================================================
 
             if usar_latlong_exata:
+
                 def extrair_lat_lon(valor):
                     try:
                         if not valor:
                             return pd.Series([None, None])
+
                         partes = [p.strip() for p in str(valor).split(",")]
+
                         if len(partes) != 2:
                             return pd.Series([None, None])
-                        return pd.Series([float(partes[0]), float(partes[1])])
+
+                        lat = float(partes[0])
+                        lon = float(partes[1])
+
+                        return pd.Series([lat, lon])
+
                     except Exception:
                         return pd.Series([None, None])
 
-                df_filtrado_proj[["latitude", "longitude"]] = df_filtrado_proj["Latitude/Longitude"].apply(extrair_lat_lon)
-                df_coords = df_filtrado_proj.dropna(subset=["latitude", "longitude"]).drop_duplicates(subset="Código")
+                df_filtrado_proj[["latitude", "longitude"]] = (
+                    df_filtrado_proj["Latitude/Longitude"]
+                    .apply(extrair_lat_lon)
+                )
+
+                df_coords = (
+                    df_filtrado_proj
+                    .dropna(subset=["latitude", "longitude"])
+                    .drop_duplicates(subset="Código")
+                )
+
                 return df_coords
 
-            df_filtrado_proj["codigo_municipio"] = df_filtrado_proj["Município Principal"].astype(str)
-            df_coords = df_filtrado_proj.merge(df_munis, on="codigo_municipio", how="left")
-            df_coords = df_coords.dropna(subset=["latitude", "longitude"]).drop_duplicates(subset="Código")
+            # ==========================================================
+            # MODO CLUSTER → USA MUNICÍPIO PRINCIPAL
+            # ==========================================================
+
+            df_filtrado_proj["codigo_municipio"] = (
+                df_filtrado_proj["Município Principal"]
+                .astype(str)
+            )
+
+            df_coords = df_filtrado_proj.merge(
+                df_munis,
+                left_on="codigo_municipio",
+                right_on="codigo_municipio",
+                how="left"
+            )
+
+            df_coords = (
+                df_coords
+                .dropna(subset=["latitude", "longitude"])
+                .drop_duplicates(subset="Código")
+            )
+
             return df_coords
 
         @st.cache_data(show_spinner=False)
         def carregar_pontos_focais(_projetos):
-            ids = [p["ponto_focal"] for p in _projetos if isinstance(p.get("ponto_focal"), ObjectId)]
+
+            ids = [
+                p["ponto_focal"]
+                for p in _projetos
+                if isinstance(p.get("ponto_focal"), ObjectId)
+            ]
+
             if not ids:
                 return {}
-            pessoas_cursor = list(db["pessoas"].find({"_id": {"$in": ids}}, {"_id": 1, "nome_completo": 1}))
-            return {p["_id"]: p.get("nome_completo", "Não encontrado") for p in pessoas_cursor}
+
+            pessoas = list(
+                db["pessoas"].find(
+                    {"_id": {"$in": ids}},
+                    {"_id": 1, "nome_completo": 1}
+                )
+            )
+
+            return {
+                p["_id"]: p.get("nome_completo", "Não encontrado")
+                for p in pessoas
+            }
 
         df_coords_projetos = preparar_df_coords(
             df_projetos_codigos,
@@ -2117,26 +2812,59 @@ if mapa.open:
         )
 
         num_proj_mapa = len(df_coords_projetos)
+
         pontos_focais_dict = carregar_pontos_focais(todos_projetos)
+
         st.write(f"{num_proj_mapa} projetos no mapa")
 
         @st.cache_data(show_spinner=False)
-        def gerar_mapa(df_coords_projetos, _projetos_dict, _municipios_dict, usar_cluster=True, modo_spider=False):
-            m = folium.Map(location=[-15.78, -47.93], zoom_start=4, tiles="CartoDB positron", height="800px")
+        def gerar_mapa(
+            df_coords_projetos,
+            _projetos_dict,
+            _municipios_dict,
+            usar_cluster=True,
+            modo_spider=False
+        ):
+
+            # ==========================================================
+            # MAPA BASE
+            # ==========================================================
+
+            m = folium.Map(
+                location=[-15.78, -47.93],
+                zoom_start=4,
+                tiles="CartoDB positron",
+                height="800px"
+            )
+
+            # ==========================================================
+            # DEFINE DESTINO DOS MARCADORES
+            # ==========================================================
 
             if modo_spider:
                 camada_destino = folium.FeatureGroup(name="Projetos")
                 camada_destino.add_to(m)
+
             elif usar_cluster:
                 camada_destino = MarkerCluster().add_to(m)
+
             else:
                 camada_destino = m
 
+            # ==========================================================
+            # ADICIONA MARCADORES
+            # ==========================================================
+
             for _, row in df_coords_projetos.iterrows():
+
                 lat, lon = row['latitude'], row['longitude']
+
                 codigo = row['Código']
+
                 ano_de_aprovacao = row['Ano']
+
                 projeto = _projetos_dict.get(codigo)
+
                 if not projeto:
                     continue
 
@@ -2147,31 +2875,83 @@ if mapa.open:
                 sigla = projeto.get("sigla")
                 edital = projeto.get("edital")
 
-                ponto_focal_obj = projeto.get("ponto_focal")
-                nome_ponto_focal = pontos_focais_dict.get(ponto_focal_obj, "Não informado")
+                # ==========================================================
+                # PONTO FOCAL
+                # ==========================================================
 
-                muni_principal_codigo = str(row.get('codigo_municipio', '')).strip()
+                ponto_focal_obj = projeto.get("ponto_focal")
+
+                nome_ponto_focal = pontos_focais_dict.get(
+                    ponto_focal_obj,
+                    "Não informado"
+                )
+
+                # ==========================================================
+                # MUNICÍPIO PRINCIPAL
+                # ==========================================================
+
+                muni_principal_codigo = str(
+                    row.get('codigo_municipio', '')
+                ).strip()
+
                 muni_principal_info = _municipios_dict.get(muni_principal_codigo)
 
                 if muni_principal_info:
+
                     nome_muni_principal = muni_principal_info["nome"].title()
-                    uf_sigla_principal = codigo_uf_para_sigla.get(str(int(muni_principal_info["codigo_uf"])), "")
+
+                    uf_sigla_principal = codigo_uf_para_sigla.get(
+                        str(int(muni_principal_info["codigo_uf"])),
+                        ""
+                    )
+
                     muni_principal_str = f"{nome_muni_principal} - {uf_sigla_principal}"
+
                 else:
+
                     muni_principal_str = "Não informado"
 
-                codigos_municipios_projeto = [c.strip() for c in str(row.get('Município(s)', '')).split(',') if c.strip()]
+                # ==========================================================
+                # DEMAIS MUNICÍPIOS
+                # ==========================================================
+
+                codigos_municipios_projeto = [
+                    c.strip()
+                    for c in str(row.get('Município(s)', '')).split(',')
+                    if c.strip()
+                ]
+
                 demais_municipios = []
+
                 for cod in codigos_municipios_projeto:
+
                     if cod == muni_principal_codigo:
                         continue
-                    muni_info = municipios_dict.get(cod)
-                    if muni_info:
-                        nome_muni = muni_info["nome"].title()
-                        uf_sigla = codigo_uf_para_sigla.get(str(int(muni_info["codigo_uf"])), "")
-                        demais_municipios.append(f"{nome_muni} - {uf_sigla}")
 
-                demais_municipios_html = "<br>".join(demais_municipios) if demais_municipios else "Nenhum"
+                    muni_info = municipios_dict.get(cod)
+
+                    if muni_info:
+
+                        nome_muni = muni_info["nome"].title()
+
+                        uf_sigla = codigo_uf_para_sigla.get(
+                            str(int(muni_info["codigo_uf"])),
+                            ""
+                        )
+
+                        demais_municipios.append(
+                            f"{nome_muni} - {uf_sigla}"
+                        )
+
+                demais_municipios_html = (
+                    "<br>".join(demais_municipios)
+                    if demais_municipios
+                    else "Nenhum"
+                )
+
+                # ==========================================================
+                # POPUP
+                # ==========================================================
 
                 popup_html = f"""
                     <b>Proponente:</b> {proponente}<br>
@@ -2190,20 +2970,47 @@ if mapa.open:
                 folium.Marker(
                     location=[lat, lon],
                     popup=folium.Popup(popup_html, max_width=400),
+
                     icon=folium.Icon(color="blue")
+
                 ).add_to(camada_destino)
 
             if modo_spider:
-                OverlappingMarkerSpiderfier(keep_spiderfied=True, nearby_distance=20).add_to(m)
+                OverlappingMarkerSpiderfier(
+                    keep_spiderfied=True,
+                    nearby_distance=20,
+                ).add_to(m)
 
             return m
+
+        # ==========================================================
+        # CONTROLE CLUSTER / PONTOS
+        # ==========================================================
 
         usar_cluster = modo_mapa == "Cluster (município principal)"
         modo_spider = modo_mapa == "Spider (município principal)"
 
-        projetos_dict = {p["codigo"]: p for p in todos_projetos}
-        municipios_dict = df_munis.set_index("codigo_municipio").to_dict("index")
+        projetos_dict = {
+            p["codigo"]: p
+            for p in todos_projetos
+        }
 
-        mapa_folium = gerar_mapa(df_coords_projetos, projetos_dict, municipios_dict, usar_cluster=usar_cluster)
+        municipios_dict = (
+            df_munis
+            .set_index("codigo_municipio")
+            .to_dict("index")
+        )
 
-        st_folium(mapa_folium, width=None, height=800, returned_objects=[])
+        mapa_folium = gerar_mapa(
+            df_coords_projetos,
+            projetos_dict,
+            municipios_dict,
+            usar_cluster=usar_cluster
+        )
+
+        st_folium(
+            mapa_folium,
+            width=None,
+            height=800,
+            returned_objects=[]
+        )
