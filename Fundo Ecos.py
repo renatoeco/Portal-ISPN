@@ -500,7 +500,7 @@ def mostrar_detalhes(codigo_proj: str):
             linhas.append({"Tipo de região": nome_coluna, "Nome": nome, "Código": codigo})
 
         df_regioes = pd.DataFrame(linhas)
-        st.dataframe(df_regioes, use_container_width=True, hide_index=True)
+        st.dataframe(df_regioes, width="content", hide_index=True)
 
     with aba_indicadores:
 
