@@ -241,31 +241,71 @@ def calendario_eventos():
         st.info("Nenhum evento previsto ou confirmado para exibir.")
         return
 
+    # ----------------------------------------------------------
+    # Legenda das cores do calendário
+    # ----------------------------------------------------------
+    
+    st.write("")
+    st.write("")
+    
+    col1, col2, _ = st.columns([1.2, 1.2, 6])
+
+    with col1:
+        st.markdown(
+            """
+            <div style="display:flex;align-items:center;">
+                <div style="
+                    width:16px;
+                    height:16px;
+                    background:#2ECC71;
+                    border-radius:3px;
+                    margin-right:8px;">
+                </div>
+                <span>Confirmado</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    with col2:
+        st.markdown(
+            """
+            <div style="display:flex;align-items:center;">
+                <div style="
+                    width:16px;
+                    height:16px;
+                    background:#F4D03F;
+                    border-radius:3px;
+                    margin-right:8px;">
+                </div>
+                <span>Previsto</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    st.write("")
+    st.write("")
+    st.write("")
+
     calendar_options = {
         "headerToolbar": {
             "left": "today prev,next",
             "center": "title",
             "right": "dayGridMonth,dayGridWeek,listWeek"
         },
-
-        # Tradução automática do FullCalendar
         "locale": "pt-br",
-
-        # Tradução manual dos botões (opcional, mas recomendado)
         "buttonText": {
             "today": "Hoje",
             "month": "Mês",
             "week": "Semana",
             "list": "Lista"
         },
-
-        # Textos de tooltip (opcional)
         "buttonHints": {
             "today": "Ir para o mês atual",
             "prev": "Mês anterior",
             "next": "Próximo mês"
         },
-
         "initialView": "dayGridMonth",
         "selectable": False,
         "editable": False,
