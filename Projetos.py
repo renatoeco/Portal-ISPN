@@ -2188,7 +2188,7 @@ projeto_estrategico = (
 
 st.divider()
 
-with st.container(horizontal=True):
+with st.container(horizontal=True, horizontal_alignment="distribute"):
 
     # Sigla do projeto
     st.markdown(f"<h3 style='color:#007ad3'>{projeto_selecionado}</h3>", unsafe_allow_html=True)
