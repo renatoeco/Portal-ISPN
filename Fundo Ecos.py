@@ -532,7 +532,7 @@ def mostrar_detalhes(codigo_proj: str):
 
         df_regioes = pd.DataFrame(linhas)
 
-        st.dataframe(df_regioes, use_container_width=True, hide_index=True)    
+        st.dataframe(df_regioes, width="content", hide_index=True)    
 
 
     with aba_indicadores:
@@ -2830,10 +2830,17 @@ if mapa.open:
             # MAPA BASE
             # ==========================================================
 
+            tiles = (
+                "Esri.WorldImagery"
+                if not usar_cluster and not modo_spider
+                else "CartoDB positron"
+            )
+
             m = folium.Map(
                 location=[-15.78, -47.93],
                 zoom_start=4,
-                tiles="CartoDB positron",
+                tiles=tiles,
+                attr="Esri",
                 height="800px"
             )
 
@@ -2855,9 +2862,19 @@ if mapa.open:
             # ADICIONA MARCADORES
             # ==========================================================
 
+            # Quantidade de projetos por coordenada
+            contagem_por_ponto = (
+                df_coords_projetos
+                .groupby(["latitude", "longitude"])
+                .size()
+                .to_dict()
+            )
+
             for _, row in df_coords_projetos.iterrows():
 
                 lat, lon = row['latitude'], row['longitude']
+                
+                numero_projetos = contagem_por_ponto[(lat, lon)]
 
                 codigo = row['Código']
 
@@ -2967,12 +2984,43 @@ if mapa.open:
                     {demais_municipios_html}
                 """
 
+                # ==========================================================
+                # ÍCONE DO MARCADOR
+                # ==========================================================
+
+                if modo_spider:
+
+                    # No modo Spider mostra a quantidade de projetos
+                    icon = folium.DivIcon(
+                        html=f"""
+                        <div style="
+                            background:#1976d2;
+                            color:white;
+                            border-radius:50%;
+                            width:28px;
+                            height:28px;
+                            line-height:28px;
+                            text-align:center;
+                            font-weight:bold;
+                            border:2px solid white;
+                            box-shadow:0 0 4px rgba(0,0,0,.4);
+                            font-size:12px;
+                        ">
+                            {numero_projetos if numero_projetos > 1 else ""}
+                        </div>
+                        """
+                    )
+
+                else:
+
+                    # Cluster e Pontos usam o marcador padrão do Folium
+                    icon = folium.Icon(color="blue", icon="info-sign")
+
+
                 folium.Marker(
                     location=[lat, lon],
                     popup=folium.Popup(popup_html, max_width=400),
-
-                    icon=folium.Icon(color="blue")
-
+                    icon=icon
                 ).add_to(camada_destino)
 
             if modo_spider:
@@ -3005,7 +3053,8 @@ if mapa.open:
             df_coords_projetos,
             projetos_dict,
             municipios_dict,
-            usar_cluster=usar_cluster
+            usar_cluster=usar_cluster,
+            modo_spider=modo_spider
         )
 
         st_folium(
