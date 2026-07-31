@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd 
 import plotly.express as px
 import datetime
+import re
 from bson import ObjectId
 import time
 from funcoes_auxiliares import conectar_mongo_portal_ispn
@@ -229,6 +230,15 @@ opcoes_cargos = [
     "Coordenador Geral administrativo/financeiro", "Coordenador Executivo", "Coordenador de Área", "Coordenador de Programa", "Estagiário",
     "Motorista", "Secretária(o)/Recepcionista", "Técnico de campo", "Técnico em informática"
 ]
+
+
+def normalizar_cpf(cpf):
+    """
+    Remove qualquer caractere que não seja número.
+    Exemplo:
+    123.456.789-00 -> 12345678900
+    """
+    return re.sub(r"\D", "", str(cpf or ""))
 
 
 def contrato_mais_recente(contratos):
@@ -2310,6 +2320,30 @@ def gerenciar_pessoas(pessoa_id=None):
 
                     # Ano atual para armazenar dados de férias
                     ano_atual = str(datetime.datetime.now().year)
+                    
+                    # ------------------------------------------------------------------
+                    # Validação de CPF duplicado
+                    # ------------------------------------------------------------------
+
+                    cpf_normalizado = normalizar_cpf(cpf)
+
+                    if cpf_normalizado:
+
+                        cpf_existente = next(
+                            (
+                                p for p in dados_pessoas
+                                if normalizar_cpf(p.get("CPF")) == cpf_normalizado
+                            ),
+                            None
+                        )
+
+                        if cpf_existente:
+                            st.error(
+                                f"O CPF informado já está cadastrado para "
+                                f"**{cpf_existente.get('nome_completo', 'outro colaborador')}**.",
+                                icon=":material/error:"
+                            )
+                            st.stop()
 
                     # Monta o documento para inserção no MongoDB
                     novo_documento = {
