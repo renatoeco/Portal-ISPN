@@ -629,6 +629,8 @@ def terceiro_esta_impedido(cpf_viajante, df_savs_trc, df_rvss_trc):
     viagem finalizada sem relatório entregue.
     """
 
+    limite = date.today() - timedelta(days=15)
+    
     cpf_viajante = "".join(filter(str.isdigit, str(cpf_viajante)))
 
     df_savs_trc = df_savs_trc.copy()
@@ -665,13 +667,15 @@ def terceiro_esta_impedido(cpf_viajante, df_savs_trc, df_rvss_trc):
         if pd.isna(fim_viagem):
             continue
 
-        if fim_viagem.date() < date.today():
+        if fim_viagem.date() < limite:
             return True
 
     return False
 
 
 def usuario_esta_impedido(df_savs_usuario, df_rvss):
+    
+    limite = date.today() - timedelta(days=15)
 
     codigos_com_rvs = (
         df_rvss["Código da viagem:"]
@@ -703,7 +707,7 @@ def usuario_esta_impedido(df_savs_usuario, df_rvss):
         if pd.isna(fim_viagem):
             continue
 
-        if fim_viagem.date() < date.today():
+        if fim_viagem.date() < limite:
             return True
 
     return False
