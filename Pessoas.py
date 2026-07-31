@@ -2629,11 +2629,20 @@ with aba_pessoas:
 
     #Tipo de contratação
     tipos_contratacao = sorted(df_pessoas["Tipo Contratação"].dropna().unique())
+    
+    # Escritórios
+    escritorios = sorted(
+        df_pessoas["Escritório"]
+        .fillna("")
+        .replace("", "Não informado")
+        .unique()
+    )
 
     # Filtros
     with st.container(horizontal=True):
         programa = st.selectbox("Programa / Área", ["Todos"] + programas)
-        projeto = st.selectbox("Projeto", ["Todos"] + projetos) 
+        projeto = st.selectbox("Projeto", ["Todos"] + projetos)
+        escritorio = st.selectbox("Escritório", ["Todos"] + escritorios)
         tipo_contratacao = st.selectbox("Tipo de contratação", ["Todas"] + list(tipos_contratacao))
         status = st.selectbox("Status", ["ativo", "inativo"], index=0)
 
@@ -2648,9 +2657,18 @@ with aba_pessoas:
             df_pessoas_filtrado["Programa/Área"].str.contains(programa, na=False)
         ]
 
-
     if projeto != "Todos":
         df_pessoas_filtrado = df_pessoas_filtrado[df_pessoas_filtrado["Projeto Pagador"].str.contains(projeto)]
+
+    if escritorio != "Todos":
+        if escritorio == "Não informado":
+            df_pessoas_filtrado = df_pessoas_filtrado[
+                df_pessoas_filtrado["Escritório"].fillna("").eq("")
+            ]
+        else:
+            df_pessoas_filtrado = df_pessoas_filtrado[
+                df_pessoas_filtrado["Escritório"] == escritorio
+            ]
 
     if tipo_contratacao != "Todas":
         df_pessoas_filtrado = df_pessoas_filtrado[df_pessoas_filtrado["Tipo Contratação"] == tipo_contratacao]
