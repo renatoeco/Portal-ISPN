@@ -4025,7 +4025,7 @@ for i, aba in enumerate(abas):
 
 
 
-                if not df_projetos.empty:
+                if not df_projetos.empty and situacao_filtro != "Estratégico":
                     # Gráfico timeline com plotly express, com um projeto por linha
 
                     # Tentando calcular a altura do gráfico dinamicamente
