@@ -2632,11 +2632,16 @@ with aba_pessoas:
     
     # Escritórios
     escritorios = sorted(
-        df_pessoas["Escritório"]
-        .fillna("")
-        .replace("", "Não informado")
-        .unique()
+        df_pessoas.loc[
+            df_pessoas["Escritório"].fillna("").ne(""),
+            "Escritório"
+        ].unique()
     )
+
+    # Adiciona "Não informado" apenas se existir pelo menos
+    # uma pessoa sem escritório definido.
+    if df_pessoas["Escritório"].fillna("").eq("").any():
+        escritorios.append("Não informado")
 
     # Filtros
     with st.container(horizontal=True):
