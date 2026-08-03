@@ -440,7 +440,11 @@ def dialog_editar_entregas():
     # ==========================================================
 
     mapa_acoes_programa = {}
+    mapa_acoes_programa_formatadas = {}
+
     mapa_resultados_programa = {}
+    mapa_resultados_programa_formatados = {}
+    
 
     programas_ids = set()
 
@@ -508,23 +512,35 @@ def dialog_editar_entregas():
         if doc.get("_id") not in programas_ids:
             continue
 
+        nome_programa = doc.get("nome_programa_area", "")
+
         # -----------------------------------------
         # AÇÕES ESTRATÉGICAS
         # -----------------------------------------
         for acao in doc.get("acoes_estrategicas", []):
 
-            mapa_acoes_programa[str(acao["_id"])] = (
-                acao.get("acao_estrategica", "")
+            acao_id = str(acao["_id"])
+
+            mapa_acoes_programa[acao_id] = acao.get(
+                "acao_estrategica",
+                ""
             )
+
+            mapa_acoes_programa_formatadas[acao_id] = nome_programa
 
         # -----------------------------------------
         # RESULTADOS DO PROGRAMA
         # -----------------------------------------
         for resultado in doc.get("resultados_programa", []):
 
-            mapa_resultados_programa[str(resultado["_id"])] = (
-                resultado.get("titulo", "")
+            resultado_id = str(resultado["_id"])
+
+            mapa_resultados_programa[resultado_id] = resultado.get(
+                "titulo",
+                ""
             )
+
+            mapa_resultados_programa_formatados[resultado_id] = nome_programa
 
     for doc in dados_estrategia:
         for resultado in doc.get("resultados_medio_prazo", {}).get("resultados_mp", []):
@@ -561,8 +577,22 @@ def dialog_editar_entregas():
     # Mapeia ações estratégicas considerando múltiplos programas
     programas_ids = set(programas_do_projeto)
 
-    acoes_programa_options = sorted(mapa_acoes_programa.keys(),key=lambda x: mapa_acoes_programa[x])  
-    resultados_programa_options = sorted(mapa_resultados_programa.keys(), key=lambda x: mapa_resultados_programa[x])          
+    acoes_programa_options = sorted(
+        mapa_acoes_programa.keys(),
+        key=lambda x: (
+            mapa_acoes_programa_formatadas.get(x, "").lower(),
+            mapa_acoes_programa.get(x, "").lower()
+        )
+    )
+
+    resultados_programa_options = sorted(
+        mapa_resultados_programa.keys(),
+        key=lambda x: (
+            mapa_resultados_programa_formatados.get(x, "").lower(),
+            mapa_resultados_programa.get(x, "").lower()
+        )
+    )       
+
     metas_mp_options = sorted(mapa_metas_mp.keys(), key=lambda x: mapa_metas_mp[x])
     acoes_mp_options = sorted(mapa_acoes_mp.keys(), key=lambda x: mapa_acoes_mp[x])
     acoes_lp_options = sorted(mapa_acoes_lp.keys(),key=lambda x: mapa_acoes_lp[x])
@@ -709,7 +739,10 @@ def dialog_editar_entregas():
                 resultados_programa_relacionados = st.multiselect(
                     "Contribui com quais resultados do(s) programa(s)?",
                     options=resultados_programa_options,
-                    format_func=lambda x: mapa_resultados_programa.get(x, ""),
+                    format_func=lambda x: (
+                        f"[{mapa_resultados_programa_formatados.get(x, '')}] "
+                        f"{mapa_resultados_programa.get(x, '')}"
+                    ),
                     placeholder="",
                     key="nova_resultados_programa"
                 )
@@ -717,7 +750,10 @@ def dialog_editar_entregas():
                 acoes_relacionados = st.multiselect(
                     "Contribui com quais ações estratégicas do(s) programa(s)?",
                     options=acoes_programa_options,
-                    format_func=lambda x: mapa_acoes_programa.get(x, ""),
+                    format_func=lambda x: (
+                        f"[{mapa_acoes_programa_formatadas.get(x, '')}] "
+                        f"{mapa_acoes_programa.get(x, '')}"
+                    ),
                     placeholder="",
                     key="nova_acoesrel"
                 )
@@ -1151,7 +1187,10 @@ def dialog_editar_entregas():
                                 "Contribui com quais resultados do(s) programa(s)?",
                                 options=resultados_programa_options,
                                 default=resultados_prog_default,
-                                format_func=lambda x: mapa_resultados_programa.get(x, ""),
+                                format_func=lambda x: (
+                                    f"[{mapa_resultados_programa_formatados.get(x, '')}] "
+                                    f"{mapa_resultados_programa.get(x, '')}"
+                                ),
                                 placeholder=""
                             )
 
@@ -1173,7 +1212,10 @@ def dialog_editar_entregas():
                                 "Contribui com quais ações estratégicas do(s) programa(s)?",
                                 options=acoes_programa_options,
                                 default=acoes_programa_default,
-                                format_func=lambda x: mapa_acoes_programa.get(x, ""),
+                                format_func=lambda x: (
+                                    f"[{mapa_acoes_programa_formatadas.get(x, '')}] "
+                                    f"{mapa_acoes_programa.get(x, '')}"
+                                ),
                                 placeholder=""
                             )
 
