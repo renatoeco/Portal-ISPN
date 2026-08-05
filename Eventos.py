@@ -8,7 +8,7 @@ import time
 import streamlit_antd_components as sac
 import gspread
 from google.oauth2.service_account import Credentials
-
+from io import StringIO
 
 
 # ##################################################################
@@ -235,7 +235,7 @@ def sincronizar_status_evento(codigo_evento, key_status):
 
 def calendario_eventos():
 
-    eventos_cal = montar_eventos_calendario(df_eventos)
+    eventos_cal = montar_eventos_calendario(df_eventos_filtrado)
 
     if not eventos_cal:
         st.info("Nenhum evento previsto ou confirmado para exibir.")
@@ -371,9 +371,73 @@ def atualizar_status_evento(codigo_evento, novo_status):
         st.error("Evento não encontrado no banco.")
 
 
+def mostrar_tabela_ou_texto(titulo, valor):
+
+    if valor in [None, "", [], {}, "Não"]:
+        return
+
+    st.write(f"**{titulo}**")
+
+    linhas = [
+        linha.strip()
+        for linha in str(valor).split("\n")
+        if linha.strip()
+    ]
+
+    # ------------------------------------------------------------------
+    # Formato 1: Campo: Valor, Campo: Valor
+    # ------------------------------------------------------------------
+    if any(":" in linha for linha in linhas):
+
+        registros = []
+
+        for linha in linhas:
+
+            registro = {}
+
+            for parte in linha.split(","):
+
+                parte = parte.strip()
+
+                if ":" in parte:
+                    chave, conteudo = parte.split(":", 1)
+                    registro[chave.strip()] = conteudo.strip()
+
+            if registro:
+                registros.append(registro)
+
+        df = pd.DataFrame(registros)
+
+    # ------------------------------------------------------------------
+    # Formato 2: pares de linhas
+    # Linha 1 = Tipo/Local
+    # Linha 2 = Quantidade/Descrição
+    # ------------------------------------------------------------------
+    else:
+
+        registros = []
+
+        for i in range(0, len(linhas), 2):
+
+            registro = {
+                "Local": linhas[i]
+            }
+
+            if i + 1 < len(linhas):
+                registro["Quantidade / Informação"] = linhas[i + 1]
+
+            registros.append(registro)
+
+        df = pd.DataFrame(registros)
+
+    st.dataframe(
+        df,
+        hide_index=True,
+        width="stretch"
+    )
+
+
 # FUNÇÃO PARA O DIÁLOGO DE DETALHES DO EVENTO  ---------------------------------------------
-
-
 @st.dialog("Detalhes do evento", width='large')
 def detalhes_evento(codigo):
     evento = df_eventos[df_eventos["Código do evento:"] == codigo].iloc[0]
@@ -442,7 +506,7 @@ def detalhes_evento(codigo):
     mostrar_campo("1) Serão necessários materiais de papelaria como pastas, canetas, xerox, entre outros?", 
                 evento.get("1) Serão necessários materiais de papelaria como pastas, canetas, xerox, entre outros?"))
     
-    mostrar_campo("Detalhe os materiais de papelaria:", evento.get("Detalhe os materiais de papelaria:"))
+    mostrar_tabela_ou_texto("Detalhe os materiais de papelaria:", evento.get("Detalhe os materiais de papelaria:"))
 
     mostrar_campo("2) Será necessária hospedagem para os(as) participantes?", 
                 evento.get("2) Será necessária hospedagem para os(as) participantes?"))
@@ -452,7 +516,7 @@ def detalhes_evento(codigo):
     mostrar_campo("3) Será necessário transporte para os(as) participantes?", 
                 evento.get("3) Será necessário transporte para os(as) participantes?"))
     
-    mostrar_campo("Detalhe o transporte dos(as) participantes:", evento.get("Detalhe o transporte dos(as) participantes:"))
+    mostrar_tabela_ou_texto("Detalhe o transporte dos(as) participantes:", evento.get("Detalhe o transporte dos(as) participantes:"))
 
     mostrar_campo("4) Será necessário o pagamento de diárias para Participantes? (Elaborar SAV de Terceiros)", 
                 evento.get("4) Será necessário o pagamento de diárias para Participantes? (Elaborar SAV de Terceiros)"))
@@ -462,15 +526,15 @@ def detalhes_evento(codigo):
     mostrar_campo("5) Será necessário o pagamento de diárias para cozinheiras?", 
                 evento.get("5) Será necessário o pagamento de diárias para cozinheiras?"))
     
-    mostrar_campo("Informações para pagamento de apoio (cozinha e outros):", evento.get("Informações para pagamento de apoio (cozinha e outros):"))
+    mostrar_tabela_ou_texto("Informações para pagamento de apoio (cozinha e outros):", evento.get("Informações para pagamento de apoio (cozinha e outros):"))
 
     mostrar_campo("6) Será necessário o pagamento de alimentação?", evento.get("6) Será necessário o pagamento de alimentação?"))
     
-    mostrar_campo("Detalhe a alimentação necessária (café da manhã, almoço e janta):", evento.get("Detalhe a alimentação necessária (café da manhã, almoço e janta):"))
+    mostrar_tabela_ou_texto("Detalhe a alimentação necessária (café da manhã, almoço e janta):", evento.get("Detalhe a alimentação necessária (café da manhã, almoço e janta):"))
 
     mostrar_campo("7) Será necessário transporte para o(a) consultor(a)?", evento.get("7) Será necessário transporte para o(a) consultor(a)?"))
     
-    mostrar_campo("Detalhe o transporte de consultor(a):", evento.get("Detalhe o transporte de consultor(a):"))
+    mostrar_tabela_ou_texto("Detalhe o transporte de consultor(a):", evento.get("Detalhe o transporte de consultor(a):"))
 
     mostrar_campo("8) Será necessário adiantamento para pagamento de despesas da atividade?", evento.get("8) Será necessário adiantamento para pagamento de despesas da atividade?"))
     
@@ -478,11 +542,11 @@ def detalhes_evento(codigo):
 
     mostrar_campo("9) Será necessário aluguel de veículo(s)?", evento.get("9) Será necessário aluguel de veículo(s)?"))
     
-    mostrar_campo("Detalhes sobre a locação de veículo(s):", evento.get("Detalhes sobre a locação de veículo(s):"))
+    mostrar_tabela_ou_texto("Detalhes sobre a locação de veículo(s):", evento.get("Detalhes sobre a locação de veículo(s):"))
 
     mostrar_campo("10) Será necessária a compra de combustível?", evento.get("10) Será necessária a compra de combustível?"))
     
-    mostrar_campo("Descreva os tipos, locais, quantidades e demais informações relevantes sobre a compra de combustível:", 
+    mostrar_tabela_ou_texto("Descreva os tipos, locais, quantidades e demais informações relevantes sobre a compra de combustível:", 
                 evento.get("Descreva os tipos, locais, quantidades e demais informações relevantes sobre a compra de combustível:"))
 
     st.divider()
@@ -514,7 +578,7 @@ def todos_os_eventos():
     st.write('')
 
     # Para cada linha da tabela, lança 6 colunas, com um botão de detalhes na última coluna
-    for index, row in df_eventos.iterrows():
+    for index, row in df_eventos_filtrado.iterrows():
         col1, col2, col3, col4, col5, col6, col7 = st.columns(largura_colunas)
 
         col1.write(row['Código do evento:'])
@@ -564,7 +628,9 @@ def meus_eventos():
     )
 
     # Filtrar somente os eventos do usuário
-    df_meus_eventos = df_eventos[df_eventos["CPF"] == cpf_usuario]
+    df_meus_eventos = df_eventos_filtrado[
+        df_eventos_filtrado["CPF"] == cpf_usuario
+    ]
 
     largura_colunas = [2, 2, 5, 3, 3, 3, 3]
 
@@ -755,17 +821,92 @@ with st.container(horizontal=True, horizontal_alignment="right"):
         st.rerun()
 
 st.write("")
-
-
-
-#with st.expander("Calendário de eventos", expanded=False):
 st.write("")
 st.write("")
 
-#calendario_eventos()
+# ##################################################################
+# FILTROS
+# ##################################################################
+
+col1, col2, col3, col4 = st.columns(4)
+
+opcoes_escritorio = sorted(
+    df_eventos["Escritório responsável pelo evento:"]
+    .dropna()
+    .replace("", pd.NA)
+    .dropna()
+    .unique()
+)
+
+opcoes_projeto = sorted(
+    df_eventos["Fonte de recurso:"]
+    .dropna()
+    .replace("", pd.NA)
+    .dropna()
+    .unique()
+)
+
+opcoes_solicitante = sorted(
+    df_eventos["Técnico(a) responsável:"]
+    .dropna()
+    .replace("", pd.NA)
+    .dropna()
+    .unique()
+)
+
+with col1:
+    filtro_escritorio = st.multiselect(
+        "Escritório",
+        options=opcoes_escritorio,
+        placeholder=""
+    )
+
+with col2:
+    filtro_projeto = st.multiselect(
+        "Projeto",
+        options=opcoes_projeto,
+        placeholder=""
+    )
+
+with col3:
+    filtro_solicitante = st.multiselect(
+        "Solicitante",
+        options=opcoes_solicitante,
+        placeholder=""
+    )
+
+with col4:
+    filtro_status = st.multiselect(
+        "Status",
+        options=STATUS_EVENTOS,
+        placeholder=""
+    )
+
+df_eventos_filtrado = df_eventos.copy()
+
+if filtro_escritorio:
+    df_eventos_filtrado = df_eventos_filtrado[
+        df_eventos_filtrado["Escritório responsável pelo evento:"].isin(filtro_escritorio)
+    ]
+
+if filtro_projeto:
+    df_eventos_filtrado = df_eventos_filtrado[
+        df_eventos_filtrado["Fonte de recurso:"].isin(filtro_projeto)
+    ]
+
+if filtro_solicitante:
+    df_eventos_filtrado = df_eventos_filtrado[
+        df_eventos_filtrado["Técnico(a) responsável:"].isin(filtro_solicitante)
+    ]
+
+if filtro_status:
+    df_eventos_filtrado = df_eventos_filtrado[
+        df_eventos_filtrado["Status"].isin(filtro_status)
+    ]
 
 st.write("")
 st.write("")
+
 
 tab = sac.tabs([
     sac.TabsItem(label='Calendário', icon='calendar'),
