@@ -265,9 +265,16 @@ def gerenciar_programa_dialog(programa):
 
     dados_estrategia = list(estrategia.find({}))
 
-    resultados_medio = []
-    resultados_longo = []
-    eixos_da_estrategia = []
+    # ===============================
+    # RESULTADOS DO PROGRAMA
+    # ===============================
+
+    mapa_resultados_programa = {
+        str(r["_id"]): r.get("titulo", "Sem título")
+        for r in resultados_programa
+    }
+
+    opcoes_resultados_programa = list(mapa_resultados_programa.keys())
 
     # ===============================
     # MAPAS ID -> NOME
@@ -421,6 +428,13 @@ def gerenciar_programa_dialog(programa):
                     placeholder=""
                 )
 
+                resultado_programa_sel = st.multiselect(
+                    "Contribui com quais resultados do programa?",
+                    options=opcoes_resultados_programa,
+                    format_func=lambda x: mapa_resultados_programa.get(x, ""),
+                    placeholder=""
+                )
+
 
                 st.write("")
 
@@ -432,7 +446,8 @@ def gerenciar_programa_dialog(programa):
                         "eixo_relacionado": [ObjectId(i) for i in eixo_sel],
                         "resultados_medio_prazo_relacionados": [ObjectId(i) for i in resultados_mp_sel],
                         "resultados_longo_prazo_relacionados": [ObjectId(i) for i in resultados_lp_sel],
-                        "objetivos_estrategicos_relacionados": [ObjectId(i) for i in objetivos_sel]
+                        "objetivos_estrategicos_relacionados": [ObjectId(i) for i in objetivos_sel],
+                        "resultados_programa_relacionados": [ObjectId(i) for i in resultado_programa_sel],
                     }
 
                     programas_areas.update_one(
@@ -459,6 +474,7 @@ def gerenciar_programa_dialog(programa):
                 mp_atual = [str(i) for i in acao.get("resultados_medio_prazo_relacionados", [])]
                 lp_atual = [str(i) for i in acao.get("resultados_longo_prazo_relacionados", [])]
                 objetivos_atual = [str(i) for i in acao.get("objetivos_estrategicos_relacionados", [])]
+                resultado_programa_atual = [str(i) for i in acao.get("resultados_programa_relacionados", [])]
 
                 with st.expander(titulo_atual or "Sem título", expanded=False):
 
@@ -517,6 +533,15 @@ def gerenciar_programa_dialog(programa):
                             placeholder=""
                         )
 
+                        resultado_programa_sel = st.multiselect(
+                            "Contribui com quais resultados do programa?",
+                            options=opcoes_resultados_programa,
+                            default=resultado_programa_atual,
+                            format_func=lambda x: mapa_resultados_programa.get(x, ""),
+                            key=f"resultado_programa_{acao_id}",
+                            placeholder=""
+                        )
+
                         if st.button("Salvar alterações", key=f"salvar_acao_{acao_id}"):
 
                             programas_areas.update_one(
@@ -530,7 +555,8 @@ def gerenciar_programa_dialog(programa):
                                         "acoes_estrategicas.$.eixo_relacionado": [ObjectId(i) for i in eixo_sel],
                                         "acoes_estrategicas.$.resultados_medio_prazo_relacionados": [ObjectId(i) for i in resultados_mp_sel],
                                         "acoes_estrategicas.$.resultados_longo_prazo_relacionados": [ObjectId(i) for i in resultados_lp_sel],
-                                        "acoes_estrategicas.$.objetivos_estrategicos_relacionados": [ObjectId(i) for i in objetivos_sel]
+                                        "acoes_estrategicas.$.objetivos_estrategicos_relacionados": [ObjectId(i) for i in objetivos_sel],
+                                        "acoes_estrategicas.$.resultados_programa_relacionados": [ObjectId(i) for i in resultado_programa_sel],
                                     }
                                 }
                             )
@@ -571,6 +597,21 @@ def gerenciar_programa_dialog(programa):
                             for obj in objetivos_atual:
                                 st.markdown(
                                     f"- {mapa_objetivos.get(obj, '')}"
+                                )
+
+                        st.write("")
+
+                        resultados_programa_relacionados = [
+                            str(i)
+                            for i in acao.get("resultados_programa_relacionados", [])
+                        ]
+
+                        if resultados_programa_relacionados:
+                            st.markdown("**Contribui com os Resultados do Programa:**")
+
+                            for resultado_id in resultados_programa_relacionados:
+                                st.markdown(
+                                    f"- {mapa_resultados_programa.get(resultado_id, '')}"
                                 )
 
     # ======================================================
