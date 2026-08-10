@@ -259,9 +259,17 @@ with aba_visitas:
     # ------------------------------------------
     # GRÁFICO 2 — Visitas por página
     # ------------------------------------------
-    visitas_por_pagina = df.groupby("pagina")["acessos"].sum().reset_index()
-    visitas_por_pagina = visitas_por_pagina.sort_values("acessos", ascending=True)
 
+    # Soma o número total de acessos por página.
+    # Cada página será representada por uma barra.
+    visitas_por_pagina = (
+        df.groupby("pagina")["acessos"]
+        .sum()
+        .reset_index()
+        .sort_values("acessos", ascending=True)
+    )
+
+    # Cria o gráfico de barras horizontais.
     fig_paginas = px.bar(
         visitas_por_pagina,
         x="acessos",
@@ -271,14 +279,32 @@ with aba_visitas:
         text="acessos"
     )
 
+    # Mostra o número de acessos ao final de cada barra.
     fig_paginas.update_traces(
         textposition="outside",
         texttemplate="%{x}"
     )
 
-    fig_paginas.update_layout(xaxis_title=None, yaxis_title=None)
+    # Define explicitamente TODOS os nomes das páginas no eixo Y.
+    # Isso impede que o Plotly pule automaticamente alguns rótulos.
+    fig_paginas.update_yaxes(
+        tickmode="array",
+        tickvals=visitas_por_pagina["pagina"].tolist(),
+        ticktext=visitas_por_pagina["pagina"].tolist(),
+        automargin=True
+    )
 
-    st.plotly_chart(fig_paginas)
+    # Ajusta o layout do gráfico.
+    # A margem esquerda maior garante espaço suficiente para nomes
+    # de páginas compridos sem cortá-los.
+    fig_paginas.update_layout(
+        xaxis_title=None,
+        yaxis_title=None,
+        height=max(450, len(visitas_por_pagina) * 45),
+        margin=dict(l=180, r=60, t=70, b=40)
+    )
+
+    st.plotly_chart(fig_paginas, width="stretch")
 
 
 
