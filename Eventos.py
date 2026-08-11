@@ -199,11 +199,29 @@ def montar_eventos_calendario(df_eventos):
         titulo = f"{prefixo} {row['Atividade:']}".strip()
 
         eventos_cal.append({
+            # O ID é fundamental para sabermos exatamente qual evento
+            # foi clicado no calendário. Usamos o código do evento porque
+            # ele também é a chave utilizada no MongoDB e no DataFrame.
+            "id": str(row["Código do evento:"]).strip(),
+
+            # Título que será exibido visualmente no calendário.
             "title": f"{titulo} ({row['Código do evento:']})",
+
+            # Data inicial do evento.
             "start": inicio_iso,
+
+            # Data final do evento.
+            # O FullCalendar trabalha com a data final de forma exclusiva,
+            # por isso ela já foi acrescida de um dia anteriormente.
             "end": fim_iso,
+
+            # Todos os eventos são eventos de dia inteiro.
             "allDay": True,
+
+            # Cor de fundo de acordo com o status do evento.
             "backgroundColor": CORES_STATUS.get(status, "#95A5A6"),
+
+            # Cor da borda de acordo com o status do evento.
             "borderColor": CORES_STATUS.get(status, "#95A5A6"),
         })
 
@@ -231,8 +249,127 @@ def sincronizar_status_evento(codigo_evento, key_status):
     ] = novo_status
 
     st.session_state["status_atualizado"] = True
+    
+    
+# ------------------------------------------------------------------
+# FUNÇÃO PARA MOSTRAR INFORMAÇÕES BÁSICAS DO EVENTO NO CALENDÁRIO
+# ------------------------------------------------------------------
+@st.dialog("Detalhes do evento", width="large")
+def detalhes_evento_calendario(codigo):
+    """
+    Abre um diálogo com as principais informações do evento
+    selecionado no calendário.
 
+    O código recebido é utilizado para localizar o evento
+    diretamente no DataFrame carregado do Google Sheets.
+    """
 
+    # Normaliza o código recebido para evitar problemas com
+    # espaços ou diferenças de tipo entre o calendário e o DataFrame.
+    codigo = str(codigo).strip()
+
+    # Cria uma cópia filtrada contendo somente o evento clicado.
+    evento_filtrado = df_eventos[
+        df_eventos["Código do evento:"].astype(str).str.strip() == codigo
+    ]
+
+    # Caso o evento não seja encontrado, informa o problema
+    # e interrompe a construção do diálogo.
+    if evento_filtrado.empty:
+        st.error("Não foi possível localizar os dados deste evento.")
+        return
+
+    # Como o código identifica unicamente o evento, pegamos
+    # o primeiro registro encontrado.
+    evento = evento_filtrado.iloc[0]
+
+    # ----------------------------------------------------------
+    # Cabeçalho
+    # ----------------------------------------------------------
+
+    st.subheader(
+        f"{evento.get('Prefixo Escritório', '')} "
+        f"{evento.get('Atividade:', 'Sem atividade')}".strip()
+    )
+
+    # Código e status lado a lado.
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.write(
+            f"**Código:** "
+            f"{evento.get('Código do evento:', 'Não informado')}"
+        )
+
+    with col2:
+        status = evento.get("Status", "Não informado")
+
+        st.write(f"**Status:** {status}")
+
+    st.divider()
+
+    # ----------------------------------------------------------
+    # Informações principais
+    # ----------------------------------------------------------
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+
+        st.write(
+            f"**Data do evento:** "
+            f"{evento.get('Data do evento', 'Não informado')}"
+        )
+
+        st.write(
+            f"**Local:** "
+            f"{evento.get('Local', 'Não informado')}"
+        )
+
+        st.write(
+            f"**Fonte de recurso:** "
+            f"{evento.get('Fonte de recurso:', 'Não informado')}"
+        )
+
+    with col2:
+
+        st.write(
+            f"**Solicitante:** "
+            f"{evento.get('Técnico(a) responsável:', 'Não informado')}"
+        )
+
+        st.write(
+            f"**Escritório:** "
+            f"{evento.get('Escritório responsável pelo evento:', 'Não informado')}"
+        )
+
+        st.write(
+            f"**Participantes:** "
+            f"{evento.get('Número de participantes', 'Não informado')}"
+        )
+
+    st.divider()
+
+    # ----------------------------------------------------------
+    # Objetivo
+    # ----------------------------------------------------------
+
+    objetivo = evento.get("Objetivo da atividade:")
+
+    if objetivo not in [None, "", "Não"]:
+        st.write("**Objetivo da atividade:**")
+        st.write(objetivo)
+
+    # ----------------------------------------------------------
+    # Técnico responsável
+    # ----------------------------------------------------------
+
+    tecnico = evento.get("Técnico(a) responsável:")
+
+    if tecnico not in [None, "", "Não"]:
+        st.write(f"**Técnico(a) responsável:** {tecnico}")
+        
+        
 def calendario_eventos():
 
     eventos_cal = montar_eventos_calendario(df_eventos_filtrado)
@@ -313,10 +450,39 @@ def calendario_eventos():
     }
 
     with st.container():
-        calendar(
+        resultado_calendario = calendar(
             events=eventos_cal,
             options=calendar_options,
+
+            # Uma chave fixa evita que o componente perca seu estado
+            # durante os reruns do Streamlit.
+            key="calendario_eventos",
         )
+        
+    # ----------------------------------------------------------
+    # TRATAMENTO DO CLIQUE EM UM EVENTO
+    # ----------------------------------------------------------
+
+    # Verifica se o componente retornou alguma informação.
+    if resultado_calendario:
+
+        # Verifica se a interação realizada foi um clique em evento.
+        if resultado_calendario.get("callback") == "eventClick":
+
+            # Obtém os dados do evento clicado.
+            dados_clique = resultado_calendario.get("eventClick", {})
+
+            evento_clicado = dados_clique.get("event", {})
+
+            # Recupera o ID que colocamos anteriormente no evento.
+            codigo_clicado = evento_clicado.get("id")
+
+            # Se encontramos o código, abrimos o diálogo.
+            if codigo_clicado:
+
+                detalhes_evento_calendario(
+                    str(codigo_clicado).strip()
+                )
 
 
 def sincronizar_eventos_novos(df_eventos, eventos_collection):
