@@ -2509,15 +2509,71 @@ projeto_id = df_projetos_ispn.loc[
 ].values[0]
 
 
-if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_projetos"}:
+# ==========================================================
+# ABAS DO PROJETO
+# ==========================================================
+# Projetos estratégicos não possuem a aba "Resultados".
+# Projetos normais continuam exibindo todas as abas.
+# A estrutura das abas também respeita a permissão do usuário
+# para visualizar a aba "Entregas".
 
-    # ABAS
-    tab_equipe, tab_indicadores, tab_entregas, tab_resultados, tab_anotacoes = st.tabs([":material/group: Equipe", ":material/show_chart: Indicadores", ":material/package_2: Entregas", ":material/beenhere: Resultados", ":material/notes: Anotações"])
+tem_permissao_entregas = (
+    set(st.session_state.tipo_usuario)
+    & {"admin", "coordenador(a)", "gestao_projetos"}
+)
+
+if projeto_estrategico:
+
+    # ------------------------------------------------------
+    # PROJETO ESTRATÉGICO
+    # ------------------------------------------------------
+    # Para projetos estratégicos, a aba "Resultados" não
+    # deve ser criada nem exibida.
+    # ------------------------------------------------------
+
+    if tem_permissao_entregas:
+
+        tab_equipe, tab_indicadores, tab_entregas, tab_anotacoes = st.tabs([
+            ":material/group: Equipe",
+            ":material/show_chart: Indicadores",
+            ":material/package_2: Entregas",
+            ":material/notes: Anotações"
+        ])
+
+    else:
+
+        tab_equipe, tab_indicadores, tab_anotacoes = st.tabs([
+            ":material/group: Equipe",
+            ":material/show_chart: Indicadores",
+            ":material/notes: Anotações"
+        ])
 
 else:
-    # ABAS
-    tab_equipe, tab_indicadores, tab_resultados, tab_anotacoes = st.tabs([":material/group: Equipe", ":material/show_chart: Indicadores", ":material/beenhere: Resultados", ":material/notes: Anotações"])
 
+    # ------------------------------------------------------
+    # PROJETO NORMAL
+    # ------------------------------------------------------
+    # Projetos normais continuam com a aba "Resultados".
+    # ------------------------------------------------------
+
+    if tem_permissao_entregas:
+
+        tab_equipe, tab_indicadores, tab_entregas, tab_resultados, tab_anotacoes = st.tabs([
+            ":material/group: Equipe",
+            ":material/show_chart: Indicadores",
+            ":material/package_2: Entregas",
+            ":material/beenhere: Resultados",
+            ":material/notes: Anotações"
+        ])
+
+    else:
+
+        tab_equipe, tab_indicadores, tab_resultados, tab_anotacoes = st.tabs([
+            ":material/group: Equipe",
+            ":material/show_chart: Indicadores",
+            ":material/beenhere: Resultados",
+            ":material/notes: Anotações"
+        ])
 
 # ##########################################################
 # Equipe do projeto
@@ -3290,258 +3346,369 @@ if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_proj
 # Resultados
 # ##########################################################
 
-with tab_resultados:
+
+if not projeto_estrategico:
+
+    with tab_resultados:
 
 
-    # -----------------------------------
-    # Verifica permissão de edição (admin, coord. do projeto, coord. de algum programa do projeto, gestor do projeto)
-    # -----------------------------------
+        # -----------------------------------
+        # Verifica permissão de edição (admin, coord. do projeto, coord. de algum programa do projeto, gestor do projeto)
+        # -----------------------------------
 
-    pode_editar = False
+        pode_editar = False
 
-    # Admin
-    if "admin" in st.session_state.tipo_usuario:
-
-        pode_editar = True
-
-    # Coordenador do projeto
-    if str(projeto.get("coordenador")) == str(st.session_state.id_usuario):
-
-        pode_editar = True
-
-    # Gestores do projeto
-    elif any(
-        str(gestor) == str(st.session_state.id_usuario)
-        for gestor in projeto.get("gestores", [])
-    ):
-
-        pode_editar = True
-
-    # Coordenador de algum programa do projeto
-    else:
-
-        ids_programas_projeto = {
-            str(id_programa)
-            for id_programa in projeto.get("programas", [])
-        }
-
-        ids_programas_coordenados = set(
-            df_programas.loc[
-                df_programas["coordenador_id"].astype(str)
-                == str(st.session_state.id_usuario),
-                "_id"
-            ].astype(str)
-        )
-
-        if ids_programas_projeto.intersection(ids_programas_coordenados):
+        # Admin
+        if "admin" in st.session_state.tipo_usuario:
 
             pode_editar = True
 
+        # Coordenador do projeto
+        if str(projeto.get("coordenador")) == str(st.session_state.id_usuario):
 
+            pode_editar = True
 
-    # Colunas
-    col_esq, col_dir = st.columns(2, gap="large")
+        # Gestores do projeto
+        elif any(
+            str(gestor) == str(st.session_state.id_usuario)
+            for gestor in projeto.get("gestores", [])
+        ):
 
+            pode_editar = True
 
+        # Coordenador de algum programa do projeto
+        else:
 
-    # COLUNA DA ESQUERDA COM RESULTADOS ANUAIS
+            ids_programas_projeto = {
+                str(id_programa)
+                for id_programa in projeto.get("programas", [])
+            }
 
-    with col_esq:
+            ids_programas_coordenados = set(
+                df_programas.loc[
+                    df_programas["coordenador_id"].astype(str)
+                    == str(st.session_state.id_usuario),
+                    "_id"
+                ].astype(str)
+            )
 
-        st.subheader('Resultados por ano:')
+            if ids_programas_projeto.intersection(ids_programas_coordenados):
 
-
-
-        # -----------------------------------
-        # Obtém a linha do projeto
-        # -----------------------------------
-
-        projeto = projeto_info.iloc[0]
-
-
-
-
-        # -----------------------------------
-        # Obtém os resultados anuais cadastrados
-        # -----------------------------------
-
-        resultados_anuais = projeto.get("resultados_anuais", [])
-
-
-
-        # -----------------------------------
-        # Define os anos que serão exibidos
-        # -----------------------------------
-
-        ano_inicio = projeto["data_inicio_contrato"].year
-        ano_fim = projeto["data_fim_contrato"].year
-
-        anos = list(range(ano_inicio, ano_fim + 1))
-
-        # -----------------------------------
-        # Remove duplicidades e ordena
-        # -----------------------------------
-
-        anos = sorted(set(anos))
+                pode_editar = True
 
 
 
-
-
-        # -----------------------------------
-        # Anos do contrato
-        # -----------------------------------
-
-        anos = set(range(ano_inicio, ano_fim + 1))
-
-        # -----------------------------------
-        # Inclui anos existentes no banco
-        # -----------------------------------
-
-        anos.update(
-            item["ano"]
-            for item in resultados_anuais
-            if "ano" in item
-        )
+        # Colunas
+        col_esq, col_dir = st.columns(2, gap="large")
 
 
 
-        # -----------------------------------
-        # Ordena
-        # -----------------------------------
+        # COLUNA DA ESQUERDA COM RESULTADOS ANUAIS
 
-        anos = sorted(anos)
+        with col_esq:
 
-
-        # -----------------------------------
-        # Indexa os resultados anuais por ano
-        # -----------------------------------
-
-        resultados_por_ano = {
-            item["ano"]: item
-            for item in resultados_anuais
-            if "ano" in item
-        }
-
-
-        # -----------------------------------
-        # Exibe um bloco para cada ano
-        # -----------------------------------
-
-        for ano in anos:
-
-            resultado = resultados_por_ano.get(ano, {})
-
-            texto_resultado = resultado.get("resultados", "")
-            data_atualizacao = resultado.get("data_anotacao", "")
-            autor_id = resultado.get("autor")
+            st.subheader('Resultados por ano:')
 
 
 
-            autor_nome = ""
+            # -----------------------------------
+            # Obtém a linha do projeto
+            # -----------------------------------
 
-            if autor_id is not None:
+            projeto = projeto_info.iloc[0]
+
+
+
+
+            # -----------------------------------
+            # Obtém os resultados anuais cadastrados
+            # -----------------------------------
+
+            resultados_anuais = projeto.get("resultados_anuais", [])
+
+
+
+            # -----------------------------------
+            # Define os anos que serão exibidos
+            # -----------------------------------
+
+            ano_inicio = projeto["data_inicio_contrato"].year
+            ano_fim = projeto["data_fim_contrato"].year
+
+            anos = list(range(ano_inicio, ano_fim + 1))
+
+            # -----------------------------------
+            # Remove duplicidades e ordena
+            # -----------------------------------
+
+            anos = sorted(set(anos))
+
+
+
+
+
+            # -----------------------------------
+            # Anos do contrato
+            # -----------------------------------
+
+            anos = set(range(ano_inicio, ano_fim + 1))
+
+            # -----------------------------------
+            # Inclui anos existentes no banco
+            # -----------------------------------
+
+            anos.update(
+                item["ano"]
+                for item in resultados_anuais
+                if "ano" in item
+            )
+
+
+
+            # -----------------------------------
+            # Ordena
+            # -----------------------------------
+
+            anos = sorted(anos)
+
+
+            # -----------------------------------
+            # Indexa os resultados anuais por ano
+            # -----------------------------------
+
+            resultados_por_ano = {
+                item["ano"]: item
+                for item in resultados_anuais
+                if "ano" in item
+            }
+
+
+            # -----------------------------------
+            # Exibe um bloco para cada ano
+            # -----------------------------------
+
+            for ano in anos:
+
+                resultado = resultados_por_ano.get(ano, {})
+
+                texto_resultado = resultado.get("resultados", "")
+                data_atualizacao = resultado.get("data_anotacao", "")
+                autor_id = resultado.get("autor")
+
+
+
+                autor_nome = ""
+
+                if autor_id is not None:
+
+                    pessoa = df_pessoas.loc[
+                        df_pessoas["_id"].astype(str) == str(autor_id),
+                        "nome_completo"
+                    ]
+
+                    if not pessoa.empty:
+                        autor_nome = pessoa.iloc[0]
+
+
+
+
+                    if not pessoa.empty:
+                        autor_nome = pessoa.iloc[0]
+
+                st.subheader(str(ano))
+
+
+                # Regra de visibilidade
+                if pode_editar:
+
+                    st.text_area(
+                        "Resultados",
+                        value=texto_resultado,
+                        max_chars=1500,
+                        height=180,
+                        key=f"resultado_{ano}",
+                        label_visibility="collapsed"
+                    )
+
+
+
+                    with st.container(horizontal=True):
+
+
+                        if st.button(
+                            "Salvar",
+                            key=f"salvar_{ano}",
+                            width=180,
+                            icon=":material/save:"
+                        ):
+
+                            # -----------------------------------
+                            # Atualiza ou cria o resultado anual
+                            # -----------------------------------
+
+                            resultados_atualizados = projeto.get(
+                                "resultados_anuais",
+                                []
+                            ).copy()
+
+                            encontrou = False
+
+                            for item in resultados_atualizados:
+
+                                if item["ano"] == ano:
+
+                                    item["resultados"] = st.session_state[f"resultado_{ano}"]
+                                    item["data_anotacao"] = datetime.datetime.now().strftime("%d/%m/%Y")
+                                    item["autor"] = st.session_state.id_usuario
+
+                                    encontrou = True
+                                    break
+
+                            if not encontrou:
+
+                                resultados_atualizados.append(
+                                    {
+                                        "ano": ano,
+                                        "resultados": st.session_state[f"resultado_{ano}"],
+                                        "data_anotacao": datetime.datetime.now().strftime("%d/%m/%Y"),
+                                        "autor": st.session_state.id_usuario,
+                                    }
+                                )
+
+                            # -----------------------------------
+                            # Mantém os anos em ordem decrescente
+                            # -----------------------------------
+
+                            resultados_atualizados = sorted(
+                                resultados_atualizados,
+                                key=lambda x: x["ano"],
+                                reverse=True,
+                            )
+
+                            # -----------------------------------
+                            # Atualiza o documento do projeto
+                            # -----------------------------------
+
+                            id_projeto = projeto["_id"]
+
+                            projetos_ispn.update_one(
+                                {"_id": id_projeto},
+                                {
+                                    "$set": {
+                                        "resultados_anuais": resultados_atualizados
+                                    }
+                                }
+                            )
+
+                            st.success("Resultados atualizados com sucesso.", icon=":material/check:")
+
+                            time.sleep(3)
+
+                            st.rerun()
+
+
+
+
+
+
+                else:
+
+                    if texto_resultado:
+
+                        st.write(texto_resultado)
+
+                    else:
+
+                        st.write("_")
+
+
+
+                st.write("")
+
+
+
+
+
+                # Caption do log de autor e data
+                
+                if autor_nome:
+
+                    st.caption(
+                        f"Atualizado por {autor_nome} em {data_atualizacao}"
+                    )
+
+
+
+                st.divider()
+
+
+
+        # COLUNA DA DIREITA COM SÍNTESE DOS RESULTADOS
+
+
+        with col_dir:
+
+            # Carregando os dados do banco 
+
+            sintese = projeto.get("sintese_resultados", {})
+
+            texto_sintese = sintese.get("texto", "")
+            data_sintese = sintese.get("data_anotacao", "")
+            autor_sintese_id = sintese.get("autor")
+
+
+            autor_sintese_nome = ""
+
+            if autor_sintese_id is not None:
 
                 pessoa = df_pessoas.loc[
-                    df_pessoas["_id"].astype(str) == str(autor_id),
+                    df_pessoas["_id"].astype(str) == str(autor_sintese_id),
                     "nome_completo"
                 ]
 
                 if not pessoa.empty:
-                    autor_nome = pessoa.iloc[0]
+                    autor_sintese_nome = pessoa.iloc[0]
 
 
+            # Exibindo a síntese
 
+            st.subheader("Síntese do resultado final do projeto:")
 
-                if not pessoa.empty:
-                    autor_nome = pessoa.iloc[0]
-
-            st.subheader(str(ano))
-
-
-            # Regra de visibilidade
             if pode_editar:
 
                 st.text_area(
-                    "Resultados",
-                    value=texto_resultado,
-                    max_chars=1500,
-                    height=180,
-                    key=f"resultado_{ano}",
+                    "Síntese",
+                    value=texto_sintese,
+                    max_chars=4000,
+                    height=200,
+                    key="sintese_resultados",
                     label_visibility="collapsed"
                 )
 
 
-
                 with st.container(horizontal=True):
-
 
                     if st.button(
                         "Salvar",
-                        key=f"salvar_{ano}",
-                        width=180,
+                        key="salvar_sintese",
+                        width=200,
                         icon=":material/save:"
                     ):
 
-                        # -----------------------------------
-                        # Atualiza ou cria o resultado anual
-                        # -----------------------------------
-
-                        resultados_atualizados = projeto.get(
-                            "resultados_anuais",
-                            []
-                        ).copy()
-
-                        encontrou = False
-
-                        for item in resultados_atualizados:
-
-                            if item["ano"] == ano:
-
-                                item["resultados"] = st.session_state[f"resultado_{ano}"]
-                                item["data_anotacao"] = datetime.datetime.now().strftime("%d/%m/%Y")
-                                item["autor"] = st.session_state.id_usuario
-
-                                encontrou = True
-                                break
-
-                        if not encontrou:
-
-                            resultados_atualizados.append(
-                                {
-                                    "ano": ano,
-                                    "resultados": st.session_state[f"resultado_{ano}"],
-                                    "data_anotacao": datetime.datetime.now().strftime("%d/%m/%Y"),
-                                    "autor": st.session_state.id_usuario,
-                                }
-                            )
-
-                        # -----------------------------------
-                        # Mantém os anos em ordem decrescente
-                        # -----------------------------------
-
-                        resultados_atualizados = sorted(
-                            resultados_atualizados,
-                            key=lambda x: x["ano"],
-                            reverse=True,
-                        )
-
-                        # -----------------------------------
-                        # Atualiza o documento do projeto
-                        # -----------------------------------
-
-                        id_projeto = projeto["_id"]
-
                         projetos_ispn.update_one(
-                            {"_id": id_projeto},
+                            {"_id": projeto["_id"]},
                             {
                                 "$set": {
-                                    "resultados_anuais": resultados_atualizados
+                                    "sintese_resultados": {
+                                        "texto": st.session_state["sintese_resultados"],
+                                        "data_anotacao": datetime.datetime.now().strftime("%d/%m/%Y"),
+                                        "autor": st.session_state.id_usuario,
+                                    }
                                 }
                             }
                         )
 
-                        st.success("Resultados atualizados com sucesso.", icon=":material/check:")
+                        st.success("Síntese atualizada com sucesso.", icon=":material/check:")
 
                         time.sleep(3)
 
@@ -3550,13 +3717,11 @@ with tab_resultados:
 
 
 
-
-
             else:
 
-                if texto_resultado:
+                if texto_sintese:
 
-                    st.write(texto_resultado)
+                    st.write(texto_sintese)
 
                 else:
 
@@ -3564,117 +3729,11 @@ with tab_resultados:
 
 
 
-            st.write("")
-
-
-
-
-
-            # Caption do log de autor e data
-            
-            if autor_nome:
+            if autor_sintese_nome:
 
                 st.caption(
-                    f"Atualizado por {autor_nome} em {data_atualizacao}"
+                    f"Atualizado por {autor_sintese_nome} em {data_sintese}"
                 )
-
-
-
-            st.divider()
-
-
-
-    # COLUNA DA DIREITA COM SÍNTESE DOS RESULTADOS
-
-
-    with col_dir:
-
-        # Carregando os dados do banco 
-
-        sintese = projeto.get("sintese_resultados", {})
-
-        texto_sintese = sintese.get("texto", "")
-        data_sintese = sintese.get("data_anotacao", "")
-        autor_sintese_id = sintese.get("autor")
-
-
-        autor_sintese_nome = ""
-
-        if autor_sintese_id is not None:
-
-            pessoa = df_pessoas.loc[
-                df_pessoas["_id"].astype(str) == str(autor_sintese_id),
-                "nome_completo"
-            ]
-
-            if not pessoa.empty:
-                autor_sintese_nome = pessoa.iloc[0]
-
-
-        # Exibindo a síntese
-
-        st.subheader("Síntese do resultado final do projeto:")
-
-        if pode_editar:
-
-            st.text_area(
-                "Síntese",
-                value=texto_sintese,
-                max_chars=4000,
-                height=200,
-                key="sintese_resultados",
-                label_visibility="collapsed"
-            )
-
-
-            with st.container(horizontal=True):
-
-                if st.button(
-                    "Salvar",
-                    key="salvar_sintese",
-                    width=200,
-                    icon=":material/save:"
-                ):
-
-                    projetos_ispn.update_one(
-                        {"_id": projeto["_id"]},
-                        {
-                            "$set": {
-                                "sintese_resultados": {
-                                    "texto": st.session_state["sintese_resultados"],
-                                    "data_anotacao": datetime.datetime.now().strftime("%d/%m/%Y"),
-                                    "autor": st.session_state.id_usuario,
-                                }
-                            }
-                        }
-                    )
-
-                    st.success("Síntese atualizada com sucesso.", icon=":material/check:")
-
-                    time.sleep(3)
-
-                    st.rerun()
-
-
-
-
-        else:
-
-            if texto_sintese:
-
-                st.write(texto_sintese)
-
-            else:
-
-                st.write("_")
-
-
-
-        if autor_sintese_nome:
-
-            st.caption(
-                f"Atualizado por {autor_sintese_nome} em {data_sintese}"
-            )
 
 
 
