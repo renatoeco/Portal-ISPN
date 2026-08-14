@@ -528,19 +528,6 @@ def dialog_editar_entregas():
 
             mapa_acoes_programa_formatadas[acao_id] = nome_programa
 
-        # -----------------------------------------
-        # RESULTADOS DO PROGRAMA
-        # -----------------------------------------
-        for resultado in doc.get("resultados_programa", []):
-
-            resultado_id = str(resultado["_id"])
-
-            mapa_resultados_programa[resultado_id] = resultado.get(
-                "titulo",
-                ""
-            )
-
-            mapa_resultados_programa_formatados[resultado_id] = nome_programa
 
     for doc in dados_estrategia:
         for resultado in doc.get("resultados_medio_prazo", {}).get("resultados_mp", []):
@@ -585,13 +572,6 @@ def dialog_editar_entregas():
         )
     )
 
-    resultados_programa_options = sorted(
-        mapa_resultados_programa.keys(),
-        key=lambda x: (
-            mapa_resultados_programa_formatados.get(x, "").lower(),
-            mapa_resultados_programa.get(x, "").lower()
-        )
-    )       
 
     metas_mp_options = sorted(mapa_metas_mp.keys(), key=lambda x: mapa_metas_mp[x])
     acoes_mp_options = sorted(mapa_acoes_mp.keys(), key=lambda x: mapa_acoes_mp[x])
@@ -736,19 +716,9 @@ def dialog_editar_entregas():
                     key="nova_objetivos"
                 )
                 
-                resultados_programa_relacionados = st.multiselect(
-                    "Contribui com quais resultados do(s) programa(s)?",
-                    options=resultados_programa_options,
-                    format_func=lambda x: (
-                        f"[{mapa_resultados_programa_formatados.get(x, '')}] "
-                        f"{mapa_resultados_programa.get(x, '')}"
-                    ),
-                    placeholder="",
-                    key="nova_resultados_programa"
-                )
                 
                 acoes_relacionados = st.multiselect(
-                    "Contribui com quais ações estratégicas do(s) programa(s)?",
+                    "Contribui com quais ações estratégicas do programa/área?",
                     options=acoes_programa_options,
                     format_func=lambda x: (
                         f"[{mapa_acoes_programa_formatadas.get(x, '')}] "
@@ -787,7 +757,6 @@ def dialog_editar_entregas():
                             "acoes_resultados_medio_prazo": [ObjectId(a) for a in acoes_medio_prazo_relacionadas],
                             "acoes_resultados_longo_prazo": [ObjectId(a) for a in acoes_lp_relacionadas],
                             "objetivos_estrategicos_relacionados": [ObjectId(o) for o in objetivos_relacionados],
-                            "resultados_programa_relacionados": [ObjectId(r) for r in resultados_programa_relacionados],
                             "eixos_relacionados": [ObjectId(e) for e in eixos_relacionados],
                             "acoes_relacionadas": [ObjectId(a) for a in acoes_relacionados],
                             "metas_resultados_medio_prazo": [ObjectId(m) for m in metas_mp_relacionadas],
@@ -937,31 +906,20 @@ def dialog_editar_entregas():
                                 nome = mapa_objetivos.get(str(o), "Não encontrado")
                                 st.markdown(f"- {nome}")
                         else:
-                            st.markdown("**Objetivos estratégicos:** -")
+                            st.markdown("**Objetivos estratégicos organizacionais:** -")
                             
                         st.write("")
                         
-                        resultados_prog = entrega.get("resultados_programa_relacionados", [])
-
-                        if resultados_prog:
-                            st.markdown("**Resultados do programa:**")
-                            for r in resultados_prog:
-                                nome = mapa_resultados_programa.get(str(r), "Não encontrado")
-                                st.markdown(f"- {nome}")
-                        else:
-                            st.markdown("**Resultados do programa:** -")
-                        
-                        st.write("")
 
                         # Ações estratégicas do programa
                         acoes = entrega.get("acoes_relacionadas", [])
                         if acoes:
-                            st.markdown("**Ações estratégicas do programa:**")
+                            st.markdown("**Ações estratégicas do programa/área:**")
                             for a in acoes:
                                 nome = mapa_acoes_programa.get(str(a), "Não encontrado")
                                 st.markdown(f"- {nome}")
                         else:
-                            st.markdown("**Ações estratégicas do programa:** -")
+                            st.markdown("**Ações estratégicas do programa/área:** -")
                         
                         st.write("")
                         
@@ -1177,26 +1135,6 @@ def dialog_editar_entregas():
                                 ObjectId(o) for o in entrega_editada["objetivos_estrategicos_relacionados"]
                             ]
                             
-                            resultados_prog_default = [
-                                str(r)
-                                for r in entrega.get("resultados_programa_relacionados", [])
-                                if str(r) in resultados_programa_options
-                            ]
-
-                            entrega_editada["resultados_programa_relacionados"] = st.multiselect(
-                                "Contribui com quais resultados do(s) programa(s)?",
-                                options=resultados_programa_options,
-                                default=resultados_prog_default,
-                                format_func=lambda x: (
-                                    f"[{mapa_resultados_programa_formatados.get(x, '')}] "
-                                    f"{mapa_resultados_programa.get(x, '')}"
-                                ),
-                                placeholder=""
-                            )
-
-                            entrega_editada["resultados_programa_relacionados"] = [
-                                ObjectId(r) for r in entrega_editada["resultados_programa_relacionados"]
-                            ]
 
                             entrega_editada["acoes_relacionadas"] = [
                                 ObjectId(a) for a in entrega_editada["acoes_relacionadas"]
@@ -1209,7 +1147,7 @@ def dialog_editar_entregas():
                             ]
 
                             entrega_editada["acoes_relacionadas"] = st.multiselect(
-                                "Contribui com quais ações estratégicas do(s) programa(s)?",
+                                "Contribui com quais ações estratégicas do programa/área?",
                                 options=acoes_programa_options,
                                 default=acoes_programa_default,
                                 format_func=lambda x: (
