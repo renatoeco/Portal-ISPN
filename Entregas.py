@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from bson import ObjectId
-from funcoes_auxiliares import conectar_mongo_portal_ispn, dialog_editar_entregas, altura_dataframe, formatar_nome_legivel
+from funcoes_auxiliares import conectar_mongo_portal_ispn, dialog_editar_entregas, altura_dataframe
 # import streamlit_shadcn_ui as ui
 import plotly.express as px
 import time
@@ -175,15 +175,13 @@ def renderizar_novo_registro(idx):
             "Indicador não encontrado"
         )
 
-        nome_legivel = formatar_nome_legivel(nome_indicador)
-
-        st.markdown(f"**{nome_legivel}**")
+        st.markdown(f"**{nome_indicador}**")
 
         col1, col2 = st.columns([2, 3])
 
         key_base = f"{idx}_{indicador_id}"
 
-        if nome_legivel in indicadores_float:
+        if nome_indicador in indicadores_float:
             valor = col1.number_input(
                 "Valor",
                 step=0.01,
@@ -191,7 +189,7 @@ def renderizar_novo_registro(idx):
                 disabled=usuario_visitante 
             )
 
-        elif nome_legivel == indicador_texto:
+        elif nome_indicador == indicador_texto:
             valor = col1.text_input(
                 "Valor",
                 key=f"valor_{key_base}",
@@ -259,11 +257,10 @@ def renderizar_novo_registro(idx):
                 continue
 
             nome_indicador = mapa_indicadores.get(str(indicador_id), "")
-            nome_legivel = formatar_nome_legivel(nome_indicador)
 
-            if nome_legivel in indicadores_float:
+            if nome_indicador in indicadores_float:
                 valor_final = float(dados["valor"])
-            elif nome_legivel == indicador_texto:
+            elif nome_indicador == indicador_texto:
                 valor_final = str(dados["valor"])
             else:
                 valor_final = int(dados["valor"])
@@ -622,7 +619,7 @@ def dialog_registros_entregas():
                                         "Indicador não encontrado"
                                     )
 
-                                    st.markdown(f"**{formatar_nome_legivel(nome_indicador)}:** {reg.get('valor')}")
+                                    st.markdown(f"**{nome_indicador}:** {reg.get('valor')}")
                                     
                                     st.write("")
 
