@@ -3,7 +3,7 @@ import pandas as pd
 import time
 import streamlit_shadcn_ui as ui
 from datetime import datetime
-from funcoes_auxiliares import conectar_mongo_portal_ispn, formatar_nome_legivel, br_to_float, float_to_br
+from funcoes_auxiliares import conectar_mongo_portal_ispn, br_to_float, float_to_br
 from bson import ObjectId
 import re
 
@@ -1345,14 +1345,13 @@ with aba_est:
             else:
                 for ind in indicadores_eixo:
                     nome_bruto = ind.get("nome_indicador", "Indicador sem nome")
-                    nome_legivel = formatar_nome_legivel(nome_bruto)
 
                     id_indicador = str(ind["_id"])
                     valor_total = mapa_soma_indicadores.get(id_indicador, 0)
 
                     valor_formatado = float_to_br(valor_total)
 
-                    st.markdown(f"**{nome_legivel}:** {valor_formatado}")
+                    st.markdown(f"**{nome_bruto}:** {valor_formatado}")
 
             # --------------------------------------------
             # ENTREGAS DO EIXO
@@ -1571,14 +1570,14 @@ with aba_res_mp:
                         "nome_indicador",
                         "Indicador sem nome"
                     )
-                    nome_legivel = formatar_nome_legivel(nome_bruto)
+
 
                     id_indicador = str(ind["_id"])
                     valor_total = mapa_soma_indicadores.get(id_indicador, 0)
                     valor_formatado = float_to_br(valor_total)
 
                     st.markdown(
-                        f"**{nome_legivel}:** {valor_formatado}"
+                        f"**{nome_bruto}:** {valor_formatado}"
                     )
 
             st.divider()
@@ -1740,8 +1739,7 @@ with aba_res_lp:
                             "nome_indicador",
                             "Indicador sem nome"
                         )
-                        nome_legivel = formatar_nome_legivel(nome_bruto)
-
+            
                         # Soma dos lançamentos desse indicador
                         id_indicador = str(ind["_id"])
                         valor_total = mapa_soma_indicadores_lp.get(
@@ -1751,7 +1749,7 @@ with aba_res_lp:
                         valor_formatado = float_to_br(valor_total)
 
                         st.markdown(
-                            f"**{nome_legivel}:** {valor_formatado}"
+                            f"**{nome_bruto}:** {valor_formatado}"
                         )
 
                 st.divider()
