@@ -3,7 +3,7 @@ import pandas as pd
 import datetime
 import time
 from bson import ObjectId
-from funcoes_auxiliares import conectar_mongo_portal_ispn, ajustar_altura_dataframe, formatar_nome_legivel
+from funcoes_auxiliares import conectar_mongo_portal_ispn, ajustar_altura_dataframe
 
 
 st.set_page_config(layout="wide")
@@ -183,7 +183,7 @@ def mostrar_detalhes(nome_indicador, tipo_selecionado=None, projetos_filtrados=N
         st.warning("Indicador não encontrado.")
         return
 
-    st.subheader(f"{formatar_nome_legivel(nome_indicador)}")
+    st.subheader(f"{nome_indicador}")
 
     indicador_id = indicador_doc["_id"]
 
@@ -341,7 +341,7 @@ def carregar_lancamentos():
 def carregar_programas():
     return list(db["programas_areas"].find({}, {"_id": 1, "nome_programa_area": 1}))
 
-@st.dialog("Gerenciar indicadores", width="large")   
+@st.dialog("Gerenciar indicadores", width="large", on_dismiss="rerun")   
 def gerenciar_indicadores():
 
     # =======================================================
@@ -410,13 +410,20 @@ def gerenciar_indicadores():
         with tab_add:
             st.subheader("Adicionar novo indicador")
 
-            col1, col2 = st.columns([2,1])
+            col1, col2, col3 = st.columns([2,1,1])
 
-            nome_indicador = col1.text_input("Nome do indicador (interno, sem acento)")
+            nome_indicador = col1.text_input("Nome do indicador")
 
             categoria_indicador = col2.selectbox(
                 "Categoria do indicador",
                 options=categorias_existentes,
+                index=None,
+                placeholder=""
+            )
+
+            tipo_variavel = col3.selectbox(
+                "Tipo de variável",
+                options=["str", "int", "float"],
                 index=None,
                 placeholder=""
             )
@@ -447,10 +454,13 @@ def gerenciar_indicadores():
             if st.button("Adicionar indicador", use_container_width=False, icon=":material/add:"):
                 if not nome_indicador.strip():
                     st.warning("Digite um nome para o indicador.")
+                elif not tipo_variavel:
+                    st.warning("Selecione o tipo de variável.")
                 else:
                     novo_indicador = {
                         "nome_indicador": nome_indicador.strip(),
                         "categoria_indicador": categoria_indicador.strip() if categoria_indicador else "",
+                        "tipo_variavel": tipo_variavel,
                         "colabora_estrategia": [ObjectId(i) for i in colabora_estrategia],
                         "colabora_resultado_mp": [ObjectId(i) for i in colabora_resultado_mp],
                         "colabora_resultado_lp": [ObjectId(i) for i in colabora_resultado_lp],
@@ -459,7 +469,7 @@ def gerenciar_indicadores():
                     indicadores.insert_one(novo_indicador)
                     st.success(f"Indicador **{nome_indicador}** adicionado com sucesso!")
                     time.sleep(2)
-                    st.rerun()
+                    st.rerun(scope="fragment")
 
         # =======================================================
         # ABA EDITAR
@@ -473,7 +483,7 @@ def gerenciar_indicadores():
             if not nomes_indicadores:
                 st.warning("Nenhum indicador cadastrado.")
             else:
-                col1, col2 = st.columns([2, 1])
+                col1, col2, col3 = st.columns([2, 1, 1])
 
                 nome_indicador_selecionado = col1.selectbox(
                     "Selecione o indicador para editar:",
@@ -489,12 +499,22 @@ def gerenciar_indicadores():
                     mp_atual = [str(i) for i in indicador_doc.get("colabora_resultado_mp", [])]
                     lp_atual = [str(i) for i in indicador_doc.get("colabora_resultado_lp", [])]
                     
+                    opcoes_tipo_variavel = ["str", "int", "float"]
+                    tipo_variavel_atual = indicador_doc.get("tipo_variavel")
                     categoria = col2.selectbox(
                         "Categoria do indicador",
                         options=categorias_existentes,
                         index=categorias_existentes.index(indicador_doc.get("categoria_indicador"))
                         if indicador_doc.get("categoria_indicador") in categorias_existentes else None,
                         placeholder=""
+                    )
+                    tipo_variavel = col3.selectbox(
+                        "Tipo de variável",
+                        options=opcoes_tipo_variavel,
+                        index=opcoes_tipo_variavel.index(tipo_variavel_atual)
+                        if tipo_variavel_atual in opcoes_tipo_variavel else None,
+                        placeholder="",
+                        key=f"tipo_variavel_{indicador_doc['_id']}"
                     )
 
                     def filtrar_valores_validos(valores, opcoes):
@@ -540,6 +560,7 @@ def gerenciar_indicadores():
                             {"_id": indicador_doc["_id"]},
                             {"$set": {
                                 "categoria_indicador": categoria,
+                                "tipo_variavel": tipo_variavel,
                                 "colabora_estrategia": [ObjectId(i) for i in colabora_estrategia],
                                 "colabora_resultado_mp": [ObjectId(i) for i in colabora_resultado_mp],
                                 "colabora_resultado_lp": [ObjectId(i) for i in colabora_resultado_lp]
@@ -547,7 +568,7 @@ def gerenciar_indicadores():
                         )
                         st.success("Indicador atualizado com sucesso!")
                         time.sleep(2)
-                        st.rerun()
+                        st.rerun(scope="fragment")
 
     else:
         st.subheader("Editar indicador existente")
@@ -558,7 +579,7 @@ def gerenciar_indicadores():
         if not nomes_indicadores:
             st.warning("Nenhum indicador cadastrado.")
         else:
-            col1, col2 = st.columns([2, 1])
+            col1, col2, col3 = st.columns([2, 1, 1])
 
             nome_indicador_selecionado = col1.selectbox(
                 "Selecione o indicador para editar:",
@@ -570,12 +591,25 @@ def gerenciar_indicadores():
             if nome_indicador_selecionado:
                 indicador_doc = next(i for i in indicadores_lista if i["nome_indicador"] == nome_indicador_selecionado)
 
+                opcoes_tipo_variavel = ["str", "int", "float"]
+
+                tipo_variavel_atual = indicador_doc.get("tipo_variavel")
+
                 categoria = col2.selectbox(
                     "Categoria do indicador",
                     options=categorias_existentes,
                     index=categorias_existentes.index(indicador_doc.get("categoria_indicador"))
                     if indicador_doc.get("categoria_indicador") in categorias_existentes else None,
                     placeholder=""
+                )
+
+                tipo_variavel = col3.selectbox(
+                    "Tipo de variável",
+                    options=opcoes_tipo_variavel,
+                    index=opcoes_tipo_variavel.index(tipo_variavel_atual)
+                    if tipo_variavel_atual in opcoes_tipo_variavel else None,
+                    placeholder="",
+                    key=f"tipo_variavel_nonadmin_{nome_indicador_selecionado}"
                 )
 
                 def filtrar_valores_validos(valores, opcoes):
@@ -618,6 +652,7 @@ def gerenciar_indicadores():
                         {"_id": indicador_doc["_id"]},
                         {"$set": {
                             "categoria_indicador": categoria,
+                            "tipo_variavel": tipo_variavel,
                             "colabora_estrategia": [ObjectId(i) for i in colabora_estrategia],
                             "colabora_resultado_mp": [ObjectId(i) for i in colabora_resultado_mp],
                             "colabora_resultado_lp": [ObjectId(i) for i in colabora_resultado_lp],
@@ -626,85 +661,20 @@ def gerenciar_indicadores():
 
                     st.success("Indicador atualizado com sucesso!")
                     time.sleep(2)
-                    st.rerun()
+                    st.rerun(scope="fragment")
                 
 
 
 @st.dialog("Gerenciar lançamentos", width="large", on_dismiss="rerun")   
 def gerenciar_lancamentos():
     tab_add, tab_edit, tab_delete = st.tabs([":material/add: Adicionar", ":material/edit: Editar", ":material/delete: Excluir"])
-
-    # listas de controle
-    indicadores_float = [
-        "Área com manejo ecológico do fogo (ha)",
-        "Área com manejo agroecológico (ha)",
-        "Área com manejo para restauração (ha)",
-        "Área com manejo para extrativismo (ha)",
-        "Faturamento bruto anual pré-projeto",
-        "Faturamento bruto anual pós-projeto",
-        "Volume financeiro de vendas institucionais com apoio do Fundo Ecos",
-        "Valor da contrapartida financeira projetinhos",
-        "Valor da contrapartida não financeira projetinhos",
-        "Valor mobilizado de novos recursos"
-    ]
-    indicador_texto = "Espécies"
-    
-    # Lista de nomes legíveis na ordem definida
-    ordem_indicadores = [
-        "Número de organizações apoiadas",
-        "Número de comunidades fortalecidas",
-        "Número de famílias",
-        "Número de homens jovens (até 29 anos)",
-        "Número de homens adultos",
-        "Número de mulheres jovens (até 29 anos)",
-        "Número de mulheres adultas",
-        "Número de indígenas",
-        "Número de lideranças comunitárias fortalecidas",
-        "Número de famílias comercializando produtos da sociobio com apoio do Fundo Ecos",
-        "Número de famílias acessando vendas institucionais com apoio do Fundo Ecos",
-        "Número de estudantes recebendo bolsa",
-        "Número de capacitações realizadas",
-        "Número de homens jovens capacitados (até 29 anos)",
-        "Número de homens adultos capacitados",
-        "Número de mulheres jovens capacitadas (até 29 anos)",
-        "Número de mulheres adultas capacitadas",
-        "Número de intercâmbios realizados",
-        "Número de homens em intercâmbios",
-        "Número de mulheres em intercâmbios",
-        "Número de iniciativas de Gestão Territorial implantadas",
-        "Área com manejo ecológico do fogo (ha)",
-        "Área com manejo agroecológico (ha)",
-        "Área com manejo para restauração (ha)",
-        "Área com manejo para extrativismo (ha)",
-        "Número de agroindústrias implementadas/reformadas",
-        "Número de tecnologias instaladas",
-        "Número de pessoas beneficiadas com tecnologias",
-        "Número de vídeos produzidos",
-        "Número de aparições na mídia",
-        "Número de publicações de caráter técnico",
-        "Número de artigos acadêmicos produzidos e publicados",
-        "Número de comunicadores comunitários contribuindo na execução das ações do ISPN",
-        "Faturamento bruto anual pré-projeto",
-        "Faturamento bruto anual pós-projeto",
-        "Volume financeiro de vendas institucionais com apoio do Fundo Ecos",
-        "Número de visitas de monitoramento realizadas ao projeto apoiado",
-        "Valor da contrapartida financeira projetinhos",
-        "Valor da contrapartida não financeira projetinhos",
-        "Espécies",
-        "Número de organizações apoiadas que alavancaram recursos",
-        "Valor mobilizado de novos recursos",
-        "Número de políticas públicas monitoradas pelo ISPN",
-        "Número de proposições legislativas acompanhadas pelo ISPN",
-        "Número de contribuições (notas técnicas, participações e/ou documentos) que apoiam a construção e aprimoramento de políticas públicas"
-    ]
     
     # Pega o autor do session_state
     autor_nome = st.session_state.get("nome", "")
-
+    
     # ------------------------- ABA ADICIONAR -------------------------
     with tab_add:
         st.subheader("Novo lançamento de indicador")
-
         tipo_projeto = st.selectbox(
             "Tipo de projeto",
             ["", "Fundo Ecos", "Projetos ISPN"],
@@ -712,6 +682,7 @@ def gerenciar_lancamentos():
         )
 
         subtipo = None
+        
         if tipo_projeto == "Fundo Ecos":
             subtipo = st.selectbox(
                 "Subtipo",
@@ -720,7 +691,6 @@ def gerenciar_lancamentos():
             )
 
         if (tipo_projeto == "Projetos ISPN") or (tipo_projeto == "Fundo Ecos" and subtipo in ["PJ", "PF"]):
-
             if tipo_projeto == "Projetos ISPN":
                 colecao = projetos_ispn
                 tipo_salvar = "ispn"
@@ -735,6 +705,7 @@ def gerenciar_lancamentos():
                 st.stop()
 
             projetos_lista = list(colecao.find({}, {"_id": 1, "codigo": 1, "sigla": 1}))
+
             if not projetos_lista:
                 st.warning("Nenhum projeto encontrado.")
                 st.stop()
@@ -752,91 +723,83 @@ def gerenciar_lancamentos():
             if projeto_selecionado != "":
                 projeto_oid = projetos_opcoes[projeto_selecionado]
 
-                indicadores_lista = list(indicadores.find({}, {"_id": 1, "nome_indicador": 1}))
+                indicadores_lista = list(indicadores.find({}, {"_id": 1, "nome_indicador": 1, "tipo_variavel": 1}))
+
                 indicadores_opcoes = {
-                    formatar_nome_legivel(i["nome_indicador"]): i
+                    i["nome_indicador"]: i
                     for i in indicadores_lista
                 }
 
-                # Cria o selectbox mantendo a ordem
-                indicador_legivel = st.selectbox(
+                # Cria o selectbox com os nomes direto do banco
+                indicador_nome_sel = st.selectbox(
                     "Indicador",
-                    [""] + [i for i in ordem_indicadores if i in indicadores_opcoes]
+                    [""] + sorted(indicadores_opcoes.keys())
                 )
 
-                if indicador_legivel != "":
-                    indicador_doc = indicadores_opcoes[indicador_legivel]
+                if indicador_nome_sel != "":
+                    indicador_doc = indicadores_opcoes[indicador_nome_sel]
                     indicador_oid = indicador_doc["_id"]
-
+                    tipo_variavel = indicador_doc.get("tipo_variavel")
                     
+                    if not tipo_variavel:
+                        st.warning("Este indicador não possui um tipo de variável definido. Edite-o em 'Gerenciar indicadores' antes de lançar valores.")
+                    else:
+                        with st.form(key="form_lancamento_indicador"):
 
-                    with st.form(key="form_lancamento_indicador"):
-                        col1, col2 = st.columns(2)
+                            col1, col2 = st.columns(2)
 
-                        # lógica de input para valor
-                        if indicador_legivel == indicador_texto:
-                            valor = col1.text_input("Espécies")  # salva como str
-                            tipo_valor = "texto"
+                            # lógica de input para valor conforme tipo_variavel
+                            if tipo_variavel == "str":
+                                valor = col1.text_input("Valor")
+                            elif tipo_variavel == "float":
+                                valor = col1.number_input("Valor", value=0.00, step=0.01, format="%.2f")
+                            else:  # int
+                                valor = col1.number_input("Valor", value=0, step=1, format="%d")
 
-                        elif indicador_legivel in indicadores_float:
-                            valor = col1.number_input("Valor", value=0.00, step=0.01, format="%.2f")
-                            tipo_valor = "float"
+                            # Ano
+                            ano_atual = datetime.datetime.now().year
+                            ano_maximo = ano_atual + 1
+                            anos = ["até 2024"] + [str(ano) for ano in range(2025, ano_maximo + 1)]
+                            ano = col2.selectbox("Ano", anos)
 
-                        else:
-                            valor = col1.number_input("Valor", value=0, step=1, format="%d")
-                            tipo_valor = "int"
+                            # Observações
+                            observacoes = st.text_area("Observações", height=100)
+                            submit = st.form_submit_button("Salvar lançamento")
 
+                        if submit:
+                            if not autor_nome:
+                                st.warning("Nome do autor não encontrado no session_state.")
+                                st.stop()
 
-                        # Ano
-                        ano_atual = datetime.datetime.now().year
-                        ano_maximo = ano_atual + 1
+                            # conversão do valor para o tipo correto
+                            if tipo_variavel == "float":
+                                valor = float(valor)
+                            elif tipo_variavel == "int":
+                                valor = int(valor)
 
-                        # cria lista de opções, todas como string
-                        anos = ["até 2024"] + [str(ano) for ano in range(2025, ano_maximo + 1)]
+                            # se for str, mantém como está
+                            novo_lancamento = {
+                                "id_do_indicador": indicador_oid,
+                                "projeto": projeto_oid,
+                                "data_anotacao": datetime.datetime.now(),
+                                "autor_anotacao": autor_nome,
+                                "valor": valor,
+                                "ano": str(ano),
+                                "observacoes": observacoes,
+                                "tipo": tipo_salvar
+                            }
 
-                        ano = col2.selectbox("Ano", anos)
-
-                        # ano = col2.number_input("Ano", min_value=2024, step=1)
-
-                        # Observações
-                        observacoes = st.text_area("Observações", height=100)
-
-                        submit = st.form_submit_button("Salvar lançamento")
-
-                    if submit:
-                        if not autor_nome:
-                            st.warning("Nome do autor não encontrado no session_state.")
-                            st.stop()
-
-                        # conversão do valor para o tipo correto
-                        if tipo_valor == "float":
-                            valor = float(valor)
-                        elif tipo_valor == "int":
-                            valor = int(valor)
-                        # se for texto, mantém como está
-
-                        novo_lancamento = {
-                            "id_do_indicador": indicador_oid,
-                            "projeto": projeto_oid,
-                            "data_anotacao": datetime.datetime.now(),
-                            "autor_anotacao": autor_nome,
-                            "valor": valor,
-                            "ano": str(ano),
-                            "observacoes": observacoes,
-                            "tipo": tipo_salvar
-                        }
-
-                        lancamentos.insert_one(novo_lancamento)
-                        st.success("Lançamento salvo com sucesso.")
-                        time.sleep(2)
-                        st.cache_data.clear()
-                        st.rerun(scope="fragment")
-
+                            lancamentos.insert_one(novo_lancamento)
+                            st.success("Lançamento salvo com sucesso.")
+                            time.sleep(2)
+                            st.cache_data.clear()
+                            st.rerun(scope="fragment")
                 else:
                     st.info("Por favor, selecione as opções acima para prosseguir.")
-
-  # ------------------------- ABA EDITAR -------------------------
+    
+    # ------------------------- ABA EDITAR -------------------------
     with tab_edit:
+
         st.subheader("Editar lançamento")
 
         tipo_projeto_edit = st.selectbox(
@@ -854,7 +817,6 @@ def gerenciar_lancamentos():
             )
 
         if (tipo_projeto_edit == "Projetos ISPN") or (tipo_projeto_edit == "Fundo Ecos" and subtipo_edit in ["PJ", "PF"]):
-
             if tipo_projeto_edit == "Projetos ISPN":
                 colecao = projetos_ispn
                 tipo_salvar = "ispn"
@@ -866,6 +828,7 @@ def gerenciar_lancamentos():
                 tipo_salvar = "PF"
 
             projetos_lista_edit = list(colecao.find({}, {"_id": 1, "codigo": 1, "sigla": 1}))
+
             projetos_opcoes_edit = {
                 f"{p.get('codigo', 'Sem código')} - {p.get('sigla', '')}": p["_id"]
                 for p in projetos_lista_edit
@@ -891,27 +854,24 @@ def gerenciar_lancamentos():
                 # Filtrar lançamentos pelo autor, exceto para admins
                 usuario_atual = st.session_state.get("nome", "")
                 tipo_usuario = st.session_state.get("tipo_usuario", [])
+
                 if "admin" not in tipo_usuario:
                     lancamentos_proj = [l for l in lancamentos_proj if l.get("autor_anotacao") == usuario_atual]
-
                 if not lancamentos_proj:
                     st.info("Nenhum lançamento disponível para edição.")
                 else:
                     lanc_opcoes_edit = {}
+
                     for l in lancamentos_proj:
                         indicador_doc = indicadores.find_one({"_id": l["id_do_indicador"]})
-                        indicador_nome = formatar_nome_legivel(indicador_doc["nome_indicador"]) if indicador_doc else "Indicador desconhecido"
-
-
+                        indicador_nome = indicador_doc["nome_indicador"] if indicador_doc else "Indicador desconhecido"
                         data_str = (
                             l["data_anotacao"].strftime('%d/%m/%Y %H:%M:%S') 
                             if isinstance(l["data_anotacao"], datetime.datetime) 
                             else "Sem data"
                         )
 
-                        # data_str = l["data_anotacao"].strftime('%d/%m/%Y') if isinstance(l["data_anotacao"], datetime.datetime) else "Sem data"
                         autor = l.get("autor_anotacao", "Sem autor")
-
                         label = f"{data_str} - {autor} - {indicador_nome}"
                         lanc_opcoes_edit[label] = l["_id"]
 
@@ -922,64 +882,41 @@ def gerenciar_lancamentos():
                     )
 
                     if lanc_sel_edit != "":
+
                         lanc_id_edit = lanc_opcoes_edit[lanc_sel_edit]
                         doc = lancamentos.find_one({"_id": lanc_id_edit})
-
                         indicador_doc_edit = indicadores.find_one({"_id": doc["id_do_indicador"]})
-                        indicador_nome_edit = formatar_nome_legivel(indicador_doc_edit["nome_indicador"]) if indicador_doc_edit else ""
-
+                        tipo_variavel_edit = indicador_doc_edit.get("tipo_variavel") if indicador_doc_edit else None
+                        
                         col1, col2 = st.columns(2)
 
-                        if indicador_nome_edit == indicador_texto:
-                            novo_valor = col1.text_input("Espécies", value=str(doc["valor"]))
-                            tipo_valor = "texto"
-                        elif indicador_nome_edit in indicadores_float:
+                        if tipo_variavel_edit == "str":
+                            novo_valor = col1.text_input("Valor", value=str(doc["valor"]))
+                        elif tipo_variavel_edit == "float":
                             valor_inicial = float(doc["valor"]) if doc["valor"] != "" else 0.00
                             novo_valor = col1.number_input("Valor", value=valor_inicial, step=0.01, format="%.2f")
-                            tipo_valor = "float"
-                        else:
+                        else:  # int (também cobre indicadores sem tipo_variavel definido, como fallback)
                             valor_inicial = int(doc["valor"]) if str(doc["valor"]).isdigit() else 0
                             novo_valor = col1.number_input("Valor", value=valor_inicial, step=1, format="%d")
-                            tipo_valor = "int"
-
-
+                        
                         # Ano
-
-                        # pega ano atual e define limite
                         ano_atual = datetime.datetime.now().year
                         ano_maximo = ano_atual + 1
-
-                        # gera lista de opções como string
                         anos = ["até 2024"] + [str(ano) for ano in range(2025, ano_maximo + 1)]
-
-                        # pega valor já cadastrado, default "2025"
                         ano_str = doc.get("ano", "2025")
 
-                        # garante que o valor já cadastrado esteja nas opções
                         if ano_str not in anos:
-                            anos.insert(0, ano_str)  # adiciona no início se não estiver
-
-                        # cria o selectbox
+                            anos.insert(0, ano_str)
                         novo_ano = col2.selectbox("Ano", anos, index=anos.index(ano_str))
-
-
-
-                        # ano_str = doc.get("ano", "2025")
-                        # try:
-                        #     ano_int = int(ano_str)
-                        # except ValueError:
-                        #     ano_int = 2025
-                        # novo_ano = col2.number_input("Ano", value=ano_int, min_value=2025, step=1)
 
                         # Observações
                         novas_obs = st.text_area("Observações", value=doc.get("observacoes", ""))
-
                         if st.button("Salvar alterações", key="salvar_edit"):
-                            if tipo_valor == "float":
-                                novo_valor = float(novo_valor)
-                            elif tipo_valor == "int":
-                                novo_valor = int(novo_valor)
 
+                            if tipo_variavel_edit == "float":
+                                novo_valor = float(novo_valor)
+                            elif tipo_variavel_edit != "str":
+                                novo_valor = int(novo_valor)
                             lancamentos.update_one(
                                 {"_id": lanc_id_edit},
                                 {"$set": {
@@ -988,12 +925,15 @@ def gerenciar_lancamentos():
                                     "observacoes": novas_obs
                                 }}
                             )
+
                             st.success("Lançamento atualizado com sucesso!")
+                            time.sleep(2)
                             st.cache_data.clear()
                             st.rerun(scope="fragment")
-
+    
     # ------------------------- ABA EXCLUIR -------------------------
     with tab_delete:
+
         st.subheader("Excluir lançamento")
 
         tipo_projeto_delete = st.selectbox(
@@ -1011,7 +951,6 @@ def gerenciar_lancamentos():
             )
 
         if (tipo_projeto_delete == "Projetos ISPN") or (tipo_projeto_delete == "Fundo Ecos" and subtipo_delete in ["PJ", "PF"]):
-
             if tipo_projeto_delete == "Projetos ISPN":
                 colecao = projetos_ispn
                 tipo_salvar = "ispn"
@@ -1023,6 +962,7 @@ def gerenciar_lancamentos():
                 tipo_salvar = "PF"
 
             projetos_lista_delete = list(colecao.find({}, {"_id": 1, "codigo": 1, "sigla": 1}))
+
             projetos_opcoes_delete = {
                 f"{p.get('codigo', 'Sem código')} - {p.get('sigla', '')}": p["_id"]
                 for p in projetos_lista_delete
@@ -1035,8 +975,8 @@ def gerenciar_lancamentos():
             )
 
             if projeto_sel_delete != "":
-                projeto_oid_delete = projetos_opcoes_delete[projeto_sel_delete]
 
+                projeto_oid_delete = projetos_opcoes_delete[projeto_sel_delete]
                 lancamentos_proj = list(
                     lancamentos.find({
                         "projeto": projeto_oid_delete,
@@ -1045,21 +985,19 @@ def gerenciar_lancamentos():
                     }).sort("data_anotacao", -1)
                 )
 
-                # Filtrar lançamentos pelo autor, exceto para admins
                 usuario_atual = st.session_state.get("nome", "")
                 tipo_usuario = st.session_state.get("tipo_usuario", [])
                 
-                
                 if "admin" not in tipo_usuario:
                     lancamentos_proj = [l for l in lancamentos_proj if l.get("autor_anotacao") == usuario_atual]
-
                 if not lancamentos_proj:
                     st.info("Nenhum lançamento disponível para exclusão.")
                 else:
                     lanc_opcoes_delete = {}
+
                     for l in lancamentos_proj:
                         indicador_doc = indicadores.find_one({"_id": l["id_do_indicador"]})
-                        indicador_nome = formatar_nome_legivel(indicador_doc["nome_indicador"]) if indicador_doc else "Indicador desconhecido"
+                        indicador_nome = indicador_doc["nome_indicador"] if indicador_doc else "Indicador desconhecido"
 
                         data_str = (
                             l["data_anotacao"].strftime('%d/%m/%Y %H:%M:%S') 
@@ -1067,10 +1005,10 @@ def gerenciar_lancamentos():
                             else "Sem data"
                         )
 
-                        # data_str = l["data_anotacao"].strftime('%d/%m/%Y') if isinstance(l["data_anotacao"], datetime.datetime) else "Sem data"
                         autor = l.get("autor_anotacao", "Sem autor")
 
                         label = f"{data_str} - {autor} - {indicador_nome}"
+
                         lanc_opcoes_delete[label] = l["_id"]
 
                     lanc_sel_delete = st.selectbox(
@@ -1080,19 +1018,22 @@ def gerenciar_lancamentos():
                     )
 
                     if lanc_sel_delete != "":
+
                         lanc_id_delete = lanc_opcoes_delete[lanc_sel_delete]
+
                         doc = lancamentos.find_one({"_id": lanc_id_delete})
 
                         indicador_id = doc.get("id_do_indicador") or doc.get("indicador")
                         indicador_nome_conf = "Indicador desconhecido"
+
                         if indicador_id:
                             indicador_doc_conf = indicadores.find_one({"_id": indicador_id}, {"nome_indicador": 1})
+
                             if indicador_doc_conf:
-                                indicador_nome_conf = formatar_nome_legivel(
-                                    indicador_doc_conf.get("nome_indicador", "")
-                                ) or "Indicador"
+                                indicador_nome_conf = indicador_doc_conf.get("nome_indicador", "") or "Indicador"
 
                         valor_lanc = doc.get("valor", "Sem valor")
+
                         st.warning(
                             f"Tem certeza que deseja excluir o indicador registrado por "
                             f"{doc['autor_anotacao']} em {doc['data_anotacao'].strftime('%d/%m/%Y')}?\n\n"
