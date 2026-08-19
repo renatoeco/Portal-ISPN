@@ -38,13 +38,61 @@ if "entrega" not in st.session_state:
     st.session_state["entrega"] = False
 
 
-# Mapa id_indicador -> nome
-df_indicadores = pd.DataFrame(list(indicadores.find({}, {"nome_indicador": 1})))
-df_indicadores["_id"] = df_indicadores["_id"].astype(str)
+# ==========================================================
+# MAPA DE INDICADORES
+# ==========================================================
+# Carrega o nome e o tipo da variável diretamente da coleção
+# de indicadores. O campo "tipo_variavel" define qual widget
+# será utilizado no lançamento e também qual tipo Python será
+# salvo no MongoDB.
+#
+# Valores esperados para "tipo_variavel":
+#   - "str"   -> texto
+#   - "int"   -> número inteiro
+#   - "float" -> número decimal
+# ==========================================================
 
-mapa_indicadores = dict(
-    zip(df_indicadores["_id"], df_indicadores["nome_indicador"])
+df_indicadores = pd.DataFrame(
+    list(
+        indicadores.find(
+            {},
+            {
+                "nome_indicador": 1,
+                "tipo_variavel": 1
+            }
+        )
+    )
 )
+
+if not df_indicadores.empty:
+
+    # Converte o ObjectId para string para facilitar o uso
+    # como chave nos dicionários e nos componentes Streamlit.
+    df_indicadores["_id"] = df_indicadores["_id"].astype(str)
+
+    # Garante que indicadores antigos ou incompletos tenham
+    # um tipo padrão. O padrão utilizado será "str", evitando
+    # conversões numéricas indevidas.
+    df_indicadores["tipo_variavel"] = (
+        df_indicadores["tipo_variavel"]
+        .fillna("str")
+        .astype(str)
+        .str.lower()
+        .str.strip()
+    )
+
+    # Mapa completo:
+    # id_indicador -> nome e tipo da variável.
+    mapa_indicadores = {
+        row["_id"]: {
+            "nome": row.get("nome_indicador", "Indicador não encontrado"),
+            "tipo_variavel": row.get("tipo_variavel", "str")
+        }
+        for _, row in df_indicadores.iterrows()
+    }
+
+else:
+    mapa_indicadores = {}
 
 
 ###########################################################################################################
@@ -156,23 +204,37 @@ def renderizar_novo_registro(idx):
 
     for indicador_id in indicadores_entrega:
 
-        indicadores_float = [
-            "Área com manejo ecológico do fogo (ha)",
-            "Área com manejo agroecológico (ha)",
-            "Área com manejo para restauração (ha)",
-            "Área com manejo para extrativismo (ha)",
-            "Faturamento bruto anual pré-projeto",
-            "Faturamento bruto anual pós-projeto",
-            "Volume financeiro de vendas institucionais com apoio do Fundo Ecos",
-            "Valor da contrapartida financeira projetinhos",
-            "Valor da contrapartida não financeira projetinhos",
-            "Valor mobilizado de novos recursos"
-        ]
-        indicador_texto = "Espécies"
+        # ==========================================================
+        # OBTÉM OS DADOS DO INDICADOR
+        # ==========================================================
+        # Cada indicador possui seu próprio tipo de variável
+        # cadastrado no MongoDB.
+        #
+        # Exemplo:
+        # {
+        #     "nome": "valor_da_contrapartida_financeira_projetinhos",
+        #     "tipo_variavel": "int"
+        # }
+        #
+        # O tipo não é mais determinado pelo nome do indicador.
+        # ==========================================================
 
-        nome_indicador = mapa_indicadores.get(
+        dados_indicador = mapa_indicadores.get(
             indicador_id,
+            {
+                "nome": "Indicador não encontrado",
+                "tipo_variavel": "str"
+            }
+        )
+
+        nome_indicador = dados_indicador.get(
+            "nome",
             "Indicador não encontrado"
+        )
+
+        tipo_variavel = dados_indicador.get(
+            "tipo_variavel",
+            "str"
         )
 
         st.markdown(f"**{nome_indicador}**")
@@ -181,38 +243,76 @@ def renderizar_novo_registro(idx):
 
         key_base = f"{idx}_{indicador_id}"
 
-        if nome_indicador in indicadores_float:
-            valor = col1.number_input(
-                "Valor",
-                step=0.01,
-                key=f"valor_{key_base}",
-                disabled=usuario_visitante 
-            )
+        # ==========================================================
+        # CAMPO DE VALOR
+        # ==========================================================
+        # O widget é escolhido exclusivamente pelo campo
+        # "tipo_variavel" cadastrado no indicador.
+        # ==========================================================
 
-        elif nome_indicador == indicador_texto:
+        if tipo_variavel == "str":
+
+            # Indicadores do tipo str utilizam campo de texto.
             valor = col1.text_input(
                 "Valor",
                 key=f"valor_{key_base}",
                 disabled=usuario_visitante
             )
 
-        else:
+        elif tipo_variavel == "int":
+
+            # Indicadores do tipo int utilizam número inteiro.
             valor = col1.number_input(
                 "Valor",
+                min_value=0,
                 step=1,
                 key=f"valor_{key_base}",
                 disabled=usuario_visitante
             )
 
+        elif tipo_variavel == "float":
+
+            # Indicadores do tipo float utilizam número decimal.
+            valor = col1.number_input(
+                "Valor",
+                min_value=0.0,
+                step=0.01,
+                format="%.2f",
+                key=f"valor_{key_base}",
+                disabled=usuario_visitante
+            )
+
+        else:
+
+            # Caso o banco possua um tipo inesperado, utiliza texto
+            # como fallback para evitar que a página seja interrompida.
+            valor = col1.text_input(
+                "Valor",
+                key=f"valor_{key_base}",
+                disabled=usuario_visitante
+            )
+
+        # ==========================================================
+        # OBSERVAÇÕES
+        # ==========================================================
+
         observacoes = col2.text_input(
             "Observações",
             key=f"obs_{key_base}",
-                disabled=usuario_visitante
+            disabled=usuario_visitante
         )
+
+        # ==========================================================
+        # ARMAZENA OS DADOS TEMPORARIAMENTE
+        # ==========================================================
+        # Mantemos o tipo junto com o valor para utilizar a mesma
+        # definição posteriormente no momento de salvar no MongoDB.
+        # ==========================================================
 
         valores_indicadores[indicador_id] = {
             "valor": valor,
-            "observacoes": observacoes
+            "observacoes": observacoes,
+            "tipo_variavel": tipo_variavel
         }
 
         st.divider()
@@ -248,29 +348,100 @@ def renderizar_novo_registro(idx):
             {"$set": {"entregas": entregas_existentes}}
         )
 
-        # -------------------------
-        # 2. Salvar lançamentos de indicadores
-        # -------------------------
+
+        # ==========================================================
+        # SALVAR LANÇAMENTOS DE INDICADORES
+        # ==========================================================
+
         for indicador_id, dados in valores_indicadores.items():
 
-            if dados["valor"] in ["", None] or dados["valor"] == 0:
-                continue
+            valor = dados["valor"]
+            tipo_variavel = dados["tipo_variavel"]
 
-            nome_indicador = mapa_indicadores.get(str(indicador_id), "")
+            # ------------------------------------------------------
+            # Ignora campos vazios.
+            #
+            # Para str, verificamos string vazia.
+            # Para números, verificamos None.
+            # O valor 0 é mantido para indicadores numéricos, pois
+            # zero pode ser um lançamento válido.
+            # ------------------------------------------------------
 
-            if nome_indicador in indicadores_float:
-                valor_final = float(dados["valor"])
-            elif nome_indicador == indicador_texto:
-                valor_final = str(dados["valor"])
+            if tipo_variavel == "str":
+
+                if valor is None or str(valor).strip() == "":
+                    continue
+
             else:
-                valor_final = int(dados["valor"])
+
+                if valor is None:
+                    continue
+
+            # ======================================================
+            # CONVERSÃO PARA O TIPO CORRETO
+            # ======================================================
+            # A conversão é feita antes de inserir no MongoDB para
+            # garantir que o campo "valor" tenha exatamente o tipo
+            # definido no cadastro do indicador.
+            # ======================================================
+
+            try:
+
+                if tipo_variavel == "str":
+
+                    valor_final = str(valor)
+
+                elif tipo_variavel == "int":
+
+                    valor_final = int(valor)
+
+                elif tipo_variavel == "float":
+
+                    valor_final = float(valor)
+
+                else:
+
+                    # Fallback para tipos não reconhecidos.
+                    valor_final = str(valor)
+
+            except (ValueError, TypeError):
+
+                # ==========================================================
+                # OBTÉM O NOME DO INDICADOR PARA A MENSAGEM DE ERRO
+                # ==========================================================
+
+                dados_indicador = mapa_indicadores.get(
+                    str(indicador_id),
+                    {}
+                )
+
+                nome_indicador = dados_indicador.get(
+                    "nome",
+                    "Indicador"
+                )
+
+                st.error(
+                    f"O valor informado para o indicador "
+                    f"'{nome_indicador}' não é válido para o tipo "
+                    f"'{tipo_variavel}'."
+                )
+
+                st.stop()
+
+            # ======================================================
+            # DOCUMENTO DO LANÇAMENTO
+            # ======================================================
 
             lancamento_indicador = {
                 "id_do_indicador": ObjectId(indicador_id),
                 "projeto": projeto_info["_id"],
                 "data_anotacao": datetime.now(),
                 "autor_anotacao": st.session_state.get("nome"),
+
+                # O valor já está convertido para str, int ou float
+                # conforme o cadastro do indicador.
                 "valor": valor_final,
+
                 "ano": str(ano_lancamento),
                 "observacoes": dados["observacoes"],
                 "tipo": "ispn",
@@ -614,12 +785,20 @@ def dialog_registros_entregas():
                             else:
                                 for reg in registros_indicadores:
 
-                                    nome_indicador = mapa_indicadores.get(
+                                    # Obtém os dados do indicador associado ao lançamento.
+                                    dados_indicador = mapa_indicadores.get(
                                         str(reg["id_do_indicador"]),
-                                        "Indicador não encontrado"
+                                        {
+                                            "nome": "Indicador não encontrado",
+                                            "tipo_variavel": "str"
+                                        }
                                     )
 
-                                    st.markdown(f"**{nome_indicador}:** {reg.get('valor')}")
+                                    nome_indicador = dados_indicador["nome"]
+
+                                    st.markdown(
+                                        f"**{nome_indicador}:** {reg.get('valor')}"
+                                    )
                                     
                                     st.write("")
 
