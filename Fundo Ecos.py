@@ -110,21 +110,6 @@ div[data-testid="stDialog"] div[role="dialog"]:has(.big-dialog) {
 ######################################################################################################
 
 
-# listas de controle
-indicadores_float = [
-    "Área com manejo ecológico do fogo (ha)",
-    "Área com manejo agroecológico (ha)",
-    "Área com manejo para restauração (ha)",
-    "Área com manejo para extrativismo (ha)",
-    "Faturamento bruto anual pré-projeto",
-    "Faturamento bruto anual pós-projeto",
-    "Volume financeiro de vendas institucionais com apoio do Fundo Ecos",
-    "Valor da contrapartida financeira projetinhos",
-    "Valor da contrapartida não financeira projetinhos",
-    "Valor mobilizado de novos recursos"
-]
-indicador_texto = "Espécies"
-
 # Lista de nomes legíveis na ordem definida
 ordem_indicadores = [
     "Número de organizações apoiadas",
@@ -228,8 +213,21 @@ def converter_uf_codigo_para_nome(valor):
     except Exception as e:
         return valor
     
-
-@st.dialog("Detalhes do projeto", width="large")
+    
+def converter_valor(valor_str):
+    """
+    Tenta converter uma string para float.
+    Retorna o valor numérico se a conversão for bem-sucedida,
+    ou None se o valor for um texto (não numérico) — sem cair
+    no fallback de 0.0 que o parse_valor usa.
+    """
+    try:
+        return float(valor_str.replace(".", "").replace(",", "."))
+    except ValueError:
+        return None
+    
+    
+@st.dialog("Detalhes do projeto", width="large", on_dismiss="rerun")
 def mostrar_detalhes(codigo_proj: str):
     
     st.html("<span class='big-dialog'></span>")
@@ -541,17 +539,88 @@ def mostrar_detalhes(codigo_proj: str):
                 })
 
 
-        # Cria o DataFrame mesmo que linhas esteja vazio
-        df_indicadores = pd.DataFrame(linhas, columns=["Indicador", "Valor", "Ano", "Autor(a)", "Data anotação", "Observações"])
-        df_indicadores["Valor_num"] = df_indicadores["Valor"].apply(parse_valor)
-
-        # Resumo por indicador
-        df_resumo = (
-            df_indicadores.groupby("Indicador", as_index=False)["Valor_num"]
-            .sum(min_count=1)
-            .rename(columns={"Valor_num": "Total"})
+        # Cria o DataFrame mesmo que "linhas" esteja vazio.
+        # A coluna "Valor" é mantida originalmente para preservar textos
+        # que não possam ser interpretados como números.
+        df_indicadores = pd.DataFrame(
+            linhas,
+            columns=[
+                "Indicador",
+                "Valor",
+                "Ano",
+                "Autor(a)",
+                "Data anotação",
+                "Observações"
+            ]
         )
-        df_resumo["Total"] = df_resumo["Total"].fillna("")
+
+
+        def consolidar_valores(grupo):
+            """
+            Consolida os valores de um mesmo indicador.
+
+            Regras:
+            - Valores numéricos são somados.
+            - Valores textuais são preservados.
+            - Quando houver vários valores textuais, eles são separados por vírgula.
+            - Valores vazios são ignorados.
+            - Se houver somente números, retorna o total numérico.
+            - Se houver somente textos, retorna os textos concatenados.
+            - Caso existam números e textos no mesmo grupo, ambos são preservados.
+            """
+
+            valores_numericos = []
+            valores_textuais = []
+
+            for valor in grupo:
+                # Ignora valores nulos do DataFrame.
+                if pd.isna(valor):
+                    continue
+
+                # Converte o valor para string apenas para fazer a análise.
+                # O valor original pode ser int, float ou str.
+                valor_str = str(valor).strip()
+
+                # Ignora strings vazias.
+                if not valor_str:
+                    continue
+
+                valor_num = converter_valor(valor_str)
+                # Só entra como número se a conversão realmente funcionou.
+                if valor_num is not None:
+                    valores_numericos.append(valor_num)
+                # Caso contrário, o lançamento é tratado como texto e
+                # preservado exatamente como foi registrado.
+                else:
+                    valores_textuais.append(valor_str)
+
+            # Caso não exista nenhum valor válido.
+            if not valores_numericos and not valores_textuais:
+                return ""
+
+            # Se existirem somente textos, retorna todos separados por vírgula.
+            if not valores_numericos:
+                return ", ".join(valores_textuais)
+
+            # Se existirem somente números, retorna a soma.
+            if not valores_textuais:
+                return sum(valores_numericos)
+
+            # Caso excepcional em que o mesmo indicador possui lançamentos
+            # numéricos e textuais, preservamos os dois tipos.
+            total_numerico = sum(valores_numericos)
+
+            return f"{total_numerico}, {', '.join(valores_textuais)}"
+
+
+        # Consolida os lançamentos por indicador.
+        df_resumo = (
+            df_indicadores
+            .groupby("Indicador", as_index=False)
+            .agg(
+                Total=("Valor", consolidar_valores)
+            )
+        )
 
         autor_nome = st.session_state.get("nome", "")
         tipo_usuario = st.session_state.get("tipo_usuario", [])
@@ -609,7 +678,7 @@ def mostrar_detalhes(codigo_proj: str):
 
 
             # Carrega indicadores
-            indicadores_lista = list(db["indicadores"].find({}, {"_id": 1, "nome_indicador": 1}))
+            indicadores_lista = list(db["indicadores"].find({}, {"_id": 1, "nome_indicador": 1, "tipo_variavel": 1}))
             indicadores_opcoes = {
                 i["nome_indicador"]: i
                 for i in indicadores_lista
@@ -629,75 +698,75 @@ def mostrar_detalhes(codigo_proj: str):
             with tab_add:
                 st.subheader("Novo lançamento de indicador")
 
-                indicadores_lista = list(indicadores.find({}, {"_id": 1, "nome_indicador": 1}))
+                indicadores_lista = list(indicadores.find({}, {"_id": 1, "nome_indicador": 1, "tipo_variavel": 1}))
                 indicadores_opcoes = {
                     i["nome_indicador"]: i
                     for i in indicadores_lista
                 }
-
+                
                 indicador_legivel = st.selectbox(
                     "Indicador",
-                    [""] + list(indicadores_opcoes.keys()),
+                    [""] + sorted(indicadores_opcoes.keys()),
                     placeholder=""
                 )
-
+                
                 if indicador_legivel != "":
                     indicador_doc = indicadores_opcoes[indicador_legivel]
                     indicador_oid = indicador_doc["_id"]
+                    tipo_variavel = indicador_doc.get("tipo_variavel")
 
-                    with st.form(key="form_add_lancamento"):
-                        col1, col2 = st.columns(2)
+                    if not tipo_variavel:
+                        st.warning("Este indicador não possui um tipo de variável definido. Edite-o em 'Gerenciar indicadores' antes de lançar valores.")
+                    else:
+                        with st.form(key="form_add_lancamento", border=False):
+                            col1, col2 = st.columns(2)
+                            if tipo_variavel == "str":
+                                valor = col1.text_input("Valor")
+                                
+                            elif tipo_variavel == "float":
+                                valor = col1.number_input("Valor", value=0.00, step=0.01, format="%.2f")
+                                
+                            else:  # int
+                                valor = col1.number_input("Valor", value=0, step=1, format="%d")
+                                
+                            ano_atual = datetime.datetime.now().year
+                            anos = ["até 2024"] + [str(ano) for ano in range(2025, ano_atual + 2)]
+                            ano = col2.selectbox("Ano", anos)
+                            
+                            observacoes = st.text_area("Observações", height=100)
+                            submit = st.form_submit_button(":material/save: Salvar lançamento")
+                            
+                        if submit:
+                            if not autor_nome:
+                                st.warning("Nome do autor não encontrado.")
+                                st.stop()
+                            if tipo_variavel == "float":
+                                valor = float(valor)
+                            elif tipo_variavel == "int":
+                                valor = int(valor)
 
-                        if indicador_legivel == indicador_texto:
-                            valor = col1.text_input("Espécies")
-                            tipo_valor = "texto"
-                        elif indicador_legivel in indicadores_float:
-                            valor = col1.number_input("Valor", value=0.00, step=0.01, format="%.2f")
-                            tipo_valor = "float"
-                        else:
-                            valor = col1.number_input("Valor", value=0, step=1, format="%d")
-                            tipo_valor = "int"
+                            # Determinar o tipo do projeto
+                            if db["projetos_pj"].find_one({"_id": proj_id}):
+                                tipo_projeto = "PJ"
+                            elif db["projetos_pf"].find_one({"_id": proj_id}):
+                                tipo_projeto = "PF"
+                            
+                            novo_lancamento = {
+                                "id_do_indicador": indicador_oid,
+                                "projeto": proj_id,
+                                "valor": valor,
+                                "ano": str(ano),
+                                "observacoes": observacoes,
+                                "autor_anotacao": autor_nome,
+                                "data_anotacao": datetime.datetime.now(),
+                                "tipo": tipo_projeto
+                            }
 
-                        ano_atual = datetime.datetime.now().year
-                        anos = ["até 2024"] + [str(ano) for ano in range(2025, ano_atual + 2)]
-                        ano = col2.selectbox("Ano", anos)
-
-                        observacoes = st.text_area("Observações", height=100)
-
-                        submit = st.form_submit_button(":material/save: Salvar lançamento")
-
-                    if submit:
-                        if not autor_nome:
-                            st.warning("Nome do autor não encontrado.")
-                            st.stop()
-
-                        if tipo_valor == "float":
-                            valor = float(valor)
-                        elif tipo_valor == "int":
-                            valor = int(valor)
-
-                        # Determinar o tipo do projeto
-                        if db["projetos_pj"].find_one({"_id": proj_id}):
-                            tipo_projeto = "PJ"
-                        elif db["projetos_pf"].find_one({"_id": proj_id}):
-                            tipo_projeto = "PF"
-                        
-                        novo_lancamento = {
-                            "id_do_indicador": indicador_oid,
-                            "projeto": proj_id,
-                            "valor": valor,
-                            "ano": str(ano),
-                            "observacoes": observacoes,
-                            "autor_anotacao": autor_nome,
-                            "data_anotacao": datetime.datetime.now(),
-                            "tipo": tipo_projeto
-                        }
-
-                        colecao_lancamentos.insert_one(novo_lancamento)
-                        st.success("Lançamento salvo com sucesso!")
-                        time.sleep(2)
-                        st.cache_data.clear()
-                        st.rerun()
+                            colecao_lancamentos.insert_one(novo_lancamento)
+                            
+                            st.success("Lançamento salvo com sucesso!")
+                            time.sleep(2)
+                            st.rerun(scope="fragment")
 
             # ------------------------- ABA EDITAR -------------------------
             with tab_edit:
@@ -727,37 +796,39 @@ def mostrar_detalhes(codigo_proj: str):
 
                     if lanc_sel != "":
                         lanc_id = lanc_opcoes[lanc_sel]
+                        
                         doc = colecao_lancamentos.find_one({"_id": lanc_id})
+                        
                         indicador = indicadores.find_one({"_id": doc["id_do_indicador"]})
-                        indicador_nome_edit = indicador["nome_indicador"] if indicador else ""
-
-
+                        
+                        tipo_variavel_edit = indicador.get("tipo_variavel") if indicador else None
+                        
                         col1, col2 = st.columns(2)
-
-                        if indicador_nome_edit == indicador_texto:
-                            novo_valor = col1.text_input("Espécies", value=str(doc["valor"]))
-                            tipo_valor = "texto"
-                        elif indicador_nome_edit in indicadores_float:
+                        if tipo_variavel_edit == "str":
+                            novo_valor = col1.text_input("Valor", value=str(doc["valor"]))
+                            
+                        elif tipo_variavel_edit == "float":
                             valor_inicial = float(doc["valor"]) if doc["valor"] != "" else 0.00
                             novo_valor = col1.number_input("Valor", value=valor_inicial, step=0.01, format="%.2f")
-                            tipo_valor = "float"
-                        else:
+                        
+                        else:  # int (fallback também para indicadores sem tipo_variavel definido)
                             valor_inicial = int(doc["valor"]) if str(doc["valor"]).isdigit() else 0
                             novo_valor = col1.number_input("Valor", value=valor_inicial, step=1, format="%d")
-                            tipo_valor = "int"
-
+                        
                         anos = ["até 2024"] + [str(ano) for ano in range(2025, datetime.datetime.now().year + 2)]
                         ano_str = doc.get("ano", "2025")
+                        
                         if ano_str not in anos:
                             anos.insert(0, ano_str)
+                        
                         novo_ano = col2.selectbox("Ano", anos, index=anos.index(ano_str))
-
+                        
                         novas_obs = st.text_area("Observações", value=doc.get("observacoes", ""))
-
+                        
                         if st.button(":material/save: Salvar alterações"):
-                            if tipo_valor == "float":
+                            if tipo_variavel_edit == "float":
                                 novo_valor = float(novo_valor)
-                            elif tipo_valor == "int":
+                            elif tipo_variavel_edit != "str":
                                 novo_valor = int(novo_valor)
 
                             colecao_lancamentos.update_one(
@@ -765,8 +836,8 @@ def mostrar_detalhes(codigo_proj: str):
                                 {"$set": {"valor": novo_valor, "ano": str(novo_ano), "observacoes": novas_obs}}
                             )
                             st.success("Lançamento atualizado com sucesso!")
-                            st.cache_data.clear()
-                            st.rerun()
+                            time.sleep(2)
+                            st.rerun(scope="fragment")
 
             # ------------------------- ABA EXCLUIR -------------------------
             with tab_delete:
