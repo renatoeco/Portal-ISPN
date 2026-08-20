@@ -241,24 +241,15 @@ def dialog_editar_entregas():
     mapa_indicadores = dict(
         zip(df_indicadores["_id"], df_indicadores["nome_indicador"])
     )
+    
+    # Mapa: id -> tipo_variavel ("int", "float" ou "str")
+    mapa_tipo_variavel = dict(
+        zip(df_indicadores["_id"], df_indicadores["tipo_variavel"])
+    )
 
     # Lista de IDs (o que será salvo)
     indicadores_options = sorted(mapa_indicadores.keys(), key=lambda x: mapa_indicadores[x])
 
-    
-    indicadores_float = [
-        "Área com manejo ecológico do fogo (ha)",
-        "Área com manejo agroecológico (ha)",
-        "Área com manejo para restauração (ha)",
-        "Área com manejo para extrativismo (ha)",
-        "Faturamento bruto anual pré-projeto",
-        "Faturamento bruto anual pós-projeto",
-        "Volume financeiro de vendas institucionais com apoio do Fundo Ecos",
-        "Valor da contrapartida financeira projetinhos",
-        "Valor da contrapartida não financeira projetinhos",
-        "Valor mobilizado de novos recursos"
-    ]
-    indicador_texto = "Espécies"
     
     # --- 2. Criar dicionários de mapeamento ---
     mapa_doador = {d["_id"]: d["nome_doador"] for d in db["doadores"].find()}
@@ -731,7 +722,7 @@ def dialog_editar_entregas():
                 indicadores_relacionados = st.multiselect(
                     "Contribui com quais indicadores?",
                     options=indicadores_options, 
-                    format_func=lambda x: formatar_nome_legivel(mapa_indicadores.get(x, "")),
+                    format_func=lambda x: mapa_indicadores.get(x, ""),
                     placeholder="",
                     key="nova_indrel"
                 )
@@ -924,13 +915,13 @@ def dialog_editar_entregas():
                         st.write("")
                         
                         indicadores_entrega = entrega.get("indicadores_relacionados", [])
-
+                        
                         if indicadores_entrega:
                             st.markdown("**Indicadores:**")
                             for i in indicadores_entrega:
                                 nome = mapa_indicadores.get(str(i), "Indicador não encontrado")
-                                st.markdown(f"- {formatar_nome_legivel(nome)}")
-
+                                st.markdown(f"- {nome}")
+                                
                         else:
                             st.markdown("**Indicadores:** -")
 
@@ -1167,7 +1158,7 @@ def dialog_editar_entregas():
                                 "Contribui com quais indicadores?",
                                 options=indicadores_options,
                                 default=default_ids,
-                                format_func=lambda x: formatar_nome_legivel(mapa_indicadores.get(x, "")),
+                                format_func=lambda x: mapa_indicadores.get(x, ""),
                                 placeholder=""
                             )
                             
@@ -1290,41 +1281,45 @@ def dialog_editar_entregas():
                     indicadores_entrega = entrega.get("indicadores_relacionados", [])
 
                     for indicador in indicadores_entrega:
-
                         nome_indicador = mapa_indicadores.get(str(indicador), "Indicador não encontrado")
-                        nome_legivel = formatar_nome_legivel(nome_indicador)
-
-                        st.markdown(f"**{nome_legivel}**")
+                        
+                        tipo_variavel = mapa_tipo_variavel.get(str(indicador), "int")
+                        
+                        st.markdown(f"**{nome_indicador}**")
+                        
                         col1, col2 = st.columns([2, 3])
-
-                        if nome_legivel in indicadores_float:
+                        if tipo_variavel == "float":
                             valor = col1.number_input(
                                 "Valor",
                                 step=0.01,
+                                format="%.2f",
                                 key=f"valor_{indicador}"
                             )
-                        elif nome_legivel == indicador_texto:
+                        
+                        elif tipo_variavel == "str":
                             valor = col1.text_input(
                                 "Valor",
                                 key=f"valor_{indicador}"
                             )
-                        else:
+                        
+                        else:  # int (fallback também para indicadores sem tipo_variavel definido)
                             valor = col1.number_input(
                                 "Valor",
                                 step=1,
+                                format="%d",
                                 key=f"valor_{indicador}"
                             )
-
+                        
                         observacoes = col2.text_input(
                             "Observações",
                             key=f"obs_{indicador}"
                         )
-
+                        
                         valores_indicadores[indicador] = {
                             "valor": valor,
                             "observacoes": observacoes
                         }
-
+                        
                         st.divider()
 
                     # =========================
@@ -1361,17 +1356,18 @@ def dialog_editar_entregas():
                     )
 
                     for indicador_id, dados in valores_indicadores.items():
-
+                        
                         if dados["valor"] in ["", None, 0]:
                             continue
-
-                        nome_indicador = mapa_indicadores.get(str(indicador_id), "")
-                        nome_legivel = formatar_nome_legivel(nome_indicador)
-
-                        if nome_legivel in indicadores_float:
+                        
+                        tipo_variavel = mapa_tipo_variavel.get(str(indicador_id), "int")
+                        
+                        if tipo_variavel == "float":
                             valor_final = float(dados["valor"])
-                        elif nome_legivel == indicador_texto:
+                        
+                        elif tipo_variavel == "str":
                             valor_final = str(dados["valor"])
+                        
                         else:
                             valor_final = int(dados["valor"])
 
@@ -1479,17 +1475,16 @@ def dialog_editar_entregas():
                                 else:
 
                                     for reg in registros_indicadores:
-
                                         nome_indicador = mapa_indicadores.get(
                                             str(reg["id_do_indicador"]),
                                             "Indicador não encontrado"
                                         )
-
+                                        
                                         st.markdown(
-                                            f"**{formatar_nome_legivel(nome_indicador)}:** "
+                                            f"**{nome_indicador}:** "
                                             f"{reg.get('valor')}"
                                         )
-
+                                        
                                         if reg.get("observacoes"):
                                             st.caption(reg["observacoes"])
 
