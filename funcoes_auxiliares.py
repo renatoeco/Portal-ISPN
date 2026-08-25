@@ -667,47 +667,6 @@ def dialog_editar_entregas():
                         placeholder=""
                     )
                 
-                acoes_medio_prazo_relacionadas = st.multiselect(
-                    "Contribui com quais ações estratégicas dos resultados de médio prazo?",
-                    options=acoes_mp_options,
-                    format_func=lambda x: mapa_acoes_mp.get(x, ""),
-                    placeholder="",
-                    key="nova_acoesmedioprazo"
-                )
-                
-                metas_mp_relacionadas = st.multiselect(
-                    "Contribui com quais metas dos resultados de médio prazo?",
-                    options=metas_mp_options,
-                    format_func=lambda x: mapa_metas_mp.get(x, ""),
-                    placeholder="",
-                    key="nova_metasmp"
-                )
-
-                acoes_lp_relacionadas = st.multiselect(
-                    "Contribui com quais ações estratégicas dos resultados de longo prazo?",
-                    options=acoes_lp_options,
-                    format_func=lambda x: mapa_acoes_lp.get(x, ""),
-                    placeholder="",
-                    key="nova_acoes_lp"
-                )
-
-                eixos_relacionados = st.multiselect(
-                    "Contribui com quais eixos da estratégia Promoção de Paisagens Produtivas Ecossociais?",
-                    options=eixos_options,
-                    format_func=lambda x: mapa_eixos.get(x, ""),
-                    placeholder="",
-                    key="nova_eixos"
-                )
-                
-                objetivos_relacionados = st.multiselect(
-                    "Contribui com quais objetivos estratégicos organizacionais?",
-                    options=objetivos_options,
-                    format_func=lambda x: mapa_objetivos.get(x, ""),
-                    placeholder="",
-                    key="nova_objetivos"
-                )
-                
-                
                 acoes_relacionados = st.multiselect(
                     "Contribui com quais ações estratégicas do programa/área?",
                     options=acoes_programa_options,
@@ -745,12 +704,7 @@ def dialog_editar_entregas():
                             "situacao": situacao,
                             "progresso": int(progresso_nova_entrega),
                             "data_inicio": data_inicio.strftime("%d/%m/%Y"),
-                            "acoes_resultados_medio_prazo": [ObjectId(a) for a in acoes_medio_prazo_relacionadas],
-                            "acoes_resultados_longo_prazo": [ObjectId(a) for a in acoes_lp_relacionadas],
-                            "objetivos_estrategicos_relacionados": [ObjectId(o) for o in objetivos_relacionados],
-                            "eixos_relacionados": [ObjectId(e) for e in eixos_relacionados],
                             "acoes_relacionadas": [ObjectId(a) for a in acoes_relacionados],
-                            "metas_resultados_medio_prazo": [ObjectId(m) for m in metas_mp_relacionadas],
                             "indicadores_relacionados": [ObjectId(i) for i in indicadores_relacionados],
                             "projetos_relacionados": [ObjectId(p) for p in projetos_relacionados],
                         }
@@ -1051,81 +1005,6 @@ def dialog_editar_entregas():
                                 ObjectId(p)
                                 for p in entrega_editada["projetos_relacionados"]
                             ]
-
-                            acoes_mp_default = [str(a) for a in entrega.get("acoes_resultados_medio_prazo", [])]
-
-                            entrega_editada["acoes_resultados_medio_prazo"] = st.multiselect(
-                                "Contribui com quais ações estratégicas dos resultados de médio prazo?",
-                                options=acoes_mp_options,
-                                default=acoes_mp_default,
-                                format_func=lambda x: mapa_acoes_mp.get(x, ""),
-                                placeholder=""
-                            )
-
-                            entrega_editada["acoes_resultados_medio_prazo"] = [
-                                ObjectId(a) for a in entrega_editada["acoes_resultados_medio_prazo"]
-                            ]
-                            
-                            metas_mp_default = [str(m) for m in entrega.get("metas_resultados_medio_prazo", [])]
-
-                            entrega_editada["metas_resultados_medio_prazo"] = st.multiselect(
-                                "Contribui com quais metas dos resultados de médio prazo?",
-                                options=metas_mp_options,
-                                default=metas_mp_default,
-                                format_func=lambda x: mapa_metas_mp.get(x, ""),
-                                placeholder=""
-                            )
-
-                            entrega_editada["metas_resultados_medio_prazo"] = [
-                                ObjectId(m) for m in entrega_editada["metas_resultados_medio_prazo"]
-                            ]
-
-                            acoes_lp_default = [
-                                str(a) for a in entrega.get("acoes_resultados_longo_prazo", [])
-                            ]
-
-                            entrega_editada["acoes_resultados_longo_prazo"] = st.multiselect(
-                                "Contribui com quais ações estratégicas dos resultados de longo prazo?",
-                                options=acoes_lp_options,
-                                default=acoes_lp_default,
-                                format_func=lambda x: mapa_acoes_lp.get(x, ""),
-                                placeholder=""
-                            )
-
-                            entrega_editada["acoes_resultados_longo_prazo"] = [
-                                ObjectId(a) for a in entrega_editada["acoes_resultados_longo_prazo"]
-                            ]
-
-                            eixos_default = [str(e) for e in entrega.get("eixos_relacionados", [])]
-
-                            entrega_editada["eixos_relacionados"] = st.multiselect(
-                                "Contribui com quais eixos da estratégia Promoção de Paisagens Produtivas Ecossociais?",
-                                options=eixos_options,
-                                default=eixos_default,
-                                format_func=lambda x: mapa_eixos.get(x, ""),
-                                placeholder=""
-                            )
-
-                            entrega_editada["eixos_relacionados"] = [
-                                ObjectId(e) for e in entrega_editada["eixos_relacionados"]
-                            ]
-                            
-                            objetivos_default = [
-                                str(o) for o in entrega.get("objetivos_estrategicos_relacionados", [])
-                            ]
-
-                            entrega_editada["objetivos_estrategicos_relacionados"] = st.multiselect(
-                                "Contribui com quais objetivos estratégicos organizacionais?",
-                                options=objetivos_options,
-                                default=objetivos_default,
-                                format_func=lambda x: mapa_objetivos.get(x, ""),
-                                placeholder=""
-                            )
-
-                            entrega_editada["objetivos_estrategicos_relacionados"] = [
-                                ObjectId(o) for o in entrega_editada["objetivos_estrategicos_relacionados"]
-                            ]
-                            
 
                             entrega_editada["acoes_relacionadas"] = [
                                 ObjectId(a) for a in entrega_editada["acoes_relacionadas"]
