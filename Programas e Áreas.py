@@ -281,40 +281,46 @@ def gerenciar_programa_dialog(programa):
     # ===============================
 
     mapa_eixos = {}
-    mapa_mp = {}
-    mapa_lp = {}
-    mapa_objetivos = {}
+    mapa_acoes_mp = {}
+    mapa_acoes_lp = {}
+    mapa_acoes_objetivos = {}
 
     for doc in dados_estrategia:
-
-        # Eixos
+        # Eixos (continua igual)
         for e in doc.get("estrategia", {}).get("eixos_da_estrategia", []):
             mapa_eixos[str(e["_id"])] = e["titulo"]
 
-        # Resultados MP
+        # Ações estratégicas dos Resultados de Médio Prazo
         for r in doc.get("resultados_medio_prazo", {}).get("resultados_mp", []):
-            mapa_mp[str(r["_id"])] = r["titulo"]
+            for a in r.get("acoes_estrategicas", []):
+                label = a.get("nome_acao_estrategica", "")
+                mapa_acoes_mp[str(a["_id"])] = f"{label}"
 
-        # Resultados LP
+        # Ações estratégicas dos Resultados de Longo Prazo
         for r in doc.get("resultados_longo_prazo", {}).get("resultados_lp", []):
-            mapa_lp[str(r["_id"])] = r["titulo"]
-            
-        # Objetivos Estratégicos Organizacionais
-        for obj in (doc.get("objetivos_estrategicos_institucionais", {}).get("obj_estrat_inst", [])):
-            mapa_objetivos[str(obj["_id"])] = obj["titulo"]
-            
+            for a in r.get("acoes_estrategicas", []):
+                label = a.get("nome_acao_estrategica", "")
+                mapa_acoes_lp[str(a["_id"])] = f"{label}"
+
+        # Ações estratégicas dos Objetivos Estratégicos Organizacionais
+        for obj in doc.get("objetivos_estrategicos_institucionais", {}).get("obj_estrat_inst", []):
+            for a in obj.get("acoes_estrategicas", []):
+                label = a.get("acao_estrategica_obj", "")
+                mapa_acoes_objetivos[str(a["_id"])] = f"{label}"
+
     opcoes_eixos = list(mapa_eixos.keys())
-    opcoes_mp = list(mapa_mp.keys())
-    opcoes_lp = list(mapa_lp.keys())
-    opcoes_objetivos = list(mapa_objetivos.keys())
+    opcoes_acoes_mp = list(mapa_acoes_mp.keys())
+    opcoes_acoes_lp = list(mapa_acoes_lp.keys())
+    opcoes_acoes_objetivos = list(mapa_acoes_objetivos.keys())
 
 
 
     # ------------------- Aba principal -------------------
-    aba_principal, aba_resultados, aba_acoes = st.tabs([
+    aba_principal, aba_acoes, aba_resultados = st.tabs([
         "Informações Gerais",
-        "Resultados do programa",
-        "Ações Estratégicas"
+        "Ações Estratégicas",
+        "Resultados do programa"
+        
 
     ])
 
@@ -390,8 +396,222 @@ def gerenciar_programa_dialog(programa):
                     time.sleep(2)
                     st.rerun(scope="fragment")
 
+    
     # ======================================================
-    # ABA 2 - RESULTADOS DO PROGRAMA
+    # ABA 2 - AÇÕES ESTRATÉGICAS
+    # ======================================================
+    with aba_acoes:
+
+        # ---------------- EXPANDER PARA ADICIONAR AÇÃO ----------------
+        with st.expander("Adicionar nova ação estratégica", expanded=False, icon=":material/add_notes:"):
+
+            with st.form(key=f"form_add_acao_{programa['id']}", clear_on_submit=True, border=False):
+                nova_acao = st.text_input("Título da nova ação estratégica")
+                
+                resultado_programa_sel = st.multiselect(
+                    "Contribui com quais resultados do programa?",
+                    options=opcoes_resultados_programa,
+                    format_func=lambda x: mapa_resultados_programa.get(x, ""),
+                    placeholder=""
+                )
+
+                resultados_mp_sel = st.multiselect(
+                    "Contribui com quais ações estratégicas dos Resultados de Médio Prazo? (externo)",
+                    options=opcoes_acoes_mp,
+                    format_func=lambda x: mapa_acoes_mp.get(x, ""),
+                    placeholder=""
+                )
+                
+                resultados_lp_sel = st.multiselect(
+                    "Contribui com quais ações estratégicas dos Resultados de Longo Prazo? (externo)",
+                    options=opcoes_acoes_lp,
+                    format_func=lambda x: mapa_acoes_lp.get(x, ""),
+                    placeholder=""
+                )
+                
+                objetivos_sel = st.multiselect(
+                    "Contribui com quais ações estratégicas dos Objetivos Estratégicos Organizacionais? (interno)",
+                    options=opcoes_acoes_objetivos,
+                    format_func=lambda x: mapa_acoes_objetivos.get(x, ""),
+                    placeholder=""
+                )
+                
+                eixo_sel = st.multiselect(
+                    "Contribui com quais eixos da estratégia? (externo)",
+                    options=opcoes_eixos,
+                    format_func=lambda x: mapa_eixos.get(x, ""),
+                    placeholder=""
+                )
+
+                st.write("")
+
+                adicionar = st.form_submit_button("Adicionar ação", use_container_width=False)
+                if adicionar and nova_acao.strip():
+                    nova_entrada = {
+                        "_id": ObjectId(),
+                        "acao_estrategica": nova_acao.strip(),
+                        "eixo_relacionado": [ObjectId(i) for i in eixo_sel],
+                        "resultados_medio_prazo_relacionados": [ObjectId(i) for i in resultados_mp_sel],
+                        "resultados_longo_prazo_relacionados": [ObjectId(i) for i in resultados_lp_sel],
+                        "objetivos_estrategicos_relacionados": [ObjectId(i) for i in objetivos_sel],
+                        "resultados_programa_relacionados": [ObjectId(i) for i in resultado_programa_sel],
+                    }
+
+                    programas_areas.update_one(
+                        {"_id": ObjectId(programa["id"])},
+                        {"$push": {"acoes_estrategicas": nova_entrada}}
+                    )
+
+                    st.success("Nova ação cadastrada com sucesso!", icon=":material/check:")
+                    time.sleep(2)
+                    st.rerun(scope="fragment")
+
+        # ---------------- EDITAR AÇÃO EXISTENTE ----------------
+        if acoes_estrategicas:
+
+            st.write("")
+            st.write("**Ações estratégicas registradas:**")
+
+            for acao in acoes_estrategicas:
+
+                acao_id = str(acao["_id"])
+                titulo_atual = acao.get("acao_estrategica", "")
+
+                eixo_atual = [str(i) for i in acao.get("eixo_relacionado", [])]
+                mp_atual = [str(i) for i in acao.get("resultados_medio_prazo_relacionados", [])]
+                lp_atual = [str(i) for i in acao.get("resultados_longo_prazo_relacionados", [])]
+                objetivos_atual = [str(i) for i in acao.get("objetivos_estrategicos_relacionados", [])]
+                resultado_programa_atual = [str(i) for i in acao.get("resultados_programa_relacionados", [])]
+
+                with st.expander(titulo_atual or "Sem título", expanded=False):
+
+                    toggle_edicao = st.toggle(
+                        "Editar ação",
+                        key=f"toggle_edicao_acao_{acao_id}",
+                        value=False
+                    )
+                    
+                    st.write("")
+
+                    if toggle_edicao:
+                        # ---------------- MODO EDIÇÃO ----------------
+
+                        novo_titulo = titulo_atual
+                        
+                        novo_titulo = st.text_area(
+                            "Título da ação estratégica",
+                            value=titulo_atual,
+                            key=f"titulo_{acao_id}"
+                        )
+                        
+                        resultado_programa_sel = st.multiselect(
+                            "Contribui com quais resultados do programa?",
+                            options=opcoes_resultados_programa,
+                            default=resultado_programa_atual,
+                            format_func=lambda x: mapa_resultados_programa.get(x, ""),
+                            key=f"resultado_programa_{acao_id}",
+                            placeholder=""
+                        )
+
+                        resultados_mp_sel = st.multiselect(
+                            "Contribui com quais ações estratégicas dos Resultados de Médio Prazo? (externo)",
+                            options=opcoes_acoes_mp,
+                            default=mp_atual,
+                            format_func=lambda x: mapa_acoes_mp.get(x, ""),
+                            key=f"mp_edit_{acao_id}",
+                            placeholder=""
+                        )
+                        
+                        resultados_lp_sel = st.multiselect(
+                            "Contribui com quais ações estratégicas dos Resultados de Longo Prazo? (externo)",
+                            options=opcoes_acoes_lp,
+                            default=lp_atual,
+                            format_func=lambda x: mapa_acoes_lp.get(x, ""),
+                            key=f"lp_edit_{acao_id}",
+                            placeholder=""
+                        )
+                        
+                        objetivos_sel = st.multiselect(
+                            "Contribui com quais ações estratégicas dos Objetivos Estratégicos Organizacionais? (interno)",
+                            options=opcoes_acoes_objetivos,
+                            default=objetivos_atual,
+                            format_func=lambda x: mapa_acoes_objetivos.get(x, ""),
+                            key=f"obj_edit_{acao_id}",
+                            placeholder=""
+                        )
+                        
+                        eixo_sel = st.multiselect(
+                            "Contribui com quais Eixos da estratégia? (externo)",
+                            options=opcoes_eixos,
+                            default=eixo_atual,
+                            format_func=lambda x: mapa_eixos.get(x, ""),
+                            key=f"eixo_edit_{acao_id}",
+                            placeholder=""
+                        )
+
+                        if st.button("Salvar alterações", key=f"salvar_acao_{acao_id}"):
+
+                            programas_areas.update_one(
+                                {
+                                    "_id": ObjectId(programa["id"]),
+                                    "acoes_estrategicas._id": ObjectId(acao_id)
+                                },
+                                {
+                                    "$set": {
+                                        "acoes_estrategicas.$.acao_estrategica": novo_titulo,
+                                        "acoes_estrategicas.$.eixo_relacionado": [ObjectId(i) for i in eixo_sel],
+                                        "acoes_estrategicas.$.resultados_medio_prazo_relacionados": [ObjectId(i) for i in resultados_mp_sel],
+                                        "acoes_estrategicas.$.resultados_longo_prazo_relacionados": [ObjectId(i) for i in resultados_lp_sel],
+                                        "acoes_estrategicas.$.objetivos_estrategicos_relacionados": [ObjectId(i) for i in objetivos_sel],
+                                        "acoes_estrategicas.$.resultados_programa_relacionados": [ObjectId(i) for i in resultado_programa_sel],
+                                    }
+                                }
+                            )
+
+                            st.success("Ação estratégica atualizada com sucesso!", icon=":material/check:")
+                            time.sleep(2)
+                            st.rerun(scope="fragment")
+
+                    else:
+                        # ---------------- MODO VISUALIZAÇÃO ----------------
+                        resultados_programa_relacionados = [str(i) for i in acao.get("resultados_programa_relacionados", [])]
+                        mp_relacionados = [str(i) for i in acao.get("resultados_medio_prazo_relacionados", [])]
+                        lp_relacionados = [str(i) for i in acao.get("resultados_longo_prazo_relacionados", [])]
+                        objetivos_relacionados = [str(i) for i in acao.get("objetivos_estrategicos_relacionados", [])]
+                        eixos_relacionados = [str(i) for i in acao.get("eixo_relacionado", [])]
+
+                        if resultados_programa_relacionados:
+                            st.markdown("**Contribui com os Resultados do Programa:**")
+                            for rid in resultados_programa_relacionados:
+                                st.markdown(f"- {mapa_resultados_programa.get(rid, '')}")
+
+                        if mp_relacionados:
+                            st.write("")
+                            st.markdown("**Contribui com Ações Estratégicas de Resultados de Médio Prazo:**")
+                            for aid in mp_relacionados:
+                                st.markdown(f"- {mapa_acoes_mp.get(aid, '')}")
+
+                        if lp_relacionados:
+                            st.write("")                            
+                            st.markdown("**Contribui com Ações Estratégicas de Resultados de Longo Prazo:**")
+                            for aid in lp_relacionados:
+                                st.markdown(f"- {mapa_acoes_lp.get(aid, '')}")
+
+                        if objetivos_relacionados:
+                            st.write("")                            
+                            st.markdown("**Contribui com Ações Estratégicas de Objetivos Estratégicos Organizacionais:**")
+                            for aid in objetivos_relacionados:
+                                st.markdown(f"- {mapa_acoes_objetivos.get(aid, '')}")
+                                
+                        if objetivos_relacionados:
+                            st.write("")                            
+                            st.markdown("**Contribui com Eixos da Estratégia:**")
+                            for aid in eixos_relacionados:
+                                st.markdown(f"- {mapa_eixos.get(aid, '')}")
+
+
+    # ======================================================
+    # ABA 3 - RESULTADOS DO PROGRAMA
     # ======================================================
     with aba_resultados:
 
@@ -402,34 +622,6 @@ def gerenciar_programa_dialog(programa):
 
                 novo_resultado = st.text_input("Título do resultado")
 
-                eixo_sel = st.multiselect(
-                    "Contribui com quais eixos da estratégia?",
-                    options=opcoes_eixos,
-                    format_func=lambda x: mapa_eixos.get(x, ""),
-                    placeholder=""
-                )
-
-                resultados_mp_sel = st.multiselect(
-                    "Contribui com quais resultados de médio prazo?",
-                    options=opcoes_mp,
-                    format_func=lambda x: mapa_mp.get(x, ""),
-                    placeholder=""
-                )
-
-                resultados_lp_sel = st.multiselect(
-                    "Contribui com quais resultados de longo prazo?",
-                    options=opcoes_lp,
-                    format_func=lambda x: mapa_lp.get(x, ""),
-                    placeholder=""
-                )
-                
-                objetivos_sel = st.multiselect(
-                    "Contribui com quais objetivos estratégicos organizacionais?",
-                    options=opcoes_objetivos,
-                    format_func=lambda x: mapa_objetivos.get(x, ""),
-                    placeholder=""
-                )
-
                 st.write("")
 
                 adicionar = st.form_submit_button("Adicionar resultado", icon=":material/add:")
@@ -439,10 +631,6 @@ def gerenciar_programa_dialog(programa):
                     nova_entrada = {
                         "_id": ObjectId(),
                         "titulo": novo_resultado.strip(),
-                        "eixo_relacionado": [ObjectId(i) for i in eixo_sel],
-                        "resultados_medio_prazo_relacionados": [ObjectId(i) for i in resultados_mp_sel],
-                        "resultados_longo_prazo_relacionados": [ObjectId(i) for i in resultados_lp_sel],
-                        "objetivos_estrategicos_relacionados": [ObjectId(i) for i in objetivos_sel]
                     }
 
                     programas_areas.update_one(
@@ -495,39 +683,6 @@ def gerenciar_programa_dialog(programa):
                                 key=f"desc_{resultado_id}"
                             )
 
-                            # Multiselects
-                            eixo_sel = st.multiselect(
-                                "Contribui com quais eixos da estratégia?",
-                                options=opcoes_eixos,
-                                default=eixo_atual,
-                                format_func=lambda x: mapa_eixos.get(x, ""),
-                                key=f"eixo_res_{resultado_id}"
-                            )
-
-                            mp_sel = st.multiselect(
-                                "Contribui com quais resultados de médio prazo?",
-                                options=opcoes_mp,
-                                default=mp_atual,
-                                format_func=lambda x: mapa_mp.get(x, ""),
-                                key=f"mp_res_{resultado_id}"
-                            )
-
-                            lp_sel = st.multiselect(
-                                "Contribui com quais resultados de longo prazo?",
-                                options=opcoes_lp,
-                                default=lp_atual,
-                                format_func=lambda x: mapa_lp.get(x, ""),
-                                key=f"lp_res_{resultado_id}"
-                            )
-                            
-                            objetivos_sel = st.multiselect(
-                                "Contribui com quais objetivos estratégicos organizacionais?",
-                                options=opcoes_objetivos,
-                                default=objetivos_atual,
-                                format_func=lambda x: mapa_objetivos.get(x, ""),
-                                key=f"obj_res_{resultado_id}"
-                            )
-
                             st.write("")
 
                             # Botão do form (ESSENCIAL)
@@ -544,10 +699,6 @@ def gerenciar_programa_dialog(programa):
                                         "$set": {
                                             # CORREÇÃO: campo correto é "titulo"
                                             "resultados_programa.$.titulo": nova_descricao,
-                                            "resultados_programa.$.eixo_relacionado": [ObjectId(i) for i in eixo_sel],
-                                            "resultados_programa.$.resultados_medio_prazo_relacionados": [ObjectId(i) for i in mp_sel],
-                                            "resultados_programa.$.resultados_longo_prazo_relacionados": [ObjectId(i) for i in lp_sel],
-                                            "resultados_programa.$.objetivos_estrategicos_relacionados": [ObjectId(i) for i in objetivos_sel]
                                         }
                                     }
                                 )
@@ -555,228 +706,7 @@ def gerenciar_programa_dialog(programa):
                                 st.success("Resultado atualizado!", icon=":material/check:")
                                 time.sleep(2)
                                 st.rerun(scope="fragment")
-
-                    # =====================================================
-                    # MODO VISUALIZAÇÃO
-                    # =====================================================
-                    else:
-
-                        if eixo_atual:
-                            st.markdown("**Eixos relacionados:**")
-                            for e in eixo_atual:
-                                st.markdown(f"- {mapa_eixos.get(e, '')}")
-
-                        if mp_atual:
-                            st.markdown("**Resultados de médio prazo:**")
-                            for r in mp_atual:
-                                st.markdown(f"- {mapa_mp.get(r, '')}")
-
-                        if lp_atual:
-                            st.markdown("**Resultados de longo prazo:**")
-                            for r in lp_atual:
-                                st.markdown(f"- {mapa_lp.get(r, '')}")
-                                
-                        if objetivos_atual:
-                            st.markdown(
-                                "**Objetivos estratégicos organizacionais:**"
-                            )
-
-                            for obj in objetivos_atual:
-                                st.markdown(
-                                    f"- {mapa_objetivos.get(obj, '')}"
-                                )
-
-    # ======================================================
-    # ABA 3 - AÇÕES ESTRATÉGICAS
-    # ======================================================
-    with aba_acoes:
-
-        # ---------------- EXPANDER PARA ADICIONAR AÇÃO ----------------
-        with st.expander("Adicionar nova ação estratégica", expanded=False, icon=":material/add_notes:"):
-
-            with st.form(key=f"form_add_acao_{programa['id']}", clear_on_submit=True, border=False):
-                nova_acao = st.text_input("Título da nova ação estratégica")
-
-                # eixo_sel = st.multiselect(
-                #     "Contribui com quais eixos da estratégia?",
-                #     options=opcoes_eixos,
-                #     format_func=lambda x: mapa_eixos.get(x, ""),
-                #     placeholder=""
-                # )
-
-                # resultados_mp_sel = st.multiselect(
-                #     "Contribui com quais resultados de médio prazo?",
-                #     options=opcoes_mp,
-                #     format_func=lambda x: mapa_mp.get(x, ""),
-                #     placeholder=""
-                # )
-
-                # resultados_lp_sel = st.multiselect(
-                #     "Contribui com quais resultados de longo prazo?",
-                #     options=opcoes_lp,
-                #     format_func=lambda x: mapa_lp.get(x, ""),
-                #     placeholder=""
-                # )
                 
-                # objetivos_sel = st.multiselect(
-                #     "Contribui com quais objetivos estratégicos organizacionais?",
-                #     options=opcoes_objetivos,
-                #     format_func=lambda x: mapa_objetivos.get(x, ""),
-                #     placeholder=""
-                # )
-
-                resultado_programa_sel = st.multiselect(
-                    "Contribui com quais resultados do programa?",
-                    options=opcoes_resultados_programa,
-                    format_func=lambda x: mapa_resultados_programa.get(x, ""),
-                    placeholder=""
-                )
-
-
-                st.write("")
-
-                adicionar = st.form_submit_button("Adicionar ação", use_container_width=False)
-                if adicionar and nova_acao.strip():
-                    nova_entrada = {
-                        "_id": ObjectId(),
-                        "acao_estrategica": nova_acao.strip(),
-                        # "eixo_relacionado": [ObjectId(i) for i in eixo_sel],
-                        # "resultados_medio_prazo_relacionados": [ObjectId(i) for i in resultados_mp_sel],
-                        # "resultados_longo_prazo_relacionados": [ObjectId(i) for i in resultados_lp_sel],
-                        # "objetivos_estrategicos_relacionados": [ObjectId(i) for i in objetivos_sel],
-                        "resultados_programa_relacionados": [ObjectId(i) for i in resultado_programa_sel],
-                    }
-
-                    programas_areas.update_one(
-                        {"_id": ObjectId(programa["id"])},
-                        {"$push": {"acoes_estrategicas": nova_entrada}}
-                    )
-
-                    st.success("Nova ação cadastrada com sucesso!", icon=":material/check:")
-                    time.sleep(2)
-                    st.rerun(scope="fragment")
-
-        # ---------------- EDITAR AÇÃO EXISTENTE ----------------
-        if acoes_estrategicas:
-
-            st.write("")
-            st.write("**Ações estratégicas registradas:**")
-
-            for acao in acoes_estrategicas:
-
-                acao_id = str(acao["_id"])
-                titulo_atual = acao.get("acao_estrategica", "")
-
-                # eixo_atual = [str(i) for i in acao.get("eixo_relacionado", [])]
-                # mp_atual = [str(i) for i in acao.get("resultados_medio_prazo_relacionados", [])]
-                # lp_atual = [str(i) for i in acao.get("resultados_longo_prazo_relacionados", [])]
-                # objetivos_atual = [str(i) for i in acao.get("objetivos_estrategicos_relacionados", [])]
-                resultado_programa_atual = [str(i) for i in acao.get("resultados_programa_relacionados", [])]
-
-                with st.expander(titulo_atual or "Sem título", expanded=False):
-
-                    toggle_edicao = st.toggle(
-                        "Editar ação",
-                        key=f"toggle_edicao_acao_{acao_id}",
-                        value=False
-                    )
-                    
-                    st.write("")
-
-                    if toggle_edicao:
-                        # ---------------- MODO EDIÇÃO ----------------
-
-                        novo_titulo = titulo_atual
-                        # if "admin" in st.session_state.tipo_usuario:
-                        novo_titulo = st.text_area(
-                            "Título da ação estratégica",
-                            value=titulo_atual,
-                            key=f"titulo_{acao_id}"
-                        )
-
-                        # eixo_sel = st.multiselect(
-                        #     "Eixos da estratégia",
-                        #     options=opcoes_eixos,
-                        #     default=eixo_atual,
-                        #     format_func=lambda x: mapa_eixos.get(x, ""),
-                        #     key=f"eixo_edit_{acao_id}",
-                        #     placeholder=""
-                        # )
-
-                        # resultados_mp_sel = st.multiselect(
-                        #     "Resultados de médio prazo",
-                        #     options=opcoes_mp,
-                        #     default=mp_atual,
-                        #     format_func=lambda x: mapa_mp.get(x, ""),
-                        #     key=f"mp_edit_{acao_id}",
-                        #     placeholder=""
-                        # )
-
-                        # resultados_lp_sel = st.multiselect(
-                        #     "Resultados de longo prazo",
-                        #     options=opcoes_lp,
-                        #     default=lp_atual,
-                        #     format_func=lambda x: mapa_lp.get(x, ""),
-                        #     key=f"lp_edit_{acao_id}",
-                        #     placeholder=""
-                        # )
-                        
-                        # objetivos_sel = st.multiselect(
-                        #     "Objetivos estratégicos organizacionais",
-                        #     options=opcoes_objetivos,
-                        #     default=objetivos_atual,
-                        #     format_func=lambda x: mapa_objetivos.get(x, ""),
-                        #     key=f"obj_edit_{acao_id}",
-                        #     placeholder=""
-                        # )
-
-                        resultado_programa_sel = st.multiselect(
-                            "Contribui com quais resultados do programa?",
-                            options=opcoes_resultados_programa,
-                            default=resultado_programa_atual,
-                            format_func=lambda x: mapa_resultados_programa.get(x, ""),
-                            key=f"resultado_programa_{acao_id}",
-                            placeholder=""
-                        )
-
-                        if st.button("Salvar alterações", key=f"salvar_acao_{acao_id}"):
-
-                            programas_areas.update_one(
-                                {
-                                    "_id": ObjectId(programa["id"]),
-                                    "acoes_estrategicas._id": ObjectId(acao_id)
-                                },
-                                {
-                                    "$set": {
-                                        "acoes_estrategicas.$.acao_estrategica": novo_titulo,
-                                        # "acoes_estrategicas.$.eixo_relacionado": [ObjectId(i) for i in eixo_sel],
-                                        # "acoes_estrategicas.$.resultados_medio_prazo_relacionados": [ObjectId(i) for i in resultados_mp_sel],
-                                        # "acoes_estrategicas.$.resultados_longo_prazo_relacionados": [ObjectId(i) for i in resultados_lp_sel],
-                                        # "acoes_estrategicas.$.objetivos_estrategicos_relacionados": [ObjectId(i) for i in objetivos_sel],
-                                        "acoes_estrategicas.$.resultados_programa_relacionados": [ObjectId(i) for i in resultado_programa_sel],
-                                    }
-                                }
-                            )
-
-                            st.success("Ação estratégica atualizada com sucesso!", icon=":material/check:")
-                            time.sleep(2)
-                            st.rerun(scope="fragment")
-
-                    else:
-                        # ---------------- MODO VISUALIZAÇÃO ----------------
-
-                        resultados_programa_relacionados = [
-                            str(i)
-                            for i in acao.get("resultados_programa_relacionados", [])
-                        ]
-
-                        if resultados_programa_relacionados:
-                            st.markdown("**Contribui com os Resultados do Programa:**")
-
-                            for resultado_id in resultados_programa_relacionados:
-                                st.markdown(
-                                    f"- {mapa_resultados_programa.get(resultado_id, '')}"
-                                )
 
 
 
