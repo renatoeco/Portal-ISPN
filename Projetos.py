@@ -2591,6 +2591,9 @@ with tab_indicadores:
     linhas = []
     if not lancamentos:
         st.caption("Não há lançamentos de indicadores para este projeto.")
+        df_resumo = pd.DataFrame(columns=["Indicador", "Total"])
+        df_indicadores = pd.DataFrame(columns=["Indicador", "Valor", "Ano", "Autor(a)", "Data anotação", "Observações"])
+    
     else:
         
         for lan in lancamentos:
