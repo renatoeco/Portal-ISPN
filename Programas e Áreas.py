@@ -307,10 +307,10 @@ def gerenciar_programa_dialog(programa):
                 label = a.get("acao_estrategica_obj", "")
                 mapa_acoes_objetivos[str(a["_id"])] = f"{label}"
 
-    opcoes_eixos = list(mapa_eixos.keys())
-    opcoes_acoes_mp = list(mapa_acoes_mp.keys())
-    opcoes_acoes_lp = list(mapa_acoes_lp.keys())
-    opcoes_acoes_objetivos = list(mapa_acoes_objetivos.keys())
+    opcoes_eixos = sorted(mapa_eixos.keys(), key=lambda x: mapa_eixos[x].lower())
+    opcoes_acoes_mp = sorted(mapa_acoes_mp.keys(), key=lambda x: mapa_acoes_mp[x].lower())
+    opcoes_acoes_lp = sorted(mapa_acoes_lp.keys(), key=lambda x: mapa_acoes_lp[x].lower())
+    opcoes_acoes_objetivos = sorted(mapa_acoes_objetivos.keys(), key=lambda x: mapa_acoes_objetivos[x].lower())
 
 
 
