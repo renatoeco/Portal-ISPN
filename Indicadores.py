@@ -432,27 +432,6 @@ def gerenciar_indicadores():
                 placeholder=""
             )
 
-            colabora_estrategia = st.multiselect(
-                "Colabora com quais eixos da estratégia?",
-                options=opcoes_eixos,
-                format_func=lambda x: mapa_eixos.get(x, ""),
-                placeholder=""
-            )
-
-            colabora_resultado_mp = st.multiselect(
-                "Colabora com quais resultados de médio prazo?",
-                options=opcoes_mp,
-                format_func=lambda x: mapa_mp.get(x, ""),
-                placeholder=""
-            )
-
-            colabora_resultado_lp = st.multiselect(
-                "Colabora com quais resultados de longo prazo?",
-                options=opcoes_lp,
-                format_func=lambda x: mapa_lp.get(x, ""),
-                placeholder=""
-            )
-
             st.write("")
 
             if st.button("Adicionar indicador", use_container_width=False, icon=":material/add:"):
@@ -465,9 +444,6 @@ def gerenciar_indicadores():
                         "nome_indicador": nome_indicador.strip(),
                         "categoria_indicador": categoria_indicador.strip() if categoria_indicador else "",
                         "tipo_variavel": tipo_variavel,
-                        "colabora_estrategia": [ObjectId(i) for i in colabora_estrategia],
-                        "colabora_resultado_mp": [ObjectId(i) for i in colabora_resultado_mp],
-                        "colabora_resultado_lp": [ObjectId(i) for i in colabora_resultado_lp],
                     }
 
                     indicadores.insert_one(novo_indicador)
@@ -499,10 +475,6 @@ def gerenciar_indicadores():
                 if nome_indicador_selecionado:
                     indicador_doc = next(i for i in indicadores_lista if i["nome_indicador"] == nome_indicador_selecionado)
                     
-                    eixo_atual = [str(i) for i in indicador_doc.get("colabora_estrategia", [])]
-                    mp_atual = [str(i) for i in indicador_doc.get("colabora_resultado_mp", [])]
-                    lp_atual = [str(i) for i in indicador_doc.get("colabora_resultado_lp", [])]
-                    
                     opcoes_tipo_variavel = ["str", "int", "float"]
                     tipo_variavel_atual = indicador_doc.get("tipo_variavel")
                     categoria = col2.selectbox(
@@ -526,34 +498,6 @@ def gerenciar_indicadores():
                             return []
                         return [v for v in valores if v in opcoes]
 
-            
-                    colabora_estrategia = st.multiselect(
-                        "Colabora com quais eixos da estratégia?",
-                        options=opcoes_eixos,
-                        default=eixo_atual,
-                        format_func=lambda x: mapa_eixos.get(x, ""),
-                        placeholder="",
-                        key=f"edit_estrategia_{indicador_doc['_id']}"
-                    )
-
-                    colabora_resultado_mp = st.multiselect(
-                        "Colabora com quais resultados de médio prazo?",
-                        options=opcoes_mp,
-                        default=mp_atual,
-                        format_func=lambda x: mapa_mp.get(x, ""),
-                        placeholder="",
-                        key=f"edit_mp_{indicador_doc['_id']}"
-                    )
-            
-                    colabora_resultado_lp = st.multiselect(
-                        "Colabora com quais resultados de longo prazo?",
-                        options=opcoes_lp,
-                        default=lp_atual,
-                        format_func=lambda x: mapa_lp.get(x, ""),
-                        placeholder="",
-                        key=f"edit_lp_{indicador_doc['_id']}"
-                    )
-
                     st.write("")
 
                     # Botões de ação
@@ -565,9 +509,6 @@ def gerenciar_indicadores():
                             {"$set": {
                                 "categoria_indicador": categoria,
                                 "tipo_variavel": tipo_variavel,
-                                "colabora_estrategia": [ObjectId(i) for i in colabora_estrategia],
-                                "colabora_resultado_mp": [ObjectId(i) for i in colabora_resultado_mp],
-                                "colabora_resultado_lp": [ObjectId(i) for i in colabora_resultado_lp]
                             }}
                         )
                         st.success("Indicador atualizado com sucesso!")
