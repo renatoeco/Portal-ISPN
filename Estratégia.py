@@ -93,7 +93,7 @@ def df_tem_mudancas(df_novo: pd.DataFrame, df_antigo: pd.DataFrame) -> bool:
 
 
 # Editar Teoria da Mudança  
-@st.dialog("Editar Teoria da Mudança", width="large")
+@st.dialog("Editar Teoria da Mudança", width="large", on_dismiss="rerun")
 def editar_info_teoria_mudanca_dialog():
     # Pega o documento da coleção estratégia com a teoria da mudança
     teoria_doc = estrategia.find_one({"teoria da mudança": {"$exists": True}})
@@ -147,8 +147,185 @@ def editar_info_teoria_mudanca_dialog():
         st.rerun()
 
 
+def mapa_indicadores_disponiveis():
+    """
+    Carrega todos os indicadores e cria dois mapas:
+
+    1. mapa_indicadores:
+       Permite encontrar rapidamente o documento completo do indicador
+       a partir do seu ID.
+
+    2. mapa_nomes_indicadores:
+       Permite transformar o ID do indicador no nome que será mostrado
+       no multiselect do Streamlit.
+
+    Os IDs são normalizados para string para evitar problemas quando
+    alguns documentos possuem ObjectId e outros possuem strings.
+    """
+
+    todos_indicadores = carregar_indicadores()
+
+    mapa_indicadores = {}
+    mapa_nomes_indicadores = {}
+
+    for indicador in todos_indicadores:
+
+        indicador_id = str(indicador["_id"])
+
+        nome = indicador.get(
+            "nome_indicador",
+            "Indicador sem nome"
+        )
+
+        mapa_indicadores[indicador_id] = indicador
+        mapa_nomes_indicadores[indicador_id] = nome
+
+    return mapa_indicadores, mapa_nomes_indicadores
+
+
+def ids_indicadores_normalizados(lista):
+    """
+    Normaliza a lista de IDs dos indicadores.
+
+    A função aceita:
+    - ObjectId
+    - string
+    - dicionário no formato {"$oid": "..."}
+    - valores nulos
+
+    O retorno sempre será uma lista de strings.
+    """
+
+    ids = []
+
+    for item in lista or []:
+
+        if isinstance(item, ObjectId):
+            ids.append(str(item))
+
+        elif isinstance(item, dict) and "$oid" in item:
+            ids.append(str(item["$oid"]))
+
+        elif item is not None:
+            ids.append(str(item))
+
+    return ids
+
+
+def multiselect_indicadores(
+    indicadores_selecionados,
+    mapa_nomes_indicadores,
+    key,
+    label="Quais indicadores contribuem?"
+):
+    """
+    Exibe o multiselect de indicadores relacionados a um elemento
+    da estratégia.
+
+    O valor interno utilizado pelo Streamlit continua sendo o ID
+    do indicador, enquanto o usuário visualiza o nome do indicador.
+
+    O parâmetro 'label' permite personalizar a pergunta exibida
+    conforme o contexto:
+        - Eixo:
+          "Quais indicadores contribuem para este eixo?"
+        - Resultado:
+          "Quais indicadores contribuem para este resultado?"
+    """
+
+    # Ordena os IDs dos indicadores alfabeticamente pelo nome
+    # que será exibido ao usuário no multiselect.
+    opcoes_ids = sorted(
+        mapa_nomes_indicadores.keys(),
+        key=lambda indicador_id: mapa_nomes_indicadores.get(
+            indicador_id,
+            ""
+        ).casefold()
+    )
+
+    # Normaliza os indicadores que já estão salvos no banco.
+    # Isso garante compatibilidade com ObjectId, strings e
+    # documentos no formato {"$oid": "..."}.
+    ids_selecionados = ids_indicadores_normalizados(
+        indicadores_selecionados
+    )
+
+    return st.multiselect(
+        label,
+        options=opcoes_ids,
+
+        # Mantém selecionados apenas os IDs que ainda existem
+        # no mapa de indicadores disponíveis.
+        default=[
+            indicador_id
+            for indicador_id in ids_selecionados
+            if indicador_id in mapa_nomes_indicadores
+        ],
+
+        # Converte o ID armazenado internamente no nome que será
+        # apresentado visualmente ao usuário.
+        format_func=lambda indicador_id: mapa_nomes_indicadores.get(
+            indicador_id,
+            "Indicador sem nome"
+        ),
+
+        key=key,
+        placeholder=""
+    )
+
+
+def exibir_indicadores_relacionados(
+    ids_indicadores,
+    mapa_indicadores,
+    mapa_soma_indicadores
+):
+    """
+    Exibe os indicadores relacionados a um eixo, RMP ou RLP,
+    em ordem alfabética pelo nome do indicador.
+    """
+
+    ids_indicadores = ids_indicadores_normalizados(
+        ids_indicadores
+    )
+
+    if not ids_indicadores:
+        st.caption("Nenhum indicador relacionado.")
+        return
+    
+    # Ordena os indicadores alfabeticamente pelo nome exibido
+    ids_indicadores = sorted(
+        ids_indicadores,
+        key=lambda id_indicador: mapa_indicadores.get(
+            id_indicador, {}
+        ).get("nome_indicador", "").casefold()
+    )
+
+    for id_indicador in ids_indicadores:
+        indicador = mapa_indicadores.get(id_indicador)
+        # Caso o indicador tenha sido excluído do banco,
+        # simplesmente ignora o relacionamento antigo.
+
+        if not indicador:
+            continue
+
+        nome_bruto = indicador.get(
+            "nome_indicador",
+            "Indicador sem nome"
+        )
+
+        valor_total = mapa_soma_indicadores.get(
+            id_indicador,
+            0
+        )
+
+        valor_formatado = float_to_br(valor_total)
+        st.markdown(
+            f"**{nome_bruto}:** {valor_formatado}"
+        )
+
+
 # Editar Estratégia
-@st.dialog("Editar Estratégia", width="large")
+@st.dialog("Editar Estratégia", width="large", on_dismiss="rerun")
 def editar_estrategia_dialog():
     # Busca o documento da estratégia que possui a chave "estrategia"
     estrategia_doc = estrategia.find_one({"estrategia": {"$exists": True}})
@@ -168,13 +345,14 @@ def editar_estrategia_dialog():
             )
             st.success("Título da página atualizado com sucesso!")
             time.sleep(2)
-            st.rerun()
+            st.cache_data.clear()
+            st.rerun(scope="fragment")
         else:
             st.error("Documento não encontrado.")
 
 
 # Função do diálogo para editar ou adicionar resultados de médio prazo
-@st.dialog("Editar Título da Página", width="large")
+@st.dialog("Editar Título da Página", width="large", on_dismiss="rerun")
 def editar_titulo_pagina_resultados_mp_dialog():
     # Recupera os dados atuais do banco
     doc = estrategia.find_one({"resultados_medio_prazo": {"$exists": True}})
@@ -192,7 +370,8 @@ def editar_titulo_pagina_resultados_mp_dialog():
         )
         st.success("Título da página atualizado com sucesso!")
         time.sleep(2)
-        st.rerun()
+        st.cache_data.clear()
+        st.rerun(scope="fragment")
 
 
 # Função do diálogo para editar resultados de médio prazo
@@ -217,28 +396,73 @@ def editar_titulo_de_cada_resultado_mp_dialog(resultado_idx):
 
         # Aba de Título
         with aba1:
+
             st.subheader("Editar Título do Resultado")
             st.write("")
-            titulo_atual = resultado.get("titulo", "")
-            novo_titulo = st.text_input("Novo título", value=titulo_atual)
+
+            titulo_atual = resultado.get(
+                "titulo",
+                ""
+            )
+
+            novo_titulo = st.text_input(
+                "Novo título",
+                value=titulo_atual
+            )
+
+            # -----------------------------------------------------
+            # INDICADORES RELACIONADOS AO RMP
+            # -----------------------------------------------------
+
+            mapa_indicadores, mapa_nomes_indicadores = (
+                mapa_indicadores_disponiveis()
+            )
+
+            indicadores_atuais = ids_indicadores_normalizados(
+                resultado.get("indicadores", [])
+            )
+
+            novos_indicadores = multiselect_indicadores(
+                indicadores_selecionados=indicadores_atuais,
+                mapa_nomes_indicadores=mapa_nomes_indicadores,
+                key=f"indicadores_rmp_{resultado.get('_id')}",
+                label="Quais indicadores contribuem para este resultado?"
+            )
 
             st.write("")
 
-            if st.button("Salvar Título", key=f"salvar_titulo_{resultado_idx}", icon=":material/save:"):
-                # Atualiza título
+            if st.button(
+                "Salvar",
+                key=f"salvar_titulo_{resultado_idx}",
+                icon=":material/save:"
+            ):
+
+                # Atualiza o título.
                 resultados[resultado_idx]["titulo"] = novo_titulo
 
-                # Se não tiver _id, gera um novo ObjectId como string
+                # Atualiza os indicadores relacionados.
+                resultados[resultado_idx]["indicadores"] = novos_indicadores
+
+                # Garante que o RMP tenha um ID.
                 if "_id" not in resultados[resultado_idx]:
                     resultados[resultado_idx]["_id"] = str(ObjectId())
 
-                # Atualiza no Mongo
                 estrategia.update_one(
                     {"_id": doc["_id"]},
-                    {"$set": {"resultados_medio_prazo.resultados_mp": resultados}}
+                    {
+                        "$set": {
+                            "resultados_medio_prazo.resultados_mp":
+                                resultados
+                        }
+                    }
                 )
-                st.success("Título do resultado atualizado com sucesso!")
+
+                st.success(
+                    "Resultado e indicadores atualizados com sucesso!"
+                )
+
                 time.sleep(2)
+                st.cache_data.clear()
                 st.rerun(scope="fragment")
 
         # -------------------------- #
@@ -268,6 +492,7 @@ def editar_titulo_de_cada_resultado_mp_dialog(resultado_idx):
                 )
                 st.success("Nova meta adicionada com sucesso!")
                 time.sleep(2)
+                st.cache_data.clear()
                 st.rerun(scope="fragment")
                     
         # -------------------------- #
@@ -295,6 +520,7 @@ def editar_titulo_de_cada_resultado_mp_dialog(resultado_idx):
 
                     st.success("Nova ação estratégica adicionada com sucesso!")
                     time.sleep(2)
+                    st.cache_data.clear()
                     st.rerun(scope="fragment")
             
             st.write("")
@@ -321,6 +547,7 @@ def editar_titulo_de_cada_resultado_mp_dialog(resultado_idx):
                         )
                         st.success("Ação estratégica atualizada com sucesso!")
                         time.sleep(2)
+                        st.cache_data.clear()
                         st.rerun(scope="fragment")
                     
     else:
@@ -346,6 +573,7 @@ def editar_titulo_de_cada_resultado_mp_dialog(resultado_idx):
                 )
                 st.success("Nova meta adicionada com sucesso!")
                 time.sleep(2)
+                st.cache_data.clear()
                 st.rerun(scope="fragment")
                 
         st.write("")
@@ -383,35 +611,110 @@ def editar_titulo_de_cada_resultado_mp_dialog(resultado_idx):
                     )
                     st.success("Meta atualizada com sucesso!")
                     time.sleep(2)
+                    st.cache_data.clear()
                     st.rerun(scope="fragment")
 
      
-@st.dialog("Editar eixo da estratégia")
-def editar_eixos_da_estrategia_dialog(estrategia_item, estrategia_doc, estrategia):
-    novo_titulo = st.text_input("Eixo da estratégia:", estrategia_item.get("titulo", ""))
-    
+@st.dialog("Editar eixo da estratégia", width="large", on_dismiss="rerun")
+def editar_eixos_da_estrategia_dialog(
+    estrategia_item,
+    estrategia_doc,
+    estrategia
+):
+    """
+    Permite editar o título do eixo e os indicadores relacionados.
+
+    O relacionamento com indicadores é salvo diretamente dentro
+    do documento do eixo na coleção 'estrategia'.
+    """
+
+    # ---------------------------------------------------------
+    # CARREGAR INDICADORES
+    # ---------------------------------------------------------
+
+    mapa_indicadores, mapa_nomes_indicadores = (
+        mapa_indicadores_disponiveis()
+    )
+
+    # ---------------------------------------------------------
+    # CAMPOS ATUAIS DO EIXO
+    # ---------------------------------------------------------
+
+    novo_titulo = st.text_input(
+        "Eixo da estratégia:",
+        value=estrategia_item.get("titulo", "")
+    )
+
+    indicadores_atuais = ids_indicadores_normalizados(
+        estrategia_item.get("indicadores", [])
+    )
+
+    # ---------------------------------------------------------
+    # MULTISELECT DE INDICADORES
+    # ---------------------------------------------------------
+
+    novos_indicadores = multiselect_indicadores(
+        indicadores_selecionados=indicadores_atuais,
+        mapa_nomes_indicadores=mapa_nomes_indicadores,
+        key=f"indicadores_eixo_{estrategia_item.get('_id')}",
+        label="Quais indicadores contribuem para este eixo?"
+    )
+
     st.write("")
-    
+
     col1, col2 = st.columns(2)
-    
-    if col1.button("Salvar", use_container_width=False, icon=":material/save:"):
-        # Atualiza o título no documento original
+
+    if col1.button(
+        "Salvar",
+        use_container_width=False,
+        icon=":material/save:"
+    ):
+
+        # -----------------------------------------------------
+        # LOCALIZAR O EIXO ORIGINAL
+        # -----------------------------------------------------
+
         for eixo in estrategia_doc["estrategia"]["eixos_da_estrategia"]:
-            if eixo["titulo"] == estrategia_item["titulo"]:
+
+            if str(eixo.get("_id")) == str(
+                estrategia_item.get("_id")
+            ):
+
                 eixo["titulo"] = novo_titulo
+
+                # Salva somente os IDs dos indicadores.
+                eixo["indicadores"] = novos_indicadores
+
+                # Garante que o eixo tenha um ID.
+                if "_id" not in eixo:
+                    eixo["_id"] = str(ObjectId())
+
                 break
 
-        # Salva no MongoDB
+        # -----------------------------------------------------
+        # SALVAR NO MONGODB
+        # -----------------------------------------------------
+
         estrategia.update_one(
             {"_id": estrategia_doc["_id"]},
-            {"$set": {"estrategia.eixos_da_estrategia": estrategia_doc["estrategia"]["eixos_da_estrategia"]}}
+            {
+                "$set": {
+                    "estrategia.eixos_da_estrategia":
+                        estrategia_doc["estrategia"]["eixos_da_estrategia"]
+                }
+            }
         )
 
-        st.success("Título atualizado com sucesso!")
-        st.rerun()
+        st.success(
+            "Eixo e indicadores atualizados com sucesso!"
+        )
+
+        time.sleep(2)
+        st.cache_data.clear()
+        st.rerun(scope="fragment")
             
 
-@st.dialog("Editar título da página")
+@st.dialog("Editar título da página", on_dismiss="rerun")
 def editar_titulo_pagina_resultados_lp_dialog():
 
     # Buscar documento
@@ -436,7 +739,8 @@ def editar_titulo_pagina_resultados_lp_dialog():
         )
         st.success("Título da página atualizado com sucesso!")
         time.sleep(2)
-        st.rerun()
+        st.cache_data.clear()
+        st.rerun(scope="fragment")
             
             
 @st.dialog("Editar resultado de longo prazo", width="large", on_dismiss="rerun")
@@ -476,25 +780,60 @@ def editar_titulo_de_cada_resultado_lp_dialog(resultado_idx):
             height="content"
         )
 
+        # -----------------------------------------------------
+        # INDICADORES RELACIONADOS AO RLP
+        # -----------------------------------------------------
+
+        mapa_indicadores, mapa_nomes_indicadores = (
+            mapa_indicadores_disponiveis()
+        )
+
+        indicadores_atuais = ids_indicadores_normalizados(
+            resultado.get("indicadores", [])
+        )
+
+        novos_indicadores = multiselect_indicadores(
+            indicadores_selecionados=indicadores_atuais,
+            mapa_nomes_indicadores=mapa_nomes_indicadores,
+            key=f"indicadores_rlp_{resultado.get('_id')}",
+            label="Quais indicadores contribuem para este resultado?"
+        )
+
         if st.button(
             "Salvar Título",
             key=f"salvar_titulo_lp_{resultado_idx}",
             icon=":material/save:"
         ):
 
+            # Atualiza o título do RLP.
             resultados_lp[resultado_idx]["titulo"] = novo_titulo
 
-            # garante _id
+            # Salva os IDs dos indicadores diretamente
+            # no documento do RLP.
+            resultados_lp[resultado_idx]["indicadores"] = (
+                novos_indicadores
+            )
+
+            # Garante que o RLP tenha um ID.
             if "_id" not in resultados_lp[resultado_idx]:
                 resultados_lp[resultado_idx]["_id"] = str(ObjectId())
 
             estrategia.update_one(
                 {"_id": doc["_id"]},
-                {"$set": {"resultados_longo_prazo.resultados_lp": resultados_lp}}
+                {
+                    "$set": {
+                        "resultados_longo_prazo.resultados_lp":
+                            resultados_lp
+                    }
+                }
             )
 
-            st.success("Título atualizado com sucesso!")
+            st.success(
+                "Resultado e indicadores atualizados com sucesso!"
+            )
+
             time.sleep(2)
+            st.cache_data.clear()
             st.rerun(scope="fragment")
 
     # ====================================================
@@ -540,6 +879,7 @@ def editar_titulo_de_cada_resultado_lp_dialog(resultado_idx):
 
                 st.success("Nova ação estratégica adicionada!")
                 time.sleep(2)
+                st.cache_data.clear()
                 st.rerun(scope="fragment")
 
         st.write("")
@@ -579,6 +919,7 @@ def editar_titulo_de_cada_resultado_lp_dialog(resultado_idx):
 
                     st.success("Ação estratégica atualizada!")
                     time.sleep(2)
+                    st.cache_data.clear()
                     st.rerun(scope="fragment")
         
 
@@ -624,6 +965,7 @@ def editar_objetivo_estrategico_dialog(obj_idx):
 
             st.success("Título atualizado com sucesso!")
             time.sleep(2)
+            st.cache_data.clear()
             st.rerun(scope="fragment")
             
     # with aba2:
@@ -697,6 +1039,7 @@ def editar_objetivo_estrategico_dialog(obj_idx):
 
                 st.success("Indicador adicionado!")
                 time.sleep(2)
+                st.cache_data.clear()
                 st.rerun(scope="fragment")
 
         st.write("")
@@ -734,6 +1077,7 @@ def editar_objetivo_estrategico_dialog(obj_idx):
 
                     st.success("Indicador atualizado!")
                     time.sleep(2)
+                    st.cache_data.clear()
                     st.rerun(scope="fragment")
             
     with aba3:
@@ -773,6 +1117,7 @@ def editar_objetivo_estrategico_dialog(obj_idx):
 
                 st.success("Ação estratégica adicionada!")
                 time.sleep(2)
+                st.cache_data.clear()
                 st.rerun(scope="fragment")
 
         st.write("")
@@ -810,6 +1155,7 @@ def editar_objetivo_estrategico_dialog(obj_idx):
 
                     st.success("Ação estratégica atualizada!")
                     time.sleep(2)
+                    st.cache_data.clear()
                     st.rerun(scope="fragment")
 
 
@@ -1295,14 +1641,13 @@ with aba_est:
     # ----------------------------------------------------
     # MAPA DE INDICADORES POR EIXO
     # ----------------------------------------------------
+
     todos_indicadores = carregar_indicadores()
 
-    mapa_indicadores_por_eixo = {}
-
-    for ind in todos_indicadores:
-        for eixo_id in ind.get("colabora_estrategia", []):
-            eixo_id_str = str(eixo_id)
-            mapa_indicadores_por_eixo.setdefault(eixo_id_str, []).append(ind)
+    mapa_indicadores = {
+        str(ind["_id"]): ind
+        for ind in todos_indicadores
+    }
 
     # ----------------------------------------------------
     # LOOP DOS EIXOS
@@ -1331,27 +1676,24 @@ with aba_est:
                     icon=":material/edit:"
                 )
 
-            
             # --------------------------------------------
-            # INDICADORES DO EIXO 
+            # INDICADORES DO EIXO
             # --------------------------------------------
 
-            st.markdown("##### :material/monitoring: Indicadores:")
+            st.markdown(
+                "##### :material/monitoring: Indicadores:"
+            )
 
-            indicadores_eixo = mapa_indicadores_por_eixo.get(eixo_id, [])
-            
-            if not indicadores_eixo:
-                st.write("Nenhum indicador relacionado a este eixo.")
-            else:
-                for ind in indicadores_eixo:
-                    nome_bruto = ind.get("nome_indicador", "Indicador sem nome")
+            ids_indicadores_eixo = eixo.get(
+                "indicadores",
+                []
+            )
 
-                    id_indicador = str(ind["_id"])
-                    valor_total = mapa_soma_indicadores.get(id_indicador, 0)
-
-                    valor_formatado = float_to_br(valor_total)
-
-                    st.markdown(f"**{nome_bruto}:** {valor_formatado}")
+            exibir_indicadores_relacionados(
+                ids_indicadores=ids_indicadores_eixo,
+                mapa_indicadores=mapa_indicadores,
+                mapa_soma_indicadores=mapa_soma_indicadores
+            )
 
             # --------------------------------------------
             # ENTREGAS DO EIXO
@@ -1531,6 +1873,7 @@ with aba_res_mp:
 
                             st.success("Metas atualizadas!")
                             time.sleep(2)
+                            st.cache_data.clear()
                             st.rerun()
 
                 else:
@@ -1549,36 +1892,21 @@ with aba_res_mp:
             # --------------------------------------------
             # INDICADORES DO RESULTADO DE MÉDIO PRAZO
             # --------------------------------------------
-            st.markdown("##### :material/monitoring: Indicadores:")
-            st.write("")
-            
-            resultado_id = str(resultado["_id"])
-            titulo_result = resultado.get("titulo", f"Resultado {idx + 1}")
 
-            indicadores_resultado = mapa_indicadores_por_resultado_mp.get(
-                resultado_id,
+            st.markdown(
+                "##### :material/monitoring: Indicadores:"
+            )
+
+            ids_indicadores_rmp = resultado.get(
+                "indicadores",
                 []
             )
 
-
-            if not indicadores_resultado:
-                st.caption("Nenhum indicador relacionado a este resultado.")
-            else:
-                for ind in indicadores_resultado:
-
-                    nome_bruto = ind.get(
-                        "nome_indicador",
-                        "Indicador sem nome"
-                    )
-
-
-                    id_indicador = str(ind["_id"])
-                    valor_total = mapa_soma_indicadores.get(id_indicador, 0)
-                    valor_formatado = float_to_br(valor_total)
-
-                    st.markdown(
-                        f"**{nome_bruto}:** {valor_formatado}"
-                    )
+            exibir_indicadores_relacionados(
+                ids_indicadores=ids_indicadores_rmp,
+                mapa_indicadores=mapa_indicadores,
+                mapa_soma_indicadores=mapa_soma_indicadores
+            )
 
             st.divider()
 
@@ -1664,20 +1992,6 @@ with aba_res_lp:
     st.subheader(titulo_pagina_lp)
     st.write("")
 
-    # ----------------------------------------------------
-    # MAPA DE INDICADORES POR RESULTADO DE LONGO PRAZO
-    # (usa campo colabora_resultado_lp na coleção 'indicadores')
-    # ----------------------------------------------------
-    todos_indicadores_lp = list(indicadores.find())
-
-    mapa_indicadores_por_resultado_lp = {}
-    for ind in todos_indicadores_lp:
-        for resultado_lp in ind.get("colabora_resultado_lp", []):
-            resultado_lp_id = str(resultado_lp)
-            mapa_indicadores_por_resultado_lp.setdefault(
-                resultado_lp_id, []
-            ).append(ind)
-
 
     # ----------------------------------------------------
     # PRÉ-CARREGAR LANÇAMENTOS DE INDICADORES
@@ -1721,39 +2035,29 @@ with aba_res_lp:
                 # ====================================================
                 # INDICADORES (VINDOS DA COLEÇÃO 'indicadores')
                 # ====================================================
-                st.markdown("##### :material/monitoring: Indicadores:") 
+                st.markdown(
+                    "##### :material/monitoring: Indicadores:"
+                )
 
-                indicadores_resultado = mapa_indicadores_por_resultado_lp.get(
-                    resultado_lp_id,
+                ids_indicadores_rlp = resultado.get(
+                    "indicadores",
                     []
                 )
 
-                if not indicadores_resultado:
-                    st.caption(
-                        "Nenhum indicador relacionado a este resultado de longo prazo."
-                    )
-                else:
-                    for ind in indicadores_resultado:
-                        # Nome legível do indicador
-                        nome_bruto = ind.get(
-                            "nome_indicador",
-                            "Indicador sem nome"
-                        )
-            
-                        # Soma dos lançamentos desse indicador
-                        id_indicador = str(ind["_id"])
-                        valor_total = mapa_soma_indicadores_lp.get(
-                            id_indicador,
-                            0
-                        )
-                        valor_formatado = float_to_br(valor_total)
-
-                        st.markdown(
-                            f"**{nome_bruto}:** {valor_formatado}"
-                        )
+                exibir_indicadores_relacionados(
+                    ids_indicadores=ids_indicadores_rlp,
+                    mapa_indicadores=mapa_indicadores,
+                    mapa_soma_indicadores=mapa_soma_indicadores_lp
+                )
 
                 st.divider()
 
+                todos_indicadores_lp = carregar_indicadores()
+
+                mapa_indicadores = {
+                    str(ind["_id"]): ind
+                    for ind in todos_indicadores_lp
+                }
 
                 # ====================================================
                 # AÇÕES ESTRATÉGICAS / ENTREGAS (IGUAL AO MP)
@@ -1871,6 +2175,7 @@ def fragmento_metas_obj(
 
                 st.success("Metas atualizadas!")
                 time.sleep(2)
+                st.cache_data.clear()
                 st.rerun()
 
     else:
@@ -1933,10 +2238,13 @@ with aba_ebj_est_ins:
             if not indicadores_obj:
                 st.caption("Nenhum indicador relacionado a este objetivo.")
             else:
-                for ind in indicadores_obj:
-
+                # Ordena os indicadores alfabeticamente pelo nome
+                indicadores_obj_ordenados = sorted(
+                    indicadores_obj,
+                    key=lambda ind: ind.get("nome_indicador", "").casefold()
+                )
+                for ind in indicadores_obj_ordenados:
                     nome_bruto = ind.get("nome_indicador", "Indicador sem nome")
-
                     st.markdown(f"**{nome_bruto}**")
 
             st.divider()
