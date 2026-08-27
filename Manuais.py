@@ -83,7 +83,7 @@ with st.expander("ACORDOS DE CONVIVÊNCIA"):
              agendamento de reuniões, respeito ao silêncio, limpeza de áreas comuns e cuidados com 
              equipamentos e segurança ao final do expediente.""")
     
-    with st.container(horizontal=True):
+    with st.container(horizontal=True, horizontal_alignment="distribute"):
         st.write("Versão: março de 2023")
         st.link_button(
             label="Ver documento",
@@ -100,7 +100,7 @@ with st.expander("CÓDIGO DE ÉTICA"):
     conduzidas com ética, transparência e respeito, refletindo o compromisso do Instituto com relações 
     responsáveis e alinhadas às suas diretrizes estratégicas.""")
     
-    with st.container(horizontal=True):
+    with st.container(horizontal=True, horizontal_alignment="distribute"):
         st.write("Versão: janeiro de 2025")
         st.link_button(
             label="Ver documento",
@@ -110,12 +110,32 @@ with st.expander("CÓDIGO DE ÉTICA"):
         )
 
 
+
+# CÓDIGO DE ÉTICA
+with st.expander("GUIA SOBRE ISBN E FICHA CATALOGRÁFICA PARA PUBLICAÇÕES DO ISPN"):
+    st.write("""Este guia orienta o processo de solicitação de ISBN e Ficha Catalográfica para
+                publicações do ISPN por meio do site da CBL (Câmara Brasileira do Livro).""")
+    
+    with st.container(horizontal=True, horizontal_alignment="distribute"):
+        st.write("Versão: agosto de 2026")
+        st.link_button(
+            label="Ver documento",
+            url="https://ispn.org.br/wp-content/uploads/2026/08/Guia-sobre-ISBN-e-Ficha-Catalografica-para-Publicacoes-do-ISPN_compressed.pdf", 
+            type="tertiary",
+            icon=":material/open_in_new:"
+        )
+
+
+
+
+
+
 # LISTAS DE PRESENÇA
 with st.expander("LISTAS DE PRESENÇA"):
     st.write('')
     st.write("Modelo de Lista de Presença com autorização de uso de imagem.")
     
-    with st.container(horizontal=True):
+    with st.container(horizontal=True, horizontal_alignment="distribute"):
         st.write("Versão: 2025")
         st.link_button(
             label="Ver documento",
@@ -127,7 +147,7 @@ with st.expander("LISTAS DE PRESENÇA"):
     st.divider()
     st.write("Modelo de Lista de Presença com autorização de uso de imagem para **povos indígenas**.")
     
-    with st.container(horizontal=True):
+    with st.container(horizontal=True, horizontal_alignment="distribute"):
         st.write("Versão: 2025")
         st.link_button(
             label="Ver documento",
@@ -146,7 +166,7 @@ with st.expander("MANUAL DE CARGOS E POLÍTICA DE REMUNERAÇÃO"):
              critérios de progressão de carreira e alinhamento salarial, promovendo transparência, 
              não discriminação e clareza nas funções e possibilidades de crescimento profissional dentro da instituição.""")
     
-    with st.container(horizontal=True):
+    with st.container(horizontal=True, horizontal_alignment="distribute"):
         st.write("Versão: julho de 2026")
         st.link_button(
             label="Ver documento",
@@ -162,7 +182,7 @@ with st.expander("MANUAL DE PROCEDIMENTOS PARA ELABORAÇÃO DE PROJETOS DO ISPN"
     st.write("""Orienta todo o processo de elaboração de projetos, desde sua concepção até sua submissão, 
             possibilitando que sejam coerentes com as diretrizes do Instituto.""")
     
-    with st.container(horizontal=True):
+    with st.container(horizontal=True, horizontal_alignment="distribute"):
         st.write("Versão: 1.0 - julho de 2026")
         st.link_button(
             label="Ver documento",
@@ -181,7 +201,7 @@ with st.expander("MANUAL DO ISPN"):
              administrativa, normas internas, responsabilidades de cargos, comunicação, manutenção 
              de espaços e tecnologia, além de políticas anticorrupção e de prevenção a fraudes.""")
     
-    with st.container(horizontal=True):
+    with st.container(horizontal=True, horizontal_alignment="distribute"):
         st.write("Versão: maio de 2025")
         st.link_button(
             label="Ver documento",
@@ -202,7 +222,7 @@ with st.expander("MANUAL OPERACIONAL DO FUNDO ECOS"):
     fornecendo uma referência completa para garantir transparência, eficiência e alinhamento 
     com os objetivos estratégicos do Fundo Ecos.""")
     
-    with st.container(horizontal=True):
+    with st.container(horizontal=True, horizontal_alignment="distribute"):
         st.write("Versão: maio de 2026")
         st.link_button(
             label="Ver documento",
@@ -226,7 +246,7 @@ with st.expander("ORGANOGRAMA"):
 with st.expander("PLANILHA PARA REEMBOLSO DE EVENTO"):
     st.write("Modelo de planilha para solicitação de Reembolso de despesas / Prestação de contas.")
 
-    with st.container(horizontal=True):
+    with st.container(horizontal=True, horizontal_alignment="distribute"):
         st.write("Versão: 2025")
         st.link_button(
             label="Ver documento",
@@ -250,7 +270,7 @@ with st.expander("POLÍTICA GÊNERO"):
              e transversais da atuação do ISPN em todos os projetos e ações, internas e externas, contribuindo 
              para o fortalecimento de territórios mais justos, resilientes e sustentáveis.""")
     
-    with st.container(horizontal=True):
+    with st.container(horizontal=True, horizontal_alignment="distribute"):
         st.write("Versão: abril de 2026")
         st.link_button(
             label="Ver documento",
@@ -272,7 +292,7 @@ with st.expander("POLÍTICA DE GESTÃO DE RISCOS"):
              a tomada de decisão dos seus órgãos administrativos e assegurar a perenidade, a sustentabilidade e a 
              atuação consciente e responsável da organização.""")
     
-    with st.container(horizontal=True):
+    with st.container(horizontal=True, horizontal_alignment="distribute"):
         st.write("Versão: abril de 2026")
         st.link_button(
             label="Ver documento",
@@ -292,7 +312,7 @@ with st.expander("POLÍTICA DE PRIVACIDADE"):
     quais dados são coletados, como são utilizados, medidas de segurança adotadas, direitos dos titulares e 
     formas de contato.""")
     
-    with st.container(horizontal=True):
+    with st.container(horizontal=True, horizontal_alignment="distribute"):
         st.write("Versão: fevereiro de 2025")
         st.link_button(
             label="Ver documento",
@@ -312,7 +332,7 @@ with st.expander("POLÍTICA DE PROTEÇÃO DE PESSOAS EM SITUAÇÃO DE VULNERABIL
     e orientar procedimentos para enfrentar riscos específicos. Projetos apoiados pelo Fundo Ecos devem respeitar 
     esta política.""")
     
-    with st.container(horizontal=True):
+    with st.container(horizontal=True, horizontal_alignment="distribute"):
         st.write("Versão: 3a edição - janeiro de 2025")
         st.link_button(
             label="Ver documento",
@@ -328,7 +348,7 @@ with st.expander("POLÍTICA DE VIAGEM"):
     e reembolso de viagens de colaboradores, prestadores, voluntários e equipe técnica. Inclui 
     diretrizes sobre transporte, hospedagem, alimentação e seguro de viagem.""")
     
-    with st.container(horizontal=True):
+    with st.container(horizontal=True, horizontal_alignment="distribute"):
         st.write("Versão: junho de 2026")
         st.link_button(
             label="Ver documento",
@@ -370,7 +390,7 @@ with st.expander("RELATÓRIO MENSAL DE ATIVIDADES"):
     st.write('Abaixo está um vídeo tutorial e o botão para o script utilizado.')
 
 
-    with st.container(horizontal=True):
+    with st.container(horizontal=True, horizontal_alignment="distribute"):
         st.link_button(
             label="Vídeo tutorial",
             url="https://drive.google.com/file/d/1GbdjPHbkD2arXqLxwaznXkp_1rXQDS5E/view", 
@@ -410,7 +430,7 @@ with st.expander("SOLICITAÇÃO DE AUTORIZAÇÃO DE VIAGEM"):
 
     st.write("**Guia de utilização do Portal de Viagens**")
 
-    with st.container(horizontal=True):
+    with st.container(horizontal=True, horizontal_alignment="distribute"):
         st.write("Versão: fevereiro 2025")
         st.link_button(
             label="Ver documento",
@@ -423,7 +443,7 @@ with st.expander("SOLICITAÇÃO DE AUTORIZAÇÃO DE VIAGEM"):
 with st.expander("TERMOS DE REFERÊNCIA"):
     st.write("Modelo de Termo de Referência para contratação de serviços.")
 
-    with st.container(horizontal=True):
+    with st.container(horizontal=True, horizontal_alignment="distribute"):
         st.write("Versão: maio de 2025")
         st.link_button(
             label="Ver documento",
