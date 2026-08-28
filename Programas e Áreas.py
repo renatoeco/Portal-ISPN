@@ -3612,20 +3612,6 @@ for i, aba in enumerate(abas):
 
 
 
-            # if titulo_programa == "ADM Santa Inês":
-            #     opcoes_menu = ["Equipe", "Projetos", "Ações Estratégicas", "Resultados do Programa"]
-            # else:
-            #     opcoes_menu = ["Equipe", "Projetos", "Ações Estratégicas", "Resultados do Programa", "Relatórios Anuais"]
-
-            # pagina = st.segmented_control(
-            #     "Controle",
-            #     opcoes_menu,
-            #     key=f"menu_{id_programa}",
-            #     default="Equipe",
-            #     label_visibility="collapsed"
-            # )
-
-
 
             # #############################################
             # Equipe
@@ -4498,10 +4484,6 @@ for i, aba in enumerate(abas):
 
 
 
-
-            # #############################################
-            # RESULTADOS E AÇÕES ESTRATÉGICAS
-            # #############################################
 
 
             # #############################################

@@ -2004,7 +2004,7 @@ with tab_projetos:
             hide_index=True,
             selection_mode="single-row",
             on_select=callback,
-            height=500,
+            height="content",
             key=key_df,
             column_config={
                 "Abrir": st.column_config.CheckboxColumn(
