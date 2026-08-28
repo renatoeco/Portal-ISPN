@@ -1,8 +1,7 @@
 import streamlit as st
 import pandas as pd
 import datetime
-from bson import ObjectId
-from funcoes_auxiliares import conectar_mongo_portal_ispn, altura_dataframe, br_to_float, float_to_br, dialog_editar_entregas, ajustar_altura_dataframe
+from funcoes_auxiliares import conectar_mongo_portal_ispn, br_to_float, float_to_br, dialog_editar_entregas, ajustar_altura_dataframe
 import streamlit_shadcn_ui as ui
 import plotly.express as px
 import time
@@ -1898,1956 +1897,2013 @@ df_projetos_ispn_filtrado = df_projetos_ispn_filtrado[
 
 # Fim dos filtros -----------------------------------------------------------------------------
 
-# Contagem de projetos -------------------------------
+# Contagem de projetos na interface -------------------------------
 st.write('')
 st.subheader(f'{len(df_projetos_ispn_filtrado)} projetos')
 st.write('')
 
 
-# Cronograma ------------------------------------------
-with st.expander('Ver cronograma'):
-
-    # Gráfico de gantt cronograma 
-
-    # Organizando o df por ordem de data_fim_contrato
-    df_projetos_ispn_filtrado = df_projetos_ispn_filtrado.sort_values(by='data_fim_contrato', ascending=False)
-
-    # Mapeamento de meses em português para número
-    meses = {
-        "janeiro": "01", "fevereiro": "02", "março": "03", "abril": "04",
-        "maio": "05", "junho": "06", "julho": "07", "agosto": "08",
-        "setembro": "09", "outubro": "10", "novembro": "11", "dezembro": "12"
-    }
-
-    # Tentando calcular a altura do gráfico dinamicamente
-    altura_base = 400  # altura mínima
-    altura_extra = sum([10 / (1 + i * 0.01) for i in range(len(df_projetos_ispn_filtrado))])
-    altura = int(altura_base + altura_extra)
+# Define o estado inicial da visualização de detalhes do projeto ou da listagem
+if "ver_detalhes_projeto" not in st.session_state:
+    st.session_state["ver_detalhes_projeto"] = "lista_de_projetos"
 
 
 
-    fig = px.timeline(
-        df_projetos_ispn_filtrado,
-        x_start='data_inicio_contrato',
-        x_end='data_fim_contrato',
-        y='sigla',
-        color='status',
-        color_discrete_map={
-            'Em andamento': 'rgba(0,122,211,0.5)',
-            'Finalizado': "rgba(131,201,255,0.5)",
-            '': 'red',
-        },
-        height=altura,  
-        labels={
-            'sigla': 'Projeto',
-            'status': 'Situação',
-            'data_inicio_contrato': 'Início',
-            'data_fim_contrato': 'Fim'
-        },
-    )
-
-    # Adiciona a linha vertical para o dia de hoje
-    fig.add_vline(
-        x=datetime.datetime.today(),
-        line_width=2,
-        line_dash="dash",
-        line_color="black",
-    )
-
-    # Ajusta layout
-    fig.update_layout(
-        legend=dict(
-            orientation="h",   # horizontal
-            yanchor="bottom",
-            y=-0.2,            # move para baixo do gráfico
-            xanchor="center",
-            x=0.5
-        ),
-        yaxis=dict(
-            title=None,
-            side="right"       # coloca labels do eixo Y à direita
-        ),
-        xaxis=dict(
-            showgrid=True,
-            gridcolor='lightgray',
-            tickmode='linear',
-            dtick="M12",        # Mostra 1 tick por ano (12 meses)
-            tickformat="%Y"
-        )
-    )
-
-    st.plotly_chart(fig)
-
-# Lista de projetos --------------------------
-st.write('')
-# st.write('**Projetos**')
-
-# Selecionando colunas pra mostrar
-df_projetos_ispn_filtrado_show = df_projetos_ispn_filtrado[['sigla', 'nome_do_projeto', 'programa_nome', 'doador_nome', 'valor_com_moeda', 'data_inicio_contrato', 'data_fim_contrato', 'status']]
-
-# ==========================================================
-# PROJETOS ESTRATÉGICOS
-# Substitui Doador e Datas por "-"
-# ==========================================================
-
-mask_estrategico = (
-    df_projetos_ispn_filtrado["status"] == "Estratégico"
-)
-
-df_projetos_ispn_filtrado_show.loc[
-    mask_estrategico,
-    ["doador_nome", "data_inicio_contrato", "data_fim_contrato"]
-] = ""
-
-# Formatando as datas
-df_projetos_ispn_filtrado_show = df_projetos_ispn_filtrado_show.copy()
-
-# df_projetos_ispn_filtrado_show['data_inicio_contrato'] = (
-#     df_projetos_ispn_filtrado_show['data_inicio_contrato']
-#     .apply(
-#         lambda x: x.strftime('%d/%m/%Y')
-#         if isinstance(x, pd.Timestamp)
-#         else x
-#     )
-# )
-
-# df_projetos_ispn_filtrado_show['data_fim_contrato'] = (
-#     df_projetos_ispn_filtrado_show['data_fim_contrato']
-#     .apply(
-#         lambda x: x.strftime('%d/%m/%Y')
-#         if isinstance(x, pd.Timestamp)
-#         else x
-#     )
-# )
-
-# Renomeando as colunas
-df_projetos_ispn_filtrado_show = df_projetos_ispn_filtrado_show.rename(columns={
-    'sigla': 'Sigla',
-    'programa_nome': 'Programa',
-    'doador_nome': 'Doador',
-    'data_inicio_contrato': 'Início do contrato',
-    'data_fim_contrato': 'Fim do contrato',
-    'status': 'Situação',
-    'valor_com_moeda': 'Valor',
-    'nome_do_projeto': 'Nome do projeto'
-})
+# Abas para separar a listagem de projetos do cronograma
+tab_projetos, tab_cronograma = st.tabs([
+    "Projetos",
+    "Cronograma de contratos"
+])
 
 
-# Reorganizar a ordem das colunas
-df_projetos_ispn_filtrado_show = df_projetos_ispn_filtrado_show[
-    ["Sigla", "Nome do projeto", "Programa", "Doador", "Valor", 
-    "Início do contrato", "Fim do contrato", "Situação"]
-]
+# Aba Projetos ------------------------------------------
 
-df_original = df_projetos_ispn_filtrado_show.copy()
+with tab_projetos:
 
-def criar_callback_selecao_projeto(df_visivel, key_df):
-
-    def handle_selecao():
-        estado = st.session_state.get(key_df, {})
-        linhas = estado.get("selection", {}).get("rows", [])
-
-        # SE DESMARCOU → LIMPA O PROJETO
-        if not linhas:
-            st.session_state["projeto_selecionado_projetos"] = None
-            return
-
-        idx = linhas[0]
-        sigla = df_visivel.iloc[idx]["Sigla"]
-
-        st.session_state["projeto_selecionado_projetos"] = sigla
-
-    return handle_selecao
-
-key_df = "df_visao_geral"
-
-callback = criar_callback_selecao_projeto(
-    df_projetos_ispn_filtrado_show,
-    key_df
-)
-
-# altura_df = altura_dataframe(df_projetos_ispn_filtrado_show, 0)
-# altura_df = altura_df or 800
-
-
-st.dataframe(
-    df_projetos_ispn_filtrado_show,
-    hide_index=True,
-    selection_mode="single-row",
-    on_select=callback,
-    key=key_df,
-    column_config={
-        "Abrir": st.column_config.CheckboxColumn(
-            "Abrir",
-            help="Abrir projeto"
-        ),
-        "Início do contrato": st.column_config.DateColumn(
-            "Início do contrato",
-            format="DD/MM/YYYY"
-        ),
-        "Fim do contrato": st.column_config.DateColumn(
-            "Fim do contrato",
-            format="DD/MM/YYYY"
-        ),
-    }
-)
-
-projeto_selecionado = st.session_state.get("projeto_selecionado_projetos")
-
-projeto_info = df_projetos_ispn.loc[
-    df_projetos_ispn["sigla"] == projeto_selecionado
-]
-
-if projeto_info.empty:
-
-    st.session_state["projeto_selecionado_projetos"] = None
-    st.stop()
-
-projeto = projeto_info.iloc[0]
-
-# Verifica se o projeto é estratégico
-projeto_estrategico = (
-    projeto.get("tipo_projeto") == "estrategico"
-)
-
-st.divider()
-
-with st.container(horizontal=True, horizontal_alignment="distribute"):
-
-    # Sigla do projeto
-    st.markdown(f"<h3 style='color:#007ad3'>{projeto_selecionado}</h3>", unsafe_allow_html=True)
     st.write('')
-    
-    # --------------------------------------------------
-    # DADOS DO USUÁRIO LOGADO
-    # --------------------------------------------------
-    usuario_id = str(st.session_state.get("id_usuario"))  
-    tipos_usuario = set(st.session_state.tipo_usuario)
 
-    # --------------------------------------------------
-    # DADOS DO PROJETO SELECIONADO
-    # --------------------------------------------------
-    projeto = projeto_info.iloc[0]
+    # LISTA DE PROJETOS
 
-    coordenador_projeto_id = str(projeto.get("coordenador")) if projeto.get("coordenador") else None
-    programa_projeto_id = str(projeto.get("programa")) if projeto.get("programa") else None
+    if st.session_state["ver_detalhes_projeto"] == "lista_de_projetos":
 
-    # --------------------------------------------------
-    # ORÇAMENTO POR ANO (TRANSFORMAR EM DATAFRAME)
-    # --------------------------------------------------
+        
+        # Selecionando colunas pra mostrar
+        df_projetos_ispn_filtrado_show = df_projetos_ispn_filtrado[['sigla', 'nome_do_projeto', 'programa_nome', 'doador_nome', 'valor_com_moeda', 'data_inicio_contrato', 'data_fim_contrato', 'status']]
 
-    orcamento_dict = projeto.get("orcamento_por_ano", {})
+        # ==========================================================
+        # PROJETOS ESTRATÉGICOS
+        # Substitui Doador e Datas por "-"
+        # ==========================================================
 
-    # Garantir que é dict
-    if not isinstance(orcamento_dict, dict):
-        orcamento_dict = {}
+        mask_estrategico = (
+            df_projetos_ispn_filtrado["status"] == "Estratégico"
+        )
 
-    dados_orcamento = []
+        df_projetos_ispn_filtrado_show.loc[
+            mask_estrategico,
+            ["doador_nome", "data_inicio_contrato", "data_fim_contrato"]
+        ] = ""
 
-    for ano, valor in orcamento_dict.items():
-        dados_orcamento.append({
-            "Ano": ano,
-            "Orçamento": valor
+        # Formatando as datas
+        df_projetos_ispn_filtrado_show = df_projetos_ispn_filtrado_show.copy()
+
+
+
+        # Renomeando as colunas
+        df_projetos_ispn_filtrado_show = df_projetos_ispn_filtrado_show.rename(columns={
+            'sigla': 'Sigla',
+            'programa_nome': 'Programa',
+            'doador_nome': 'Doador',
+            'data_inicio_contrato': 'Início do contrato',
+            'data_fim_contrato': 'Fim do contrato',
+            'status': 'Situação',
+            'valor_com_moeda': 'Valor',
+            'nome_do_projeto': 'Nome do projeto'
         })
 
-    df_orcamento = pd.DataFrame(dados_orcamento)
 
-    # Ordenar por ano
-    if not df_orcamento.empty:
-        df_orcamento = df_orcamento.sort_values(by="Ano")
-    
-    # --------------------------------------------------
-    # COORDENADOR DO PROGRAMA
-    # --------------------------------------------------
-    coordenador_programa_id = None
-
-    if programa_projeto_id:
-        coord_prog = df_programas.loc[
-            df_programas["_id"].astype(str) == programa_projeto_id,
-            "coordenador_id"
+        # Reorganizar a ordem das colunas
+        df_projetos_ispn_filtrado_show = df_projetos_ispn_filtrado_show[
+            ["Sigla", "Nome do projeto", "Programa", "Doador", "Valor", 
+            "Início do contrato", "Fim do contrato", "Situação"]
         ]
 
-        if not coord_prog.empty and coord_prog.iloc[0]:
-            coordenador_programa_id = str(coord_prog.iloc[0])
-        
-    # --------------------------------------------------
-    # GESTORES DO PROJETO
-    # --------------------------------------------------
-    gestores_raw = projeto.get("gestores", [])
+        df_original = df_projetos_ispn_filtrado_show.copy()
 
-    if not isinstance(gestores_raw, list):
-        gestores_raw = []
 
-    gestores_ids = [str(g) for g in gestores_raw if g]
+        def criar_callback_selecao_projeto(df_visivel, key_df):
 
-    # --------------------------------------------------
-    # REGRAS DE PERMISSÃO
-    # --------------------------------------------------
-    eh_admin = "admin" in tipos_usuario or "gestao_projetos" in tipos_usuario 
-    eh_coord_projeto = usuario_id == coordenador_projeto_id
-    eh_coord_programa = usuario_id == coordenador_programa_id
-    eh_gestor_projeto = usuario_id in gestores_ids
+            def handle_selecao():
+                estado = st.session_state.get(key_df, {})
+                linhas = estado.get("selection", {}).get("rows", [])
 
-    pode_gerenciar_projeto = any([
-        eh_admin,
-        eh_coord_projeto,
-        eh_coord_programa,
-        eh_gestor_projeto
-    ])
+                # Mantém a lista de projetos quando não há seleção ativa.
+                if not linhas:
+                    st.session_state["projeto_selecionado_projetos"] = None
+                    st.session_state["ver_detalhes_projeto"] = "lista_de_projetos"
+                    return
 
-    # Botão de gerenciar -------------------
-    
-    if pode_gerenciar_projeto:
-        st.button(
-            "Gerenciar projeto",
-            width=300,
-            icon=":material/contract_edit:",
-            on_click=dialog_editar_projeto
+                idx = linhas[0]
+                sigla = df_visivel.iloc[idx]["Sigla"]
+
+                # Registra o projeto selecionado e alterna para a visualização de detalhes.
+                st.session_state["projeto_selecionado_projetos"] = sigla
+                st.session_state["ver_detalhes_projeto"] = "projeto_selecionado"
+
+            return handle_selecao
+
+
+        key_df = "df_visao_geral"
+
+        callback = criar_callback_selecao_projeto(
+            df_projetos_ispn_filtrado_show,
+            key_df
         )
 
-# ------------------------------------------
 
-# Nome do projeto
-st.subheader(
-    "**" + 
-    df_projetos_ispn.loc[
-        df_projetos_ispn['sigla'] == projeto_selecionado, 
-        'nome_do_projeto'
-    ].squeeze() + 
-    "**"
-)
 
-st.write('')
-
-# ==========================================================
-# INTERFACE - PROJETO ESTRATÉGICO
-# ==========================================================
-
-def render_visualizacao_projeto_estrategico():
-
-    st.write("")
-
-    col1, col2= st.columns(2)
-
-    # Programa
-    programa = (
-        projeto_info["programa_nome"].values[0]
-        if not projeto_info.empty else ""
-    )
-
-    col1.write(f"**Programa(s):** {programa}")
-
-    # Coordenador
-    coordenador_id = (
-        projeto_info["coordenador"].values[0]
-        if not projeto_info.empty else None
-    )
-
-    coordenador_nome = (
-        mapa_coordenador.get(str(coordenador_id), "")
-        if coordenador_id else ""
-    )
-
-    col2.write(f"**Coordenador(a):** {coordenador_nome}")
-
-    col1, col2= st.columns(2)
-
-    # Gestores
-    gestores_ids = (
-        projeto_info["gestores"].values[0]
-        if (
-            not projeto_info.empty
-            and "gestores" in projeto_info.columns
-        )
-        else []
-    )
-
-    if not isinstance(gestores_ids, list):
-        gestores_ids = [gestores_ids] if gestores_ids else []
-
-    gestores_nomes = [
-        mapa_coordenador.get(str(gestor_id), str(gestor_id))
-        for gestor_id in gestores_ids
-        if gestor_id
-    ]
-
-    gestores_texto = ", ".join(gestores_nomes) if gestores_nomes else "-"
-
-    col1.write(f"**Gestor(es):** {gestores_texto}")
-
-    # Situação
-    situacao = (
-        df_projetos_ispn.loc[
-            df_projetos_ispn['sigla'] == projeto_selecionado,
-            'status'
-        ].values[0]
-        if not df_projetos_ispn.loc[
-            df_projetos_ispn['sigla'] == projeto_selecionado
-        ].empty
-        else ""
-    )
-
-    col2.write(f"**Situação:** {situacao}")
-
-    st.write("")
-
-
-
-# ==========================================================
-# INTERFACE - PROJETO NORMAL
-# ==========================================================
-
-def render_visualizacao_projeto_normal():
-
-    col1, col2, col3 = st.columns(3)
-
-    # Valor
-    col1.metric(
-        "Valor",
-        df_projetos_ispn.loc[
-            df_projetos_ispn['sigla'] == projeto_selecionado,
-            'valor_com_moeda'
-        ].values[0]
-    )
-
-    # Contrapartida
-    col2.metric(
-        "Contrapartida",
-        df_projetos_ispn.loc[
-            df_projetos_ispn['sigla'] == projeto_selecionado,
-            'contrapartida_com_moeda'
-        ].values[0]
-    )
-
-    # Orçamento
-    if df_orcamento.empty:
-        col3.write("_Sem orçamento por ano cadastrado_")
-    else:
-        col3.write("**Orçamento por ano:**")
-        col3.dataframe(df_orcamento, hide_index=True)
-
-    st.write("")
-
-    col1, col2, col3 = st.columns(3)
-
-    # Coordenador
-    coordenador_id = (
-        projeto_info["coordenador"].values[0]
-        if not projeto_info.empty else None
-    )
-
-    coordenador_nome = (
-        mapa_coordenador.get(str(coordenador_id), "")
-        if coordenador_id else ""
-    )
-
-    col1.write(f"**Coordenador(a):** {coordenador_nome}")
-
-    # Programa
-    programa = (
-        projeto_info["programa_nome"].values[0]
-        if not projeto_info.empty else ""
-    )
-
-    col1.write(f"**Programa(s):** {programa}")
-
-    # Doador
-    doador = (
-        projeto_info["doador_nome"].values[0]
-        if not projeto_info.empty else ""
-    )
-
-    col2.write(f"**Doador:** {doador}")
-    # Situação
-    col2.write(
-        f"**Situação:** {
-            df_projetos_ispn.loc[
-                df_projetos_ispn['sigla'] == projeto_selecionado,
-                'status'
-            ].values[0]
-        }"
-    )
-
-    # Datas
-    data_inicio = df_projetos_ispn.loc[
-        df_projetos_ispn["sigla"] == projeto_selecionado,
-        "data_inicio_contrato"
-    ].dt.strftime("%d/%m/%Y").values[0]
-
-    data_fim = df_projetos_ispn.loc[
-        df_projetos_ispn["sigla"] == projeto_selecionado,
-        "data_fim_contrato"
-    ].dt.strftime("%d/%m/%Y").values[0]
-
-    col3.write(f"**Data de início:** {data_inicio}")
-    col3.write(f"**Data de término:** {data_fim}")
-
-    # Objetivo geral
-    objetivo_geral = df_projetos_ispn.loc[
-        df_projetos_ispn["sigla"] == projeto_selecionado, "objetivo_geral"
-    ].values[0]
-
-    # Verificando se é NaN ou vazio
-    if pd.isna(objetivo_geral) or objetivo_geral == "":
-        objetivo_geral = "_Não cadastrado_"
-
-    st.write(f'**Objetivo geral:** {objetivo_geral}')
-
-    # Resumo do projeto
-
-    resumo_do_projeto = df_projetos_ispn.loc[
-        df_projetos_ispn["sigla"] == projeto_selecionado, "resumo_projeto"
-    ].values[0]
-
-    # Verificando se é NaN ou vazio
-    if pd.isna(resumo_do_projeto) or resumo_do_projeto == "":
-        st.markdown(
-            "**Resumo do projeto:** <span style='color:#F59E0B; font-style: italic;'>Não cadastrado</span>",
-            unsafe_allow_html=True
-        )
-    else:
-        st.write(f"**Resumo do projeto:** {resumo_do_projeto}")
-
-
-    st.write('')
-
-    
-
-
-# ==========================================================
-# RENDERIZAÇÃO
-# ==========================================================
-
-if projeto_estrategico:
-    render_visualizacao_projeto_estrategico()
-else:
-    render_visualizacao_projeto_normal()
-
-
-
-
-
-# Obter o _id do projeto selecionado
-projeto_id = df_projetos_ispn.loc[
-    df_projetos_ispn["sigla"] == projeto_selecionado, "_id"
-].values[0]
-
-
-# ==========================================================
-# ABAS DO PROJETO
-# ==========================================================
-# Projetos estratégicos não possuem a aba "Resultados".
-# Projetos normais continuam exibindo todas as abas.
-# A estrutura das abas também respeita a permissão do usuário
-# para visualizar a aba "Entregas".
-
-tem_permissao_entregas = (
-    set(st.session_state.tipo_usuario)
-    & {"admin", "coordenador(a)", "gestao_projetos"}
-)
-
-if projeto_estrategico:
-
-    # ------------------------------------------------------
-    # PROJETO ESTRATÉGICO
-    # ------------------------------------------------------
-    # Para projetos estratégicos, a aba "Resultados" não
-    # deve ser criada nem exibida.
-    # ------------------------------------------------------
-
-    if tem_permissao_entregas:
-
-        tab_equipe, tab_indicadores, tab_entregas, tab_anotacoes = st.tabs([
-            ":material/group: Equipe",
-            ":material/show_chart: Indicadores",
-            ":material/package_2: Entregas",
-            ":material/notes: Anotações"
-        ])
-
-    else:
-
-        tab_equipe, tab_indicadores, tab_anotacoes = st.tabs([
-            ":material/group: Equipe",
-            ":material/show_chart: Indicadores",
-            ":material/notes: Anotações"
-        ])
-
-else:
-
-    # ------------------------------------------------------
-    # PROJETO NORMAL
-    # ------------------------------------------------------
-    # Projetos normais continuam com a aba "Resultados".
-    # ------------------------------------------------------
-
-    if tem_permissao_entregas:
-
-        tab_equipe, tab_indicadores, tab_entregas, tab_resultados, tab_anotacoes = st.tabs([
-            ":material/group: Equipe",
-            ":material/show_chart: Indicadores",
-            ":material/package_2: Entregas",
-            ":material/beenhere: Resultados",
-            ":material/notes: Anotações"
-        ])
-
-    else:
-
-        tab_equipe, tab_indicadores, tab_resultados, tab_anotacoes = st.tabs([
-            ":material/group: Equipe",
-            ":material/show_chart: Indicadores",
-            ":material/beenhere: Resultados",
-            ":material/notes: Anotações"
-        ])
-
-# ##########################################################
-# Equipe do projeto
-# ##########################################################
-
-with tab_equipe:
-
-    st.write('**Equipe contratada pelo projeto:**')
-
-    # 2- Filtrar pessoas que têm pelo menos um contrato com esse projeto
-    def pertence_ao_projeto(contratos):
-        if not isinstance(contratos, list):
-            return False
-        for c in contratos:
-            if c.get("status_contrato") == "Em vigência":
-                # projeto_pagador já convertido em string se você aplicou a função anterior
-                ids = [str(p) for p in c.get("projeto_pagador", [])]
-                if str(projeto_id) in ids:
-                    return True
-        return False
-
-    df_equipe = df_pessoas[df_pessoas["contratos"].apply(pertence_ao_projeto)].copy()
-
-    # 3- Criar coluna 'datas_fim_contrato' com todas as datas de fim de contratos em vigência
-    def datas_fim_em_vigencia(contratos):
-        if not isinstance(contratos, list):
-            return ""
-        datas = [c['data_fim'] for c in contratos if c.get('status_contrato') == 'Em vigência']
-        return ", ".join(datas)
-
-    df_equipe['datas_fim_contrato'] = df_equipe['contratos'].apply(datas_fim_em_vigencia)
-
-    # 4- Exibição
-    colunas_exibir = [
-        "nome_completo",
-        "programa_area_nome",
-        "coordenador_nome",
-        "escritorio",
-        "cargo",
-        "tipo_contratacao",
-        "datas_fim_contrato",
-        "status",
-    ]
-
-    # Novo nome das colunas
-    novos_nomes = {
-        "nome_completo": "Nome",
-        "programa_area_nome": "Programa / Área",
-        "status": "Status",
-        "coordenador_nome": "Coordenador(a)",
-        "cargo": "Cargo",
-        "tipo_contratacao": "Tipo de Contratação",
-        "escritorio": "Escritório",
-        "datas_fim_contrato": "Data de fim do contrato"
-    }
-
-    # Exibir somente essas colunas com os nomes renomeados
-    if df_equipe.empty:
-        st.write("_Não há equipe cadastrada para este projeto_")
-    else:
         st.dataframe(
-            df_equipe[colunas_exibir]
-            .rename(columns=novos_nomes)
-            .reset_index(drop=True),
-            hide_index=True
+            df_projetos_ispn_filtrado_show,
+            hide_index=True,
+            selection_mode="single-row",
+            on_select=callback,
+            height=500,
+            key=key_df,
+            column_config={
+                "Abrir": st.column_config.CheckboxColumn(
+                    "Abrir",
+                    help="Abrir projeto"
+                ),
+                "Início do contrato": st.column_config.DateColumn(
+                    "Início do contrato",
+                    format="DD/MM/YYYY"
+                ),
+                "Fim do contrato": st.column_config.DateColumn(
+                    "Fim do contrato",
+                    format="DD/MM/YYYY"
+                ),
+            }
         )
 
-    st.write('')
 
 
 
 
-# ##########################################################
-# Indicadores
-# ##########################################################
-
-with tab_indicadores:
-    st.write('**Indicadores do projeto:** (não inclui indicadores de projetos apoiados ou "grants")')
 
 
-    # Tratamento dos dados
 
-    autor_nome = st.session_state.get("nome", "")
-    tipo_usuario = st.session_state.get("tipo_usuario", [])
-    projeto_id = projeto_info["_id"].iloc[0]   # pega o valor da célula
-    projeto_id = bson.ObjectId(projeto_id)     # garante que é ObjectId
+    # DETALHES DO PROJETO
 
-    lancamentos = list(db["lancamentos_indicadores"].find({"projeto": projeto_id}))
+    elif st.session_state["ver_detalhes_projeto"] == "projeto_selecionado":
 
-
-    linhas = []
-    if not lancamentos:
-        st.caption("Não há lançamentos de indicadores para este projeto.")
-        df_resumo = pd.DataFrame(columns=["Indicador", "Total"])
-        df_indicadores = pd.DataFrame(columns=["Indicador", "Valor", "Ano", "Autor(a)", "Data anotação", "Observações"])
-    
-    else:
+        # Linha de botões abaixo  das guias
         
-        for lan in lancamentos:
-            ind_id = lan.get("id_do_indicador")
+        linha_botoes = st.container(horizontal=True, horizontal_alignment="distribute")
 
-            # Garantir que seja ObjectId para consulta
-            if isinstance(ind_id, str):
-                try:
-                    ind_id_obj = bson.ObjectId(ind_id)
-                except Exception:
-                    ind_id_obj = None
-            elif isinstance(ind_id, bson.ObjectId):
-                ind_id_obj = ind_id
-            else:
-                ind_id_obj = None
 
-            indicador_nome = str(ind_id)
 
-            if ind_id_obj:
-                indicador_doc = db["indicadores"].find_one({"_id": ind_id_obj})
-                if indicador_doc:
-                    indicador_nome = indicador_doc.get("nome_indicador") or str(ind_id)
-            
 
-            linhas.append({
-                "Indicador": indicador_nome,
-                "Valor": lan.get("valor", ""),
-                "Ano": lan.get("ano", ""),
-                "Autor(a)": lan.get("autor_anotacao", ""),
-                "Observações": lan.get("observacoes", ""),
-                "Data anotação": lan.get("data_anotacao", ""),
+        # Botão para VOLTAR à lista de projetos
+        if linha_botoes.button(
+            "Voltar para lista",
+            icon=":material/arrow_back:",
+            # width=200,
+            type="primary",
+        ):
+            st.session_state["ver_detalhes_projeto"] = "lista_de_projetos"
+            st.session_state["projeto_selecionado_projetos"] = None
+
+            # Remove a seleção persistida no dataframe.
+            if "df_visao_geral" in st.session_state:
+                del st.session_state["df_visao_geral"]
+
+            st.rerun()
+
+
+
+
+
+        # ==========================================================
+        # PROJETO SELECIONADO
+        # ==========================================================
+
+        projeto_selecionado = st.session_state.get("projeto_selecionado_projetos")
+
+        projeto_info = df_projetos_ispn.loc[
+            df_projetos_ispn["sigla"] == projeto_selecionado
+        ]
+
+        if projeto_info.empty:
+
+            st.session_state["projeto_selecionado_projetos"] = None
+            st.stop()
+
+        projeto = projeto_info.iloc[0]
+
+        # Verifica se o projeto é estratégico
+        projeto_estrategico = (
+            projeto.get("tipo_projeto") == "estrategico"
+        )
+
+        # Sigla do projeto
+        st.markdown(f"<h3 style='color:#007ad3'>{projeto_selecionado}</h3>", unsafe_allow_html=True)
+        st.write('')
+        
+        # --------------------------------------------------
+        # DADOS DO USUÁRIO LOGADO
+        # --------------------------------------------------
+        usuario_id = str(st.session_state.get("id_usuario"))  
+        tipos_usuario = set(st.session_state.tipo_usuario)
+
+        # --------------------------------------------------
+        # DADOS DO PROJETO SELECIONADO
+        # --------------------------------------------------
+        projeto = projeto_info.iloc[0]
+
+        coordenador_projeto_id = str(projeto.get("coordenador")) if projeto.get("coordenador") else None
+        programa_projeto_id = str(projeto.get("programa")) if projeto.get("programa") else None
+
+        # --------------------------------------------------
+        # ORÇAMENTO POR ANO (TRANSFORMAR EM DATAFRAME)
+        # --------------------------------------------------
+
+        orcamento_dict = projeto.get("orcamento_por_ano", {})
+
+        # Garantir que é dict
+        if not isinstance(orcamento_dict, dict):
+            orcamento_dict = {}
+
+        dados_orcamento = []
+
+        for ano, valor in orcamento_dict.items():
+            dados_orcamento.append({
+                "Ano": ano,
+                "Orçamento": valor
             })
 
+        df_orcamento = pd.DataFrame(dados_orcamento)
 
-        # Cria o DataFrame mesmo que linhas esteja vazio.
-        # A coluna "Valor" é mantida com o valor original (int, float ou str),
-        # sem sobrescrever, para preservar textos na visão detalhada.
-        df_indicadores = pd.DataFrame(linhas, columns=["Indicador", "Valor", "Ano", "Autor(a)", "Data anotação", "Observações"])
-
-        def tentar_converter_numero(valor):
-            """
-            Tenta converter um valor para float, tratando o padrão brasileiro
-            (1.234,56). Retorna None quando o valor é texto (ex: indicadores
-            com tipo_variavel == "str"), sem cair em nenhum fallback numérico.
-            """
-            if isinstance(valor, (int, float)):
-                return float(valor)
-            if isinstance(valor, str):
-                valor = valor.strip()
-                if valor == "":
-                    return None
-                try:
-                    return float(valor.replace(".", "").replace(",", "."))
-                except ValueError:
-                    return None
-            return None
-
-        def consolidar_valores(grupo):
-            """
-            Consolida os lançamentos de um mesmo indicador:
-            - valores numéricos são somados;
-            - valores textuais são preservados e exibidos separados por vírgula
-            quando houver mais de um lançamento de texto;
-            - valores vazios são ignorados.
-            """
-            valores_numericos = []
-            valores_textuais = []
-            for valor in grupo:
-                if pd.isna(valor):
-                    continue
-                valor_str = str(valor).strip()
-                if not valor_str:
-                    continue
-                valor_num = tentar_converter_numero(valor_str)
-                if valor_num is not None:
-                    valores_numericos.append(valor_num)
-                else:
-                    valores_textuais.append(valor_str)
-            if not valores_numericos and not valores_textuais:
-                return ""
-            if not valores_numericos:
-                return ", ".join(valores_textuais)
-            if not valores_textuais:
-                return sum(valores_numericos)
-            total_numerico = sum(valores_numericos)
-            return f"{total_numerico}, {', '.join(valores_textuais)}"
-
-        # Resumo por indicador: soma números e preserva/concatena textos
-        df_resumo = (
-            df_indicadores
-            .groupby("Indicador", as_index=False)
-            .agg(Total=("Valor", consolidar_valores))
-        )
-
-
-    # Interface dos indicadores-------------------------------------------------------------
-
-    # ====================
-    # Função do diálogo de indicadores
-    # ====================
-    @st.dialog("Gerenciar indicadores", on_dismiss="rerun")
-    def dialog_indicadores():
-
-        # Aumentar largura do diálogo com css
-        st.html("<span class='big-dialog'></span>")
-
-        # Carrega indicadores
-        indicadores_lista = list(db["indicadores"].find({}, {"_id": 1, "nome_indicador": 1, "tipo_variavel": 1}))
-        indicadores_opcoes = {
-            i["nome_indicador"]: i
-            for i in indicadores_lista
-        }
-
-
-        tab_add, tab_edit, tab_delete = st.tabs([
-            ":material/add: Adicionar",
-            ":material/edit: Editar",
-            ":material/delete: Excluir"
-        ])
-
-        # ------------------------- ABA ADICIONAR -------------------------
-        with tab_add:
-            st.subheader("Novo lançamento de indicador")
-            indicador_legivel = st.selectbox(
-                "Indicador",
-                [""] + list(indicadores_opcoes.keys()),
-                placeholder=""
-            )
-            if indicador_legivel != "":
-                
-                indicador_doc = indicadores_opcoes[indicador_legivel]
-                
-                indicador_oid = indicador_doc["_id"]
-                
-                tipo_variavel = indicador_doc.get("tipo_variavel")
-                
-                if not tipo_variavel:
-                    st.warning("Este indicador não possui um tipo de variável definido. Edite-o em 'Gerenciar indicadores' antes de lançar valores.")
-                
-                else:
-                    with st.form(key="form_add_lancamento"):
-                        col1, col2 = st.columns(2)
-                        if tipo_variavel == "str":
-                            valor = col1.text_input("Valor")
-                        
-                        elif tipo_variavel == "float":
-                            valor = col1.number_input("Valor", value=0.00, step=0.01, format="%.2f")
-                        
-                        else:  # int
-                            valor = col1.number_input("Valor", value=0, step=1, format="%d")
-                        
-                        ano_atual = datetime.datetime.now().year
-                        anos = ["até 2024"] + [str(ano) for ano in range(2025, ano_atual + 2)]
-                        ano = col2.selectbox("Ano", anos)
-                        
-                        observacoes = st.text_area("Observações", height=100)
-                        
-                        submit = st.form_submit_button(":material/save: Salvar lançamento", type="primary")
-                
-
-                    if submit:
-                        
-                        if tipo_variavel == "float":
-                            valor = float(valor)
-                        
-                        elif tipo_variavel == "int":
-                            valor = int(valor)
-                        
-                        novo_lancamento = {
-                            "id_do_indicador": indicador_oid,
-                            "projeto": bson.ObjectId(projeto_id),
-                            "valor": valor,
-                            "ano": str(ano),
-                            "observacoes": observacoes,
-                            "autor_anotacao": autor_nome,
-                            "data_anotacao": datetime.datetime.now(),
-                            "tipo": "ispn"
-                        }
-                        
-                        colecao_lancamentos.insert_one(novo_lancamento)
-                        
-                        st.success("Lançamento salvo com sucesso!")
-                        time.sleep(2)
-                        
-                        st.rerun(scope="fragment")
-
-        # ------------------------- ABA EDITAR -------------------------
-        with tab_edit:
-            st.subheader("Editar lançamento")
-
-            lancamentos_proj = list(
-                colecao_lancamentos.find({"projeto": bson.ObjectId(projeto_id)}).sort("data_anotacao", -1)
-            )
-
-            if "admin" not in tipo_usuario:
-                lancamentos_proj = [l for l in lancamentos_proj if l.get("autor_anotacao") == autor_nome]
-
-            if not lancamentos_proj:
-                st.caption("Nenhum lançamento disponível para edição.")
-            else:
-                lanc_opcoes = {}
-                for l in lancamentos_proj:
-                    data_str = l["data_anotacao"].strftime("%d/%m/%Y %H:%M:%S") if isinstance(l["data_anotacao"], datetime.datetime) else "Sem data"
-                    autor = l.get("autor_anotacao", "Sem autor")
-                    indicador = indicadores.find_one({"_id": l["id_do_indicador"]})
-                    nome_original = indicador["nome_indicador"] if indicador else ""
-                    label = f"{data_str} - {autor} - {nome_original}"
-                    
-                    lanc_opcoes[label] = l["_id"]
-
-                lanc_sel = st.selectbox("Selecione o lançamento", [""] + list(lanc_opcoes.keys()), key=f"select_lanc_{bson.ObjectId(projeto_id)}", disabled=usuario_visitante, placeholder="")
-
-                if lanc_sel != "":
-                    lanc_id = lanc_opcoes[lanc_sel]
-                    
-                    doc = colecao_lancamentos.find_one({"_id": lanc_id})
-                    
-                    indicador = indicadores.find_one({"_id": doc["id_do_indicador"]})
-                    
-                    tipo_variavel_edit = indicador.get("tipo_variavel") if indicador else None
-                    
-                    col1, col2 = st.columns(2)
-                    if tipo_variavel_edit == "str":
-                        novo_valor = col1.text_input("Valor", value=str(doc["valor"]))
-                    elif tipo_variavel_edit == "float":
-                        valor_inicial = float(doc["valor"]) if doc["valor"] != "" else 0.00
-                        novo_valor = col1.number_input("Valor", value=valor_inicial, step=0.01, format="%.2f")
-                    else:  # int (fallback também para indicadores sem tipo_variavel definido)
-                        valor_inicial = int(doc["valor"]) if str(doc["valor"]).isdigit() else 0
-                        novo_valor = col1.number_input("Valor", value=valor_inicial, step=1, format="%d")
-                    anos = ["até 2024"] + [str(ano) for ano in range(2025, datetime.datetime.now().year + 2)]
-                    ano_str = doc.get("ano", "2025")
-                    if ano_str not in anos:
-                        anos.insert(0, ano_str)
-                    novo_ano = col2.selectbox("Ano", anos, index=anos.index(ano_str))
-                    novas_obs = st.text_area("Observações", value=doc.get("observacoes", ""))
-                    if st.button(":material/save: Salvar alterações", type="primary"):
-                        if tipo_variavel_edit == "float":
-                            novo_valor = float(novo_valor)
-                        elif tipo_variavel_edit != "str":
-                            novo_valor = int(novo_valor)
-                        colecao_lancamentos.update_one(
-                            {"_id": lanc_id},
-                            {"$set": {"valor": novo_valor, "ano": str(novo_ano), "observacoes": novas_obs}}
-                        )
-                        st.success("Lançamento atualizado com sucesso!")
-                        st.cache_data.clear()
-                        st.rerun(scope="fragment")
-
-        # ------------------------- ABA EXCLUIR -------------------------
-        with tab_delete:
-            st.subheader("Excluir lançamento")
-
-            lancamentos_proj = list(
-                colecao_lancamentos.find({"projeto": bson.ObjectId(projeto_id)}).sort("data_anotacao", -1)
-            )
-
-            if "admin" not in tipo_usuario:
-                lancamentos_proj = [l for l in lancamentos_proj if l.get("autor_anotacao") == autor_nome]
-
-            if not lancamentos_proj:
-                st.caption("Nenhum lançamento disponível para exclusão.")
-            else:
-                lanc_opcoes = {}
-                for l in lancamentos_proj:
-                    data_str = l["data_anotacao"].strftime("%d/%m/%Y %H:%M:%S") if isinstance(l["data_anotacao"], datetime.datetime) else "Sem data"
-                    autor = l.get("autor_anotacao", "Sem autor")
-                    indicador = indicadores.find_one({"_id": l["id_do_indicador"]})
-                    nome_original = indicador["nome_indicador"] if indicador else ""
-                    label = f"{data_str} - {autor} - {nome_original}"
-                    
-                    lanc_opcoes[label] = l["_id"]
-
-                lanc_sel = st.selectbox("Selecione o lançamento", [""] + list(lanc_opcoes.keys()), key=f"select_lanc_2", disabled=usuario_visitante, placeholder="")
-
-                if lanc_sel != "":
-                    lanc_id = lanc_opcoes[lanc_sel]
-                    doc = colecao_lancamentos.find_one({"_id": lanc_id})
-                    indicador = indicadores.find_one({"_id": doc["id_do_indicador"]})
-                    nome_original = indicador["nome_indicador"] if indicador else ""
-
-                    valor_lanc = doc.get("valor", "Sem valor")
-
-                    st.warning(
-                        f"Tem certeza que deseja excluir o lançamento de **{nome_original}** "
-                        f"registrado por {doc['autor_anotacao']} em {doc['data_anotacao'].strftime('%d/%m/%Y')}?\n\n"
-                        f"**Valor:** {valor_lanc}"
-                    )
-
-                    if st.button("Excluir", icon=":material/delete:"):
-                        colecao_lancamentos.delete_one({"_id": lanc_id})
-                        st.success("Lançamento excluído com sucesso!")
-                        st.cache_data.clear()
-                        st.rerun(scope="fragment")
-
-    # ====================
-    # Botão para abrir o diálogo de Gerenciar indicadores
-    # ====================
-    
-    with st.container(horizontal=True, horizontal_alignment="right"):
+        # Ordenar por ano
+        if not df_orcamento.empty:
+            df_orcamento = df_orcamento.sort_values(by="Ano")
         
-        if st.button("Gerenciar indicadores", icon=":material/edit:", width=300):
-            dialog_indicadores()
+        # --------------------------------------------------
+        # COORDENADOR DO PROGRAMA
+        # --------------------------------------------------
+        coordenador_programa_id = None
 
-    # ====================
-    # Toggle para ver consolidado ou todos os lançamentos
-    # ====================
-
-    ver_lancamentos = st.toggle("Ver lançamentos detalhados")
-
-    st.write('')
-
-    # Renderização da tabela dataframe
-
-    # Por padrão, mostra o consolidado
-    if not ver_lancamentos:
-        
-        st.write('**MOSTRANDO INDICADORES CONSOLIDADOS (NÚMEROS SOMADOS):**')
-        st.write('')
-
-        ui.table(data=df_resumo.drop(columns=["Valor_num"], errors="ignore"))
-
-
-    # Ao acionar o toggle, mostra todos os lançamentos detalhados
-    else:
-        
-        st.write('**MOSTRANDO TODOS OS LANÇAMENTOS DE INDICADORES:**')
-        st.write('')
-
-        # ui.table(data=df_indicadores.drop(columns=["Valor_num"], errors="ignore"))
-
-
-        ajustar_altura_dataframe(df_indicadores.drop(columns=["Valor_num"], errors="ignore"), linhas_adicionais=1)
-
-
-# ##########################################################
-# Entregas
-# ##########################################################
-
-
-if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_projetos"}:
-
-    with tab_entregas:
-        st.write('**Entregas:**')
-
-        # ============================================================
-        # CARREGAR ENTREGAS DO PROJETO + ENTREGAS RELACIONADAS
-        # ============================================================
-
-        # Lista final de entregas que aparecerão na aba
-        entregas = []
-
-        # Buscar todos os projetos
-        todos_projetos = list(projetos_ispn.find())
-
-        for proj in todos_projetos:
-
-            entregas_projeto = proj.get("entregas", [])
-
-            if not isinstance(entregas_projeto, list):
-                continue
-
-            for entrega in entregas_projeto:
-
-                # ----------------------------------------------------
-                # Projeto dono da entrega
-                # ----------------------------------------------------
-                projeto_dono_id = proj.get("_id")
-
-                # ----------------------------------------------------
-                # Projetos relacionados da entrega
-                # ----------------------------------------------------
-                projetos_relacionados = entrega.get(
-                    "projetos_relacionados",
-                    []
-                )
-
-                # Garantir lista
-                if not isinstance(projetos_relacionados, list):
-                    projetos_relacionados = []
-
-                # Converter tudo para string
-                projetos_relacionados_str = [
-                    str(p) for p in projetos_relacionados
-                ]
-
-                # ----------------------------------------------------
-                # REGRA:
-                # Mostrar se:
-                #
-                # 1) A entrega pertence ao projeto atual
-                # OU
-                # 2) O projeto atual está nos relacionados
-                # ----------------------------------------------------
-                if (
-                    str(projeto_dono_id) == str(projeto_id)
-                    or str(projeto_id) in projetos_relacionados_str
-                ):
-
-                    # Adiciona informação do projeto origem
-                    entrega["projeto_origem_sigla"] = proj.get("sigla", "-")
-                    entrega["projeto_origem_nome"] = proj.get(
-                        "nome_do_projeto",
-                        "-"
-                    )
-
-                    entregas.append(entrega)
-
-        if not entregas:
-
-            # ====================
-            # Botão para abrir o diálogo de Gerenciar entregas
-            # ====================
-            if pode_gerenciar_projeto:
-                with st.container(horizontal_alignment="right"):
-                    st.write('')    
-                    if st.button("Gerenciar entregas", icon=":material/edit:", width=300):
-
-                        # SINCRONIZAÇÃO EXPLÍCITA
-                        st.session_state["projeto_selecionado_entregas"] = (
-                            st.session_state.get("projeto_selecionado_projetos")
-                        )
-
-                        st.session_state["pagina_anterior"] = "pagina_projetos"
-
-                        dialog_editar_entregas()
-
-
-                
-                st.write("_Não há entregas cadastradas para este projeto._")
-
-        else:
-            
-            # Criar dicionário de responsáveis
-            df_pessoas_ordenado = df_pessoas.sort_values("nome_completo", ascending=True)
-            responsaveis_dict = {
-                str(row["_id"]): row["nome_completo"]
-                for _, row in df_pessoas_ordenado.iterrows()
-            }
-
-            # Montar lista
-            dados_entregas = []
-            for entrega in entregas:
-                responsaveis_ids = [
-                    str(r.get("$oid")) if isinstance(r, dict) else str(r)
-                    for r in entrega.get("responsaveis", [])
-                ]
-                responsaveis_nomes = [
-                    responsaveis_dict.get(rid, f"ID não encontrado: {rid}")
-                    for rid in responsaveis_ids
-                ]
-
-                # Verifica se a entrega veio de outro projeto
-                eh_projeto_relacionado = (
-                    entrega.get("projeto_origem_sigla") != projeto_selecionado
-                )
-
-                linha = {
-                    "Entregas": entrega.get("nome_da_entrega", "-"),
-                    "Data de início": entrega.get("data_inicio", "-"),
-                    "Previsão de Conclusão": entrega.get("previsao_da_conclusao", "-"),
-                    "Responsáveis": ", ".join(responsaveis_nomes) if responsaveis_nomes else "-",
-                    "Situação": entrega.get("situacao", "-"),
-                }
-
-                # Só mostra a coluna para entregas vindas de outros projetos
-                if eh_projeto_relacionado:
-                    linha["Projeto principal"] = entrega.get("projeto_origem_sigla", "-")
-
-                dados_entregas.append(linha)
-
-            df_entregas = pd.DataFrame(dados_entregas)
-
-            # Remove a coluna se nenhuma entrega relacionada existir
-            if "Projeto principal" in df_entregas.columns:
-
-                valores_validos = (
-                    df_entregas["Projeto principal"]
-                    .fillna("")
-                    .astype(str)
-                    .str.strip()
-                )
-
-                if (valores_validos == "").all():
-                    df_entregas = df_entregas.drop(columns=["Projeto principal"])
-
-            # ===============================================================
-            # FILTROS e BOTÃO PARA GERENCIAR ENTREGAS
-            # ===============================================================
-
-            # Opções únicas para filtros
-            situacoes = sorted(df_entregas["Situação"].dropna().unique().tolist())
-            
-            # Buscar menor previsão de conclusão diretamente do MongoDB
-            pipeline = [
-                {"$unwind": "$entregas"},
-                {"$match": {"entregas.previsao_da_conclusao": {"$ne": None, "$ne": ""}}},
-                {
-                    "$group": {
-                        "_id": None,
-                        "min_data": {"$min": "$entregas.previsao_da_conclusao"}
-                    }
-                }
+        if programa_projeto_id:
+            coord_prog = df_programas.loc[
+                df_programas["_id"].astype(str) == programa_projeto_id,
+                "coordenador_id"
             ]
 
-            resultado = list(projetos_ispn.aggregate(pipeline))
+            if not coord_prog.empty and coord_prog.iloc[0]:
+                coordenador_programa_id = str(coord_prog.iloc[0])
+            
+        # --------------------------------------------------
+        # GESTORES DO PROJETO
+        # --------------------------------------------------
+        gestores_raw = projeto.get("gestores", [])
 
-            # Definir data_inicio padrão
-            if resultado and resultado[0].get("min_data"):
-                data_inicio_default = pd.to_datetime(
-                    resultado[0]["min_data"],
-                    format="%d/%m/%Y",
-                    errors="coerce"
+        if not isinstance(gestores_raw, list):
+            gestores_raw = []
+
+        gestores_ids = [str(g) for g in gestores_raw if g]
+
+        # --------------------------------------------------
+        # REGRAS DE PERMISSÃO
+        # --------------------------------------------------
+        eh_admin = "admin" in tipos_usuario or "gestao_projetos" in tipos_usuario 
+        eh_coord_projeto = usuario_id == coordenador_projeto_id
+        eh_coord_programa = usuario_id == coordenador_programa_id
+        eh_gestor_projeto = usuario_id in gestores_ids
+
+        pode_gerenciar_projeto = any([
+            eh_admin,
+            eh_coord_projeto,
+            eh_coord_programa,
+            eh_gestor_projeto
+        ])
+
+
+
+        # Botão de gerenciar -------------------
+        
+        if pode_gerenciar_projeto:
+            linha_botoes.button(
+                "Gerenciar projeto",
+                width=200,
+                icon=":material/contract_edit:",
+                on_click=dialog_editar_projeto
+            )
+
+        # ------------------------------------------
+
+        # Nome do projeto
+        st.subheader(
+            "**" + 
+            df_projetos_ispn.loc[
+                df_projetos_ispn['sigla'] == projeto_selecionado, 
+                'nome_do_projeto'
+            ].squeeze() + 
+            "**"
+        )
+
+        st.write('')
+
+        # ==========================================================
+        # INTERFACE - PROJETO ESTRATÉGICO
+        # ==========================================================
+
+        def render_visualizacao_projeto_estrategico():
+
+            st.write("")
+
+            col1, col2= st.columns(2)
+
+            # Programa
+            programa = (
+                projeto_info["programa_nome"].values[0]
+                if not projeto_info.empty else ""
+            )
+
+            col1.write(f"**Programa(s):** {programa}")
+
+            # Coordenador
+            coordenador_id = (
+                projeto_info["coordenador"].values[0]
+                if not projeto_info.empty else None
+            )
+
+            coordenador_nome = (
+                mapa_coordenador.get(str(coordenador_id), "")
+                if coordenador_id else ""
+            )
+
+            col2.write(f"**Coordenador(a):** {coordenador_nome}")
+
+            col1, col2= st.columns(2)
+
+            # Gestores
+            gestores_ids = (
+                projeto_info["gestores"].values[0]
+                if (
+                    not projeto_info.empty
+                    and "gestores" in projeto_info.columns
+                )
+                else []
+            )
+
+            if not isinstance(gestores_ids, list):
+                gestores_ids = [gestores_ids] if gestores_ids else []
+
+            gestores_nomes = [
+                mapa_coordenador.get(str(gestor_id), str(gestor_id))
+                for gestor_id in gestores_ids
+                if gestor_id
+            ]
+
+            gestores_texto = ", ".join(gestores_nomes) if gestores_nomes else "-"
+
+            col1.write(f"**Gestor(es):** {gestores_texto}")
+
+            # Situação
+            situacao = (
+                df_projetos_ispn.loc[
+                    df_projetos_ispn['sigla'] == projeto_selecionado,
+                    'status'
+                ].values[0]
+                if not df_projetos_ispn.loc[
+                    df_projetos_ispn['sigla'] == projeto_selecionado
+                ].empty
+                else ""
+            )
+
+            col2.write(f"**Situação:** {situacao}")
+
+            st.write("")
+
+
+
+        # ==========================================================
+        # INTERFACE - PROJETO NORMAL
+        # ==========================================================
+
+        def render_visualizacao_projeto_normal():
+
+            col1, col2, col3 = st.columns(3)
+
+            # Valor
+            col1.metric(
+                "Valor",
+                df_projetos_ispn.loc[
+                    df_projetos_ispn['sigla'] == projeto_selecionado,
+                    'valor_com_moeda'
+                ].values[0]
+            )
+
+            # Contrapartida
+            col2.metric(
+                "Contrapartida",
+                df_projetos_ispn.loc[
+                    df_projetos_ispn['sigla'] == projeto_selecionado,
+                    'contrapartida_com_moeda'
+                ].values[0]
+            )
+
+            # Orçamento
+            if df_orcamento.empty:
+                col3.write("_Sem orçamento por ano cadastrado_")
+            else:
+                col3.write("**Orçamento por ano:**")
+                col3.dataframe(df_orcamento, hide_index=True)
+
+            st.write("")
+
+            col1, col2, col3 = st.columns(3)
+
+            # Coordenador
+            coordenador_id = (
+                projeto_info["coordenador"].values[0]
+                if not projeto_info.empty else None
+            )
+
+            coordenador_nome = (
+                mapa_coordenador.get(str(coordenador_id), "")
+                if coordenador_id else ""
+            )
+
+            col1.write(f"**Coordenador(a):** {coordenador_nome}")
+
+            # Programa
+            programa = (
+                projeto_info["programa_nome"].values[0]
+                if not projeto_info.empty else ""
+            )
+
+            col1.write(f"**Programa(s):** {programa}")
+
+            # Doador
+            doador = (
+                projeto_info["doador_nome"].values[0]
+                if not projeto_info.empty else ""
+            )
+
+            col2.write(f"**Doador:** {doador}")
+            # Situação
+            col2.write(
+                f"**Situação:** {
+                    df_projetos_ispn.loc[
+                        df_projetos_ispn['sigla'] == projeto_selecionado,
+                        'status'
+                    ].values[0]
+                }"
+            )
+
+            # Datas
+            data_inicio = df_projetos_ispn.loc[
+                df_projetos_ispn["sigla"] == projeto_selecionado,
+                "data_inicio_contrato"
+            ].dt.strftime("%d/%m/%Y").values[0]
+
+            data_fim = df_projetos_ispn.loc[
+                df_projetos_ispn["sigla"] == projeto_selecionado,
+                "data_fim_contrato"
+            ].dt.strftime("%d/%m/%Y").values[0]
+
+            col3.write(f"**Data de início:** {data_inicio}")
+            col3.write(f"**Data de término:** {data_fim}")
+
+            # Objetivo geral
+            objetivo_geral = df_projetos_ispn.loc[
+                df_projetos_ispn["sigla"] == projeto_selecionado, "objetivo_geral"
+            ].values[0]
+
+            # Verificando se é NaN ou vazio
+            if pd.isna(objetivo_geral) or objetivo_geral == "":
+                objetivo_geral = "_Não cadastrado_"
+
+            st.write(f'**Objetivo geral:** {objetivo_geral}')
+
+            # Resumo do projeto
+
+            resumo_do_projeto = df_projetos_ispn.loc[
+                df_projetos_ispn["sigla"] == projeto_selecionado, "resumo_projeto"
+            ].values[0]
+
+            # Verificando se é NaN ou vazio
+            if pd.isna(resumo_do_projeto) or resumo_do_projeto == "":
+                st.markdown(
+                    "**Resumo do projeto:** <span style='color:#F59E0B; font-style: italic;'>Não cadastrado</span>",
+                    unsafe_allow_html=True
                 )
             else:
-                data_inicio_default = pd.to_datetime(datetime.date.today())
-
-            # Converter data de início para datetime
-            df_entregas["Data de início"] = pd.to_datetime(
-                df_entregas["Data de início"],
-                format="%d/%m/%Y",
-                errors="coerce"
-            )
-
-            # Converter previsão para datetime
-            df_entregas["Previsão de Conclusão"] = pd.to_datetime(
-                df_entregas["Previsão de Conclusão"],
-                format="%d/%m/%Y",
-                errors="coerce"
-            )
+                st.write(f"**Resumo do projeto:** {resumo_do_projeto}")
 
 
-            # ====================
-            # Botão para abrir o diálogo de Gerenciar entregas
-            # ====================
-            if pode_gerenciar_projeto:
-                with st.container(horizontal_alignment="right"):
-                    st.write('')    
-                    if st.button("Gerenciar entregas", icon=":material/edit:", width=300):
+            st.write('')
 
-                        # SINCRONIZAÇÃO EXPLÍCITA
-                        st.session_state["projeto_selecionado_entregas"] = (
-                            st.session_state.get("projeto_selecionado_projetos")
-                        )
+            
 
-                        st.session_state["pagina_anterior"] = "pagina_projetos"
 
-                        dialog_editar_entregas()
+        # ==========================================================
+        # RENDERIZAÇÃO
+        # ==========================================================
 
-                    st.write('')    
+        if projeto_estrategico:
+            render_visualizacao_projeto_estrategico()
+        else:
+            render_visualizacao_projeto_normal()
+
+
+
+
+
+        # Obter o _id do projeto selecionado
+        projeto_id = df_projetos_ispn.loc[
+            df_projetos_ispn["sigla"] == projeto_selecionado, "_id"
+        ].values[0]
+
+
+        # ==========================================================
+        # ABAS DO PROJETO
+        # ==========================================================
+        # Projetos estratégicos não possuem a aba "Resultados".
+        # Projetos normais continuam exibindo todas as abas.
+        # A estrutura das abas também respeita a permissão do usuário
+        # para visualizar a aba "Entregas".
+
+        tem_permissao_entregas = (
+            set(st.session_state.tipo_usuario)
+            & {"admin", "coordenador(a)", "gestao_projetos"}
+        )
+
+        if projeto_estrategico:
+
+            # ------------------------------------------------------
+            # PROJETO ESTRATÉGICO
+            # ------------------------------------------------------
+            # Para projetos estratégicos, a aba "Resultados" não
+            # deve ser criada nem exibida.
+            # ------------------------------------------------------
+
+            if tem_permissao_entregas:
+
+                tab_equipe, tab_indicadores, tab_entregas, tab_anotacoes = st.tabs([
+                    ":material/group: Equipe",
+                    ":material/show_chart: Indicadores",
+                    ":material/package_2: Entregas",
+                    ":material/notes: Anotações"
+                ])
+
+            else:
+
+                tab_equipe, tab_indicadores, tab_anotacoes = st.tabs([
+                    ":material/group: Equipe",
+                    ":material/show_chart: Indicadores",
+                    ":material/notes: Anotações"
+                ])
+
+        else:
+
+            # ------------------------------------------------------
+            # PROJETO NORMAL
+            # ------------------------------------------------------
+            # Projetos normais continuam com a aba "Resultados".
+            # ------------------------------------------------------
+
+            if tem_permissao_entregas:
+
+                tab_equipe, tab_indicadores, tab_entregas, tab_resultados, tab_anotacoes = st.tabs([
+                    ":material/group: Equipe",
+                    ":material/show_chart: Indicadores",
+                    ":material/package_2: Entregas",
+                    ":material/beenhere: Resultados",
+                    ":material/notes: Anotações"
+                ])
+
+            else:
+
+                tab_equipe, tab_indicadores, tab_resultados, tab_anotacoes = st.tabs([
+                    ":material/group: Equipe",
+                    ":material/show_chart: Indicadores",
+                    ":material/beenhere: Resultados",
+                    ":material/notes: Anotações"
+                ])
+
+        # ##########################################################
+        # Equipe do projeto
+        # ##########################################################
+
+        with tab_equipe:
+
+            st.write('**Equipe contratada pelo projeto:**')
+
+            # 2- Filtrar pessoas que têm pelo menos um contrato com esse projeto
+            def pertence_ao_projeto(contratos):
+                if not isinstance(contratos, list):
+                    return False
+                for c in contratos:
+                    if c.get("status_contrato") == "Em vigência":
+                        # projeto_pagador já convertido em string se você aplicou a função anterior
+                        ids = [str(p) for p in c.get("projeto_pagador", [])]
+                        if str(projeto_id) in ids:
+                            return True
+                return False
+
+            df_equipe = df_pessoas[df_pessoas["contratos"].apply(pertence_ao_projeto)].copy()
+
+            # 3- Criar coluna 'datas_fim_contrato' com todas as datas de fim de contratos em vigência
+            def datas_fim_em_vigencia(contratos):
+                if not isinstance(contratos, list):
+                    return ""
+                datas = [c['data_fim'] for c in contratos if c.get('status_contrato') == 'Em vigência']
+                return ", ".join(datas)
+
+            df_equipe['datas_fim_contrato'] = df_equipe['contratos'].apply(datas_fim_em_vigencia)
+
+            # 4- Exibição
+            colunas_exibir = [
+                "nome_completo",
+                "programa_area_nome",
+                "coordenador_nome",
+                "escritorio",
+                "cargo",
+                "tipo_contratacao",
+                "datas_fim_contrato",
+                "status",
+            ]
+
+            # Novo nome das colunas
+            novos_nomes = {
+                "nome_completo": "Nome",
+                "programa_area_nome": "Programa / Área",
+                "status": "Status",
+                "coordenador_nome": "Coordenador(a)",
+                "cargo": "Cargo",
+                "tipo_contratacao": "Tipo de Contratação",
+                "escritorio": "Escritório",
+                "datas_fim_contrato": "Data de fim do contrato"
+            }
+
+            # Exibir somente essas colunas com os nomes renomeados
+            if df_equipe.empty:
+                st.write("_Não há equipe cadastrada para este projeto_")
+            else:
+                st.dataframe(
+                    df_equipe[colunas_exibir]
+                    .rename(columns=novos_nomes)
+                    .reset_index(drop=True),
+                    hide_index=True
+                )
+
+            st.write('')
+
+
+
+
+        # ##########################################################
+        # Indicadores
+        # ##########################################################
+
+        with tab_indicadores:
+            st.write('**Indicadores do projeto:** (não inclui indicadores de projetos apoiados ou "grants")')
+
+
+            # Tratamento dos dados
+
+            autor_nome = st.session_state.get("nome", "")
+            tipo_usuario = st.session_state.get("tipo_usuario", [])
+            projeto_id = projeto_info["_id"].iloc[0]   # pega o valor da célula
+            projeto_id = bson.ObjectId(projeto_id)     # garante que é ObjectId
+
+            lancamentos = list(db["lancamentos_indicadores"].find({"projeto": projeto_id}))
+
+
+            linhas = []
+            if not lancamentos:
+                st.caption("Não há lançamentos de indicadores para este projeto.")
+                df_resumo = pd.DataFrame(columns=["Indicador", "Total"])
+                df_indicadores = pd.DataFrame(columns=["Indicador", "Valor", "Ano", "Autor(a)", "Data anotação", "Observações"])
+            
+            else:
+                
+                for lan in lancamentos:
+                    ind_id = lan.get("id_do_indicador")
+
+                    # Garantir que seja ObjectId para consulta
+                    if isinstance(ind_id, str):
+                        try:
+                            ind_id_obj = bson.ObjectId(ind_id)
+                        except Exception:
+                            ind_id_obj = None
+                    elif isinstance(ind_id, bson.ObjectId):
+                        ind_id_obj = ind_id
+                    else:
+                        ind_id_obj = None
+
+                    indicador_nome = str(ind_id)
+
+                    if ind_id_obj:
+                        indicador_doc = db["indicadores"].find_one({"_id": ind_id_obj})
+                        if indicador_doc:
+                            indicador_nome = indicador_doc.get("nome_indicador") or str(ind_id)
                     
 
-            @st.fragment
-            def render_tabela_entregas(df_entregas, situacoes):
-                """
-                Fragment responsável EXCLUSIVAMENTE pela renderização da tabela de entregas.
-
-                Tudo que estiver aqui será recarregado de forma isolada.
-                Filtros, botões e inputs devem ficar FORA desta função.
-
-                Parâmetros:
-                - df_entregas: DataFrame original com todas as entregas
-                - filtro_situacao: lista de situações selecionadas
-                - data_inicio: data inicial (ou None)
-                - data_fim: data final (ou None)
-                - ordenacao: string indicando critério de ordenação
-                """
-
-                with st.container(horizontal=True):
-
-                    with st.container(horizontal=True):
+                    linhas.append({
+                        "Indicador": indicador_nome,
+                        "Valor": lan.get("valor", ""),
+                        "Ano": lan.get("ano", ""),
+                        "Autor(a)": lan.get("autor_anotacao", ""),
+                        "Observações": lan.get("observacoes", ""),
+                        "Data anotação": lan.get("data_anotacao", ""),
+                    })
 
 
-                        filtro_situacao = st.multiselect(
-                            "Situação:",
-                            options=situacoes,
-                            default=[],
-                            placeholder="",
-                            width=250
+                # Cria o DataFrame mesmo que linhas esteja vazio.
+                # A coluna "Valor" é mantida com o valor original (int, float ou str),
+                # sem sobrescrever, para preservar textos na visão detalhada.
+                df_indicadores = pd.DataFrame(linhas, columns=["Indicador", "Valor", "Ano", "Autor(a)", "Data anotação", "Observações"])
+
+                def tentar_converter_numero(valor):
+                    """
+                    Tenta converter um valor para float, tratando o padrão brasileiro
+                    (1.234,56). Retorna None quando o valor é texto (ex: indicadores
+                    com tipo_variavel == "str"), sem cair em nenhum fallback numérico.
+                    """
+                    if isinstance(valor, (int, float)):
+                        return float(valor)
+                    if isinstance(valor, str):
+                        valor = valor.strip()
+                        if valor == "":
+                            return None
+                        try:
+                            return float(valor.replace(".", "").replace(",", "."))
+                        except ValueError:
+                            return None
+                    return None
+
+                def consolidar_valores(grupo):
+                    """
+                    Consolida os lançamentos de um mesmo indicador:
+                    - valores numéricos são somados;
+                    - valores textuais são preservados e exibidos separados por vírgula
+                    quando houver mais de um lançamento de texto;
+                    - valores vazios são ignorados.
+                    """
+                    valores_numericos = []
+                    valores_textuais = []
+                    for valor in grupo:
+                        if pd.isna(valor):
+                            continue
+                        valor_str = str(valor).strip()
+                        if not valor_str:
+                            continue
+                        valor_num = tentar_converter_numero(valor_str)
+                        if valor_num is not None:
+                            valores_numericos.append(valor_num)
+                        else:
+                            valores_textuais.append(valor_str)
+                    if not valores_numericos and not valores_textuais:
+                        return ""
+                    if not valores_numericos:
+                        return ", ".join(valores_textuais)
+                    if not valores_textuais:
+                        return sum(valores_numericos)
+                    total_numerico = sum(valores_numericos)
+                    return f"{total_numerico}, {', '.join(valores_textuais)}"
+
+                # Resumo por indicador: soma números e preserva/concatena textos
+                df_resumo = (
+                    df_indicadores
+                    .groupby("Indicador", as_index=False)
+                    .agg(Total=("Valor", consolidar_valores))
+                )
+
+
+            # Interface dos indicadores-------------------------------------------------------------
+
+            # ====================
+            # Função do diálogo de indicadores
+            # ====================
+            @st.dialog("Gerenciar indicadores", on_dismiss="rerun")
+            def dialog_indicadores():
+
+                # Aumentar largura do diálogo com css
+                st.html("<span class='big-dialog'></span>")
+
+                # Carrega indicadores
+                indicadores_lista = list(db["indicadores"].find({}, {"_id": 1, "nome_indicador": 1, "tipo_variavel": 1}))
+                indicadores_opcoes = {
+                    i["nome_indicador"]: i
+                    for i in indicadores_lista
+                }
+
+
+                tab_add, tab_edit, tab_delete = st.tabs([
+                    ":material/add: Adicionar",
+                    ":material/edit: Editar",
+                    ":material/delete: Excluir"
+                ])
+
+                # ------------------------- ABA ADICIONAR -------------------------
+                with tab_add:
+                    st.subheader("Novo lançamento de indicador")
+                    indicador_legivel = st.selectbox(
+                        "Indicador",
+                        [""] + list(indicadores_opcoes.keys()),
+                        placeholder=""
+                    )
+                    if indicador_legivel != "":
+                        
+                        indicador_doc = indicadores_opcoes[indicador_legivel]
+                        
+                        indicador_oid = indicador_doc["_id"]
+                        
+                        tipo_variavel = indicador_doc.get("tipo_variavel")
+                        
+                        if not tipo_variavel:
+                            st.warning("Este indicador não possui um tipo de variável definido. Edite-o em 'Gerenciar indicadores' antes de lançar valores.")
+                        
+                        else:
+                            with st.form(key="form_add_lancamento"):
+                                col1, col2 = st.columns(2)
+                                if tipo_variavel == "str":
+                                    valor = col1.text_input("Valor")
+                                
+                                elif tipo_variavel == "float":
+                                    valor = col1.number_input("Valor", value=0.00, step=0.01, format="%.2f")
+                                
+                                else:  # int
+                                    valor = col1.number_input("Valor", value=0, step=1, format="%d")
+                                
+                                ano_atual = datetime.datetime.now().year
+                                anos = ["até 2024"] + [str(ano) for ano in range(2025, ano_atual + 2)]
+                                ano = col2.selectbox("Ano", anos)
+                                
+                                observacoes = st.text_area("Observações", height=100)
+                                
+                                submit = st.form_submit_button(":material/save: Salvar lançamento", type="primary")
+                        
+
+                            if submit:
+                                
+                                if tipo_variavel == "float":
+                                    valor = float(valor)
+                                
+                                elif tipo_variavel == "int":
+                                    valor = int(valor)
+                                
+                                novo_lancamento = {
+                                    "id_do_indicador": indicador_oid,
+                                    "projeto": bson.ObjectId(projeto_id),
+                                    "valor": valor,
+                                    "ano": str(ano),
+                                    "observacoes": observacoes,
+                                    "autor_anotacao": autor_nome,
+                                    "data_anotacao": datetime.datetime.now(),
+                                    "tipo": "ispn"
+                                }
+                                
+                                colecao_lancamentos.insert_one(novo_lancamento)
+                                
+                                st.success("Lançamento salvo com sucesso!")
+                                time.sleep(2)
+                                
+                                st.rerun(scope="fragment")
+
+                # ------------------------- ABA EDITAR -------------------------
+                with tab_edit:
+                    st.subheader("Editar lançamento")
+
+                    lancamentos_proj = list(
+                        colecao_lancamentos.find({"projeto": bson.ObjectId(projeto_id)}).sort("data_anotacao", -1)
+                    )
+
+                    if "admin" not in tipo_usuario:
+                        lancamentos_proj = [l for l in lancamentos_proj if l.get("autor_anotacao") == autor_nome]
+
+                    if not lancamentos_proj:
+                        st.caption("Nenhum lançamento disponível para edição.")
+                    else:
+                        lanc_opcoes = {}
+                        for l in lancamentos_proj:
+                            data_str = l["data_anotacao"].strftime("%d/%m/%Y %H:%M:%S") if isinstance(l["data_anotacao"], datetime.datetime) else "Sem data"
+                            autor = l.get("autor_anotacao", "Sem autor")
+                            indicador = indicadores.find_one({"_id": l["id_do_indicador"]})
+                            nome_original = indicador["nome_indicador"] if indicador else ""
+                            label = f"{data_str} - {autor} - {nome_original}"
+                            
+                            lanc_opcoes[label] = l["_id"]
+
+                        lanc_sel = st.selectbox("Selecione o lançamento", [""] + list(lanc_opcoes.keys()), key=f"select_lanc_{bson.ObjectId(projeto_id)}", disabled=usuario_visitante, placeholder="")
+
+                        if lanc_sel != "":
+                            lanc_id = lanc_opcoes[lanc_sel]
+                            
+                            doc = colecao_lancamentos.find_one({"_id": lanc_id})
+                            
+                            indicador = indicadores.find_one({"_id": doc["id_do_indicador"]})
+                            
+                            tipo_variavel_edit = indicador.get("tipo_variavel") if indicador else None
+                            
+                            col1, col2 = st.columns(2)
+                            if tipo_variavel_edit == "str":
+                                novo_valor = col1.text_input("Valor", value=str(doc["valor"]))
+                            elif tipo_variavel_edit == "float":
+                                valor_inicial = float(doc["valor"]) if doc["valor"] != "" else 0.00
+                                novo_valor = col1.number_input("Valor", value=valor_inicial, step=0.01, format="%.2f")
+                            else:  # int (fallback também para indicadores sem tipo_variavel definido)
+                                valor_inicial = int(doc["valor"]) if str(doc["valor"]).isdigit() else 0
+                                novo_valor = col1.number_input("Valor", value=valor_inicial, step=1, format="%d")
+                            anos = ["até 2024"] + [str(ano) for ano in range(2025, datetime.datetime.now().year + 2)]
+                            ano_str = doc.get("ano", "2025")
+                            if ano_str not in anos:
+                                anos.insert(0, ano_str)
+                            novo_ano = col2.selectbox("Ano", anos, index=anos.index(ano_str))
+                            novas_obs = st.text_area("Observações", value=doc.get("observacoes", ""))
+                            if st.button(":material/save: Salvar alterações", type="primary"):
+                                if tipo_variavel_edit == "float":
+                                    novo_valor = float(novo_valor)
+                                elif tipo_variavel_edit != "str":
+                                    novo_valor = int(novo_valor)
+                                colecao_lancamentos.update_one(
+                                    {"_id": lanc_id},
+                                    {"$set": {"valor": novo_valor, "ano": str(novo_ano), "observacoes": novas_obs}}
+                                )
+                                st.success("Lançamento atualizado com sucesso!")
+                                st.cache_data.clear()
+                                st.rerun(scope="fragment")
+
+                # ------------------------- ABA EXCLUIR -------------------------
+                with tab_delete:
+                    st.subheader("Excluir lançamento")
+
+                    lancamentos_proj = list(
+                        colecao_lancamentos.find({"projeto": bson.ObjectId(projeto_id)}).sort("data_anotacao", -1)
+                    )
+
+                    if "admin" not in tipo_usuario:
+                        lancamentos_proj = [l for l in lancamentos_proj if l.get("autor_anotacao") == autor_nome]
+
+                    if not lancamentos_proj:
+                        st.caption("Nenhum lançamento disponível para exclusão.")
+                    else:
+                        lanc_opcoes = {}
+                        for l in lancamentos_proj:
+                            data_str = l["data_anotacao"].strftime("%d/%m/%Y %H:%M:%S") if isinstance(l["data_anotacao"], datetime.datetime) else "Sem data"
+                            autor = l.get("autor_anotacao", "Sem autor")
+                            indicador = indicadores.find_one({"_id": l["id_do_indicador"]})
+                            nome_original = indicador["nome_indicador"] if indicador else ""
+                            label = f"{data_str} - {autor} - {nome_original}"
+                            
+                            lanc_opcoes[label] = l["_id"]
+
+                        lanc_sel = st.selectbox("Selecione o lançamento", [""] + list(lanc_opcoes.keys()), key=f"select_lanc_2", disabled=usuario_visitante, placeholder="")
+
+                        if lanc_sel != "":
+                            lanc_id = lanc_opcoes[lanc_sel]
+                            doc = colecao_lancamentos.find_one({"_id": lanc_id})
+                            indicador = indicadores.find_one({"_id": doc["id_do_indicador"]})
+                            nome_original = indicador["nome_indicador"] if indicador else ""
+
+                            valor_lanc = doc.get("valor", "Sem valor")
+
+                            st.warning(
+                                f"Tem certeza que deseja excluir o lançamento de **{nome_original}** "
+                                f"registrado por {doc['autor_anotacao']} em {doc['data_anotacao'].strftime('%d/%m/%Y')}?\n\n"
+                                f"**Valor:** {valor_lanc}"
+                            )
+
+                            if st.button("Excluir", icon=":material/delete:"):
+                                colecao_lancamentos.delete_one({"_id": lanc_id})
+                                st.success("Lançamento excluído com sucesso!")
+                                st.cache_data.clear()
+                                st.rerun(scope="fragment")
+
+            # ====================
+            # Botão para abrir o diálogo de Gerenciar indicadores
+            # ====================
+            
+            with st.container(horizontal=True, horizontal_alignment="right"):
+                
+                if st.button("Gerenciar indicadores", icon=":material/edit:", width=300):
+                    dialog_indicadores()
+
+            # ====================
+            # Toggle para ver consolidado ou todos os lançamentos
+            # ====================
+
+            ver_lancamentos = st.toggle("Ver lançamentos detalhados")
+
+            st.write('')
+
+            # Renderização da tabela dataframe
+
+            # Por padrão, mostra o consolidado
+            if not ver_lancamentos:
+                
+                st.write('**MOSTRANDO INDICADORES CONSOLIDADOS (NÚMEROS SOMADOS):**')
+                st.write('')
+
+                ui.table(data=df_resumo.drop(columns=["Valor_num"], errors="ignore"))
+
+
+            # Ao acionar o toggle, mostra todos os lançamentos detalhados
+            else:
+                
+                st.write('**MOSTRANDO TODOS OS LANÇAMENTOS DE INDICADORES:**')
+                st.write('')
+
+                # ui.table(data=df_indicadores.drop(columns=["Valor_num"], errors="ignore"))
+
+
+                ajustar_altura_dataframe(df_indicadores.drop(columns=["Valor_num"], errors="ignore"), linhas_adicionais=1)
+
+
+        # ##########################################################
+        # Entregas
+        # ##########################################################
+
+
+        if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_projetos"}:
+
+            with tab_entregas:
+                st.write('**Entregas:**')
+
+                # ============================================================
+                # CARREGAR ENTREGAS DO PROJETO + ENTREGAS RELACIONADAS
+                # ============================================================
+
+                # Lista final de entregas que aparecerão na aba
+                entregas = []
+
+                # Buscar todos os projetos
+                todos_projetos = list(projetos_ispn.find())
+
+                for proj in todos_projetos:
+
+                    entregas_projeto = proj.get("entregas", [])
+
+                    if not isinstance(entregas_projeto, list):
+                        continue
+
+                    for entrega in entregas_projeto:
+
+                        # ----------------------------------------------------
+                        # Projeto dono da entrega
+                        # ----------------------------------------------------
+                        projeto_dono_id = proj.get("_id")
+
+                        # ----------------------------------------------------
+                        # Projetos relacionados da entrega
+                        # ----------------------------------------------------
+                        projetos_relacionados = entrega.get(
+                            "projetos_relacionados",
+                            []
                         )
 
-                        # Campos de data SEM valor padrão (ficam vazios com placeholder)
-                        data_inicio = st.date_input(
-                            "Entregas a partir de:",
-                            value=None,
-                            format="DD/MM/YYYY",
-                            width=250
+                        # Garantir lista
+                        if not isinstance(projetos_relacionados, list):
+                            projetos_relacionados = []
+
+                        # Converter tudo para string
+                        projetos_relacionados_str = [
+                            str(p) for p in projetos_relacionados
+                        ]
+
+                        # ----------------------------------------------------
+                        # REGRA:
+                        # Mostrar se:
+                        #
+                        # 1) A entrega pertence ao projeto atual
+                        # OU
+                        # 2) O projeto atual está nos relacionados
+                        # ----------------------------------------------------
+                        if (
+                            str(projeto_dono_id) == str(projeto_id)
+                            or str(projeto_id) in projetos_relacionados_str
+                        ):
+
+                            # Adiciona informação do projeto origem
+                            entrega["projeto_origem_sigla"] = proj.get("sigla", "-")
+                            entrega["projeto_origem_nome"] = proj.get(
+                                "nome_do_projeto",
+                                "-"
+                            )
+
+                            entregas.append(entrega)
+
+                if not entregas:
+
+                    # ====================
+                    # Botão para abrir o diálogo de Gerenciar entregas
+                    # ====================
+                    if pode_gerenciar_projeto:
+                        with st.container(horizontal_alignment="right"):
+                            st.write('')    
+                            if st.button("Gerenciar entregas", icon=":material/edit:", width=300):
+
+                                # SINCRONIZAÇÃO EXPLÍCITA
+                                st.session_state["projeto_selecionado_entregas"] = (
+                                    st.session_state.get("projeto_selecionado_projetos")
+                                )
+
+                                st.session_state["pagina_anterior"] = "pagina_projetos"
+
+                                dialog_editar_entregas()
+
+
+                        
+                        st.write("_Não há entregas cadastradas para este projeto._")
+
+                else:
+                    
+                    # Criar dicionário de responsáveis
+                    df_pessoas_ordenado = df_pessoas.sort_values("nome_completo", ascending=True)
+                    responsaveis_dict = {
+                        str(row["_id"]): row["nome_completo"]
+                        for _, row in df_pessoas_ordenado.iterrows()
+                    }
+
+                    # Montar lista
+                    dados_entregas = []
+                    for entrega in entregas:
+                        responsaveis_ids = [
+                            str(r.get("$oid")) if isinstance(r, dict) else str(r)
+                            for r in entrega.get("responsaveis", [])
+                        ]
+                        responsaveis_nomes = [
+                            responsaveis_dict.get(rid, f"ID não encontrado: {rid}")
+                            for rid in responsaveis_ids
+                        ]
+
+                        # Verifica se a entrega veio de outro projeto
+                        eh_projeto_relacionado = (
+                            entrega.get("projeto_origem_sigla") != projeto_selecionado
                         )
 
-                        data_fim = st.date_input(
-                            "Até:",
-                            value=None,
-                            format="DD/MM/YYYY",
-                            width=250
+                        linha = {
+                            "Entregas": entrega.get("nome_da_entrega", "-"),
+                            "Data de início": entrega.get("data_inicio", "-"),
+                            "Previsão de Conclusão": entrega.get("previsao_da_conclusao", "-"),
+                            "Responsáveis": ", ".join(responsaveis_nomes) if responsaveis_nomes else "-",
+                            "Situação": entrega.get("situacao", "-"),
+                        }
+
+                        # Só mostra a coluna para entregas vindas de outros projetos
+                        if eh_projeto_relacionado:
+                            linha["Projeto principal"] = entrega.get("projeto_origem_sigla", "-")
+
+                        dados_entregas.append(linha)
+
+                    df_entregas = pd.DataFrame(dados_entregas)
+
+                    # Remove a coluna se nenhuma entrega relacionada existir
+                    if "Projeto principal" in df_entregas.columns:
+
+                        valores_validos = (
+                            df_entregas["Projeto principal"]
+                            .fillna("")
+                            .astype(str)
+                            .str.strip()
                         )
 
-                        # Converter para datetime
-                        data_inicio = pd.to_datetime(data_inicio)
-                        data_fim = pd.to_datetime(data_fim)
+                        if (valores_validos == "").all():
+                            df_entregas = df_entregas.drop(columns=["Projeto principal"])
+
+                    # ===============================================================
+                    # FILTROS e BOTÃO PARA GERENCIAR ENTREGAS
+                    # ===============================================================
+
+                    # Opções únicas para filtros
+                    situacoes = sorted(df_entregas["Situação"].dropna().unique().tolist())
+                    
+                    # Buscar menor previsão de conclusão diretamente do MongoDB
+                    pipeline = [
+                        {"$unwind": "$entregas"},
+                        {"$match": {"entregas.previsao_da_conclusao": {"$ne": None, "$ne": ""}}},
+                        {
+                            "$group": {
+                                "_id": None,
+                                "min_data": {"$min": "$entregas.previsao_da_conclusao"}
+                            }
+                        }
+                    ]
+
+                    resultado = list(projetos_ispn.aggregate(pipeline))
+
+                    # Definir data_inicio padrão
+                    if resultado and resultado[0].get("min_data"):
+                        data_inicio_default = pd.to_datetime(
+                            resultado[0]["min_data"],
+                            format="%d/%m/%Y",
+                            errors="coerce"
+                        )
+                    else:
+                        data_inicio_default = pd.to_datetime(datetime.date.today())
+
+                    # Converter data de início para datetime
+                    df_entregas["Data de início"] = pd.to_datetime(
+                        df_entregas["Data de início"],
+                        format="%d/%m/%Y",
+                        errors="coerce"
+                    )
+
+                    # Converter previsão para datetime
+                    df_entregas["Previsão de Conclusão"] = pd.to_datetime(
+                        df_entregas["Previsão de Conclusão"],
+                        format="%d/%m/%Y",
+                        errors="coerce"
+                    )
+
+
+                    # ====================
+                    # Botão para abrir o diálogo de Gerenciar entregas
+                    # ====================
+                    if pode_gerenciar_projeto:
+                        with st.container(horizontal_alignment="right"):
+                            st.write('')    
+                            if st.button("Gerenciar entregas", icon=":material/edit:", width=300):
+
+                                # SINCRONIZAÇÃO EXPLÍCITA
+                                st.session_state["projeto_selecionado_entregas"] = (
+                                    st.session_state.get("projeto_selecionado_projetos")
+                                )
+
+                                st.session_state["pagina_anterior"] = "pagina_projetos"
+
+                                dialog_editar_entregas()
+
+                            st.write('')    
+                            
+
+                    @st.fragment
+                    def render_tabela_entregas(df_entregas, situacoes):
+                        """
+                        Fragment responsável EXCLUSIVAMENTE pela renderização da tabela de entregas.
+
+                        Tudo que estiver aqui será recarregado de forma isolada.
+                        Filtros, botões e inputs devem ficar FORA desta função.
+
+                        Parâmetros:
+                        - df_entregas: DataFrame original com todas as entregas
+                        - filtro_situacao: lista de situações selecionadas
+                        - data_inicio: data inicial (ou None)
+                        - data_fim: data final (ou None)
+                        - ordenacao: string indicando critério de ordenação
+                        """
+
+                        with st.container(horizontal=True):
+
+                            with st.container(horizontal=True):
+
+
+                                filtro_situacao = st.multiselect(
+                                    "Situação:",
+                                    options=situacoes,
+                                    default=[],
+                                    placeholder="",
+                                    width=250
+                                )
+
+                                # Campos de data SEM valor padrão (ficam vazios com placeholder)
+                                data_inicio = st.date_input(
+                                    "Entregas a partir de:",
+                                    value=None,
+                                    format="DD/MM/YYYY",
+                                    width=250
+                                )
+
+                                data_fim = st.date_input(
+                                    "Até:",
+                                    value=None,
+                                    format="DD/MM/YYYY",
+                                    width=250
+                                )
+
+                                # Converter para datetime
+                                data_inicio = pd.to_datetime(data_inicio)
+                                data_fim = pd.to_datetime(data_fim)
+
+                                # ===============================================================
+                                # ORDENAÇÃO
+                                # ===============================================================
+
+                                ordenacao = st.radio(
+                                    "Ordenar por:",
+                                    options=["Data de início", "Previsão de Conclusão"],
+                                    horizontal=True
+                                )
+
+                                st.write("")
+                                
+                        # Converter datas
+                        data_inicio = pd.to_datetime(data_inicio) if data_inicio else None
+                        data_fim = pd.to_datetime(data_fim) if data_fim else None
+
+                        # ===============================================================
+                        # FILTRAGEM
+                        # ===============================================================
+
+                        df_filtrado = df_entregas.copy()
+
+                        if filtro_situacao:
+                            df_filtrado = df_filtrado[
+                                df_filtrado["Situação"].isin(filtro_situacao)
+                            ]
+
+                        if data_inicio is not None:
+                            df_filtrado = df_filtrado[
+                                df_filtrado["Previsão de Conclusão"] >= data_inicio
+                            ]
+
+                        if data_fim is not None:
+                            df_filtrado = df_filtrado[
+                                df_filtrado["Previsão de Conclusão"] <= data_fim
+                            ]
 
                         # ===============================================================
                         # ORDENAÇÃO
                         # ===============================================================
 
-                        ordenacao = st.radio(
-                            "Ordenar por:",
-                            options=["Data de início", "Previsão de Conclusão"],
-                            horizontal=True
+                        df_filtrado = df_filtrado.sort_values(
+                            by=ordenacao,
+                            ascending=True,
+                            na_position="last"
                         )
+
+                        # ===============================================================
+                        # FORMATAÇÃO
+                        # ===============================================================
+
+                        df_exibir = df_filtrado.copy()
+
+                        df_exibir["Data de início"] = (
+                            df_exibir["Data de início"]
+                            .dt.strftime("%d/%m/%Y")
+                            .fillna("")
+                        )
+
+                        df_exibir["Previsão de Conclusão"] = (
+                            df_exibir["Previsão de Conclusão"]
+                            .dt.strftime("%d/%m/%Y")
+                            .fillna("")
+                        )
+
+                        # ===============================================================
+                        # TABELA
+                        # ===============================================================
+
+                        ui.table(data=df_exibir)
+                            
+                    render_tabela_entregas(df_entregas, situacoes)
+
+
+
+
+        # ##########################################################
+        # Resultados
+        # ##########################################################
+
+
+        if not projeto_estrategico:
+
+            with tab_resultados:
+
+
+                # -----------------------------------
+                # Verifica permissão de edição (admin, coord. do projeto, coord. de algum programa do projeto, gestor do projeto)
+                # -----------------------------------
+
+                pode_editar = False
+
+                # Admin
+                if "admin" in st.session_state.tipo_usuario:
+
+                    pode_editar = True
+
+                # Coordenador do projeto
+                if str(projeto.get("coordenador")) == str(st.session_state.id_usuario):
+
+                    pode_editar = True
+
+                # Gestores do projeto
+                elif any(
+                    str(gestor) == str(st.session_state.id_usuario)
+                    for gestor in projeto.get("gestores", [])
+                ):
+
+                    pode_editar = True
+
+                # Coordenador de algum programa do projeto
+                else:
+
+                    ids_programas_projeto = {
+                        str(id_programa)
+                        for id_programa in projeto.get("programas", [])
+                    }
+
+                    ids_programas_coordenados = set(
+                        df_programas.loc[
+                            df_programas["coordenador_id"].astype(str)
+                            == str(st.session_state.id_usuario),
+                            "_id"
+                        ].astype(str)
+                    )
+
+                    if ids_programas_projeto.intersection(ids_programas_coordenados):
+
+                        pode_editar = True
+
+
+
+                # Colunas
+                col_esq, col_dir = st.columns(2, gap="large")
+
+
+
+                # COLUNA DA ESQUERDA COM RESULTADOS ANUAIS
+
+                with col_esq:
+
+                    st.subheader('Resultados por ano:')
+
+
+
+                    # -----------------------------------
+                    # Obtém a linha do projeto
+                    # -----------------------------------
+
+                    projeto = projeto_info.iloc[0]
+
+
+
+
+                    # -----------------------------------
+                    # Obtém os resultados anuais cadastrados
+                    # -----------------------------------
+
+                    resultados_anuais = projeto.get("resultados_anuais", [])
+                    if not isinstance(resultados_anuais, list):
+                        resultados_anuais = []
+
+
+
+                    # -----------------------------------
+                    # Define os anos que serão exibidos
+                    # -----------------------------------
+
+                    ano_inicio = projeto["data_inicio_contrato"].year
+                    ano_fim = projeto["data_fim_contrato"].year
+
+                    anos = list(range(ano_inicio, ano_fim + 1))
+
+                    # -----------------------------------
+                    # Remove duplicidades e ordena
+                    # -----------------------------------
+
+                    anos = sorted(set(anos))
+
+
+
+
+
+                    # -----------------------------------
+                    # Anos do contrato
+                    # -----------------------------------
+
+                    anos = set(range(ano_inicio, ano_fim + 1))
+
+                    # -----------------------------------
+                    # Inclui anos existentes no banco
+                    # -----------------------------------
+
+                    anos.update(
+                        item["ano"]
+                        for item in resultados_anuais
+                        if "ano" in item
+                    )
+
+
+
+                    # -----------------------------------
+                    # Ordena
+                    # -----------------------------------
+
+                    anos = sorted(anos)
+
+
+                    # -----------------------------------
+                    # Indexa os resultados anuais por ano
+                    # -----------------------------------
+
+                    resultados_por_ano = {
+                        item["ano"]: item
+                        for item in resultados_anuais
+                        if "ano" in item
+                    }
+
+
+                    # -----------------------------------
+                    # Exibe um bloco para cada ano
+                    # -----------------------------------
+
+                    for ano in anos:
+
+                        resultado = resultados_por_ano.get(ano, {})
+
+                        texto_resultado = resultado.get("resultados", "")
+                        data_atualizacao = resultado.get("data_anotacao", "")
+                        autor_id = resultado.get("autor")
+
+
+
+                        autor_resultado_nome = ""
+
+                        if autor_id is not None:
+
+                            pessoa = df_pessoas.loc[
+                                df_pessoas["_id"].astype(str) == str(autor_id),
+                                "nome_completo"
+                            ]
+
+                            if not pessoa.empty:
+                                autor_resultado_nome = pessoa.iloc[0]
+
+                            if not pessoa.empty:
+                                autor_resultado_nome = pessoa.iloc[0]
+
+                        st.subheader(str(ano))
+
+
+                        # Regra de visibilidade
+                        if pode_editar:
+
+                            st.text_area(
+                                "Resultados",
+                                value=texto_resultado,
+                                max_chars=1500,
+                                height=180,
+                                key=f"resultado_{ano}",
+                                label_visibility="collapsed"
+                            )
+
+
+
+                            with st.container(horizontal=True):
+
+
+                                if st.button(
+                                    "Salvar",
+                                    key=f"salvar_{ano}",
+                                    width=180,
+                                    icon=":material/save:"
+                                ):
+
+                                    # -----------------------------------
+                                    # Atualiza ou cria o resultado anual
+                                    # -----------------------------------
+
+                                    resultados_atualizados = projeto.get(
+                                        "resultados_anuais",
+                                        []
+                                    ).copy()
+
+                                    encontrou = False
+
+                                    for item in resultados_atualizados:
+
+                                        if item["ano"] == ano:
+
+                                            item["resultados"] = st.session_state[f"resultado_{ano}"]
+                                            item["data_anotacao"] = datetime.datetime.now().strftime("%d/%m/%Y")
+                                            item["autor"] = st.session_state.id_usuario
+
+                                            encontrou = True
+                                            break
+
+                                    if not encontrou:
+
+                                        resultados_atualizados.append(
+                                            {
+                                                "ano": ano,
+                                                "resultados": st.session_state[f"resultado_{ano}"],
+                                                "data_anotacao": datetime.datetime.now().strftime("%d/%m/%Y"),
+                                                "autor": st.session_state.id_usuario,
+                                            }
+                                        )
+
+                                    # -----------------------------------
+                                    # Mantém os anos em ordem decrescente
+                                    # -----------------------------------
+
+                                    resultados_atualizados = sorted(
+                                        resultados_atualizados,
+                                        key=lambda x: x["ano"],
+                                        reverse=True,
+                                    )
+
+                                    # -----------------------------------
+                                    # Atualiza o documento do projeto
+                                    # -----------------------------------
+
+                                    id_projeto = projeto["_id"]
+
+                                    projetos_ispn.update_one(
+                                        {"_id": id_projeto},
+                                        {
+                                            "$set": {
+                                                "resultados_anuais": resultados_atualizados
+                                            }
+                                        }
+                                    )
+
+                                    st.success("Resultados atualizados com sucesso.", icon=":material/check:")
+
+                                    time.sleep(3)
+
+                                    st.rerun()
+
+
+
+
+
+
+                        else:
+
+                            if texto_resultado:
+
+                                st.write(texto_resultado)
+
+                            else:
+
+                                st.write("_")
+
+
 
                         st.write("")
+
+
+
+
+
+                        # Caption do log de autor e data
                         
-                # Converter datas
-                data_inicio = pd.to_datetime(data_inicio) if data_inicio else None
-                data_fim = pd.to_datetime(data_fim) if data_fim else None
+                        if autor_nome:
 
-                # ===============================================================
-                # FILTRAGEM
-                # ===============================================================
-
-                df_filtrado = df_entregas.copy()
-
-                if filtro_situacao:
-                    df_filtrado = df_filtrado[
-                        df_filtrado["Situação"].isin(filtro_situacao)
-                    ]
-
-                if data_inicio is not None:
-                    df_filtrado = df_filtrado[
-                        df_filtrado["Previsão de Conclusão"] >= data_inicio
-                    ]
-
-                if data_fim is not None:
-                    df_filtrado = df_filtrado[
-                        df_filtrado["Previsão de Conclusão"] <= data_fim
-                    ]
-
-                # ===============================================================
-                # ORDENAÇÃO
-                # ===============================================================
-
-                df_filtrado = df_filtrado.sort_values(
-                    by=ordenacao,
-                    ascending=True,
-                    na_position="last"
-                )
-
-                # ===============================================================
-                # FORMATAÇÃO
-                # ===============================================================
-
-                df_exibir = df_filtrado.copy()
-
-                df_exibir["Data de início"] = (
-                    df_exibir["Data de início"]
-                    .dt.strftime("%d/%m/%Y")
-                    .fillna("")
-                )
-
-                df_exibir["Previsão de Conclusão"] = (
-                    df_exibir["Previsão de Conclusão"]
-                    .dt.strftime("%d/%m/%Y")
-                    .fillna("")
-                )
-
-                # ===============================================================
-                # TABELA
-                # ===============================================================
-
-                ui.table(data=df_exibir)
-                    
-            render_tabela_entregas(df_entregas, situacoes)
-
-
-
-
-# ##########################################################
-# Resultados
-# ##########################################################
-
-
-if not projeto_estrategico:
-
-    with tab_resultados:
-
-
-        # -----------------------------------
-        # Verifica permissão de edição (admin, coord. do projeto, coord. de algum programa do projeto, gestor do projeto)
-        # -----------------------------------
-
-        pode_editar = False
-
-        # Admin
-        if "admin" in st.session_state.tipo_usuario:
-
-            pode_editar = True
-
-        # Coordenador do projeto
-        if str(projeto.get("coordenador")) == str(st.session_state.id_usuario):
-
-            pode_editar = True
-
-        # Gestores do projeto
-        elif any(
-            str(gestor) == str(st.session_state.id_usuario)
-            for gestor in projeto.get("gestores", [])
-        ):
-
-            pode_editar = True
-
-        # Coordenador de algum programa do projeto
-        else:
-
-            ids_programas_projeto = {
-                str(id_programa)
-                for id_programa in projeto.get("programas", [])
-            }
-
-            ids_programas_coordenados = set(
-                df_programas.loc[
-                    df_programas["coordenador_id"].astype(str)
-                    == str(st.session_state.id_usuario),
-                    "_id"
-                ].astype(str)
-            )
-
-            if ids_programas_projeto.intersection(ids_programas_coordenados):
-
-                pode_editar = True
-
-
-
-        # Colunas
-        col_esq, col_dir = st.columns(2, gap="large")
-
-
-
-        # COLUNA DA ESQUERDA COM RESULTADOS ANUAIS
-
-        with col_esq:
-
-            st.subheader('Resultados por ano:')
-
-
-
-            # -----------------------------------
-            # Obtém a linha do projeto
-            # -----------------------------------
-
-            projeto = projeto_info.iloc[0]
-
-
-
-
-            # -----------------------------------
-            # Obtém os resultados anuais cadastrados
-            # -----------------------------------
-
-            resultados_anuais = projeto.get("resultados_anuais", [])
-            if not isinstance(resultados_anuais, list):
-                resultados_anuais = []
-
-
-
-            # -----------------------------------
-            # Define os anos que serão exibidos
-            # -----------------------------------
-
-            ano_inicio = projeto["data_inicio_contrato"].year
-            ano_fim = projeto["data_fim_contrato"].year
-
-            anos = list(range(ano_inicio, ano_fim + 1))
-
-            # -----------------------------------
-            # Remove duplicidades e ordena
-            # -----------------------------------
-
-            anos = sorted(set(anos))
-
-
-
-
-
-            # -----------------------------------
-            # Anos do contrato
-            # -----------------------------------
-
-            anos = set(range(ano_inicio, ano_fim + 1))
-
-            # -----------------------------------
-            # Inclui anos existentes no banco
-            # -----------------------------------
-
-            anos.update(
-                item["ano"]
-                for item in resultados_anuais
-                if "ano" in item
-            )
-
-
-
-            # -----------------------------------
-            # Ordena
-            # -----------------------------------
-
-            anos = sorted(anos)
-
-
-            # -----------------------------------
-            # Indexa os resultados anuais por ano
-            # -----------------------------------
-
-            resultados_por_ano = {
-                item["ano"]: item
-                for item in resultados_anuais
-                if "ano" in item
-            }
-
-
-            # -----------------------------------
-            # Exibe um bloco para cada ano
-            # -----------------------------------
-
-            for ano in anos:
-
-                resultado = resultados_por_ano.get(ano, {})
-
-                texto_resultado = resultado.get("resultados", "")
-                data_atualizacao = resultado.get("data_anotacao", "")
-                autor_id = resultado.get("autor")
-
-
-
-                autor_resultado_nome = ""
-
-                if autor_id is not None:
-
-                    pessoa = df_pessoas.loc[
-                        df_pessoas["_id"].astype(str) == str(autor_id),
-                        "nome_completo"
-                    ]
-
-                    if not pessoa.empty:
-                        autor_resultado_nome = pessoa.iloc[0]
-
-                    if not pessoa.empty:
-                        autor_resultado_nome = pessoa.iloc[0]
-
-                st.subheader(str(ano))
-
-
-                # Regra de visibilidade
-                if pode_editar:
-
-                    st.text_area(
-                        "Resultados",
-                        value=texto_resultado,
-                        max_chars=1500,
-                        height=180,
-                        key=f"resultado_{ano}",
-                        label_visibility="collapsed"
-                    )
-
-
-
-                    with st.container(horizontal=True):
-
-
-                        if st.button(
-                            "Salvar",
-                            key=f"salvar_{ano}",
-                            width=180,
-                            icon=":material/save:"
-                        ):
-
-                            # -----------------------------------
-                            # Atualiza ou cria o resultado anual
-                            # -----------------------------------
-
-                            resultados_atualizados = projeto.get(
-                                "resultados_anuais",
-                                []
-                            ).copy()
-
-                            encontrou = False
-
-                            for item in resultados_atualizados:
-
-                                if item["ano"] == ano:
-
-                                    item["resultados"] = st.session_state[f"resultado_{ano}"]
-                                    item["data_anotacao"] = datetime.datetime.now().strftime("%d/%m/%Y")
-                                    item["autor"] = st.session_state.id_usuario
-
-                                    encontrou = True
-                                    break
-
-                            if not encontrou:
-
-                                resultados_atualizados.append(
-                                    {
-                                        "ano": ano,
-                                        "resultados": st.session_state[f"resultado_{ano}"],
-                                        "data_anotacao": datetime.datetime.now().strftime("%d/%m/%Y"),
-                                        "autor": st.session_state.id_usuario,
-                                    }
-                                )
-
-                            # -----------------------------------
-                            # Mantém os anos em ordem decrescente
-                            # -----------------------------------
-
-                            resultados_atualizados = sorted(
-                                resultados_atualizados,
-                                key=lambda x: x["ano"],
-                                reverse=True,
+                            st.caption(
+                                f"Atualizado por {autor_nome} em {data_atualizacao}"
                             )
 
-                            # -----------------------------------
-                            # Atualiza o documento do projeto
-                            # -----------------------------------
 
-                            id_projeto = projeto["_id"]
 
-                            projetos_ispn.update_one(
-                                {"_id": id_projeto},
-                                {
-                                    "$set": {
-                                        "resultados_anuais": resultados_atualizados
-                                    }
-                                }
-                            )
-
-                            st.success("Resultados atualizados com sucesso.", icon=":material/check:")
-
-                            time.sleep(3)
-
-                            st.rerun()
+                        st.divider()
 
 
 
+                # COLUNA DA DIREITA COM SÍNTESE DOS RESULTADOS
 
 
+                with col_dir:
 
-                else:
+                    # Carregando os dados do banco 
 
-                    if texto_resultado:
+                    sintese = projeto.get("sintese_resultados", {})
+                    if not isinstance(sintese, dict):
+                        sintese = {}
 
-                        st.write(texto_resultado)
-
-                    else:
-
-                        st.write("_")
-
-
-
-                st.write("")
+                    texto_sintese = sintese.get("texto", "")
+                    data_sintese = sintese.get("data_anotacao", "")
+                    autor_sintese_id = sintese.get("autor")
 
 
+                    autor_sintese_nome = ""
+
+                    if autor_sintese_id is not None:
+
+                        pessoa = df_pessoas.loc[
+                            df_pessoas["_id"].astype(str) == str(autor_sintese_id),
+                            "nome_completo"
+                        ]
+
+                        if not pessoa.empty:
+                            autor_sintese_nome = pessoa.iloc[0]
 
 
+                    # Exibindo a síntese
 
-                # Caption do log de autor e data
-                
-                if autor_nome:
+                    st.subheader("Síntese do resultado final do projeto:")
 
-                    st.caption(
-                        f"Atualizado por {autor_nome} em {data_atualizacao}"
-                    )
+                    if pode_editar:
 
-
-
-                st.divider()
-
-
-
-        # COLUNA DA DIREITA COM SÍNTESE DOS RESULTADOS
-
-
-        with col_dir:
-
-            # Carregando os dados do banco 
-
-            sintese = projeto.get("sintese_resultados", {})
-            if not isinstance(sintese, dict):
-                sintese = {}
-
-            texto_sintese = sintese.get("texto", "")
-            data_sintese = sintese.get("data_anotacao", "")
-            autor_sintese_id = sintese.get("autor")
-
-
-            autor_sintese_nome = ""
-
-            if autor_sintese_id is not None:
-
-                pessoa = df_pessoas.loc[
-                    df_pessoas["_id"].astype(str) == str(autor_sintese_id),
-                    "nome_completo"
-                ]
-
-                if not pessoa.empty:
-                    autor_sintese_nome = pessoa.iloc[0]
-
-
-            # Exibindo a síntese
-
-            st.subheader("Síntese do resultado final do projeto:")
-
-            if pode_editar:
-
-                st.text_area(
-                    "Síntese",
-                    value=texto_sintese,
-                    max_chars=4000,
-                    height=200,
-                    key="sintese_resultados",
-                    label_visibility="collapsed"
-                )
-
-
-                with st.container(horizontal=True):
-
-                    if st.button(
-                        "Salvar",
-                        key="salvar_sintese",
-                        width=200,
-                        icon=":material/save:"
-                    ):
-
-                        projetos_ispn.update_one(
-                            {"_id": projeto["_id"]},
-                            {
-                                "$set": {
-                                    "sintese_resultados": {
-                                        "texto": st.session_state["sintese_resultados"],
-                                        "data_anotacao": datetime.datetime.now().strftime("%d/%m/%Y"),
-                                        "autor": st.session_state.id_usuario,
-                                    }
-                                }
-                            }
+                        st.text_area(
+                            "Síntese",
+                            value=texto_sintese,
+                            max_chars=4000,
+                            height=200,
+                            key="sintese_resultados",
+                            label_visibility="collapsed"
                         )
 
-                        st.success("Síntese atualizada com sucesso.", icon=":material/check:")
 
-                        time.sleep(3)
+                        with st.container(horizontal=True):
 
-                        st.rerun()
+                            if st.button(
+                                "Salvar",
+                                key="salvar_sintese",
+                                width=200,
+                                icon=":material/save:"
+                            ):
 
-
-
-
-            else:
-
-                if texto_sintese:
-
-                    st.write(texto_sintese)
-
-                else:
-
-                    st.write("_")
-
-
-
-            if autor_sintese_nome:
-
-                st.caption(
-                    f"Atualizado por {autor_sintese_nome} em {data_sintese}"
-                )
-
-
-
-
-# ##########################################################
-# Anotações
-# ##########################################################
-
-with tab_anotacoes:
-    st.write('**Anotações:**')
-
-    # ====================
-    # Função do diálogo
-    # ====================
-    @st.dialog("Gerenciar Anotações")
-    def dialog_anotacoes():
-        tab1, tab2, tab3 = st.tabs([":material/add: Nova anotação", ":material/edit: Editar", ":material/delete: Apagar"])
-
-        # ====================
-        # ABA 1: Cadastrar
-        # ====================
-        with tab1:
-            with st.form("form_cadastrar_anotacao"):
-                hoje = datetime.datetime.today().strftime("%d/%m/%Y")
-
-                st.write(f"Data: {hoje}")
-
-                anotacao_texto = st.text_area("Anotação", disabled=usuario_visitante)
-
-                submit = st.form_submit_button("Salvar anotação", icon=':material/save:', type="primary")
-
-                if submit:
-                    if not anotacao_texto.strip():
-                        st.warning("A anotação não pode estar vazia.")
-                    else:
-                        # Buscar _id do projeto
-                        projeto = projetos_ispn.find_one({"sigla": projeto_selecionado})
-                        if not projeto:
-                            st.error("Projeto não encontrado no banco de dados.")
-                        else:
-                            nova_anotacao = {
-                                "data_anotacao": datetime.datetime.today(),
-                                "autor": st.session_state.get("nome", "Desconhecido"),
-                                "anotacao": anotacao_texto.strip()
-                            }
-
-                            # Atualiza o projeto adicionando a nova anotação
-                            projetos_ispn.update_one(
-                                {"_id": projeto["_id"]},
-                                {"$push": {"anotacoes": nova_anotacao}}
-                            )
-                            st.success("Anotação cadastrada com sucesso!")
-                            time.sleep(3)
-                            st.rerun()
-
-        # ====================
-        # ABA 2: Editar
-        # ====================
-        with tab2:
-            projeto = projetos_ispn.find_one({"sigla": projeto_selecionado})
-            
-            if not projeto or "anotacoes" not in projeto or len(projeto["anotacoes"]) == 0:
-                st.write("_Não há anotações para editar._")
-            else:
-                anotacoes = projeto["anotacoes"]
-                usuario_logado = st.session_state.get("nome", "Desconhecido")
-                
-                # Criar lista de opções com apenas anotações do próprio usuário
-                opcoes = [
-                    f'{a["data_anotacao"].strftime("%d/%m/%Y") if isinstance(a["data_anotacao"], datetime.datetime) else a["data_anotacao"]} - {a["anotacao"][:30]}...'
-                    for a in anotacoes if a.get("autor") == usuario_logado
-                ]
-                
-                if not opcoes:
-                    st.write("Você não possui anotações para editar.")
-                else:
-                    # Adiciona opção vazia no início
-                    opcoes_com_vazio = [""] + opcoes
-                    
-                    # Selecionar anotação (valor padrão vazio)
-                    selecionada = st.selectbox(
-                        "Selecione a anotação para editar",
-                        options=opcoes_com_vazio,
-                        index=0,
-                        disabled=usuario_visitante
-                    )
-                    
-                    if selecionada:  # só prosseguir se o usuário selecionar algo
-                        # Índice real dentro da lista completa de anotações
-                        index = [i for i, a in enumerate(anotacoes) if a.get("autor") == usuario_logado][opcoes.index(selecionada)]
-                        anotacao_atual = anotacoes[index]["anotacao"]
-                        
-                        # Campo para editar
-                        nova_texto = st.text_area("Editar anotação", value=anotacao_atual)
-                        
-                        if st.button("Salvar alterações", icon=":material/save:", type="primary"):
-                            if not nova_texto.strip():
-                                st.warning("A anotação não pode ficar vazia.")
-                            else:
-                                # Atualizar a anotação no MongoDB
                                 projetos_ispn.update_one(
                                     {"_id": projeto["_id"]},
-                                    {"$set": {f"anotacoes.{index}.anotacao": nova_texto.strip()}}
+                                    {
+                                        "$set": {
+                                            "sintese_resultados": {
+                                                "texto": st.session_state["sintese_resultados"],
+                                                "data_anotacao": datetime.datetime.now().strftime("%d/%m/%Y"),
+                                                "autor": st.session_state.id_usuario,
+                                            }
+                                        }
+                                    }
                                 )
-                                st.success("Anotação editada com sucesso!")
-                                time.sleep(3)  # pausa antes do rerun
+
+                                st.success("Síntese atualizada com sucesso.", icon=":material/check:")
+
+                                time.sleep(3)
+
                                 st.rerun()
 
 
 
 
-        # ====================
-        # ABA 3: Apagar
-        # ====================
-        with tab3:
-            projeto = projetos_ispn.find_one({"sigla": projeto_selecionado})
-            usuario_logado = st.session_state.get("nome", "Desconhecido")
-            
-            if not projeto or "anotacoes" not in projeto or len(projeto["anotacoes"]) == 0:
-                st.write("_Não há anotações para apagar._")
-            else:
-                anotacoes = projeto["anotacoes"]
-                
-                # Lista apenas anotações do próprio usuário
-                opcoes = [
-                    f'{a["data_anotacao"].strftime("%d/%m/%Y") if isinstance(a["data_anotacao"], datetime.datetime) else a["data_anotacao"]} - {a["anotacao"][:30]}...'
-                    for a in anotacoes if a.get("autor") == usuario_logado
-                ]
-                
-                if not opcoes:
-                    st.write("_Você não possui anotações para apagar._")
-                else:
-                    # Adiciona opção vazia no início
-                    opcoes_com_vazio = [""] + opcoes
+                    else:
+
+                        if texto_sintese:
+
+                            st.write(texto_sintese)
+
+                        else:
+
+                            st.write("_")
+
+
+
+                    if autor_sintese_nome:
+
+                        st.caption(
+                            f"Atualizado por {autor_sintese_nome} em {data_sintese}"
+                        )
+
+
+
+
+        # ##########################################################
+        # Anotações
+        # ##########################################################
+
+        with tab_anotacoes:
+            st.write('**Anotações:**')
+
+            # ====================
+            # Função do diálogo
+            # ====================
+            @st.dialog("Gerenciar Anotações")
+            def dialog_anotacoes():
+                tab1, tab2, tab3 = st.tabs([":material/add: Nova anotação", ":material/edit: Editar", ":material/delete: Apagar"])
+
+                # ====================
+                # ABA 1: Cadastrar
+                # ====================
+                with tab1:
+                    with st.form("form_cadastrar_anotacao"):
+                        hoje = datetime.datetime.today().strftime("%d/%m/%Y")
+
+                        st.write(f"Data: {hoje}")
+
+                        anotacao_texto = st.text_area("Anotação", disabled=usuario_visitante)
+
+                        submit = st.form_submit_button("Salvar anotação", icon=':material/save:', type="primary")
+
+                        if submit:
+                            if not anotacao_texto.strip():
+                                st.warning("A anotação não pode estar vazia.")
+                            else:
+                                # Buscar _id do projeto
+                                projeto = projetos_ispn.find_one({"sigla": projeto_selecionado})
+                                if not projeto:
+                                    st.error("Projeto não encontrado no banco de dados.")
+                                else:
+                                    nova_anotacao = {
+                                        "data_anotacao": datetime.datetime.today(),
+                                        "autor": st.session_state.get("nome", "Desconhecido"),
+                                        "anotacao": anotacao_texto.strip()
+                                    }
+
+                                    # Atualiza o projeto adicionando a nova anotação
+                                    projetos_ispn.update_one(
+                                        {"_id": projeto["_id"]},
+                                        {"$push": {"anotacoes": nova_anotacao}}
+                                    )
+                                    st.success("Anotação cadastrada com sucesso!")
+                                    time.sleep(3)
+                                    st.rerun()
+
+                # ====================
+                # ABA 2: Editar
+                # ====================
+                with tab2:
+                    projeto = projetos_ispn.find_one({"sigla": projeto_selecionado})
                     
-                    selecionada = st.selectbox(
-                        "Selecione a anotação para apagar",
-                        options=opcoes_com_vazio,
-                        index=0,  # valor padrão vazio
-                        disabled=usuario_visitante
-                    )
-                    
-                    if selecionada:  # só prosseguir se o usuário selecionar algo
-                        # Índice real dentro da lista completa de anotações
-                        index = [i for i, a in enumerate(anotacoes) if a.get("autor") == usuario_logado][opcoes.index(selecionada)]
+                    if not projeto or "anotacoes" not in projeto or len(projeto["anotacoes"]) == 0:
+                        st.write("_Não há anotações para editar._")
+                    else:
+                        anotacoes = projeto["anotacoes"]
+                        usuario_logado = st.session_state.get("nome", "Desconhecido")
                         
-                        # Passo de confirmação
-                        st.warning("Você tem certeza que deseja apagar essa anotação?")
-                        if st.button("Sim, apagar anotação", key="confirm_delete", icon=":material/check:"):
-                            # Remover a anotação pelo índice
-                            projetos_ispn.update_one(
-                                {"_id": projeto["_id"]},
-                                {"$unset": {f"anotacoes.{index}": 1}}
+                        # Criar lista de opções com apenas anotações do próprio usuário
+                        opcoes = [
+                            f'{a["data_anotacao"].strftime("%d/%m/%Y") if isinstance(a["data_anotacao"], datetime.datetime) else a["data_anotacao"]} - {a["anotacao"][:30]}...'
+                            for a in anotacoes if a.get("autor") == usuario_logado
+                        ]
+                        
+                        if not opcoes:
+                            st.write("Você não possui anotações para editar.")
+                        else:
+                            # Adiciona opção vazia no início
+                            opcoes_com_vazio = [""] + opcoes
+                            
+                            # Selecionar anotação (valor padrão vazio)
+                            selecionada = st.selectbox(
+                                "Selecione a anotação para editar",
+                                options=opcoes_com_vazio,
+                                index=0,
+                                disabled=usuario_visitante
                             )
-                            # Remover o elemento "vazio" deixado pelo $unset
-                            projetos_ispn.update_one(
-                                {"_id": projeto["_id"]},
-                                {"$pull": {"anotacoes": None}}
+                            
+                            if selecionada:  # só prosseguir se o usuário selecionar algo
+                                # Índice real dentro da lista completa de anotações
+                                index = [i for i, a in enumerate(anotacoes) if a.get("autor") == usuario_logado][opcoes.index(selecionada)]
+                                anotacao_atual = anotacoes[index]["anotacao"]
+                                
+                                # Campo para editar
+                                nova_texto = st.text_area("Editar anotação", value=anotacao_atual)
+                                
+                                if st.button("Salvar alterações", icon=":material/save:", type="primary"):
+                                    if not nova_texto.strip():
+                                        st.warning("A anotação não pode ficar vazia.")
+                                    else:
+                                        # Atualizar a anotação no MongoDB
+                                        projetos_ispn.update_one(
+                                            {"_id": projeto["_id"]},
+                                            {"$set": {f"anotacoes.{index}.anotacao": nova_texto.strip()}}
+                                        )
+                                        st.success("Anotação editada com sucesso!")
+                                        time.sleep(3)  # pausa antes do rerun
+                                        st.rerun()
+
+
+
+
+                # ====================
+                # ABA 3: Apagar
+                # ====================
+                with tab3:
+                    projeto = projetos_ispn.find_one({"sigla": projeto_selecionado})
+                    usuario_logado = st.session_state.get("nome", "Desconhecido")
+                    
+                    if not projeto or "anotacoes" not in projeto or len(projeto["anotacoes"]) == 0:
+                        st.write("_Não há anotações para apagar._")
+                    else:
+                        anotacoes = projeto["anotacoes"]
+                        
+                        # Lista apenas anotações do próprio usuário
+                        opcoes = [
+                            f'{a["data_anotacao"].strftime("%d/%m/%Y") if isinstance(a["data_anotacao"], datetime.datetime) else a["data_anotacao"]} - {a["anotacao"][:30]}...'
+                            for a in anotacoes if a.get("autor") == usuario_logado
+                        ]
+                        
+                        if not opcoes:
+                            st.write("_Você não possui anotações para apagar._")
+                        else:
+                            # Adiciona opção vazia no início
+                            opcoes_com_vazio = [""] + opcoes
+                            
+                            selecionada = st.selectbox(
+                                "Selecione a anotação para apagar",
+                                options=opcoes_com_vazio,
+                                index=0,  # valor padrão vazio
+                                disabled=usuario_visitante
                             )
-                            st.success("Anotação apagada com sucesso!")
-                            time.sleep(3)
-                            st.rerun()
+                            
+                            if selecionada:  # só prosseguir se o usuário selecionar algo
+                                # Índice real dentro da lista completa de anotações
+                                index = [i for i, a in enumerate(anotacoes) if a.get("autor") == usuario_logado][opcoes.index(selecionada)]
+                                
+                                # Passo de confirmação
+                                st.warning("Você tem certeza que deseja apagar essa anotação?")
+                                if st.button("Sim, apagar anotação", key="confirm_delete", icon=":material/check:"):
+                                    # Remover a anotação pelo índice
+                                    projetos_ispn.update_one(
+                                        {"_id": projeto["_id"]},
+                                        {"$unset": {f"anotacoes.{index}": 1}}
+                                    )
+                                    # Remover o elemento "vazio" deixado pelo $unset
+                                    projetos_ispn.update_one(
+                                        {"_id": projeto["_id"]},
+                                        {"$pull": {"anotacoes": None}}
+                                    )
+                                    st.success("Anotação apagada com sucesso!")
+                                    time.sleep(3)
+                                    st.rerun()
 
-    # ====================
-    # Botão para abrir o diálogo
-    # ====================
-    
-    with st.container(horizontal=True, horizontal_alignment="right"):
-        if st.button("Gerenciar anotações", icon=":material/edit:", width=300):
-            dialog_anotacoes()
+            # ====================
+            # Botão para abrir o diálogo
+            # ====================
+            
+            with st.container(horizontal=True, horizontal_alignment="right"):
+                if st.button("Gerenciar anotações", icon=":material/edit:", width=300):
+                    dialog_anotacoes()
 
 
-    # ====================
-    # Mostrar as anotações existentes
-    # ====================
-    projeto = projetos_ispn.find_one({"sigla": projeto_selecionado})
-    if projeto and "anotacoes" in projeto:
-        anotacoes = [
-            [a["data_anotacao"].strftime("%d/%m/%Y") if isinstance(a["data_anotacao"], datetime.datetime) else a["data_anotacao"],
-            a["anotacao"],
-            a.get("autor", "Desconhecido")]
-            for a in projeto["anotacoes"]
-        ]
-        df = pd.DataFrame(anotacoes, columns=["Data", "Anotação", "Autor"])
-        ui.table(data=df)
-    else:
-        st.write("_Não há anotações cadastradas para este projeto._")
+            # ====================
+            # Mostrar as anotações existentes
+            # ====================
+            projeto = projetos_ispn.find_one({"sigla": projeto_selecionado})
+            if projeto and "anotacoes" in projeto:
+                anotacoes = [
+                    [a["data_anotacao"].strftime("%d/%m/%Y") if isinstance(a["data_anotacao"], datetime.datetime) else a["data_anotacao"],
+                    a["anotacao"],
+                    a.get("autor", "Desconhecido")]
+                    for a in projeto["anotacoes"]
+                ]
+                df = pd.DataFrame(anotacoes, columns=["Data", "Anotação", "Autor"])
+                ui.table(data=df)
+            else:
+                st.write("_Não há anotações cadastradas para este projeto._")
+
+
+
+
+
+
+
+
+    # Aba Cronograma ------------------------------------------
+
+    with tab_cronograma:
+        
+
+        # Gráfico de gantt cronograma 
+
+        # Organizando o df por ordem de data_fim_contrato
+        df_projetos_ispn_filtrado = df_projetos_ispn_filtrado.sort_values(by='data_fim_contrato', ascending=False)
+
+        # Mapeamento de meses em português para número
+        meses = {
+            "janeiro": "01", "fevereiro": "02", "março": "03", "abril": "04",
+            "maio": "05", "junho": "06", "julho": "07", "agosto": "08",
+            "setembro": "09", "outubro": "10", "novembro": "11", "dezembro": "12"
+        }
+
+        # Tentando calcular a altura do gráfico dinamicamente
+        altura_base = 400  # altura mínima
+        altura_extra = sum([10 / (1 + i * 0.01) for i in range(len(df_projetos_ispn_filtrado))])
+        altura = int(altura_base + altura_extra)
+
+
+
+        fig = px.timeline(
+            df_projetos_ispn_filtrado,
+            x_start='data_inicio_contrato',
+            x_end='data_fim_contrato',
+            y='sigla',
+            color='status',
+            color_discrete_map={
+                'Em andamento': 'rgba(0,122,211,0.5)',
+                'Finalizado': "rgba(131,201,255,0.5)",
+                '': 'red',
+            },
+            height=altura,  
+            labels={
+                'sigla': 'Projeto',
+                'status': 'Situação',
+                'data_inicio_contrato': 'Início',
+                'data_fim_contrato': 'Fim'
+            },
+        )
+
+        # Adiciona a linha vertical para o dia de hoje
+        fig.add_vline(
+            x=datetime.datetime.today(),
+            line_width=2,
+            line_dash="dash",
+            line_color="black",
+        )
+
+        # Ajusta layout
+        fig.update_layout(
+            legend=dict(
+                orientation="h",   # horizontal
+                yanchor="bottom",
+                y=-0.2,            # move para baixo do gráfico
+                xanchor="center",
+                x=0.5
+            ),
+            yaxis=dict(
+                title=None,
+                side="right"       # coloca labels do eixo Y à direita
+            ),
+            xaxis=dict(
+                showgrid=True,
+                gridcolor='lightgray',
+                tickmode='linear',
+                dtick="M12",        # Mostra 1 tick por ano (12 meses)
+                tickformat="%Y"
+            )
+        )
+
+        st.plotly_chart(fig)
 
