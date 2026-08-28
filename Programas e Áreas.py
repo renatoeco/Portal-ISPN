@@ -62,7 +62,6 @@ def normalizar_lista_ids(lista):
     return ids
 
 
-import pandas as pd
 
 def gerar_anos_intervalo(data_inicio, data_fim):
     """
@@ -3583,10 +3582,24 @@ for i, aba in enumerate(abas):
             st.write("")
 
             # ADM Santa Inês não possui relatório
+            # Define as opções de navegação conforme o programa.
             if titulo_programa == "ADM Santa Inês":
-                opcoes_menu = ["Equipe", "Projetos", "Ações Estratégicas", "Resultados do Programa"]
+                opcoes_menu = [
+                    "Equipe",
+                    "Projetos",
+                    # "Ações Estratégicas",
+                    # "Resultados do Programa",
+                    "Resultados e Ações Estratégicas"
+                ]
             else:
-                opcoes_menu = ["Equipe", "Projetos", "Ações Estratégicas", "Resultados do Programa", "Relatórios Anuais"]
+                opcoes_menu = [
+                    "Equipe",
+                    "Projetos",
+                    # "Ações Estratégicas",
+                    # "Resultados do Programa",
+                    "Resultados e Ações Estratégicas",
+                    "Relatórios Anuais"
+                ]
 
             pagina = st.segmented_control(
                 "Controle",
@@ -3597,6 +3610,26 @@ for i, aba in enumerate(abas):
             )
 
 
+
+
+            # if titulo_programa == "ADM Santa Inês":
+            #     opcoes_menu = ["Equipe", "Projetos", "Ações Estratégicas", "Resultados do Programa"]
+            # else:
+            #     opcoes_menu = ["Equipe", "Projetos", "Ações Estratégicas", "Resultados do Programa", "Relatórios Anuais"]
+
+            # pagina = st.segmented_control(
+            #     "Controle",
+            #     opcoes_menu,
+            #     key=f"menu_{id_programa}",
+            #     default="Equipe",
+            #     label_visibility="collapsed"
+            # )
+
+
+
+            # #############################################
+            # Equipe
+            # #############################################
 
             if pagina == "Equipe":
 
@@ -3837,6 +3870,13 @@ for i, aba in enumerate(abas):
 
                 st.divider()
 
+
+
+
+            # #############################################
+            # PROJETOs
+            # #############################################
+
             elif pagina == "Projetos":
 
                 st.write("")
@@ -4051,6 +4091,12 @@ for i, aba in enumerate(abas):
                     fig.add_vline(x=datetime.date.today(), line_width=1, line_dash="dash", line_color="gray")
                     st.plotly_chart(fig, key=f"timeline_projetos_{i}")
 
+
+
+            # #############################################
+            # Ações Estratégicas
+            # #############################################
+
             elif pagina == "Ações Estratégicas":
                 
                 st.write("")
@@ -4250,6 +4296,13 @@ for i, aba in enumerate(abas):
                             else:
                                 st.caption("Nenhuma entrega vinculada a esta ação estratégica do programa.")
                     
+
+
+            # #############################################
+            # RESULTADOS DO PROGRAMA
+            # #############################################
+            
+
             elif pagina == "Resultados do Programa":
                 
                 st.write("")
@@ -4442,6 +4495,309 @@ for i, aba in enumerate(abas):
                                 )
                             else:
                                 st.caption("Nenhuma entrega vinculada a este resultado do programa.")
+
+
+
+
+            # #############################################
+            # RESULTADOS E AÇÕES ESTRATÉGICAS
+            # #############################################
+
+
+            # #############################################
+            # RESULTADOS E AÇÕES ESTRATÉGICAS
+            # #############################################
+
+            elif pagina == "Resultados e Ações Estratégicas":
+
+                st.write("")
+
+                st.markdown("#### **Resultados e Ações Estratégicas**")
+
+                # Busca o documento completo do programa.
+                programa_doc_resultados_acoes = programas_areas.find_one({
+                    "_id": ObjectId(id_programa)
+                })
+
+                resultados_programa_lista = (
+                    programa_doc_resultados_acoes.get(
+                        "resultados_programa",
+                        []
+                    )
+                    if programa_doc_resultados_acoes
+                    else []
+                )
+
+                acoes_estrategicas_lista = (
+                    programa_doc_resultados_acoes.get(
+                        "acoes_estrategicas",
+                        []
+                    )
+                    if programa_doc_resultados_acoes
+                    else []
+                )
+
+                if not resultados_programa_lista:
+
+                    st.caption(
+                        "Nenhum resultado cadastrado para este programa."
+                    )
+
+                else:
+
+                    st.write("")
+
+                    # Organiza as ações estratégicas pelos resultados relacionados.
+                    mapa_acoes_por_resultado = {}
+
+                    for acao in acoes_estrategicas_lista:
+
+                        acao_id = str(acao.get("_id", ""))
+
+                        if not acao_id:
+                            continue
+
+                        resultados_relacionados = normalizar_lista_ids(
+                            acao.get(
+                                "resultados_programa_relacionados",
+                                []
+                            )
+                        )
+
+                        for resultado_id in resultados_relacionados:
+
+                            mapa_acoes_por_resultado.setdefault(
+                                resultado_id,
+                                []
+                            ).append(acao)
+
+                    # Exibe cada resultado como um bloco principal.
+                    for resultado in resultados_programa_lista:
+
+                        titulo_resultado = resultado.get(
+                            "titulo",
+                            "Sem título"
+                        )
+
+                        resultado_id = str(
+                            resultado.get("_id", "")
+                        )
+
+                        st.markdown(f"##### {titulo_resultado}")
+
+                        acoes_do_resultado = mapa_acoes_por_resultado.get(
+                            resultado_id,
+                            []
+                        )
+
+                        if not acoes_do_resultado:
+
+                            st.caption(
+                                "Nenhuma ação estratégica vinculada a este resultado."
+                            )
+
+                            continue
+
+                        # Exibe as ações estratégicas vinculadas ao resultado.
+                        for acao in acoes_do_resultado:
+
+                            acao_id = str(
+                                acao.get("_id", "")
+                            )
+
+                            nome_acao = acao.get(
+                                "acao_estrategica",
+                                "Sem título"
+                            )
+
+                            with st.expander(
+                                nome_acao,
+                                expanded=True
+                            ):
+
+                                mapa_entregas = {}
+
+                                # Localiza as entregas relacionadas à ação estratégica.
+                                for projeto_doc in dados_projetos_ispn:
+
+                                    sigla_projeto = projeto_doc.get(
+                                        "sigla",
+                                        ""
+                                    )
+
+                                    for entrega_doc in projeto_doc.get(
+                                        "entregas",
+                                        []
+                                    ):
+
+                                        ids_acoes_da_entrega = (
+                                            normalizar_lista_ids(
+                                                entrega_doc.get(
+                                                    "acoes_relacionadas",
+                                                    []
+                                                )
+                                            )
+                                        )
+
+                                        if acao_id not in ids_acoes_da_entrega:
+                                            continue
+
+                                        # Utiliza os principais atributos da entrega
+                                        # para evitar duplicidades na apresentação.
+                                        chave_entrega = (
+                                            entrega_doc.get(
+                                                "nome_da_entrega",
+                                                ""
+                                            ),
+                                            entrega_doc.get(
+                                                "situacao",
+                                                ""
+                                            ),
+                                            entrega_doc.get(
+                                                "previsao_da_conclusao",
+                                                ""
+                                            ),
+                                            entrega_doc.get(
+                                                "progresso"
+                                            )
+                                        )
+
+                                        anos_entrega = gerar_anos_intervalo(
+                                            entrega_doc.get("data_inicio"),
+                                            entrega_doc.get(
+                                                "previsao_da_conclusao"
+                                            )
+                                        )
+
+                                        if chave_entrega not in mapa_entregas:
+
+                                            progresso = entrega_doc.get(
+                                                "progresso"
+                                            )
+
+                                            mapa_entregas[chave_entrega] = {
+                                                "Projetos": set(),
+                                                "Entrega": entrega_doc.get(
+                                                    "nome_da_entrega",
+                                                    ""
+                                                ),
+                                                "Situação": entrega_doc.get(
+                                                    "situacao",
+                                                    ""
+                                                ),
+                                                "Previsão": entrega_doc.get(
+                                                    "previsao_da_conclusao",
+                                                    ""
+                                                ),
+                                                "Ano(s) de Referência": (
+                                                    ", ".join(
+                                                        map(
+                                                            str,
+                                                            anos_entrega
+                                                        )
+                                                    )
+                                                ),
+                                                "Progresso": (
+                                                    f"{progresso}%"
+                                                    if progresso
+                                                    not in [None, ""]
+                                                    else ""
+                                                )
+                                            }
+
+                                        if sigla_projeto:
+
+                                            mapa_entregas[
+                                                chave_entrega
+                                            ][
+                                                "Projetos"
+                                            ].add(sigla_projeto)
+
+                                        # Inclui também os projetos explicitamente
+                                        # relacionados à entrega.
+                                        projetos_relacionados = (
+                                            entrega_doc.get(
+                                                "projetos_relacionados",
+                                                []
+                                            )
+                                        )
+
+                                        if not isinstance(
+                                            projetos_relacionados,
+                                            list
+                                        ):
+                                            projetos_relacionados = [
+                                                projetos_relacionados
+                                            ]
+
+                                        for projeto_rel in (
+                                            projetos_relacionados
+                                        ):
+
+                                            projeto_rel_str = str(
+                                                projeto_rel
+                                            )
+
+                                            sigla_rel = (
+                                                mapa_id_para_sigla_projeto.get(
+                                                    projeto_rel_str
+                                                )
+                                            )
+
+                                            if sigla_rel:
+
+                                                mapa_entregas[
+                                                    chave_entrega
+                                                ][
+                                                    "Projetos"
+                                                ].add(sigla_rel)
+
+                                entregas_relacionadas = []
+
+                                for entrega in mapa_entregas.values():
+
+                                    entrega["Projetos"] = ", ".join(
+                                        sorted(
+                                            entrega["Projetos"]
+                                        )
+                                    )
+
+                                    entregas_relacionadas.append(
+                                        entrega
+                                    )
+
+                                if entregas_relacionadas:
+
+                                    st.markdown("**Entregas:**")
+
+                                    df_entregas = pd.DataFrame(
+                                        entregas_relacionadas
+                                    )
+
+                                    ui.table(
+                                        data=df_entregas,
+                                        maxHeight=400,
+                                        key=(
+                                            f"tabela_entregas_resultados_acoes_"
+                                            f"{id_programa}_"
+                                            f"{resultado_id}_"
+                                            f"{acao_id}"
+                                        )
+                                    )
+
+                                else:
+
+                                    st.caption(
+                                        "Nenhuma entrega vinculada a esta ação estratégica."
+                                    )
+
+                        st.write('')
+
+
+
+            # #############################################
+            # RELATÓRIOS ANUAIS
+            # #############################################
 
             # Não mostra aba de relatórios para "ADM Santa Inês"
             elif titulo_programa != "ADM Santa Inês" and pagina == "Relatórios Anuais":                 
