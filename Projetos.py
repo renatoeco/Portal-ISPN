@@ -1788,9 +1788,6 @@ if "projeto_selecionado_projetos" not in st.session_state:
 st.write('')
 
 
-# tab1, tab2, tab3 = st.tabs(["Visão geral", "Projeto", "Entregas"])
-#tab1, tab2 = st.tabs(["Visão geral", "Projeto"])
-
 # VISÃO GERAL -------------------------------------------------------------
 
 
