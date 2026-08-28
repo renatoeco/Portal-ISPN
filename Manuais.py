@@ -111,7 +111,7 @@ with st.expander("CÓDIGO DE ÉTICA"):
 
 
 
-# CÓDIGO DE ÉTICA
+# GUIA SOBRE ISBN E FICHA CATALOGRÁFICA PARA PUBLICAÇÕES DO ISPN
 with st.expander("GUIA SOBRE ISBN E FICHA CATALOGRÁFICA PARA PUBLICAÇÕES DO ISPN"):
     st.write("""Este guia orienta o processo de solicitação de ISBN e Ficha Catalográfica para
                 publicações do ISPN por meio do site da CBL (Câmara Brasileira do Livro).""")
@@ -124,6 +124,25 @@ with st.expander("GUIA SOBRE ISBN E FICHA CATALOGRÁFICA PARA PUBLICAÇÕES DO I
             type="tertiary",
             icon=":material/open_in_new:"
         )
+
+
+
+
+# FUNDO ECOS
+with st.expander("FUNDO ECOS"):
+    st.write("""Passo a passo para a configuração de Editais e cadastro de Projetos no sistema Coruja 2.""")
+    
+    with st.container(horizontal=True, horizontal_alignment="distribute"):
+        st.write("Versão: junho de 2026")
+        st.link_button(
+            label="Ver documento",
+            url="https://drive.google.com/file/d/1hIxsfwNql3EmcqkENeN5RS-YMZgcmaux/view?usp=sharing", 
+            type="tertiary",
+            icon=":material/open_in_new:"
+        )
+
+
+
 
 
 
