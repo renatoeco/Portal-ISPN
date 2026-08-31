@@ -3123,6 +3123,24 @@ with tab_projetos:
 
 
                                     # --------------------------------------------------
+                                    # Número de registros / lançamentos
+                                    # --------------------------------------------------
+
+                                    lancamentos = entrega.get(
+                                        "lancamentos_entregas",
+                                        []
+                                    )
+
+                                    if not isinstance(lancamentos, list):
+                                        lancamentos = []
+
+                                    quantidade_lancamentos = len(lancamentos)
+
+                                    st.markdown(
+                                        f"**Registros:** {quantidade_lancamentos}"
+                                    )
+
+                                    # --------------------------------------------------
                                     # Previsão de conclusão
                                     # --------------------------------------------------
 
