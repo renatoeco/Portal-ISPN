@@ -106,7 +106,7 @@ for proj in dados_projetos_ispn:
 
     for entrega in proj.get("entregas", []):
 
-        if not entrega.get("acoes_relacionadas"):
+        if not entrega.get("acoes_estrat_programa"):
             continue
 
         anos_ref = gerar_anos_intervalo(
@@ -4200,7 +4200,7 @@ for i, aba in enumerate(abas):
                                     
                                     acao_id = str(acao["_id"])
                                     ids_acoes_da_entrega = normalizar_lista_ids(
-                                        entrega_doc.get("acoes_relacionadas", [])
+                                        entrega_doc.get("acoes_estrat_programa", [])
                                     )
                                     
                                     if acao_id not in ids_acoes_da_entrega:
@@ -4615,7 +4615,7 @@ for i, aba in enumerate(abas):
                                         ids_acoes_da_entrega = (
                                             normalizar_lista_ids(
                                                 entrega_doc.get(
-                                                    "acoes_relacionadas",
+                                                    "acoes_estrat_programa",
                                                     []
                                                 )
                                             )
