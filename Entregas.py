@@ -1014,7 +1014,7 @@ def carregar_entregas():
                 "acoes_resultados_medio_prazo": entrega.get("acoes_resultados_medio_prazo", []),
                 "resultados_longo_prazo_relacionados": entrega.get("resultados_longo_prazo_relacionados", []),
                 "eixos_relacionados": entrega.get("eixos_relacionados", []),
-                "acoes_relacionadas": entrega.get("acoes_relacionadas", []),
+                "acoes_estrat_programa": entrega.get("acoes_estrat_programa", []),
                 "metas_resultados_medio_prazo": entrega.get("metas_resultados_medio_prazo", []),
                 "indicadores_relacionados": entrega.get("indicadores_relacionados", []),
 
@@ -1040,7 +1040,7 @@ def carregar_entregas():
             "acoes_resultados_medio_prazo",
             "resultados_longo_prazo_relacionados",
             "eixos_relacionados",
-            "acoes_relacionadas",
+            "acoes_estrat_programa",
             "metas_resultados_medio_prazo",
             "indicadores_relacionados",
 

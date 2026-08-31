@@ -612,7 +612,7 @@ def dialog_editar_entregas():
                             "situacao": situacao,
                             "progresso": int(progresso_nova_entrega),
                             "data_inicio": data_inicio.strftime("%d/%m/%Y"),
-                            "acoes_relacionadas": [ObjectId(a) for a in acoes_relacionados],
+                            "acoes_estrat_programa": [ObjectId(a) for a in acoes_relacionados],
                             "indicadores_relacionados": [ObjectId(i) for i in indicadores_relacionados],
                             "projetos_relacionados": [ObjectId(p) for p in projetos_relacionados],
                         }
@@ -765,7 +765,7 @@ def dialog_editar_entregas():
                         
 
                         # Ações estratégicas do programa
-                        acoes = entrega.get("acoes_relacionadas", [])
+                        acoes = entrega.get("acoes_estrat_programa", [])
                         if acoes:
                             st.markdown("**Ações estratégicas do programa/área:**")
                             for a in acoes:
@@ -914,17 +914,17 @@ def dialog_editar_entregas():
                                 for p in entrega_editada["projetos_relacionados"]
                             ]
 
-                            entrega_editada["acoes_relacionadas"] = [
-                                ObjectId(a) for a in entrega_editada["acoes_relacionadas"]
+                            entrega_editada["acoes_estrat_programa"] = [
+                                ObjectId(a) for a in entrega_editada["acoes_estrat_programa"]
                             ]
 
                             acoes_programa_default = [
                                 str(a)
-                                for a in entrega.get("acoes_relacionadas", [])
+                                for a in entrega.get("acoes_estrat_programa", [])
                                 if str(a) in acoes_programa_options
                             ]
 
-                            entrega_editada["acoes_relacionadas"] = st.multiselect(
+                            entrega_editada["acoes_estrat_programa"] = st.multiselect(
                                 "Contribui com quais ações estratégicas do programa/área?",
                                 options=acoes_programa_options,
                                 default=acoes_programa_default,
@@ -935,8 +935,8 @@ def dialog_editar_entregas():
                                 placeholder=""
                             )
 
-                            entrega_editada["acoes_relacionadas"] = [
-                                ObjectId(a) for a in entrega_editada["acoes_relacionadas"]
+                            entrega_editada["acoes_estrat_programa"] = [
+                                ObjectId(a) for a in entrega_editada["acoes_estrat_programa"]
                             ]
 
                             default_ids = [str(i) for i in entrega.get("indicadores_relacionados", [])]
