@@ -1241,7 +1241,7 @@ BLOCOS_CATEGORIAS = [
     {"categoria": "Financeiro", "coluna": 1},
     {"categoria": "Comunicação", "coluna": 2},
     {"categoria": "Só projetos Fundo Ecos", "coluna": 1},
-    {"categoria": "Só projetos institucionais", "coluna": 2},
+    {"categoria": "Incidência política e articulação", "coluna": 2},
 ]
 
 @st.cache_data(ttl=600, show_spinner=False)
