@@ -2899,343 +2899,405 @@ with tab_projetos:
                 ajustar_altura_dataframe(df_indicadores.drop(columns=["Valor_num"], errors="ignore"), linhas_adicionais=1)
 
 
-        # ##########################################################
-        # Entregas
-        # ##########################################################
 
 
-        if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)", "gestao_projetos"}:
 
-            with tab_entregas:
-                st.write('**Entregas:**')
 
-                # ============================================================
-                # CARREGAR ENTREGAS DO PROJETO + ENTREGAS RELACIONADAS
-                # ============================================================
 
-                # Lista final de entregas que aparecerão na aba
-                entregas = []
 
-                # Buscar todos os projetos
-                todos_projetos = list(projetos_ispn.find())
 
-                for proj in todos_projetos:
+        # ==========================================================
+        # INTERFACE - ENTREGAS
+        # ==========================================================
 
-                    entregas_projeto = proj.get("entregas", [])
+        with tab_entregas:
 
-                    if not isinstance(entregas_projeto, list):
-                        continue
+            @st.fragment
+            def render_entregas():
 
-                    for entrega in entregas_projeto:
+                # --------------------------------------------------
+                # Estado da entrega selecionada
+                # --------------------------------------------------
 
-                        # ----------------------------------------------------
-                        # Projeto dono da entrega
-                        # ----------------------------------------------------
-                        projeto_dono_id = proj.get("_id")
+                if "entrega_selecionada_id" not in st.session_state:
+                    st.session_state["entrega_selecionada_id"] = None
 
-                        # ----------------------------------------------------
-                        # Projetos relacionados da entrega
-                        # ----------------------------------------------------
-                        projetos_relacionados = entrega.get(
-                            "projetos_relacionados",
+
+                # --------------------------------------------------
+                # Dados das entregas
+                # --------------------------------------------------
+
+                entregas = projeto.get("entregas", [])
+
+                if not isinstance(entregas, list):
+                    entregas = []
+
+
+
+                # --------------------------------------------------
+                # Inicialização dos estados dos checkboxes
+                # --------------------------------------------------
+
+                for entrega in entregas:
+
+                    entrega_id = str(entrega.get("_id"))
+
+                    chave_checkbox = f"checkbox_entrega_{entrega_id}"
+
+                    if chave_checkbox not in st.session_state:
+
+                        st.session_state[chave_checkbox] = False
+
+
+
+                # --------------------------------------------------
+                # Callback de seleção
+                # --------------------------------------------------
+
+
+                def alterar_entrega_selecionada(entrega_id):
+
+                    """
+                    Atualiza a entrega selecionada e garante que somente
+                    um checkbox permaneça marcado simultaneamente.
+                    """
+
+                    entrega_id = str(entrega_id)
+
+                    chave_checkbox = f"checkbox_entrega_{entrega_id}"
+
+                    selecionada = st.session_state.get(
+                        chave_checkbox,
+                        False
+                    )
+
+                    if selecionada:
+
+                        # Registra a entrega atualmente selecionada.
+                        st.session_state["entrega_selecionada_id"] = entrega_id
+
+                        # Desmarca todos os demais checkboxes.
+                        for entrega in entregas:
+
+                            outro_id = str(entrega.get("_id"))
+
+                            if outro_id != entrega_id:
+
+                                outra_chave = f"checkbox_entrega_{outro_id}"
+
+                                st.session_state[outra_chave] = False
+
+                    else:
+
+                        # Remove a seleção quando o checkbox atualmente selecionado
+                        # é desmarcado.
+                        if (
+                            st.session_state.get("entrega_selecionada_id")
+                            == entrega_id
+                        ):
+
+                            st.session_state["entrega_selecionada_id"] = None
+
+
+
+
+                # --------------------------------------------------
+                # Layout principal
+                # --------------------------------------------------
+                st.write('')
+                st.write('')
+
+                st.write("*Selecione a **Entrega planejada** para visualizar os seus **Registros**.*")
+
+                st.write('')
+
+
+                col_entregas, col_registros = st.columns([1, 1], gap="medium")
+
+
+                # ==================================================
+                # COLUNA 1 — ENTREGAS PLANEJADAS
+                # ==================================================
+
+                with col_entregas:
+
+                    st.markdown("#### Entregas planejadas")
+
+                    if not entregas:
+
+                        st.caption("Nenhuma entrega cadastrada.")
+
+                    else:
+
+                        for entrega in entregas:
+
+                            entrega_id = str(entrega.get("_id"))
+
+                            chave_checkbox = f"checkbox_entrega_{entrega_id}"
+
+
+                            # --------------------------------------------------
+                            # Container da entrega
+                            # --------------------------------------------------
+
+                            with st.container(border=True):
+
+                                with st.container(horizontal=True):
+
+                                    st.checkbox(
+                                        "",
+                                        key=chave_checkbox,
+                                        on_change=alterar_entrega_selecionada,
+                                        args=(entrega_id,)
+                                    )
+
+
+                                    # --------------------------------------------------
+                                    # Nome da entrega
+                                    # --------------------------------------------------
+
+                                    nome_entrega = entrega.get(
+                                        "nome_da_entrega",
+                                        "Entrega sem nome"
+                                    )
+
+                                    st.markdown(
+                                        f"**{nome_entrega}**"
+                                    )
+
+
+
+                                # --------------------------------------------------
+                                # Responsáveis
+                                # --------------------------------------------------
+
+                                responsaveis_ids = entrega.get(
+                                    "responsaveis",
+                                    []
+                                )
+
+                                if not isinstance(responsaveis_ids, list):
+                                    responsaveis_ids = []
+
+
+                                responsaveis_nomes = []
+
+                                for responsavel_id in responsaveis_ids:
+
+                                    nome = mapa_coordenador.get(
+                                        str(responsavel_id)
+                                    )
+
+                                    if nome:
+                                        responsaveis_nomes.append(nome)
+
+
+                                responsaveis_texto = (
+                                    ", ".join(responsaveis_nomes)
+                                    if responsaveis_nomes
+                                    else "Não informado"
+                                )
+
+
+                                st.markdown(
+                                    f"**Responsável(is):** {responsaveis_texto}"
+                                )
+
+
+                                with st.container(horizontal=True, horizontal_alignment="distribute"):
+
+
+                                    # --------------------------------------------------
+                                    # Situação
+                                    # --------------------------------------------------
+
+                                    situacao = entrega.get(
+                                        "situacao",
+                                        "Não informada"
+                                    )
+
+                                    st.markdown(
+                                        f"**Situação:** {situacao}"
+                                    )
+
+
+
+                                    # --------------------------------------------------
+                                    # Previsão de conclusão
+                                    # --------------------------------------------------
+
+                                    previsao = entrega.get(
+                                        "previsao_da_conclusao"
+                                    )
+
+                                    if previsao:
+
+                                        st.markdown(
+                                            f":material/schedule: {previsao}"
+                                        )
+
+
+
+                                # --------------------------------------------------
+                                # Progresso
+                                # --------------------------------------------------
+
+                                progresso = entrega.get(
+                                    "progresso",
+                                    0
+                                )
+
+                                try:
+                                    progresso = float(progresso)
+                                except (TypeError, ValueError):
+                                    progresso = 0
+
+
+                                progresso = max(
+                                    0,
+                                    min(100, progresso)
+                                )
+
+
+                                st.progress(
+                                    progresso / 100,
+                                    text=f"Progresso: {progresso:.0f}%"
+                                )
+
+
+
+
+
+                # --------------------------------------------------
+                # Identificação atual da entrega selecionada
+                # --------------------------------------------------
+
+                entrega_selecionada_id = st.session_state.get(
+                    "entrega_selecionada_id"
+                )
+
+                entrega_selecionada = None
+
+                if entrega_selecionada_id:
+
+                    for entrega in entregas:
+
+                        if str(entrega.get("_id")) == str(entrega_selecionada_id):
+
+                            entrega_selecionada = entrega
+                            break
+
+
+
+
+
+
+                # ==================================================
+                # COLUNA 2 — REGISTROS
+                # ==================================================
+
+                with col_registros:
+
+                    st.markdown("#### Registros")
+
+
+                    # Nome da entrega selecionada
+                    if entrega_selecionada is not None:
+
+                        nome_entrega_selecionada = entrega_selecionada.get(
+                            "nome_da_entrega",
+                            "Entrega sem nome"
+                        )
+
+                        st.markdown(
+                            f"##### Entrega: {nome_entrega_selecionada}"
+                        )
+
+
+                    if entrega_selecionada is None:
+
+                        st.caption(
+                            "Selecione uma Entrega na coluna da esquerda"
+                        )
+
+                    else:
+
+                        lancamentos = entrega_selecionada.get(
+                            "lancamentos_entregas",
                             []
                         )
 
-                        # Garantir lista
-                        if not isinstance(projetos_relacionados, list):
-                            projetos_relacionados = []
+                        if not isinstance(lancamentos, list):
+                            lancamentos = []
 
-                        # Converter tudo para string
-                        projetos_relacionados_str = [
-                            str(p) for p in projetos_relacionados
-                        ]
 
-                        # ----------------------------------------------------
-                        # REGRA:
-                        # Mostrar se:
-                        #
-                        # 1) A entrega pertence ao projeto atual
-                        # OU
-                        # 2) O projeto atual está nos relacionados
-                        # ----------------------------------------------------
-                        if (
-                            str(projeto_dono_id) == str(projeto_id)
-                            or str(projeto_id) in projetos_relacionados_str
-                        ):
+                        if not lancamentos:
 
-                            # Adiciona informação do projeto origem
-                            entrega["projeto_origem_sigla"] = proj.get("sigla", "-")
-                            entrega["projeto_origem_nome"] = proj.get(
-                                "nome_do_projeto",
-                                "-"
+                            st.caption(
+                                "Nenhum registro cadastrado para esta entrega."
                             )
 
-                            entregas.append(entrega)
+                        else:
 
-                if not entregas:
+                            # --------------------------------------------------
+                            # Renderização dos registros
+                            # --------------------------------------------------
 
-                    # ====================
-                    # Botão para abrir o diálogo de Gerenciar entregas
-                    # ====================
-                    if pode_gerenciar_projeto:
-                        with st.container(horizontal_alignment="right"):
-                            st.write('')    
-                            if st.button("Gerenciar entregas", icon=":material/edit:", width=300):
+                            for lancamento in lancamentos:
 
-                                # SINCRONIZAÇÃO EXPLÍCITA
-                                st.session_state["projeto_selecionado_entregas"] = (
-                                    st.session_state.get("projeto_selecionado_projetos")
-                                )
+                                with st.container(border=True):
 
-                                st.session_state["pagina_anterior"] = "pagina_projetos"
+                                    # Linha com ano e autor
+                                    with st.container(horizontal=True):
 
-                                dialog_editar_entregas()
+                                        # Ano do registro
+                                        ano = lancamento.get(
+                                            "ano",
+                                            "Não informado"
+                                        )
 
-
-                        
-                        st.write("_Não há entregas cadastradas para este projeto._")
-
-                else:
-                    
-                    # Criar dicionário de responsáveis
-                    df_pessoas_ordenado = df_pessoas.sort_values("nome_completo", ascending=True)
-                    responsaveis_dict = {
-                        str(row["_id"]): row["nome_completo"]
-                        for _, row in df_pessoas_ordenado.iterrows()
-                    }
-
-                    # Montar lista
-                    dados_entregas = []
-                    for entrega in entregas:
-                        responsaveis_ids = [
-                            str(r.get("$oid")) if isinstance(r, dict) else str(r)
-                            for r in entrega.get("responsaveis", [])
-                        ]
-                        responsaveis_nomes = [
-                            responsaveis_dict.get(rid, f"ID não encontrado: {rid}")
-                            for rid in responsaveis_ids
-                        ]
-
-                        # Verifica se a entrega veio de outro projeto
-                        eh_projeto_relacionado = (
-                            entrega.get("projeto_origem_sigla") != projeto_selecionado
-                        )
-
-                        linha = {
-                            "Entregas": entrega.get("nome_da_entrega", "-"),
-                            "Data de início": entrega.get("data_inicio", "-"),
-                            "Previsão de Conclusão": entrega.get("previsao_da_conclusao", "-"),
-                            "Responsáveis": ", ".join(responsaveis_nomes) if responsaveis_nomes else "-",
-                            "Situação": entrega.get("situacao", "-"),
-                        }
-
-                        # Só mostra a coluna para entregas vindas de outros projetos
-                        if eh_projeto_relacionado:
-                            linha["Projeto principal"] = entrega.get("projeto_origem_sigla", "-")
-
-                        dados_entregas.append(linha)
-
-                    df_entregas = pd.DataFrame(dados_entregas)
-
-                    # Remove a coluna se nenhuma entrega relacionada existir
-                    if "Projeto principal" in df_entregas.columns:
-
-                        valores_validos = (
-                            df_entregas["Projeto principal"]
-                            .fillna("")
-                            .astype(str)
-                            .str.strip()
-                        )
-
-                        if (valores_validos == "").all():
-                            df_entregas = df_entregas.drop(columns=["Projeto principal"])
-
-                    # ===============================================================
-                    # FILTROS e BOTÃO PARA GERENCIAR ENTREGAS
-                    # ===============================================================
-
-                    # Opções únicas para filtros
-                    situacoes = sorted(df_entregas["Situação"].dropna().unique().tolist())
-                    
-                    # Buscar menor previsão de conclusão diretamente do MongoDB
-                    pipeline = [
-                        {"$unwind": "$entregas"},
-                        {"$match": {"entregas.previsao_da_conclusao": {"$ne": None, "$ne": ""}}},
-                        {
-                            "$group": {
-                                "_id": None,
-                                "min_data": {"$min": "$entregas.previsao_da_conclusao"}
-                            }
-                        }
-                    ]
-
-                    resultado = list(projetos_ispn.aggregate(pipeline))
-
-                    # Definir data_inicio padrão
-                    if resultado and resultado[0].get("min_data"):
-                        data_inicio_default = pd.to_datetime(
-                            resultado[0]["min_data"],
-                            format="%d/%m/%Y",
-                            errors="coerce"
-                        )
-                    else:
-                        data_inicio_default = pd.to_datetime(datetime.date.today())
-
-                    # Converter data de início para datetime
-                    df_entregas["Data de início"] = pd.to_datetime(
-                        df_entregas["Data de início"],
-                        format="%d/%m/%Y",
-                        errors="coerce"
-                    )
-
-                    # Converter previsão para datetime
-                    df_entregas["Previsão de Conclusão"] = pd.to_datetime(
-                        df_entregas["Previsão de Conclusão"],
-                        format="%d/%m/%Y",
-                        errors="coerce"
-                    )
+                                        st.caption(
+                                            f"**{ano}**"
+                                        )
 
 
-                    # ====================
-                    # Botão para abrir o diálogo de Gerenciar entregas
-                    # ====================
-                    if pode_gerenciar_projeto:
-                        with st.container(horizontal_alignment="right"):
-                            st.write('')    
-                            if st.button("Gerenciar entregas", icon=":material/edit:", width=300):
+                                        with st.container():
 
-                                # SINCRONIZAÇÃO EXPLÍCITA
-                                st.session_state["projeto_selecionado_entregas"] = (
-                                    st.session_state.get("projeto_selecionado_projetos")
-                                )
+                                            # Autor do registro
+                                            autor = lancamento.get(
+                                                "autor",
+                                                "Não informado"
+                                            )
 
-                                st.session_state["pagina_anterior"] = "pagina_projetos"
-
-                                dialog_editar_entregas()
-
-                            st.write('')    
-                            
-
-                    @st.fragment
-                    def render_tabela_entregas(df_entregas, situacoes):
-                        """
-                        Fragment responsável EXCLUSIVAMENTE pela renderização da tabela de entregas.
-
-                        Tudo que estiver aqui será recarregado de forma isolada.
-                        Filtros, botões e inputs devem ficar FORA desta função.
-
-                        Parâmetros:
-                        - df_entregas: DataFrame original com todas as entregas
-                        - filtro_situacao: lista de situações selecionadas
-                        - data_inicio: data inicial (ou None)
-                        - data_fim: data final (ou None)
-                        - ordenacao: string indicando critério de ordenação
-                        """
-
-                        with st.container(horizontal=True):
-
-                            with st.container(horizontal=True):
+                                            st.caption(
+                                                f"Registrado por **{autor}**"
+                                            )
 
 
-                                filtro_situacao = st.multiselect(
-                                    "Situação:",
-                                    options=situacoes,
-                                    default=[],
-                                    placeholder="",
-                                    width=250
-                                )
+                                    # Anotações do registro
+                                    anotacoes = lancamento.get(
+                                        "anotacoes",
+                                        ""
+                                    )
 
-                                # Campos de data SEM valor padrão (ficam vazios com placeholder)
-                                data_inicio = st.date_input(
-                                    "Entregas a partir de:",
-                                    value=None,
-                                    format="DD/MM/YYYY",
-                                    width=250
-                                )
+                                    if anotacoes:
 
-                                data_fim = st.date_input(
-                                    "Até:",
-                                    value=None,
-                                    format="DD/MM/YYYY",
-                                    width=250
-                                )
+                                        st.write(anotacoes)
 
-                                # Converter para datetime
-                                data_inicio = pd.to_datetime(data_inicio)
-                                data_fim = pd.to_datetime(data_fim)
+                                    else:
 
-                                # ===============================================================
-                                # ORDENAÇÃO
-                                # ===============================================================
+                                        st.caption(
+                                            "Sem anotações cadastradas."
+                                        )
 
-                                ordenacao = st.radio(
-                                    "Ordenar por:",
-                                    options=["Data de início", "Previsão de Conclusão"],
-                                    horizontal=True
-                                )
 
-                                st.write("")
-                                
-                        # Converter datas
-                        data_inicio = pd.to_datetime(data_inicio) if data_inicio else None
-                        data_fim = pd.to_datetime(data_fim) if data_fim else None
 
-                        # ===============================================================
-                        # FILTRAGEM
-                        # ===============================================================
+            # ------------------------------------------------------
+            # Renderização do fragmento
+            # ------------------------------------------------------
 
-                        df_filtrado = df_entregas.copy()
+            render_entregas()
 
-                        if filtro_situacao:
-                            df_filtrado = df_filtrado[
-                                df_filtrado["Situação"].isin(filtro_situacao)
-                            ]
-
-                        if data_inicio is not None:
-                            df_filtrado = df_filtrado[
-                                df_filtrado["Previsão de Conclusão"] >= data_inicio
-                            ]
-
-                        if data_fim is not None:
-                            df_filtrado = df_filtrado[
-                                df_filtrado["Previsão de Conclusão"] <= data_fim
-                            ]
-
-                        # ===============================================================
-                        # ORDENAÇÃO
-                        # ===============================================================
-
-                        df_filtrado = df_filtrado.sort_values(
-                            by=ordenacao,
-                            ascending=True,
-                            na_position="last"
-                        )
-
-                        # ===============================================================
-                        # FORMATAÇÃO
-                        # ===============================================================
-
-                        df_exibir = df_filtrado.copy()
-
-                        df_exibir["Data de início"] = (
-                            df_exibir["Data de início"]
-                            .dt.strftime("%d/%m/%Y")
-                            .fillna("")
-                        )
-
-                        df_exibir["Previsão de Conclusão"] = (
-                            df_exibir["Previsão de Conclusão"]
-                            .dt.strftime("%d/%m/%Y")
-                            .fillna("")
-                        )
-
-                        # ===============================================================
-                        # TABELA
-                        # ===============================================================
-
-                        ui.table(data=df_exibir)
-                            
-                    render_tabela_entregas(df_entregas, situacoes)
 
 
 
