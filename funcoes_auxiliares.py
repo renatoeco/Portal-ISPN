@@ -467,39 +467,6 @@ def dialog_editar_entregas():
 
             mapa_acoes_programa_formatadas[acao_id] = nome_programa
 
-
-    for doc in dados_estrategia:
-        for resultado in doc.get("resultados_medio_prazo", {}).get("resultados_mp", []):
-
-            # Metas
-            for meta in resultado.get("metas", []):
-                mapa_metas_mp[str(meta["_id"])] = meta["nome_meta_mp"]
-
-            # Ações estratégicas (MP)
-            for acao in resultado.get("acoes_estrategicas", []):
-                mapa_acoes_mp[str(acao["_id"])] = acao["nome_acao_estrategica"]
-    
-    for doc in dados_estrategia:
-        for r in doc.get("resultados_longo_prazo", {}).get("resultados_lp", []):
-
-            for acao in r.get("acoes_estrategicas", []):
-                mapa_acoes_lp[str(acao["_id"])] = acao["nome_acao_estrategica"]
-
-    for doc in dados_estrategia:
-        for eixo in doc.get("estrategia", {}).get("eixos_da_estrategia", []):
-            mapa_eixos[str(eixo["_id"])] = eixo["titulo"]
-            
-    for doc in dados_estrategia:
-        for obj in doc.get("objetivos_estrategicos_institucionais", {}).get("obj_estrat_inst", []):
-            mapa_objetivos[str(obj["_id"])] = obj["titulo"]
-            
-    for doc in dados_estrategia:
-        if "estrategia" in doc:
-            eixos_da_estrategia.extend(
-                [e.get("titulo") for e in doc["estrategia"].get("eixos_da_estrategia", []) if e.get("titulo")]
-            )
-
-
     # Mapeia ações estratégicas considerando múltiplos programas
     programas_ids = set(programas_do_projeto)
 
@@ -510,13 +477,6 @@ def dialog_editar_entregas():
             mapa_acoes_programa.get(x, "").lower()
         )
     )
-
-
-    metas_mp_options = sorted(mapa_metas_mp.keys(), key=lambda x: mapa_metas_mp[x])
-    acoes_mp_options = sorted(mapa_acoes_mp.keys(), key=lambda x: mapa_acoes_mp[x])
-    acoes_lp_options = sorted(mapa_acoes_lp.keys(),key=lambda x: mapa_acoes_lp[x])
-    eixos_options = sorted(mapa_eixos.keys(), key=lambda x: mapa_eixos[x])
-    objetivos_options = sorted(mapa_objetivos.keys(), key=lambda x: mapa_objetivos[x])
         
     #  Criar lista de opções (nome + _id) ordenadas alfabeticamente
     df_pessoas_ordenado = df_pessoas.sort_values("nome_completo", ascending=True)
