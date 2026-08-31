@@ -273,7 +273,7 @@ def gerenciar_programa_dialog(programa):
         for r in resultados_programa
     }
 
-    opcoes_resultados_programa = list(mapa_resultados_programa.keys())
+    opcoes_resultados_programa = sorted(mapa_resultados_programa.keys(), key=lambda x: mapa_resultados_programa[x].lower())
 
     # ===============================
     # MAPAS ID -> NOME
