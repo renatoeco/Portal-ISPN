@@ -1074,71 +1074,55 @@ def buscar_entregas_relacionadas_por_id(
     *,
     projetos_db,
     responsaveis_dict,
-    eixo_id=None,
-    acoes_rm_relacionados=None,
-    resultado_lp_id=None,
+    acoes_programa_ids=None,
     programas=None,
     anos_referencia=None,
     projetos=None
 ):
+    """
+    Retorna as entregas relacionadas a um conjunto de ações estratégicas
+    de programas/áreas (acoes_programa_ids). O vínculo com eixos,
+    resultados de médio/longo prazo e objetivos estratégicos agora é
+    indireto: passa pela ação estratégica do programa vinculada à entrega
+    (campo 'acoes_estrat_programa').
+    """
+
     entregas_filtradas = []
-    
+
+    if not acoes_programa_ids:
+        return entregas_filtradas
+
+    acoes_programa_ids = set(acoes_programa_ids)
+
     for projeto in projetos_db:
         sigla = projeto.get("sigla", "-")
-        
-        # -------------------------
-        # FILTRO POR PROJETO
-        # -------------------------        
-        if projetos:
-            if sigla not in projetos:
-                continue
-            
+
+        if projetos and sigla not in projetos:
+            continue
+
         for entrega in projeto.get("entregas", []):
-            eixos_ids = normalizar_lista_ids(entrega.get("eixos_relacionados", []))
-            acoes_mp_ids = normalizar_lista_ids(entrega.get("acoes_resultados_medio_prazo", []))
-            acoes_lp_ids = normalizar_lista_ids(entrega.get("acoes_resultados_longo_prazo", []))
-            resultados_lp_ids = normalizar_lista_ids(
-                entrega.get("resultados_longo_prazo_relacionados", [])
+            acoes_entrega_ids = normalizar_lista_ids(
+                entrega.get("acoes_estrat_programa", [])
             )
-            
-            relacionada = (
-                (eixo_id and eixo_id in eixos_ids)
-                or
-                (
-                    (acoes_rm_relacionados and acoes_rm_relacionados in acoes_mp_ids)
-                    or (acoes_rm_relacionados and acoes_rm_relacionados in acoes_lp_ids)
-                )
-                or
-                (resultado_lp_id and resultado_lp_id in resultados_lp_ids)
-            )
-            
-            if not relacionada:
+
+            if not acoes_programa_ids.intersection(acoes_entrega_ids):
                 continue
-            
-            # -------------------------
-            # FILTRO POR PROGRAMA 
-            # -------------------------
+
             if programas:
                 programas_projeto = normalizar_lista_ids(projeto.get("programas", []))
                 if not any(p in programas for p in programas_projeto):
                     continue
-                
-            # -------------------------
-            # FILTRO POR ANO DE REFERÊNCIA
-            # -------------------------
+
             if anos_referencia:
                 anos_entrega = set(entrega.get("anos_de_referencia", []) or [])
                 if not anos_entrega.intersection(set(anos_referencia)):
                     continue
-                
+
             progresso = entrega.get("progresso")
             progresso_formatado = (
                 f"{progresso}%" if progresso not in [None, ""] else ""
             )
-            
-            # -------------------------
-            # ENTREGA VÁLIDA
-            # -------------------------
+
             entregas_filtradas.append({
                 "Projeto": sigla,
                 "Entrega": entrega.get("nome_da_entrega", "-"),
@@ -1153,7 +1137,7 @@ def buscar_entregas_relacionadas_por_id(
                 ),
                 "Progresso": progresso_formatado
             })
-            
+
     return entregas_filtradas
 
 
@@ -1268,6 +1252,55 @@ def carregar_programas():
             {"nome_programa_area": 1}
         )
     )
+    
+
+@st.cache_data(ttl=300, show_spinner=False)
+def carregar_acoes_estrategicas_programas():
+    """
+    Carrega todas as ações estratégicas de todos os programas/áreas,
+    já achatadas em uma lista única, cada uma trazendo os
+    relacionamentos com eixos, resultados de médio/longo prazo e
+    objetivos estratégicos organizacionais.
+    """
+    programas_db = programas_areas.find(
+        {"acoes_estrategicas": {"$exists": True, "$ne": []}},
+        {"nome_programa_area": 1, "acoes_estrategicas": 1}
+    )
+
+    acoes_flat = []
+
+    for programa in programas_db:
+        programa_id = str(programa["_id"])
+        programa_nome = programa.get("nome_programa_area", "-")
+
+        for acao in programa.get("acoes_estrategicas", []):
+            acoes_flat.append({
+                "id": str(acao["_id"]),
+                "nome": acao.get("acao_estrategica", "Ação sem nome"),
+                "programa_id": programa_id,
+                "programa_nome": programa_nome,
+                "eixo_relacionado": normalizar_lista_ids(acao.get("eixo_relacionado", [])),
+                "resultados_medio_prazo_relacionados": normalizar_lista_ids(acao.get("resultados_medio_prazo_relacionados", [])),
+                "resultados_longo_prazo_relacionados": normalizar_lista_ids(acao.get("resultados_longo_prazo_relacionados", [])),
+                "objetivos_estrategicos_relacionados": normalizar_lista_ids(acao.get("objetivos_estrategicos_relacionados", [])),
+            })
+
+    return acoes_flat
+
+
+def acoes_programa_relacionadas(todas_acoes_programa, campo, elemento_id):
+    """
+    Retorna as ações estratégicas de programas/áreas relacionadas a um
+    eixo, resultado de médio/longo prazo ou objetivo estratégico
+    organizacional específico. 'campo' é o nome do campo de
+    relacionamento dentro de cada ação (ex.: 'eixo_relacionado',
+    'resultados_medio_prazo_relacionados', 'resultados_longo_prazo_relacionados',
+    'objetivos_estrategicos_relacionados').
+    """
+    return [
+        acao for acao in todas_acoes_programa
+        if elemento_id in acao.get(campo, [])
+    ]
     
     
 def normalizar_id(valor):
@@ -1433,6 +1466,7 @@ mapa_nomes_indicadores = {
 
 nome_para_id_indicadores = mapa_nome_para_id_indicadores(mapa_nomes_indicadores)
 
+todas_acoes_programa = carregar_acoes_estrategicas_programas()
 
 # ------------------------------------------------
 # MODO DE EDIÇÃO GLOBAL
@@ -1556,10 +1590,14 @@ with aba_est:
             
             st.write("")
             
+            acoes_prog_eixo = acoes_programa_relacionadas(
+                todas_acoes_programa, "eixo_relacionado", eixo_id
+            )
+
             entregas_filtradas = buscar_entregas_relacionadas_por_id(
                 projetos_db=projetos_com_entregas,
                 responsaveis_dict=responsaveis_dict,
-                eixo_id=str(eixo["_id"]),
+                acoes_programa_ids=[a["id"] for a in acoes_prog_eixo],
                 programas=st.session_state.get("filtro_programas", []),
                 anos_referencia=st.session_state.get("filtro_anos_referencia", []),
                 projetos=st.session_state.get("filtro_projetos", [])
@@ -1653,40 +1691,49 @@ with aba_res_mp:
             # --------------------------------------------
             st.markdown("##### :material/package_2: Entregas por ação estratégica:")
             st.write("")
-            
+
             acoes_estrategicas = resultado.get("acoes_estrategicas", [])
-            
+
             if not acoes_estrategicas:
                 st.caption("Nenhuma ação estratégica cadastrada para este resultado.")
-            
+
             else:
                 for idx_acao, acao in enumerate(acoes_estrategicas):
                     nome_acao = acao.get(
                         "nome_acao_estrategica",
                         f"Ação {idx_acao + 1}"
                     )
-                    
+                    acao_id = str(acao.get("_id", ""))
+
                     st.write(f"**{nome_acao}**")
+
+                    # Ações de programa vinculadas a esta ação estratégica específica
+                    acoes_prog_relacionadas = acoes_programa_relacionadas(
+                        todas_acoes_programa,
+                        "resultados_medio_prazo_relacionados",
+                        acao_id
+                    )
+
                     entregas_vinculadas = buscar_entregas_relacionadas_por_id(
                         projetos_db=projetos_com_entregas,
                         responsaveis_dict=responsaveis_dict,
-                        acoes_rm_relacionados=str(acao["_id"]),
+                        acoes_programa_ids=[a["id"] for a in acoes_prog_relacionadas],
                         programas=st.session_state.get("filtro_programas", []),
                         anos_referencia=st.session_state.get("filtro_anos_referencia", []),
                         projetos=st.session_state.get("filtro_projetos", [])
                     )
-                    
+
                     if entregas_vinculadas:
                         exibir_entregas_como_tabela(
                             entregas_vinculadas,
                             key_prefix="tabela_entrega_por_acao",
                             key_suffix=f"{idx}_{idx_acao}"
                         )
-                        
+
                     else:
                         st.write("")
                         st.caption("**Nenhuma entrega vinculada a esta ação estratégica.**")
-                        
+
                     st.divider()
             
 # ---------------------------
@@ -1769,40 +1816,48 @@ with aba_res_lp:
                 # ====================================================
                 st.markdown("##### :material/package_2: Entregas por ação estratégica:")
                 st.write("")
-                
+
                 acoes_estrategicas = resultado.get("acoes_estrategicas", [])
+
                 if not acoes_estrategicas:
                     st.caption("Nenhuma ação estratégica cadastrada para este resultado.")
-                
+
                 else:
                     for idx_acao, acao in enumerate(acoes_estrategicas):
                         nome_acao = acao.get(
                             "nome_acao_estrategica",
                             f"Ação {idx_acao + 1}"
                         )
-                        
+                        acao_id = str(acao.get("_id", ""))
+
                         st.write(f"**{nome_acao}**")
-                        
+
+                        acoes_prog_relacionadas = acoes_programa_relacionadas(
+                            todas_acoes_programa,
+                            "resultados_longo_prazo_relacionados",
+                            acao_id
+                        )
+
                         entregas_vinculadas = buscar_entregas_relacionadas_por_id(
                             projetos_db=projetos_com_entregas,
                             responsaveis_dict=responsaveis_dict,
-                            acoes_rm_relacionados=str(acao["_id"]),  # reutiliza mesmo parâmetro
+                            acoes_programa_ids=[a["id"] for a in acoes_prog_relacionadas],
                             programas=st.session_state.get("filtro_programas", []),
                             anos_referencia=st.session_state.get("filtro_anos_referencia", []),
                             projetos=st.session_state.get("filtro_projetos", [])
                         )
-                        
+
                         if entregas_vinculadas:
                             exibir_entregas_como_tabela(
                                 entregas_vinculadas,
                                 key_prefix="tabela_entrega_lp_por_acao",
                                 key_suffix=f"{idx}_{idx_acao}"
                             )
-                            
+
                         else:
                             st.write("")
                             st.caption("**Nenhuma entrega vinculada a esta ação estratégica.**")
-                        
+
                         st.divider()
                 
     else:
@@ -1861,41 +1916,48 @@ with aba_ebj_est_ins:
             # ====================================================
             st.markdown("##### :material/package_2: Entregas por ação estratégica:")
             st.write("")
-            
+
             acoes = objetivo.get("acoes_estrategicas", [])
-            
+
             if not acoes:
                 st.caption("Nenhuma ação estratégica cadastrada.")
-            
+
             else:
                 for idx_acao, acao in enumerate(acoes):
                     nome_acao = acao.get(
                         "acao_estrategica_obj",
-                        f"Ação {idx_acao+1}"
+                        f"Ação {idx_acao + 1}"
                     )
-                    
+                    acao_id = str(acao.get("_id", ""))
+
                     st.write(f"**{nome_acao}**")
-                    
+
+                    acoes_prog_relacionadas = acoes_programa_relacionadas(
+                        todas_acoes_programa,
+                        "objetivos_estrategicos_relacionados",
+                        acao_id
+                    )
+
                     entregas_vinculadas = buscar_entregas_relacionadas_por_id(
                         projetos_db=projetos_com_entregas,
                         responsaveis_dict=responsaveis_dict,
-                        acoes_rm_relacionados=str(acao["_id"]),
+                        acoes_programa_ids=[a["id"] for a in acoes_prog_relacionadas],
                         programas=st.session_state.get("filtro_programas", []),
                         anos_referencia=st.session_state.get("filtro_anos_referencia", []),
                         projetos=st.session_state.get("filtro_projetos", [])
                     )
-                    
+
                     if entregas_vinculadas:
                         exibir_entregas_como_tabela(
                             entregas_vinculadas,
                             key_prefix="tabela_entrega_obj",
                             key_suffix=f"{idx}_{idx_acao}"
                         )
-                        
+
                     else:
                         st.write("")
                         st.caption("**Nenhuma entrega vinculada a esta ação estratégica.**")
-                    
+
                     st.divider()
 
 
