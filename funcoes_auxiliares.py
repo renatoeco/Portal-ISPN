@@ -703,67 +703,8 @@ def dialog_editar_entregas():
 
                         st.write(f"**Demais projetos relacionados:** {projetos_rel_formatados}")
                         
-                        # Resultados de médio prazo
-                        acoes_medio = entrega.get("acoes_resultados_medio_prazo", [])
-                        if acoes_medio:
-                            st.markdown("**Ações estratégicas dos resultados de médio prazo:**")
-                            for a in acoes_medio:
-                                nome = mapa_acoes_mp.get(str(a), "Não encontrado")
-                                st.markdown(f"- {nome}")
-                        else:
-                            st.markdown("**Ações estratégicas dos resultados de médio prazo:** -")
-                        
-                        # Metas dos resultados de médio prazo
-                        metas_entrega = entrega.get("metas_resultados_medio_prazo", [])
-                        if metas_entrega:
-                            st.markdown("**Metas dos resultados de médio prazo:**")
-                            for m in metas_entrega:
-                                nome = mapa_metas_mp.get(str(m), "Não encontrado")
-                                st.markdown(f"- {nome}")
-                        else:
-                            st.markdown("**Metas dos resultados de médio prazo:** -")
-
-                        st.write("")
-
-                        # Resultados de longo prazo
-                        acoes_lp_entrega = entrega.get("acoes_resultados_longo_prazo", [])
-                        if acoes_lp_entrega:
-                            st.markdown("**Ações estratégicas dos resultados de longo prazo:**")
-                            for a in acoes_lp_entrega:
-                                nome = mapa_acoes_lp.get(str(a), "Não encontrado")
-                                st.markdown(f"- {nome}")
-                        else:
-                            st.markdown("**Ações estratégicas dos resultados de longo prazo:** -")
-
-
-                        st.write("")
-
-                        # Eixos estratégicos
-                        eixos = entrega.get("eixos_relacionados", [])
-                        if eixos:
-                            st.markdown("**Eixos estratégicos:**")
-                            for e in eixos:
-                                nome = mapa_eixos.get(str(e), "Não encontrado")
-                                st.markdown(f"- {nome}")
-                        else:
-                            st.markdown("**Eixos estratégicos:** -")
-                            
                         st.write("")
                         
-                        # Objetivos estratégicos organizacionais
-                        objetivos_entrega = entrega.get("objetivos_estrategicos_relacionados", [])
-
-                        if objetivos_entrega:
-                            st.markdown("**Objetivos estratégicos organizacionais:**")
-                            for o in objetivos_entrega:
-                                nome = mapa_objetivos.get(str(o), "Não encontrado")
-                                st.markdown(f"- {nome}")
-                        else:
-                            st.markdown("**Objetivos estratégicos organizacionais:** -")
-                            
-                        st.write("")
-                        
-
                         # Ações estratégicas do programa
                         acoes = entrega.get("acoes_estrat_programa", [])
                         if acoes:
