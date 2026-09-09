@@ -98,6 +98,127 @@ def formatar_brasileiro(valor):
         return valor
 
 
+######################################################################################################
+# CONSTANTES E LÓGICA DE ÁREA TOTAL (TERRITÓRIO)
+######################################################################################################
+
+INDICADOR_AREA_TOTAL_IGTA = "Área total sob IGTA (ha)"
+
+INDICADORES_AREA_SOB_IGTA_ESPECIFICOS = [
+    "Área com manejo agroecológico sob IGTA (ha)",
+    "Área com manejo ecológico do fogo sob IGTA (ha)",
+    "Área com manejo para extrativismo sob IGTA (ha)",
+    "Área com manejo para restauração sob IGTA (ha)",
+]
+
+INDICADOR_AREA_TOTAL = "Área total (ha)"
+
+@st.cache_data(ttl=300, show_spinner=False)
+def valor_numerico_indicador(nome_indicador, tipo_selecionado=None, _projetos_filtrados=None, anos_filtrados=None, autores_filtrados=None):
+    """
+    Mesma lógica de somar_indicador_por_nome, mas retorna o total como float
+    (sem formatação), para permitir cálculos entre indicadores.
+    """
+    indicador_doc = indicadores.find_one({"nome_indicador": nome_indicador})
+    if not indicador_doc:
+        return 0.0
+
+    indicador_id = indicador_doc["_id"]
+
+    filtro = {"id_do_indicador": indicador_id}
+    if tipo_selecionado:
+        filtro["tipo"] = {"$in": tipo_selecionado}
+    if _projetos_filtrados:
+        filtro["projeto"] = {"$in": _projetos_filtrados}
+    if anos_filtrados:
+        filtro["ano"] = {"$in": anos_filtrados}
+    if autores_filtrados:
+        filtro["autor_anotacao"] = {"$in": autores_filtrados}
+
+    total = 0.0
+    for doc in lancamentos.find(filtro):
+        valor = doc.get("valor", "")
+        try:
+            if isinstance(valor, (int, float)):
+                total += valor
+            elif isinstance(valor, str) and valor.strip() != "":
+                total += float(valor.replace(".", "").replace(",", "."))
+        except ValueError:
+            pass
+
+    return total
+
+
+def calcular_area_total_ha(nomes_indicadores_territorio, tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados):
+    """
+    Área total (ha) = área líquida sob IGTA + soma dos demais indicadores de área
+    (todos os indicadores que terminam em "(ha)" dentro de Território).
+
+    Área líquida sob IGTA = Área total sob IGTA (ha) - soma dos indicadores
+    específicos de área sob IGTA (que já estão contidos dentro do total sob IGTA).
+    """
+
+    area_total_igta = valor_numerico_indicador(
+        INDICADOR_AREA_TOTAL_IGTA, tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados
+    )
+
+    soma_igta_especificos = sum(
+        valor_numerico_indicador(nome, tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+        for nome in INDICADORES_AREA_SOB_IGTA_ESPECIFICOS
+    )
+
+    area_liquida_igta = area_total_igta - soma_igta_especificos
+
+    # Demais indicadores de área (terminam com "(ha)"), excluindo o total sob IGTA,
+    # os específicos sob IGTA (já contabilizados acima) e o próprio "Área total (ha)"
+    nomes_outras_areas = [
+        nome for nome in nomes_indicadores_territorio
+        if nome.strip().endswith("(ha)")
+        and nome != INDICADOR_AREA_TOTAL_IGTA
+        and nome not in INDICADORES_AREA_SOB_IGTA_ESPECIFICOS
+        and nome != INDICADOR_AREA_TOTAL
+    ]
+
+    soma_outras_areas = sum(
+        valor_numerico_indicador(nome, tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
+        for nome in nomes_outras_areas
+    )
+
+    return area_liquida_igta + soma_outras_areas
+
+
+def reordenar_territorio(nomes):
+    """
+    Mantém a ordem alfabética para os indicadores que não são de área.
+    Para os indicadores de área (terminam com "(ha)"), força a ordem:
+    [demais indicadores de área] -> [Área total sob IGTA (ha)] -> [indicadores de área sob IGTA específicos]
+    """
+    def eh_area(n):
+        return n.strip().endswith("(ha)")
+
+    outras_areas = [
+        n for n in nomes
+        if eh_area(n) and n != INDICADOR_AREA_TOTAL_IGTA and n not in INDICADORES_AREA_SOB_IGTA_ESPECIFICOS
+    ]
+    total_igta = [n for n in nomes if n == INDICADOR_AREA_TOTAL_IGTA]
+    especificos_igta = [n for n in nomes if n in INDICADORES_AREA_SOB_IGTA_ESPECIFICOS]
+
+    bloco_area = outras_areas + total_igta + especificos_igta
+
+    resultado = []
+    bloco_inserido = False
+    for n in nomes:
+        if eh_area(n):
+            if not bloco_inserido:
+                resultado.extend(bloco_area)
+                bloco_inserido = True
+            # demais ocorrências de indicadores de área são ignoradas (já estão no bloco acima)
+        else:
+            resultado.append(n)
+
+    return resultado
+
+
 @st.cache_data(ttl=300, show_spinner=False)
 def somar_indicador_por_nome(nome_indicador, tipo_selecionado=None, _projetos_filtrados=None, anos_filtrados=None, autores_filtrados=None):
     indicador_doc = indicadores.find_one({"nome_indicador": nome_indicador})
@@ -1291,16 +1412,51 @@ for bloco in BLOCOS_CATEGORIAS:
     coluna = colunas[bloco["coluna"]]
     with coluna.container(border=True):
         st.write(f'**{categoria}**')
-        for nome_indicador in nomes_indicadores:
-            titulo = (
-                "Espécies: clique para mais informações"
-                if nome_indicador.lower() == "especies"
-                else nome_indicador
-            )
-            botao_indicador_legivel(
-                titulo, nome_indicador, tipo_selecionado,
-                projetos_filtrados, anos_filtrados, autores_filtrados
-            )
+
+        if categoria == "Território":
+            nomes_indicadores = reordenar_territorio(nomes_indicadores)
+
+            # Posição de inserção: logo após o indicador de "iniciativas"
+            indice_insercao = 0
+            for idx, nome in enumerate(nomes_indicadores):
+                if "iniciativa" in nome.lower():
+                    indice_insercao = idx + 1
+                    break
+
+            for idx, nome_indicador in enumerate(nomes_indicadores):
+
+                if idx == indice_insercao:
+                    area_total = calcular_area_total_ha(
+                        nomes_indicadores, tipo_selecionado,
+                        projetos_filtrados, anos_filtrados, autores_filtrados
+                    )
+                    if area_total != 0:
+                        st.button(
+                            f"{INDICADOR_AREA_TOTAL}: **{formatar_brasileiro(area_total)}**",
+                            type="tertiary",
+                            key="botao_area_total"
+                        )
+
+                titulo = (
+                    "Espécies: clique para mais informações"
+                    if nome_indicador.lower() == "especies"
+                    else nome_indicador
+                )
+                botao_indicador_legivel(
+                    titulo, nome_indicador, tipo_selecionado,
+                    projetos_filtrados, anos_filtrados, autores_filtrados
+                )
+        else:
+            for nome_indicador in nomes_indicadores:
+                titulo = (
+                    "Espécies: clique para mais informações"
+                    if nome_indicador.lower() == "especies"
+                    else nome_indicador
+                )
+                botao_indicador_legivel(
+                    titulo, nome_indicador, tipo_selecionado,
+                    projetos_filtrados, anos_filtrados, autores_filtrados
+                )
 
 # ----------------------------------------------------------------
 # Categorias novas que ainda não fazem parte da sequência definida
