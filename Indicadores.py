@@ -165,7 +165,8 @@ def valor_numerico_indicador(nome_indicador, tipo_selecionado=None, _projetos_fi
 def calcular_area_total_ha(nomes_indicadores_territorio, tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados):
     """
     Área total (ha) = área líquida sob IGTA + soma dos demais indicadores de área
-    (todos os indicadores que terminam em "(ha)" dentro de Território).
+    (todos os indicadores que terminam em "(ha)" dentro de Território), já somando
+    a cada um deles sua contraparte "sob IGTA", quando existir.
 
     Área líquida sob IGTA = Área total sob IGTA (ha) - soma dos indicadores
     específicos de área sob IGTA (que já estão contidos dentro do total sob IGTA).
@@ -192,10 +193,21 @@ def calcular_area_total_ha(nomes_indicadores_territorio, tipo_selecionado, proje
         and nome != INDICADOR_AREA_TOTAL
     ]
 
-    soma_outras_areas = sum(
-        valor_numerico_indicador(nome, tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados)
-        for nome in nomes_outras_areas
-    )
+    soma_outras_areas = 0.0
+    for nome in nomes_outras_areas:
+        valor = valor_numerico_indicador(
+            nome, tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados
+        )
+
+        # Se este indicador tem uma contraparte "sob IGTA", soma o valor dela também,
+        # para que o número não fique escondido dentro do total sob IGTA.
+        if nome in MAPA_NAO_IGTA_PARA_IGTA:
+            nome_igta = MAPA_NAO_IGTA_PARA_IGTA[nome]
+            valor += valor_numerico_indicador(
+                nome_igta, tipo_selecionado, projetos_filtrados, anos_filtrados, autores_filtrados
+            )
+
+        soma_outras_areas += valor
 
     return area_liquida_igta + soma_outras_areas
 
