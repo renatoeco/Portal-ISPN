@@ -113,6 +113,19 @@ INDICADORES_AREA_SOB_IGTA_ESPECIFICOS = [
 
 INDICADOR_AREA_TOTAL = "Área total (ha)"
 
+# Mapeamento entre cada indicador específico "sob IGTA" e o seu indicador
+# correspondente "não IGTA". Usado para que, ao exibir/somar o indicador
+# não IGTA, o valor lançado sob IGTA também seja somado a ele, para que
+# esse número não fique "escondido" dentro do indicador de IGTA.
+MAPA_IGTA_PARA_NAO_IGTA = {
+    "Área com manejo agroecológico sob IGTA (ha)": "Área com manejo agroecológico (ha)",
+    "Área com manejo ecológico do fogo sob IGTA (ha)": "Área com manejo ecológico do fogo (ha)",
+    "Área com manejo para extrativismo sob IGTA (ha)": "Área com manejo para extrativismo (ha)",
+    "Área com manejo para restauração sob IGTA (ha)": "Área com manejo para restauração (ha)",
+}
+ 
+MAPA_NAO_IGTA_PARA_IGTA = {v: k for k, v in MAPA_IGTA_PARA_NAO_IGTA.items()}
+
 @st.cache_data(ttl=300, show_spinner=False)
 def valor_numerico_indicador(nome_indicador, tipo_selecionado=None, _projetos_filtrados=None, anos_filtrados=None, autores_filtrados=None):
     """
@@ -187,36 +200,36 @@ def calcular_area_total_ha(nomes_indicadores_territorio, tipo_selecionado, proje
     return area_liquida_igta + soma_outras_areas
 
 
-def reordenar_territorio(nomes):
-    """
-    Mantém a ordem alfabética para os indicadores que não são de área.
-    Para os indicadores de área (terminam com "(ha)"), força a ordem:
-    [demais indicadores de área] -> [Área total sob IGTA (ha)] -> [indicadores de área sob IGTA específicos]
-    """
-    def eh_area(n):
-        return n.strip().endswith("(ha)")
+# def reordenar_territorio(nomes):
+#     """
+#     Mantém a ordem alfabética para os indicadores que não são de área.
+#     Para os indicadores de área (terminam com "(ha)"), força a ordem:
+#     [demais indicadores de área] -> [Área total sob IGTA (ha)] -> [indicadores de área sob IGTA específicos]
+#     """
+#     def eh_area(n):
+#         return n.strip().endswith("(ha)")
 
-    outras_areas = [
-        n for n in nomes
-        if eh_area(n) and n != INDICADOR_AREA_TOTAL_IGTA and n not in INDICADORES_AREA_SOB_IGTA_ESPECIFICOS
-    ]
-    total_igta = [n for n in nomes if n == INDICADOR_AREA_TOTAL_IGTA]
-    especificos_igta = [n for n in nomes if n in INDICADORES_AREA_SOB_IGTA_ESPECIFICOS]
+#     outras_areas = [
+#         n for n in nomes
+#         if eh_area(n) and n != INDICADOR_AREA_TOTAL_IGTA and n not in INDICADORES_AREA_SOB_IGTA_ESPECIFICOS
+#     ]
+#     total_igta = [n for n in nomes if n == INDICADOR_AREA_TOTAL_IGTA]
+#     especificos_igta = [n for n in nomes if n in INDICADORES_AREA_SOB_IGTA_ESPECIFICOS]
 
-    bloco_area = outras_areas + total_igta + especificos_igta
+#     bloco_area = outras_areas + total_igta + especificos_igta
 
-    resultado = []
-    bloco_inserido = False
-    for n in nomes:
-        if eh_area(n):
-            if not bloco_inserido:
-                resultado.extend(bloco_area)
-                bloco_inserido = True
-            # demais ocorrências de indicadores de área são ignoradas (já estão no bloco acima)
-        else:
-            resultado.append(n)
+#     resultado = []
+#     bloco_inserido = False
+#     for n in nomes:
+#         if eh_area(n):
+#             if not bloco_inserido:
+#                 resultado.extend(bloco_area)
+#                 bloco_inserido = True
+#             # demais ocorrências de indicadores de área são ignoradas (já estão no bloco acima)
+#         else:
+#             resultado.append(n)
 
-    return resultado
+#     return resultado
 
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -256,6 +269,25 @@ def somar_indicador_por_nome(nome_indicador, tipo_selecionado=None, _projetos_fi
                 total += float(valor.replace(".", "").replace(",", "."))
         except ValueError:
             pass
+
+    # Se este indicador possui um correspondente "sob IGTA", soma também os
+    # lançamentos feitos no indicador IGTA correspondente, para que esse
+    # valor não se perca e a soma exibida fique correta.
+    if nome_indicador in MAPA_NAO_IGTA_PARA_IGTA:
+        nome_indicador_igta = MAPA_NAO_IGTA_PARA_IGTA[nome_indicador]
+        indicador_igta_doc = indicadores.find_one({"nome_indicador": nome_indicador_igta})
+        if indicador_igta_doc:
+            filtro_igta = dict(filtro)
+            filtro_igta["id_do_indicador"] = indicador_igta_doc["_id"]
+            for doc in lancamentos.find(filtro_igta):
+                valor = doc.get("valor", "")
+                try:
+                    if isinstance(valor, (int, float)):
+                        total += valor
+                    elif isinstance(valor, str) and valor.strip() != "":
+                        total += float(valor.replace(".", "").replace(",", "."))
+                except ValueError:
+                    pass
 
     if total == 0:
         return "0"
@@ -308,7 +340,18 @@ def mostrar_detalhes(nome_indicador, tipo_selecionado=None, projetos_filtrados=N
 
     indicador_id = indicador_doc["_id"]
 
-    filtro = {"id_do_indicador": indicador_id}
+    # Se este indicador possui um correspondente "sob IGTA", os lançamentos
+    # feitos nele também entram aqui, junto com os demais, sem indicação
+    # de que estão sob IGTA.
+    ids_indicadores = [indicador_id]
+    if nome_indicador in MAPA_NAO_IGTA_PARA_IGTA:
+        nome_indicador_igta = MAPA_NAO_IGTA_PARA_IGTA[nome_indicador]
+        indicador_igta_doc = indicadores.find_one({"nome_indicador": nome_indicador_igta})
+        if indicador_igta_doc:
+            ids_indicadores.append(indicador_igta_doc["_id"])
+
+    filtro = {"id_do_indicador": {"$in": ids_indicadores}}
+
     if tipo_selecionado:
         filtro["tipo"] = {"$in": tipo_selecionado}
     if projetos_filtrados:
@@ -1414,29 +1457,44 @@ for bloco in BLOCOS_CATEGORIAS:
         st.write(f'**{categoria}**')
 
         if categoria == "Território":
-            nomes_indicadores = reordenar_territorio(nomes_indicadores)
+            outras_areas = [
+                n for n in nomes_indicadores
+                if n.strip().endswith("(ha)")
+                and n != INDICADOR_AREA_TOTAL_IGTA
+                and n not in INDICADORES_AREA_SOB_IGTA_ESPECIFICOS
+                and n != INDICADOR_AREA_TOTAL
+            ]
+            especificos_igta = [n for n in nomes_indicadores if n in INDICADORES_AREA_SOB_IGTA_ESPECIFICOS]
+            tem_total_igta = INDICADOR_AREA_TOTAL_IGTA in nomes_indicadores
+            nao_area = [n for n in nomes_indicadores if not n.strip().endswith("(ha)")]
 
-            # Posição de inserção: logo após o indicador de "iniciativas"
-            indice_insercao = 0
-            for idx, nome in enumerate(nomes_indicadores):
-                if "iniciativa" in nome.lower():
-                    indice_insercao = idx + 1
-                    break
+            st.write("")
 
-            for idx, nome_indicador in enumerate(nomes_indicadores):
+            # Área total (ha)
+            area_total = calcular_area_total_ha(
+                nomes_indicadores, tipo_selecionado,
+                projetos_filtrados, anos_filtrados, autores_filtrados
+            )
+            if area_total != 0:
+                st.button(
+                    f"{INDICADOR_AREA_TOTAL}: **{formatar_brasileiro(area_total)}**",
+                    type="tertiary",
+                    key="botao_area_total"
+                )
 
-                if idx == indice_insercao:
-                    area_total = calcular_area_total_ha(
-                        nomes_indicadores, tipo_selecionado,
-                        projetos_filtrados, anos_filtrados, autores_filtrados
-                    )
-                    if area_total != 0:
-                        st.button(
-                            f"{INDICADOR_AREA_TOTAL}: **{formatar_brasileiro(area_total)}**",
-                            type="tertiary",
-                            key="botao_area_total"
-                        )
+            st.divider()
 
+            # Áreas sob manejo sem IGTA
+            for nome_indicador in outras_areas:
+                botao_indicador_legivel(
+                    nome_indicador, nome_indicador, tipo_selecionado,
+                    projetos_filtrados, anos_filtrados, autores_filtrados
+                )
+
+            st.divider()
+
+            # Demais indicadores não relacionados a área (ex.: número de iniciativas de gestão territorial implantadas)
+            for nome_indicador in nao_area:
                 titulo = (
                     "Espécies: clique para mais informações"
                     if nome_indicador.lower() == "especies"
@@ -1444,6 +1502,20 @@ for bloco in BLOCOS_CATEGORIAS:
                 )
                 botao_indicador_legivel(
                     titulo, nome_indicador, tipo_selecionado,
+                    projetos_filtrados, anos_filtrados, autores_filtrados
+                )
+
+            # Área total sob IGTA (ha)
+            if tem_total_igta:
+                botao_indicador_legivel(
+                    INDICADOR_AREA_TOTAL_IGTA, INDICADOR_AREA_TOTAL_IGTA, tipo_selecionado,
+                    projetos_filtrados, anos_filtrados, autores_filtrados
+                )
+
+            # Áreas sob manejo com IGTA
+            for nome_indicador in especificos_igta:
+                botao_indicador_legivel(
+                    nome_indicador, nome_indicador, tipo_selecionado,
                     projetos_filtrados, anos_filtrados, autores_filtrados
                 )
         else:
