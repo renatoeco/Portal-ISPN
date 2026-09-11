@@ -144,7 +144,31 @@ def convert_objectid(obj):
         return obj
 
 
-# Função do diálogo para gerenciar entregas
+
+
+
+# Função do diálogo para mostrar detalhes das entregas
+@st.dialog("Detalhes da Entrega", width="large", on_dismiss="rerun")
+def mostrar_detalhes_entrega():
+    st.write("teste")
+
+
+
+
+
+
+# Função do diálogo para editar detalhes das entregas
+@st.dialog("Editar Entrega", width="large", on_dismiss="rerun")
+def dialog_editar_entrega():
+    st.write("teste")
+
+
+
+
+
+
+
+# Função do diálogo para gerenciar entregas  VAI SER SUBSTITUÍDO PELO DIAĹOGO DE EDITAR SOMENTE UMA ENTREGA (ACIMA)
 @st.dialog("Editar Entregas", width="large", on_dismiss="rerun")
 def dialog_editar_entregas():
 

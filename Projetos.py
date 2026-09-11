@@ -1,7 +1,14 @@
 import streamlit as st
 import pandas as pd
 import datetime
-from funcoes_auxiliares import conectar_mongo_portal_ispn, br_to_float, float_to_br, dialog_editar_entregas, ajustar_altura_dataframe
+from funcoes_auxiliares import (
+    conectar_mongo_portal_ispn,
+    br_to_float,
+    float_to_br,
+    dialog_editar_entrega,
+    ajustar_altura_dataframe,
+    mostrar_detalhes_entrega,
+)
 import streamlit_shadcn_ui as ui
 import plotly.express as px
 import time
@@ -3052,8 +3059,11 @@ with tab_projetos:
                             chave_checkbox = f"checkbox_entrega_{entrega_id}"
 
 
+
+
+
                             # --------------------------------------------------
-                            # Container da entrega
+                            # CARD da entrega
                             # --------------------------------------------------
 
                             with st.container(border=True):
@@ -3061,85 +3071,102 @@ with tab_projetos:
 
                                 col1, col2 = st.columns([3, 1])
 
+
+
                                 with col1:
 
-                                    with st.container(horizontal=True, horizontal_alignment="left"):
-
-                                        st.checkbox(
-                                            "",
-                                            key=chave_checkbox,
-                                            on_change=alterar_entrega_selecionada,
-                                            args=(entrega_id,)
-                                        )
 
 
-                                        # --------------------------------------------------
-                                        # Nome da entrega
-                                        # --------------------------------------------------
+                                    # --------------------------------------------------
+                                    # Nome da entrega
+                                    # --------------------------------------------------
 
-                                        nome_entrega = entrega.get(
-                                            "nome_da_entrega",
-                                            "Entrega sem nome"
-                                        )
-
-                                        st.markdown(
-                                            f"**{nome_entrega}**"
-                                        )
-
-
-                                    with col2:
-
-                                        with st.container(horizontal=True, horizontal_alignment="right"):
-
-                                            # --------------------------------------------------
-                                            # Botão de editar Entrega
-                                            # --------------------------------------------------
-
-                                            with st.popover(":material/menu:"):
-
-                                                st.write('')
-
-
-
-
-
-
-
-                                # --------------------------------------------------
-                                # Responsáveis
-                                # --------------------------------------------------
-
-                                responsaveis_ids = entrega.get(
-                                    "responsaveis",
-                                    []
-                                )
-
-                                if not isinstance(responsaveis_ids, list):
-                                    responsaveis_ids = []
-
-
-                                responsaveis_nomes = []
-
-                                for responsavel_id in responsaveis_ids:
-
-                                    nome = mapa_coordenador.get(
-                                        str(responsavel_id)
+                                    nome_entrega = entrega.get(
+                                        "nome_da_entrega",
+                                        "Entrega sem nome"
                                     )
 
-                                    if nome:
-                                        responsaveis_nomes.append(nome)
+                                    st.markdown(
+                                        f"**{nome_entrega}**"
+                                    )
 
 
-                                responsaveis_texto = (
-                                    ", ".join(responsaveis_nomes)
-                                    if responsaveis_nomes
-                                    else "Não informado"
-                                )
+                                    # --------------------------------------------------
+                                    # Responsáveis
+                                    # --------------------------------------------------
+
+                                    responsaveis_ids = entrega.get(
+                                        "responsaveis",
+                                        []
+                                    )
+
+                                    if not isinstance(responsaveis_ids, list):
+                                        responsaveis_ids = []
 
 
-                                st.markdown(
-                                    f"**Responsável(is):** {responsaveis_texto}"
-                                )
+                                    responsaveis_nomes = []
+
+                                    for responsavel_id in responsaveis_ids:
+
+                                        nome = mapa_coordenador.get(
+                                            str(responsavel_id)
+                                        )
+
+                                        if nome:
+                                            responsaveis_nomes.append(nome)
+
+
+                                    responsaveis_texto = (
+                                        ", ".join(responsaveis_nomes)
+                                        if responsaveis_nomes
+                                        else "Não informado"
+                                    )
+
+
+                                    st.markdown(
+                                        f"**Responsável(is):** {responsaveis_texto}"
+                                    )
+
+
+
+                                with col2:
+
+
+                                    with st.container(horizontal=True, horizontal_alignment="right"):
+
+
+                                        # --------------------------------------------------
+                                        # Botão de ver menu do card
+                                        # --------------------------------------------------
+
+                                        with st.popover(":material/more_vert:", width="content"):
+
+
+                                            # Botão de ver detalhes
+                                            ver_detalhes_entrega = st.button(
+                                                "Ver detalhes da Entrega planejada",
+                                                icon=":material/menu:",
+                                                type="tertiary",
+                                                key=f"ver_detalhes_entrega_{entrega_id}",
+                                                on_click=mostrar_detalhes_entrega,
+                                            )
+
+
+
+                                            # Botão de editar entrega
+                                            editar_entrega = st.button(
+                                                "Editar Entrega",
+                                                icon=":material/edit:",
+                                                type="tertiary",
+                                                key=f"editar_entrega_{entrega_id}",
+                                                on_click=dialog_editar_entrega,
+                                            )
+
+
+
+
+
+
 
 
                                 with st.container(horizontal=True, horizontal_alignment="distribute"):
@@ -3181,6 +3208,10 @@ with tab_projetos:
                                     # Número de registros / lançamentos
                                     # --------------------------------------------------
 
+
+
+
+
                                     lancamentos = entrega.get(
                                         "lancamentos_entregas",
                                         []
@@ -3191,10 +3222,20 @@ with tab_projetos:
 
                                     quantidade_lancamentos = len(lancamentos)
 
-                                    st.markdown(
-                                        f"**Registros:** {quantidade_lancamentos}"
-                                    )
+                                    # st.markdown(
+                                    #     f"**Registros:** {quantidade_lancamentos}"
+                                    # )
 
+                                    # --------------------------------------------------
+                                    # Checkbox
+                                    # --------------------------------------------------
+
+                                    st.checkbox(
+                                        f"**Ver {quantidade_lancamentos} registros >>**",
+                                        key=chave_checkbox,
+                                        on_change=alterar_entrega_selecionada,
+                                        args=(entrega_id,)
+                                    )
 
 
 
