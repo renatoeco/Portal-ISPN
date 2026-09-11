@@ -3369,6 +3369,10 @@ with tab_projetos:
                             "Selecione uma Entrega na coluna da esquerda"
                         )
 
+                        st.caption(
+                            "Clique em :material/select_check_box: **Ver x registros**."
+                        )
+
                     else:
 
                         lancamentos = entrega_selecionada.get(
