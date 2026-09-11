@@ -3204,13 +3204,10 @@ with tab_projetos:
 
 
 
+
                                     # --------------------------------------------------
                                     # Número de registros / lançamentos
                                     # --------------------------------------------------
-
-
-
-
 
                                     lancamentos = entrega.get(
                                         "lancamentos_entregas",
@@ -3222,20 +3219,70 @@ with tab_projetos:
 
                                     quantidade_lancamentos = len(lancamentos)
 
-                                    # st.markdown(
-                                    #     f"**Registros:** {quantidade_lancamentos}"
+                                    if quantidade_lancamentos == 0:
+
+                                        st.markdown(
+                                            '<span style="color:#F59E0B;"><i>Nenhum registro</i></span>',
+                                            unsafe_allow_html=True
+                                        )
+
+                                    else:
+
+                                        texto_registros = (
+                                            "registro"
+                                            if quantidade_lancamentos == 1
+                                            else "registros"
+                                        )
+
+                                        # --------------------------------------------------
+                                        # Checkbox
+                                        # --------------------------------------------------
+
+                                        st.checkbox(
+                                            f"**Ver {quantidade_lancamentos} {texto_registros} >>**",
+                                            key=chave_checkbox,
+                                            on_change=alterar_entrega_selecionada,
+                                            args=(entrega_id,)
+                                        )
+
+
+
+
+
+
+
+                                    # # --------------------------------------------------
+                                    # # Número de registros / lançamentos
+                                    # # --------------------------------------------------
+
+
+
+
+
+                                    # lancamentos = entrega.get(
+                                    #     "lancamentos_entregas",
+                                    #     []
                                     # )
 
-                                    # --------------------------------------------------
-                                    # Checkbox
-                                    # --------------------------------------------------
+                                    # if not isinstance(lancamentos, list):
+                                    #     lancamentos = []
 
-                                    st.checkbox(
-                                        f"**Ver {quantidade_lancamentos} registros >>**",
-                                        key=chave_checkbox,
-                                        on_change=alterar_entrega_selecionada,
-                                        args=(entrega_id,)
-                                    )
+                                    # quantidade_lancamentos = len(lancamentos)
+
+                                    # # st.markdown(
+                                    # #     f"**Registros:** {quantidade_lancamentos}"
+                                    # # )
+
+                                    # # --------------------------------------------------
+                                    # # Checkbox
+                                    # # --------------------------------------------------
+
+                                    # st.checkbox(
+                                    #     f"**Ver {quantidade_lancamentos} registros >>**",
+                                    #     key=chave_checkbox,
+                                    #     on_change=alterar_entrega_selecionada,
+                                    #     args=(entrega_id,)
+                                    # )
 
 
 
