@@ -147,10 +147,364 @@ def convert_objectid(obj):
 
 
 
-# Função do diálogo para mostrar detalhes das entregas
+# Função do diálogo para exibição dos detalhes da entrega
 @st.dialog("Detalhes da Entrega", width="large", on_dismiss="rerun")
 def mostrar_detalhes_entrega():
-    st.write("teste")
+
+    # Recupera os dados da entrega selecionada pelo botão acionado.
+    entrega_id = st.session_state.get("entrega_detalhes_id")
+
+    if not entrega_id:
+        st.warning("Entrega não encontrada.")
+        return
+
+    # Recupera o projeto atualmente selecionado.
+    projeto_selecionado = st.session_state.get(
+        "projeto_selecionado_projetos"
+    )
+
+    if not projeto_selecionado:
+        st.warning("Projeto não encontrado.")
+        return
+
+    # Conecta ao banco somente para consultar os dados necessários.
+    db = conectar_mongo_portal_ispn()
+
+    projeto = db["projetos_ispn"].find_one(
+        {"sigla": projeto_selecionado}
+    )
+
+    if not projeto:
+        st.warning("Projeto não encontrado no banco de dados.")
+        return
+
+    # Localiza a entrega dentro do projeto selecionado.
+    entrega = None
+
+    for item in projeto.get("entregas", []):
+
+        if str(item.get("_id")) == str(entrega_id):
+            entrega = item
+            break
+
+    if not entrega:
+        st.warning("Entrega não encontrada no projeto.")
+        return
+
+    # --------------------------------------------------
+    # Mapas auxiliares
+    # --------------------------------------------------
+
+    mapa_pessoas = {
+        str(p["_id"]): p.get(
+            "nome_completo",
+            "Nome não informado"
+        )
+        for p in db["pessoas"].find()
+    }
+
+    mapa_indicadores = {
+        str(i["_id"]): i
+        for i in db["indicadores"].find()
+    }
+
+    mapa_projetos = {
+        str(p["_id"]): p.get(
+            "nome_do_projeto",
+            p.get("sigla", "Projeto não informado")
+        )
+        for p in db["projetos_ispn"].find()
+    }
+
+    mapa_acoes = {
+        str(a["_id"]): a
+        for a in db["acoes_estrategicas"].find()
+    }
+
+    # --------------------------------------------------
+    # Dados principais da entrega
+    # --------------------------------------------------
+
+    nome_entrega = entrega.get(
+        "nome_da_entrega",
+        "Entrega sem nome"
+    )
+
+    situacao = entrega.get(
+        "situacao",
+        "Não informada"
+    )
+
+    progresso = entrega.get(
+        "progresso",
+        0
+    )
+
+    data_inicio = entrega.get(
+        "data_inicio",
+        "Não informada"
+    )
+
+    previsao = entrega.get(
+        "previsao_da_conclusao",
+        "Não informada"
+    )
+
+    # --------------------------------------------------
+    # Responsáveis
+    # --------------------------------------------------
+
+    responsaveis = entrega.get(
+        "responsaveis",
+        []
+    )
+
+    if not isinstance(responsaveis, list):
+        responsaveis = []
+
+    nomes_responsaveis = []
+
+    for responsavel_id in responsaveis:
+
+        nome = mapa_pessoas.get(
+            str(responsavel_id)
+        )
+
+        if nome:
+            nomes_responsaveis.append(nome)
+
+    responsaveis_texto = (
+        ", ".join(nomes_responsaveis)
+        if nomes_responsaveis
+        else "Nenhum responsável informado"
+    )
+
+    # --------------------------------------------------
+    # Indicadores relacionados
+    # --------------------------------------------------
+
+    indicadores_ids = entrega.get(
+        "indicadores_relacionados",
+        []
+    )
+
+    if not isinstance(indicadores_ids, list):
+        indicadores_ids = []
+
+    nomes_indicadores = []
+
+    for indicador_id in indicadores_ids:
+
+        indicador = mapa_indicadores.get(
+            str(indicador_id)
+        )
+
+        if indicador:
+
+            nome_indicador = (
+                indicador.get("nome")
+                or indicador.get("nome_indicador")
+                or indicador.get("descricao")
+                or str(indicador_id)
+            )
+
+            nomes_indicadores.append(
+                nome_indicador
+            )
+
+    # --------------------------------------------------
+    # Projetos relacionados
+    # --------------------------------------------------
+
+    projetos_ids = entrega.get(
+        "projetos_relacionados",
+        []
+    )
+
+    if not isinstance(projetos_ids, list):
+        projetos_ids = []
+
+    nomes_projetos = []
+
+    for projeto_id in projetos_ids:
+
+        nome_projeto = mapa_projetos.get(
+            str(projeto_id)
+        )
+
+        if nome_projeto:
+            nomes_projetos.append(
+                nome_projeto
+            )
+
+    # --------------------------------------------------
+    # Ações estratégicas relacionadas
+    # --------------------------------------------------
+
+    acoes_ids = entrega.get(
+        "acoes_estrat_programa",
+        []
+    )
+
+    if not isinstance(acoes_ids, list):
+        acoes_ids = []
+
+    nomes_acoes = []
+
+    for acao_id in acoes_ids:
+
+        acao = mapa_acoes.get(
+            str(acao_id)
+        )
+
+        if acao:
+
+            nome_acao = (
+                acao.get("nome")
+                or acao.get("nome_acao")
+                or acao.get("descricao")
+                or str(acao_id)
+            )
+
+            nomes_acoes.append(
+                nome_acao
+            )
+
+    # --------------------------------------------------
+    # Apresentação
+    # --------------------------------------------------
+
+    st.markdown(
+        f"### {nome_entrega}"
+    )
+
+    st.write("")
+
+    col1, col2 = st.columns(
+        [1, 1],
+        gap="medium"
+    )
+
+    # ==================================================
+    # COLUNA 1 — INFORMAÇÕES DA ENTREGA
+    # ==================================================
+
+    with col1:
+
+
+
+
+
+        st.write(
+            f"**Responsável(is):** {responsaveis_texto}"
+        )
+
+
+        st.write(
+            f"**Situação:** {situacao}"
+        )
+
+
+        sub_col1, sub_col2 = st.columns(2        )
+
+
+        sub_col1.write(
+            "**Data de início:**"
+        )
+
+        sub_col1.write(
+            "**Previsão de conclusão:**"
+        )
+
+
+        sub_col2.write(
+            f"{data_inicio}"
+        )
+
+
+        sub_col2.write(
+            f"{previsao}"
+        )
+
+        try:
+            progresso = float(progresso)
+        except (TypeError, ValueError):
+            progresso = 0
+
+        progresso = max(
+            0,
+            min(100, progresso)
+        )
+
+
+        st.progress(
+            progresso / 100,
+            text=f"Progresso: {progresso:.0f}%"
+        )
+
+
+
+
+
+    # ==================================================
+    # COLUNA 2 — RELAÇÕES E RESPONSABILIDADES
+    # ==================================================
+
+    with col2:
+
+
+        st.write(
+            "**Indicadores relacionados:**"
+        )
+
+        if nomes_indicadores:
+
+            for nome in nomes_indicadores:
+                st.write(
+                    f"- {nome}"
+                )
+
+        else:
+
+            st.caption(
+                "Nenhum indicador relacionado."
+            )
+
+        st.write(
+            "**Projetos relacionados:**"
+        )
+
+        if nomes_projetos:
+
+            for nome in nomes_projetos:
+                st.write(
+                    f"- {nome}"
+                )
+
+        else:
+
+            st.caption(
+                "Nenhum projeto relacionado."
+            )
+
+        st.write(
+            "**Ações estratégicas do programa relacionadas:**"
+        )
+
+        if nomes_acoes:
+
+            for nome in nomes_acoes:
+                st.write(
+                    f"- {nome}"
+                )
+
+        else:
+
+            st.caption(
+                "Nenhuma ação estratégica relacionada."
+            )
+
+
 
 
 

@@ -181,6 +181,7 @@ def formatar_contrapartida(row):
     except:
         return f"{moeda} 0,00"
 
+
 # Converter objectid para string
 def convert_objectid(obj):
     if isinstance(obj, bson.ObjectId):
@@ -1913,6 +1914,10 @@ if "ver_detalhes_projeto" not in st.session_state:
 
 
 
+
+
+
+
 # Abas para separar a listagem de projetos do cronograma
 tab_projetos, tab_cronograma = st.tabs([
     "Projetos",
@@ -3013,17 +3018,6 @@ with tab_projetos:
 
 
 
-
-
-
-
-
-
-
-
-
-
-
                 # --------------------------------------------------
                 # Layout principal
                 # --------------------------------------------------
@@ -3148,8 +3142,14 @@ with tab_projetos:
                                                 icon=":material/menu:",
                                                 type="tertiary",
                                                 key=f"ver_detalhes_entrega_{entrega_id}",
-                                                on_click=mostrar_detalhes_entrega,
+                                                on_click=lambda id_entrega=entrega_id: (
+                                                    st.session_state.update({
+                                                        "entrega_detalhes_id": id_entrega
+                                                    }),
+                                                    mostrar_detalhes_entrega()
+                                                ),
                                             )
+
 
 
 
@@ -3246,43 +3246,6 @@ with tab_projetos:
                                         )
 
 
-
-
-
-
-
-                                    # # --------------------------------------------------
-                                    # # Número de registros / lançamentos
-                                    # # --------------------------------------------------
-
-
-
-
-
-                                    # lancamentos = entrega.get(
-                                    #     "lancamentos_entregas",
-                                    #     []
-                                    # )
-
-                                    # if not isinstance(lancamentos, list):
-                                    #     lancamentos = []
-
-                                    # quantidade_lancamentos = len(lancamentos)
-
-                                    # # st.markdown(
-                                    # #     f"**Registros:** {quantidade_lancamentos}"
-                                    # # )
-
-                                    # # --------------------------------------------------
-                                    # # Checkbox
-                                    # # --------------------------------------------------
-
-                                    # st.checkbox(
-                                    #     f"**Ver {quantidade_lancamentos} registros >>**",
-                                    #     key=chave_checkbox,
-                                    #     on_change=alterar_entrega_selecionada,
-                                    #     args=(entrega_id,)
-                                    # )
 
 
 
