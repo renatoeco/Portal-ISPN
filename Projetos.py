@@ -3153,14 +3153,18 @@ with tab_projetos:
 
 
 
-                                            # Botão de editar entrega
                                             editar_entrega = st.button(
                                                 "Editar Entrega",
                                                 icon=":material/edit:",
                                                 type="tertiary",
                                                 key=f"editar_entrega_{entrega_id}",
-                                                on_click=dialog_editar_entrega,
                                             )
+
+                                            if editar_entrega:
+                                                dialog_editar_entrega(
+                                                    projeto_id=projeto_id,
+                                                    entrega_id=entrega_id,
+                                                )
 
 
 
