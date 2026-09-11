@@ -400,9 +400,8 @@ def mostrar_detalhes_entrega():
         )
 
 
-        st.write(
-            f"**Situação:** {situacao}"
-        )
+
+        st.write('')
 
 
         sub_col1, sub_col2 = st.columns(2        )
@@ -425,6 +424,14 @@ def mostrar_detalhes_entrega():
         sub_col2.write(
             f"{previsao}"
         )
+
+        st.write('')
+
+
+        st.write(
+            f"**Situação:** {situacao}"
+        )
+
 
         try:
             progresso = float(progresso)
