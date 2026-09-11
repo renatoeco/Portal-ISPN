@@ -3001,6 +3001,22 @@ with tab_projetos:
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 # --------------------------------------------------
                 # Layout principal
                 # --------------------------------------------------
@@ -3042,28 +3058,50 @@ with tab_projetos:
 
                             with st.container(border=True):
 
-                                with st.container(horizontal=True):
 
-                                    st.checkbox(
-                                        "",
-                                        key=chave_checkbox,
-                                        on_change=alterar_entrega_selecionada,
-                                        args=(entrega_id,)
-                                    )
+                                col1, col2 = st.columns([3, 1])
+
+                                with col1:
+
+                                    with st.container(horizontal=True, horizontal_alignment="left"):
+
+                                        st.checkbox(
+                                            "",
+                                            key=chave_checkbox,
+                                            on_change=alterar_entrega_selecionada,
+                                            args=(entrega_id,)
+                                        )
 
 
-                                    # --------------------------------------------------
-                                    # Nome da entrega
-                                    # --------------------------------------------------
+                                        # --------------------------------------------------
+                                        # Nome da entrega
+                                        # --------------------------------------------------
 
-                                    nome_entrega = entrega.get(
-                                        "nome_da_entrega",
-                                        "Entrega sem nome"
-                                    )
+                                        nome_entrega = entrega.get(
+                                            "nome_da_entrega",
+                                            "Entrega sem nome"
+                                        )
 
-                                    st.markdown(
-                                        f"**{nome_entrega}**"
-                                    )
+                                        st.markdown(
+                                            f"**{nome_entrega}**"
+                                        )
+
+
+                                    with col2:
+
+                                        with st.container(horizontal=True, horizontal_alignment="right"):
+
+                                            # --------------------------------------------------
+                                            # Botão de editar Entrega
+                                            # --------------------------------------------------
+
+                                            with st.popover(":material/menu:"):
+
+                                                st.write('')
+
+
+
+
 
 
 
@@ -3123,6 +3161,23 @@ with tab_projetos:
 
 
                                     # --------------------------------------------------
+                                    # Previsão de conclusão
+                                    # --------------------------------------------------
+
+                                    previsao = entrega.get(
+                                        "previsao_da_conclusao"
+                                    )
+
+                                    if previsao:
+
+                                        st.markdown(
+                                            f":material/schedule: {previsao}"
+                                        )
+
+
+
+
+                                    # --------------------------------------------------
                                     # Número de registros / lançamentos
                                     # --------------------------------------------------
 
@@ -3140,19 +3195,7 @@ with tab_projetos:
                                         f"**Registros:** {quantidade_lancamentos}"
                                     )
 
-                                    # --------------------------------------------------
-                                    # Previsão de conclusão
-                                    # --------------------------------------------------
 
-                                    previsao = entrega.get(
-                                        "previsao_da_conclusao"
-                                    )
-
-                                    if previsao:
-
-                                        st.markdown(
-                                            f":material/schedule: {previsao}"
-                                        )
 
 
 
@@ -3258,7 +3301,7 @@ with tab_projetos:
                         else:
 
                             # --------------------------------------------------
-                            # Renderização dos registros
+                            # Cards dos registros
                             # --------------------------------------------------
 
                             for lancamento in lancamentos:
@@ -3266,7 +3309,7 @@ with tab_projetos:
                                 with st.container(border=True):
 
                                     # Linha com ano e autor
-                                    with st.container(horizontal=True):
+                                    with st.container(horizontal=True, horizontal_alignment="distribute"):
 
                                         # Ano do registro
                                         ano = lancamento.get(
@@ -3274,22 +3317,28 @@ with tab_projetos:
                                             "Não informado"
                                         )
 
-                                        st.caption(
-                                            f"**{ano}**"
+                                        # Autor do registro
+                                        autor = lancamento.get(
+                                            "autor",
+                                            "Não informado"
                                         )
 
+                                        # Ano + autor
+                                        st.caption(
+                                            f"**{ano}** | Registrado por **{autor}**"
+                                        )
 
-                                        with st.container():
+                                        # with st.container(horizontal=True, horizontal_alignment="right"):
 
-                                            # Autor do registro
-                                            autor = lancamento.get(
-                                                "autor",
-                                                "Não informado"
-                                            )
 
-                                            st.caption(
-                                                f"Registrado por **{autor}**"
-                                            )
+                                        # --------------------------------------------------
+                                        # Botão de editar Entrega
+                                        # --------------------------------------------------
+
+                                        # if st.toggle("Editar"):
+
+                                        #     st.write('....')
+
 
 
                                     # Anotações do registro
@@ -3315,6 +3364,8 @@ with tab_projetos:
             # ------------------------------------------------------
 
             render_entregas()
+
+
 
 
 
