@@ -91,11 +91,12 @@ def obter_rotulo_projeto(projeto):
 
 @st.cache_data(ttl=300)
 def carregar_projetos():
-    """Carrega a lista de projetos (id, sigla, código, nome e perguntas personalizadas),
-    já ordenada alfabeticamente pelo rótulo de exibição (sigla > código > nome)."""
+    """Carrega a lista de projetos com status 'Em andamento' ou 'Estratégico'
+    (id, sigla, código, nome e perguntas personalizadas), já ordenada
+    alfabeticamente pelo rótulo de exibição (sigla > código > nome)."""
     projetos = list(
         projetos_ispn.find(
-            {},
+            {"status": {"$in": ["Em andamento", "Estratégico"]}},
             {"nome_do_projeto": 1, "sigla": 1, "codigo": 1, "perguntas_personalizadas_insumos": 1}
         )
     )
