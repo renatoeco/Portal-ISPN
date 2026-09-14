@@ -361,7 +361,7 @@ def dialog_detalhes(solicitacao, projetos, projetos_dict):
             )
 
             st.write("")
-            salvar = st.form_submit_button("Salvar Alterações", type="primary", width="content", icon=":material/save:")
+            salvar = st.form_submit_button("Salvar alterações", type="primary", width="content", icon=":material/save:")
 
         if salvar:
             erros = []
@@ -695,7 +695,7 @@ if usuario_tem_acesso_crud():
                 key=f"crud_data_editor_{projeto_id_crud}"
             )
 
-            if st.button("Salvar Perguntas", type="primary"):
+            if st.button("Salvar perguntas", type="primary", icon=":material/save:"):
                 novas_perguntas = sorted(
                     {
                         p.strip() for p in df_perguntas_editado["Pergunta"].tolist()
