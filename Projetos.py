@@ -3448,29 +3448,30 @@ with tab_projetos:
 
                 # Admin
                 if "admin" in st.session_state.tipo_usuario:
-
                     pode_editar = True
 
                 # Coordenador do projeto
                 if str(projeto.get("coordenador")) == str(st.session_state.id_usuario):
-
                     pode_editar = True
 
                 # Gestores do projeto
-                elif any(
-                    str(gestor) == str(st.session_state.id_usuario)
-                    for gestor in projeto.get("gestores", [])
-                ):
-
-                    pode_editar = True
-
-                # Coordenador de algum programa do projeto
                 else:
+                    gestores_projeto = projeto.get("gestores", [])
+                    if not isinstance(gestores_projeto, list):
+                        gestores_projeto = []
 
-                    ids_programas_projeto = {
-                        str(id_programa)
-                        for id_programa in projeto.get("programas", [])
-                    }
+                    if any(
+                        str(gestor) == str(st.session_state.id_usuario)
+                        for gestor in gestores_projeto
+                    ):
+                        pode_editar = True
+
+                    # Coordenador de algum programa do projeto
+                    else:
+                        ids_programas_projeto = {
+                            str(id_programa)
+                            for id_programa in projeto.get("programas", [])
+                        }
 
                     ids_programas_coordenados = set(
                         df_programas.loc[
