@@ -4,8 +4,23 @@ from funcoes_auxiliares import conectar_mongo_portal_ispn
 from datetime import datetime
 import time
 from bson import ObjectId
-import streamlit_antd_components as sac
 from st_rsuite import date_picker
+import io
+import smtplib
+import re
+import unicodedata
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.application import MIMEApplication
+
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import cm
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_CENTER
+from reportlab.platypus import (
+    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, HRFlowable
+)
 
 # ##################################################################
 # CONFIGURAÇÕES DA INTERFACE
@@ -136,6 +151,221 @@ def projetos_permitidos_para_perguntas(projetos):
     if usuario_eh_admin():
         return projetos
     return [p for p in projetos if usuario_eh_gestor_ou_coordenador(p)]
+
+
+def sanitizar_nome_arquivo(texto):
+    """Remove acentos e caracteres não permitidos em nomes de arquivo,
+    substituindo espaços por '_'."""
+    texto_sem_acento = unicodedata.normalize("NFKD", texto).encode("ASCII", "ignore").decode("ASCII")
+    texto_limpo = re.sub(r"[^A-Za-z0-9_-]+", "_", texto_sem_acento.strip())
+    return texto_limpo.strip("_") or "solicitacao"
+
+
+def gerar_pdf_solicitacao(solicitacao, projetos_dict, pessoas_dict):
+    """Gera o PDF da solicitação de insumos, seguindo a mesma ordem e formato
+    de campos exibidos no diálogo de Detalhes da Solicitação. Retorna os
+    bytes do PDF."""
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, pagesize=A4,
+        topMargin=1.5 * cm, bottomMargin=1.5 * cm,
+        leftMargin=2 * cm, rightMargin=2 * cm,
+    )
+
+    styles = getSampleStyleSheet()
+    estilo_titulo = ParagraphStyle(
+        "TituloSolicitacao", parent=styles["Title"], alignment=TA_CENTER, fontSize=16
+    )
+    estilo_normal = ParagraphStyle("NormalSolicitacao", parent=styles["Normal"], fontSize=10, leading=14)
+
+    elementos = []
+
+    # Logo do ISPN centralizada no topo, com espaçamento maior até o título
+    try:
+        logo = Image("images/logo_ISPN_horizontal_ass.png", width=6 * cm, height=1.8 * cm)
+        logo.hAlign = "CENTER"
+        elementos.append(logo)
+        elementos.append(Spacer(1, 40))   # <-- espaçamento maior (era 12)
+    except Exception:
+        pass
+
+    elementos.append(Paragraph("Detalhes da Solicitação de Insumos", estilo_titulo))
+    elementos.append(Spacer(1, 22))
+
+    def linha(rotulo, valor):
+        texto = valor if valor not in (None, "") else "—"
+        return Paragraph(f"<b>{rotulo}:</b> {texto}", estilo_normal)
+
+    def divisor():
+        return HRFlowable(width="150%", thickness=0.75, color=colors.grey, spaceBefore=8, spaceAfter=8)
+
+    nome_projeto = obter_nome_projeto_por_id(solicitacao.get("projeto_id"), projetos_dict)
+    elementos.append(linha("Projeto", nome_projeto))
+
+    respostas_personalizadas = solicitacao.get("respostas_personalizadas_insumos", [])
+    if respostas_personalizadas:
+        elementos.append(Spacer(1, 6))
+        for resposta in respostas_personalizadas:
+            titulo = resposta.get("titulo_pergunta_insumos", "—")
+            opcoes_selecionadas = resposta.get("opcoes_selecionadas", [])
+            valor_exibido = ", ".join(opcoes_selecionadas) if opcoes_selecionadas else "—"
+            elementos.append(linha(titulo, valor_exibido))
+
+    elementos.append(divisor())
+
+    elementos.append(linha("Responsável", obter_nome_responsavel_solicitacao(solicitacao, pessoas_dict)))
+    elementos.append(linha("Data da Solicitação", solicitacao.get("data_solicitacao", "—")))
+    elementos.append(linha("Data Prevista/Desejada de Entrega", solicitacao.get("data_prevista_entrega", "—")))
+
+    elementos.append(divisor())
+
+    # Identificação da comunidade em 3 colunas, no mesmo padrão do diálogo de detalhes
+    comunidade = solicitacao.get("identificacao_comunidade", {})
+
+    comunidade = solicitacao.get("identificacao_comunidade", {})
+    elementos.append(linha("Terra Indígena (TI)", comunidade.get("terra_indigena")))
+    elementos.append(linha("Nome da Aldeia", comunidade.get("nome_aldeia")))
+    elementos.append(linha("Nome do Grupo/Coletivo", comunidade.get("nome_grupo_coletivo")))
+    elementos.append(linha("Atividade Produtiva Principal", comunidade.get("atividade_produtiva_principal")))
+    elementos.append(linha("Nome do responsável do grupo", comunidade.get("nome_responsavel_grupo")))
+    elementos.append(linha("Nº de Famílias Atendidas", comunidade.get("numero_familias_atendidas")))
+
+    elementos.append(divisor())
+
+    elementos.append(linha("Justificativa", solicitacao.get("justificativa_objetivos", "—")))
+
+    elementos.append(divisor())
+
+    itens = solicitacao.get("itens_demandados", [])
+    if itens:
+        estilo_header_tabela = ParagraphStyle(
+            "HeaderTabelaItens", parent=estilo_normal, fontName="Helvetica-Bold", fontSize=9.5,
+            textColor=colors.HexColor("#1F1F1F"),
+        )
+        estilo_celula_tabela = ParagraphStyle(
+            "CelulaTabelaItens", parent=estilo_normal, fontSize=9.5, textColor=colors.HexColor("#333333"),
+        )
+
+        colunas_cabecalho = ["Item", "Descrição Material/ Equipamento/ Insumo", "Unidade", "Quantidade"]
+        dados_tabela = [[Paragraph(c, estilo_header_tabela) for c in colunas_cabecalho]]
+        for item in itens:
+            dados_tabela.append([
+                Paragraph(str(item.get("Item", "—")), estilo_celula_tabela),
+                Paragraph(str(item.get("Descrição Material/ Equipamento/ Insumo", "—")), estilo_celula_tabela),
+                Paragraph(str(item.get("Unidade", "—")), estilo_celula_tabela),
+                Paragraph(str(item.get("Quantidade", "—")), estilo_celula_tabela),
+            ])
+
+        tabela = Table(dados_tabela, colWidths=[1.5 * cm, 8.5 * cm, 2.5 * cm, 2.5 * cm], repeatRows=1)
+        tabela.setStyle(TableStyle([
+            # Cabeçalho no estilo do print: fundo cinza claro, texto escuro em negrito
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#F2F2F2")),
+            ("TOPPADDING", (0, 0), (-1, -1), 8),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+            ("LEFTPADDING", (0, 0), (-1, -1), 8),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            # Sem grid — apenas linhas horizontais finas, como no print
+            ("LINEBELOW", (0, 0), (-1, 0), 1, colors.HexColor("#D0D0D0")),
+            ("LINEBELOW", (0, 1), (-1, -2), 0.5, colors.HexColor("#E5E5E5")),
+        ]))
+        elementos.append(tabela)
+    else:
+        elementos.append(Paragraph("Nenhum item cadastrado.", estilo_normal))
+
+    doc.build(elementos)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
+def enviar_email(destinatarios, assunto, corpo, anexo_bytes=None, nome_anexo=None):
+    """Envia um e-mail via Gmail SMTP (SSL), com anexo opcional em PDF."""
+    if not destinatarios:
+        return False
+
+    remetente = st.secrets["senhas"]["endereco_email"]
+    senha = st.secrets["senhas"]["senha_email"]
+
+    msg = MIMEMultipart()
+    msg["Subject"] = assunto
+    msg["From"] = remetente
+    msg["To"] = ", ".join(destinatarios)
+    msg.attach(MIMEText(corpo, "html", "utf-8"))
+
+    if anexo_bytes:
+        parte_anexo = MIMEApplication(anexo_bytes, _subtype="pdf")
+        parte_anexo.add_header("Content-Disposition", "attachment", filename=nome_anexo or "solicitacao.pdf")
+        msg.attach(parte_anexo)
+
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(remetente, senha)
+            server.sendmail(remetente, destinatarios, msg.as_string())
+        return True
+    except Exception as e:
+        st.error(f"Erro ao enviar e-mail: {e}")
+        return False
+
+def obter_email_pessoa_por_id(pessoa_id):
+    """Busca o e-mail de uma pessoa a partir do seu id."""
+    if not pessoa_id:
+        return None
+    pessoa = pessoas.find_one({"_id": ObjectId(pessoa_id)}, {"e_mail": 1})
+    return (pessoa or {}).get("e_mail")
+
+
+def obter_destinatarios_adm(solicitacao):
+    """Retorna o(s) e-mail(s) administrativo(s) a notificar, com base no
+    campo 'escritorio' do responsável ORIGINAL pela solicitação."""
+    responsavel_id = solicitacao.get("responsavel_id")
+    if not responsavel_id:
+        return []
+
+    pessoa = pessoas.find_one({"_id": ObjectId(responsavel_id)}, {"escritorio": 1})
+    escritorio = (pessoa or {}).get("escritorio")
+
+    if escritorio == "Brasília":
+        chave = "adm_bsb"
+    elif escritorio == "Santa Inês":
+        chave = "adm_stai"
+    else:
+        return []
+
+    email = st.secrets.get("emails_adm", {}).get(chave)
+    return [email] if email else []
+
+
+def enviar_notificacao_solicitacao(solicitacao, tipo, projetos_dict, pessoas_dict):
+    """Dispara o e-mail de notificação (Enviado/Editado), com o PDF da
+    solicitação em anexo, para o e-mail administrativo do escritório do
+    responsável pela solicitação."""
+
+    destinatarios = obter_destinatarios_adm(solicitacao)
+    if not destinatarios:
+        return
+
+    id_usuario_acao = usuario_id_atual()
+    nome_usuario_acao = obter_nome_pessoa_por_id(id_usuario_acao, pessoas_dict)
+    email_usuario_acao = obter_email_pessoa_por_id(id_usuario_acao) or "—"
+    data_hora_acao = datetime.now().strftime("%d/%m/%Y %H:%M")
+
+    nome_projeto = obter_nome_projeto_por_id(solicitacao.get("projeto_id"), projetos_dict)
+    nome_responsavel = obter_nome_responsavel_solicitacao(solicitacao, pessoas_dict)
+    verbo = "enviada" if tipo == "Enviado" else "editada"
+
+    assunto = f"[Insumos] Solicitação {verbo} — {nome_projeto}"
+    corpo = f"""
+    <p>Uma solicitação de insumos foi <b>{verbo}</b> no Portal ISPN.</p>
+    <p><b>Projeto:</b> {nome_projeto}</p>
+    <br>
+    <p>{tipo} por <b>{nome_usuario_acao}</b> ({email_usuario_acao}) em <b>{data_hora_acao}</b></p>
+    """
+
+    pdf_bytes = gerar_pdf_solicitacao(solicitacao, projetos_dict, pessoas_dict)
+    nome_arquivo = f"SdI_{sanitizar_nome_arquivo(nome_responsavel)}.pdf"
+
+    enviar_email(destinatarios, assunto, corpo, anexo_bytes=pdf_bytes, nome_anexo=nome_arquivo)
 
 
 def usuario_tem_acesso_crud(projetos):
@@ -430,6 +660,7 @@ def dialog_detalhes(solicitacao, projetos, projetos_dict, pessoas_dict):
 
         # -------------------- MODO EDIÇÃO --------------------
         opcoes_projetos = {str(p["_id"]): obter_rotulo_projeto(p) for p in projetos}
+        projetos_dict = montar_dict_nomes_projetos(projetos) 
         ids_projetos = list(opcoes_projetos.keys())
         projeto_id_atual = str(solicitacao.get("projeto_id"))
         indice_projeto_atual = ids_projetos.index(projeto_id_atual) if projeto_id_atual in ids_projetos else None
@@ -603,6 +834,9 @@ def dialog_detalhes(solicitacao, projetos, projetos_dict, pessoas_dict):
                         "itens_demandados": itens_registrados,
                     }}
                 )
+
+                solicitacao_atualizada = insumos.find_one({"_id": solicitacao["_id"]})
+                enviar_notificacao_solicitacao(solicitacao_atualizada, "Editado", projetos_dict, pessoas_dict)
                 st.success("Solicitação atualizada com sucesso!", icon=":material/check:")
                 time.sleep(2)
                 st.rerun()
@@ -699,6 +933,7 @@ with abas[1]:
 
     projetos = carregar_projetos()
     opcoes_projetos = {str(p["_id"]): obter_rotulo_projeto(p) for p in projetos}
+    projetos_dict = montar_dict_nomes_projetos(projetos) 
     pessoas_lista = carregar_pessoas()
     pessoas_dict = montar_dict_nomes_pessoas(pessoas_lista)
 
@@ -818,49 +1053,54 @@ with abas[1]:
         st.write("")
         enviar = st.form_submit_button("Enviar Solicitação", type="primary", width="content", icon=":material/send:")
 
+
     if enviar:
-        erros = []
+        with st.spinner(text="Enviando solicitação..."):
+            erros = []
 
-        if not projeto_id_selecionado:
-            erros.append("Selecione o projeto.")
+            if not projeto_id_selecionado:
+                erros.append("Selecione o projeto.")
 
-        if not data_prevista_entrega:
-            erros.append("Informe a Data Prevista/Desejada para Entrega.")
+            if not data_prevista_entrega:
+                erros.append("Informe a Data Prevista/Desejada para Entrega.")
 
-        if not justificativa_objetivos or not justificativa_objetivos.strip():
-            erros.append("A Justificativa e Objetivos da Demanda é obrigatória.")
+            if not justificativa_objetivos or not justificativa_objetivos.strip():
+                erros.append("A Justificativa e Objetivos da Demanda é obrigatória.")
 
-        itens_registrados = numerar_itens(df_itens)
-        if not itens_registrados:
-            erros.append("Informe ao menos um item na tabela de Especificação dos Itens Demandados.")
+            itens_registrados = numerar_itens(df_itens)
+            if not itens_registrados:
+                erros.append("Informe ao menos um item na tabela de Especificação dos Itens Demandados.")
 
-        if erros:
-            for erro in erros:
-                st.error(erro)
-        else:
-            novo_documento = {
-                "projeto_id": ObjectId(projeto_id_selecionado),
-                "respostas_personalizadas_insumos": list(respostas_personalizadas_novas.values()),
-                "responsavel_id": ObjectId(id_usuario_solicitante) if id_usuario_solicitante else None,
-                "data_solicitacao": data_solicitacao,
-                "data_prevista_entrega": data_prevista_entrega.strftime("%d/%m/%Y"),
-                "identificacao_comunidade": {
-                    "terra_indigena": terra_indigena,
-                    "nome_aldeia": nome_aldeia,
-                    "nome_grupo_coletivo": nome_grupo_coletivo,
-                    "atividade_produtiva_principal": atividade_produtiva_principal,
-                    "nome_responsavel_grupo": nome_responsavel_grupo,
-                    "numero_familias_atendidas": numero_familias_atendidas,
-                },
-                "justificativa_objetivos": justificativa_objetivos,
-                "itens_demandados": itens_registrados,
-                "status": "Pendente",
-            }
+            if erros:
+                for erro in erros:
+                    st.error(erro)
+            else:
+                novo_documento = {
+                    "projeto_id": ObjectId(projeto_id_selecionado),
+                    "respostas_personalizadas_insumos": list(respostas_personalizadas_novas.values()),
+                    "responsavel_id": ObjectId(id_usuario_solicitante) if id_usuario_solicitante else None,
+                    "data_solicitacao": data_solicitacao,
+                    "data_prevista_entrega": data_prevista_entrega.strftime("%d/%m/%Y"),
+                    "identificacao_comunidade": {
+                        "terra_indigena": terra_indigena,
+                        "nome_aldeia": nome_aldeia,
+                        "nome_grupo_coletivo": nome_grupo_coletivo,
+                        "atividade_produtiva_principal": atividade_produtiva_principal,
+                        "nome_responsavel_grupo": nome_responsavel_grupo,
+                        "numero_familias_atendidas": numero_familias_atendidas,
+                    },
+                    "justificativa_objetivos": justificativa_objetivos,
+                    "itens_demandados": itens_registrados,
+                    "status": "Pendente",
+                }
 
-            insumos.insert_one(novo_documento)
-            st.success("Solicitação enviada com sucesso!", icon=":material/check:")
-            time.sleep(2)
-            st.rerun()
+                resultado_insercao = insumos.insert_one(novo_documento)
+                novo_documento["_id"] = resultado_insercao.inserted_id
+                enviar_notificacao_solicitacao(novo_documento, "Enviado", projetos_dict, pessoas_dict)
+
+                st.success("Solicitação enviada com sucesso!", icon=":material/check:")
+                time.sleep(2)
+                st.rerun()
 
 
 ###########################################################################################################
