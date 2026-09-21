@@ -982,7 +982,7 @@ with abas[1]:
 
     st.write("")
 
-    with st.form("form_nova_solicitacao_insumos", clear_on_submit=True, border=False):
+    with st.form("form_nova_solicitacao_insumos", border=False):
 
         id_usuario_solicitante = usuario_id_atual()
         nome_responsavel_exibido = obter_nome_pessoa_por_id(id_usuario_solicitante, pessoas_dict)
