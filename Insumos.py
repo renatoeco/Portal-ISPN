@@ -960,8 +960,10 @@ with abas[1]:
 
     st.markdown("##### 1. Identificação Geral")
     st.write("")
+    
+    col1, col2 = st.columns(2)
 
-    projeto_id_selecionado = st.selectbox(
+    projeto_id_selecionado = col1.selectbox(
         "Projeto*",
         options=list(opcoes_projetos.keys()),
         format_func=lambda x: opcoes_projetos.get(x, x),
@@ -1012,13 +1014,15 @@ with abas[1]:
         col1.text_input("Nome do Responsável pela Solicitação", value=nome_responsavel_exibido, disabled=True)
         col2.text_input("Data da Solicitação", value=data_solicitacao, disabled=True)
 
-        data_prevista_entrega = date_picker(
-            label="Data Prevista/Desejada para Entrega*",
-            format="dd/MM/yyyy",
-            locale="pt_BR",
-            placeholder="dd/mm/aaaa",
-            key="insumos_data_prevista_entrega"
-        )
+        with col1:
+            data_prevista_entrega = date_picker(
+                label="Data Prevista/Desejada para Entrega*",
+                format="dd/MM/yyyy",
+                locale="pt_BR",
+                placeholder="dd/mm/aaaa",
+                one_tap=True,
+                key="insumos_data_prevista_entrega"
+            )
 
         st.divider()
         st.markdown("##### 2. Identificação da Comunidade Beneficiária")
