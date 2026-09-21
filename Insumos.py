@@ -663,6 +663,7 @@ def dialog_detalhes(solicitacao, projetos, projetos_dict, pessoas_dict):
 
         st.divider()
 
+        st.write(f"**Especificação dos Itens Demandados:**")
         itens = solicitacao.get("itens_demandados", [])
         if itens:
             df_itens = pd.DataFrame(itens)
@@ -797,6 +798,8 @@ def dialog_detalhes(solicitacao, projetos, projetos_dict, pessoas_dict):
             for coluna in ["Descrição Material/ Equipamento/ Insumo", "Unidade", "Quantidade"]:
                 if coluna not in df_itens_atual.columns:
                     df_itens_atual[coluna] = None
+
+            st.write("**Especificação dos Itens Demandados:**")
 
             df_itens_editados = st.data_editor(
                 df_itens_atual,
