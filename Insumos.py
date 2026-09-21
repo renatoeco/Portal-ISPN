@@ -550,6 +550,8 @@ def dialog_editar_pergunta(projeto_id, pergunta):
         key=f"dialog_editar_pergunta_excluir_{pergunta['_id']}"
     )
 
+    key_confirmar_exclusao = f"confirmar_exclusao_pergunta_{pergunta['_id']}"
+
     if salvar:
         if not titulo_editado or not titulo_editado.strip():
             st.error("Informe o título da pergunta.")
@@ -577,14 +579,29 @@ def dialog_editar_pergunta(projeto_id, pergunta):
                 st.rerun()
 
     if excluir:
-        projetos_ispn.update_one(
-            {"_id": ObjectId(projeto_id)},
-            {"$pull": {"perguntas_personalizadas_insumos": {"_id": pergunta["_id"]}}}
-        )
-        st.success("Pergunta excluída com sucesso!", icon=":material/check:")
-        time.sleep(2)
-        st.cache_data.clear()
-        st.rerun()
+        st.session_state[key_confirmar_exclusao] = True
+
+    if st.session_state.get(key_confirmar_exclusao):
+        st.write("")
+        st.write("")
+        
+        st.warning("Tem certeza que deseja excluir esta pergunta? Essa ação não pode ser desfeita.")
+        if st.button(
+            "Confirmar exclusão", icon=":material/delete_forever:", type="primary",
+            width="content",
+            key=f"dialog_editar_pergunta_confirmar_excluir_{pergunta['_id']}"
+        ):
+            projetos_ispn.update_one(
+                {"_id": ObjectId(projeto_id)},
+                {"$pull": {"perguntas_personalizadas_insumos": {"_id": pergunta["_id"]}}}
+            )
+            
+            st.session_state.pop(key_confirmar_exclusao, None)
+            
+            st.success("Pergunta excluída com sucesso!", icon=":material/check:")
+            time.sleep(2)
+            st.cache_data.clear()
+            st.rerun()
 
 
 ###########################################################################################################
@@ -1202,28 +1219,53 @@ if usuario_tem_acesso_crud(projetos_geral):
             if not perguntas_atuais:
                 st.caption("Este projeto ainda não possui nenhuma pergunta personalizada cadastrada.")
             else:
-                colunas_por_linha = 3
-                for i in range(0, len(perguntas_atuais), colunas_por_linha):
-                    grupo_perguntas = perguntas_atuais[i:i + colunas_por_linha]
-                    colunas_cards = st.columns(colunas_por_linha)
+                st.markdown(
+                    """
+                    <style>
+                    /* Container "linha": permite quebrar para a linha de baixo */
+                    .st-key-crud_container_perguntas {
+                        flex-wrap: wrap !important;
+                        row-gap: 1rem;
+                    }
 
-                    for coluna_card, pergunta in zip(colunas_cards, grupo_perguntas):
-                        with coluna_card:
-                            with st.container(border=True):
-                                col_titulo, col_botao = st.columns([9, 1])
-                                col_titulo.markdown(f"**{pergunta.get('titulo_pergunta_insumos', '—')}**")
+                    /* Cada card: largura fixa de 250px, sem esticar nem encolher */
+                    .st-key-crud_container_perguntas > div[data-testid="stVerticalBlockBorderWrapper"] {
+                        flex: 0 0 250px !important;
+                        width: 250px !important;
+                        max-width: 250px !important;
+                        min-width: 250px !important;
+                    }
 
-                                #with col_popover.popover("", icon=":material/more_vert:", type="tertiary", width=10):
-                                if col_botao.button(
-                                    "", icon=":material/edit:",
-                                    key=f"crud_botao_editar_{pergunta['_id']}",
-                                    type="tertiary",
-                                    width="content",
-                                ):
-                                    dialog_editar_pergunta(projeto_id_crud, pergunta)
+                    /* Texto das opções de resposta: nunca ultrapassa a largura do card */
+                    .st-key-crud_container_perguntas [data-testid="stMarkdownContainer"] p,
+                    .st-key-crud_container_perguntas [data-testid="stMarkdownContainer"] li,
+                    .st-key-crud_container_perguntas [data-testid="stMarkdownContainer"] ul {
+                        overflow-wrap: break-word;
+                        word-break: break-word;
+                        white-space: normal;
+                        max-width: 100%;
+                    }
+                    </style>
+                    """,
+                    unsafe_allow_html=True,
+                )
 
-                                opcoes = pergunta.get("opcoes_resposta_insumos", [])
-                                if opcoes:
-                                    st.write(", ".join(opcoes))
-                                else:
-                                    st.caption("Nenhuma opção de resposta cadastrada.")
+                with st.container(horizontal=True, key="crud_container_perguntas"):
+                    for pergunta in perguntas_atuais:
+                        with st.container(width=250, border=True):
+                            col_titulo, col_botao = st.columns([9, 1])
+                            col_titulo.markdown(f"**{pergunta.get('titulo_pergunta_insumos', '—')}**")
+
+                            if col_botao.button(
+                                "", icon=":material/edit:",
+                                key=f"crud_botao_editar_{pergunta['_id']}",
+                                type="tertiary",
+                                width="content",
+                            ):
+                                dialog_editar_pergunta(projeto_id_crud, pergunta)
+
+                            opcoes = pergunta.get("opcoes_resposta_insumos", [])
+                            if opcoes:
+                                st.markdown("\n".join(f"- {opcao}" for opcao in opcoes))
+                            else:
+                                st.caption("Nenhuma opção de resposta cadastrada.")
