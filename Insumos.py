@@ -356,9 +356,10 @@ def enviar_notificacao_solicitacao(solicitacao, tipo, projetos_dict, pessoas_dic
 
     assunto = f"[Insumos] Solicitação {verbo} — {nome_projeto}"
     corpo = f"""
-    <p>Uma solicitação de insumos foi <b>{verbo}</b> no Portal ISPN.</p>
+    <p>Uma solicitação de insumos foi <b>{verbo}</b> pelo Portal Jataí.</p>
+
     <p><b>Projeto:</b> {nome_projeto}</p>
-    <br>
+    
     <p>{tipo} por <b>{nome_usuario_acao}</b> ({email_usuario_acao}) em <b>{data_hora_acao}</b></p>
     """
 
@@ -900,7 +901,7 @@ with abas[0]:
         if not solicitacoes:
             st.caption("**Nenhuma solicitação encontrada para o período selecionado.**")
         else:
-            col_proj, col_resp, col_data_sol, col_data_ent, col_botao = st.columns([3, 2, 2, 2, 2])
+            col_proj, col_resp, col_data_sol, col_data_ent, col_botao = st.columns([2, 2, 2, 2, 2])
             col_proj.markdown("**Projeto**")
             col_resp.markdown("**Responsável**")
             col_data_sol.markdown("**Data da Solicitação**")
@@ -910,7 +911,7 @@ with abas[0]:
             st.divider()
 
             for solicitacao in solicitacoes:
-                col_proj, col_resp, col_data_sol, col_data_ent, col_botao = st.columns([3, 2, 2, 2, 2])
+                col_proj, col_resp, col_data_sol, col_data_ent, col_botao = st.columns([2, 2, 2, 2, 2])
                 col_proj.write(obter_nome_projeto_por_id(solicitacao.get("projeto_id"), projetos_dict))
                 col_resp.write(obter_nome_responsavel_solicitacao(solicitacao, pessoas_dict))
                 col_data_sol.write(solicitacao.get("data_solicitacao", "—"))
