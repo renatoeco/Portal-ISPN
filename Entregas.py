@@ -6,6 +6,7 @@ from funcoes_auxiliares import conectar_mongo_portal_ispn, dialog_editar_entrega
 import plotly.express as px
 import time
 import bson
+from streamlit_scroll_to_top import scroll_to_here
 
 
 
@@ -1218,6 +1219,16 @@ def render_entregas():
     if "entrega_selecionada_id" not in st.session_state:
         st.session_state["entrega_selecionada_id"] = None
 
+    if "scroll_registros" not in st.session_state:
+        st.session_state["scroll_registros"] = 0
+
+    # --------------------------------------------------
+    # Scroll da tela
+    # --------------------------------------------------
+
+    if "scroll_registros" not in st.session_state:
+        st.session_state["scroll_registros"] = False
+
     # --------------------------------------------------
     # Dados utilizados pelo fragmento
     # --------------------------------------------------
@@ -1258,6 +1269,9 @@ def render_entregas():
 
             # Registra a entrega atualmente selecionada.
             st.session_state["entrega_selecionada_id"] = entrega_id
+
+            # Gera um novo identificador para cada seleção.
+            st.session_state["scroll_registros"] += 1
 
             # Mantém apenas uma entrega selecionada.
             for _, outra_entrega in df.iterrows():
@@ -1491,6 +1505,18 @@ def render_entregas():
 
     with col_registros:
 
+        scroll_id = st.session_state.get(
+            "scroll_registros",
+            0
+        )
+
+        if scroll_id > 0:
+
+            scroll_to_here(
+                100,
+                key=f"registros_entrega_{scroll_id}"
+            )
+
         st.markdown("#### Registros da Entrega:")
 
         # Nenhuma entrega selecionada: mantém a área vazia,
@@ -1589,378 +1615,6 @@ def render_entregas():
 
 
 
-
-
-# # ==========================================================
-# # INTERFACE DA ABA DE ENTREGAS
-# # ==========================================================
-
-# @st.fragment
-# def render_entregas():
-
-#     # --------------------------------------------------
-#     # Estado da entrega selecionada
-#     # --------------------------------------------------
-
-#     if "entrega_selecionada_id" not in st.session_state:
-#         st.session_state["entrega_selecionada_id"] = None
-
-#     # --------------------------------------------------
-#     # Dados utilizados pelo fragmento
-#     # --------------------------------------------------
-
-#     df = df_entregas_filtrado
-
-#     if df.empty:
-#         st.info("Nenhuma entrega encontrada.")
-#         return
-
-#     # --------------------------------------------------
-#     # Inicialização dos estados dos checkboxes
-#     # --------------------------------------------------
-
-#     for _, entrega in df.iterrows():
-
-#         entrega_id = str(entrega["entrega_id"])
-#         chave_checkbox = f"checkbox_entrega_{entrega_id}"
-
-#         if chave_checkbox not in st.session_state:
-#             st.session_state[chave_checkbox] = False
-
-#     # --------------------------------------------------
-#     # Callback de seleção
-#     # --------------------------------------------------
-
-#     def alterar_entrega_selecionada(entrega_id):
-
-#         entrega_id = str(entrega_id)
-#         chave_checkbox = f"checkbox_entrega_{entrega_id}"
-
-#         selecionada = st.session_state.get(
-#             chave_checkbox,
-#             False
-#         )
-
-#         if selecionada:
-
-#             # Registra a entrega atualmente selecionada.
-#             st.session_state["entrega_selecionada_id"] = entrega_id
-
-#             # Mantém apenas uma entrega selecionada.
-#             for _, outra_entrega in df.iterrows():
-
-#                 outro_id = str(outra_entrega["entrega_id"])
-
-#                 if outro_id != entrega_id:
-
-#                     outra_chave = f"checkbox_entrega_{outro_id}"
-
-#                     st.session_state[outra_chave] = False
-
-#         else:
-
-#             # Remove a seleção quando o checkbox ativo é desmarcado.
-#             if (
-#                 st.session_state.get("entrega_selecionada_id")
-#                 == entrega_id
-#             ):
-#                 st.session_state["entrega_selecionada_id"] = None
-
-#     # --------------------------------------------------
-#     # Layout principal
-#     # --------------------------------------------------
-
-#     col_entregas, col_registros = st.columns(
-#         [1, 1],
-#         gap="medium"
-#     )
-
-#     # ==================================================
-#     # COLUNA ESQUERDA — ENTREGAS
-#     # ==================================================
-
-#     with col_entregas:
-
-#         st.markdown("#### Entregas planejadas")
-
-#         for _, entrega in df.iterrows():
-
-#             entrega_id = str(entrega["entrega_id"])
-#             chave_checkbox = f"checkbox_entrega_{entrega_id}"
-
-#             with st.container(border=True):
-
-#                 # ------------------------------------------
-#                 # Cabeçalho do card
-#                 # ------------------------------------------
-
-#                 col1, col2 = st.columns([3, 1])
-
-#                 with col1:
-
-#                     nome_entrega = entrega.get(
-#                         "nome_da_entrega",
-#                         "Entrega sem nome"
-#                     )
-
-#                     st.markdown(
-#                         f"**{nome_entrega}**"
-#                     )
-
-#                 with col2:
-
-#                     # Menu de ações da entrega.
-#                     with st.container(
-#                         horizontal=True,
-#                         horizontal_alignment="right"
-#                     ):
-
-#                         with st.popover(
-#                             ":material/more_vert:",
-#                             width="content"
-#                         ):
-
-#                             # Edição da entrega utiliza o diálogo
-#                             # específico de gerenciamento já existente.
-#                             if not usuario_visitante:
-
-#                                 editar_entrega = st.button(
-#                                     "Editar entrega",
-#                                     icon=":material/edit:",
-#                                     type="tertiary",
-#                                     key=f"editar_entrega_{entrega_id}"
-#                                 )
-
-#                                 if editar_entrega:
-#                                     dialog_editar_entregas()
-
-#                 # ------------------------------------------
-#                 # Responsáveis
-#                 # ------------------------------------------
-
-#                 responsaveis = entrega.get(
-#                     "responsaveis",
-#                     ""
-#                 )
-
-#                 if responsaveis:
-
-#                     st.markdown(
-#                         f"**Responsável(is):** {responsaveis}"
-#                     )
-
-#                 else:
-
-#                     st.markdown(
-#                         "**Responsável(is):** Não informado"
-#                     )
-
-#                 # ------------------------------------------
-#                 # Informações resumidas
-#                 # ------------------------------------------
-
-#                 with st.container(
-#                     horizontal=True,
-#                     horizontal_alignment="distribute"
-#                 ):
-
-#                     situacao = entrega.get(
-#                         "situacao",
-#                         "Não informada"
-#                     )
-
-#                     st.markdown(
-#                         f"**Situação:** {situacao}"
-#                     )
-
-#                     previsao = entrega.get(
-#                         "previsao_da_conclusao_str",
-#                         ""
-#                     )
-
-#                     if previsao:
-
-#                         st.markdown(
-#                             f":material/schedule: {previsao}"
-#                         )
-
-#                     # ------------------------------------------
-#                     # Registros
-#                     # ------------------------------------------
-
-#                     lancamentos = entrega.get(
-#                         "lancamentos_entregas",
-#                         []
-#                     )
-
-#                     if not isinstance(lancamentos, list):
-#                         lancamentos = []
-
-#                     quantidade_lancamentos = len(lancamentos)
-
-#                     if quantidade_lancamentos == 0:
-
-#                         st.markdown(
-#                             '<span style="color:#F59E0B;"><i>Nenhum registro</i></span>',
-#                             unsafe_allow_html=True
-#                         )
-
-#                     else:
-
-#                         texto_registros = (
-#                             "registro"
-#                             if quantidade_lancamentos == 1
-#                             else "registros"
-#                         )
-
-#                         st.checkbox(
-#                             f"**Ver {quantidade_lancamentos} {texto_registros} >>**",
-#                             key=chave_checkbox,
-#                             on_change=alterar_entrega_selecionada,
-#                             args=(entrega_id,)
-#                         )
-
-#                 # ------------------------------------------
-#                 # Progresso
-#                 # ------------------------------------------
-
-#                 progresso = entrega.get(
-#                     "progresso",
-#                     0
-#                 )
-
-#                 try:
-#                     progresso = float(progresso)
-#                 except (TypeError, ValueError):
-#                     progresso = 0
-
-#                 progresso = max(
-#                     0,
-#                     min(100, progresso)
-#                 )
-
-#                 st.progress(
-#                     progresso / 100,
-#                     text=f"Progresso: {progresso:.0f}%"
-#                 )
-
-#     # ==================================================
-#     # ENTREGA SELECIONADA
-#     # ==================================================
-
-#     entrega_selecionada_id = st.session_state.get(
-#         "entrega_selecionada_id"
-#     )
-
-#     entrega_selecionada = None
-
-#     if entrega_selecionada_id:
-
-#         for _, entrega in df.iterrows():
-
-#             if str(entrega["entrega_id"]) == str(
-#                 entrega_selecionada_id
-#             ):
-
-#                 entrega_selecionada = entrega
-#                 break
-
-
-
-
-
-
-
-
-#     # ==================================================
-#     # COLUNA DIREITA — REGISTROS
-#     # ==================================================
-
-#     with col_registros:
-
-#         st.markdown("#### Registros da Entrega:")
-
-#         # Nenhuma entrega selecionada: mantém a área vazia,
-#         # exibindo somente as orientações de seleção.
-#         if entrega_selecionada is None:
-
-#             st.caption(
-#                 "Selecione uma Entrega na coluna da esquerda"
-#             )
-
-#             st.caption(
-#                 "Clique em :material/select_check_box: **Ver x registros**."
-#             )
-
-#         else:
-
-#             # Identificação da entrega selecionada.
-#             nome_entrega = entrega_selecionada.get(
-#                 "nome_da_entrega",
-#                 "Entrega sem nome"
-#             )
-
-#             st.markdown(
-#                 f"##### {nome_entrega}"
-#             )
-
-#             # Obtém somente os registros pertencentes à entrega selecionada.
-#             lancamentos = entrega_selecionada.get(
-#                 "lancamentos_entregas",
-#                 []
-#             )
-
-#             if not isinstance(lancamentos, list):
-#                 lancamentos = []
-
-#             if not lancamentos:
-
-#                 st.caption(
-#                     "Nenhum registro cadastrado para esta entrega."
-#                 )
-
-#             else:
-
-#                 # Cada registro é apresentado individualmente em um card.
-#                 for lancamento in lancamentos:
-
-#                     with st.container(border=True):
-
-#                         # Ano e autor do registro.
-#                         with st.container(
-#                             horizontal=True,
-#                             horizontal_alignment="distribute"
-#                         ):
-
-#                             ano = lancamento.get(
-#                                 "ano",
-#                                 "Não informado"
-#                             )
-
-#                             autor = lancamento.get(
-#                                 "autor",
-#                                 "Não informado"
-#                             )
-
-#                             st.caption(
-#                                 f"**{ano}** | Registrado por **{autor}**"
-#                             )
-
-#                         # Anotações do registro.
-#                         anotacoes = lancamento.get(
-#                             "anotacoes",
-#                             ""
-#                         )
-
-#                         if anotacoes:
-
-#                             st.write(anotacoes)
-
-#                         else:
-
-#                             st.caption(
-#                                 "Sem anotações cadastradas."
-#                             )
 
 
 
