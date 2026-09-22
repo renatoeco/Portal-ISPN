@@ -4,6 +4,7 @@ from funcoes_auxiliares import conectar_mongo_portal_ispn
 from datetime import datetime
 import time
 from bson import ObjectId
+from pymongo import ReturnDocument
 from st_rsuite import date_picker
 import io
 import smtplib
@@ -40,7 +41,8 @@ db = conectar_mongo_portal_ispn()
 estatistica = db["estatistica"]  # Coleção de estatísticas
 insumos = db["insumos"]
 projetos_ispn = db["projetos_ispn"]
-pessoas = db["pessoas"] 
+pessoas = db["pessoas"]
+contadores = db["contadores"]  # Coleção de contadores atômicos (ex.: código sequencial das solicitações de insumos)
 
 
 ###########################################################################################################
@@ -161,6 +163,21 @@ def sanitizar_nome_arquivo(texto):
     return texto_limpo.strip("_") or "solicitacao"
 
 
+def gerar_codigo_solicitacao():
+    """Gera, de forma atômica, um código único e sequencial de 4 dígitos
+    (iniciando em '0001') para uma nova solicitação de insumos. O
+    incremento é feito com find_one_and_update sobre um único documento
+    contador, o que evita que duas solicitações simultâneas recebam o
+    mesmo código (operação atômica no MongoDB)."""
+    resultado = contadores.find_one_and_update(
+        {"_id": "codigo_insumos"},
+        {"$inc": {"sequencia": 1}},
+        upsert=True,
+        return_document=ReturnDocument.AFTER,
+    )
+    return f"{resultado['sequencia']:04d}"
+
+
 def gerar_pdf_solicitacao(solicitacao, projetos_dict, pessoas_dict):
     """Gera o PDF da solicitação de insumos, seguindo a mesma ordem e formato
     de campos exibidos no diálogo de Detalhes da Solicitação. Retorna os
@@ -186,7 +203,7 @@ def gerar_pdf_solicitacao(solicitacao, projetos_dict, pessoas_dict):
         logo = Image("images/logo_ISPN_horizontal_ass.png", width=6 * cm, height=1.8 * cm)
         logo.hAlign = "CENTER"
         elementos.append(logo)
-        elementos.append(Spacer(1, 40))   # <-- espaçamento maior (era 12)
+        elementos.append(Spacer(1, 40))
     except Exception:
         pass
 
@@ -200,43 +217,57 @@ def gerar_pdf_solicitacao(solicitacao, projetos_dict, pessoas_dict):
     def divisor():
         return HRFlowable(width="150%", thickness=0.75, color=colors.grey, spaceBefore=8, spaceAfter=8)
 
+    # ---------------------------------------------------------------
+    # Bloco 1: Código, Projeto, Responsável e Data Prevista juntos (mesmo
+    # bloco, sem divider entre eles)
+    # ---------------------------------------------------------------
     nome_projeto = obter_nome_projeto_por_id(solicitacao.get("projeto_id"), projetos_dict)
+    elementos.append(linha("Código", solicitacao.get("codigo_solicitacao", "—")))
     elementos.append(linha("Projeto", nome_projeto))
-
-    respostas_personalizadas = solicitacao.get("respostas_personalizadas_insumos", [])
-    if respostas_personalizadas:
-        elementos.append(Spacer(1, 6))
-        for resposta in respostas_personalizadas:
-            titulo = resposta.get("titulo_pergunta_insumos", "—")
-            opcoes_selecionadas = resposta.get("opcoes_selecionadas", [])
-            valor_exibido = ", ".join(opcoes_selecionadas) if opcoes_selecionadas else "—"
-            elementos.append(linha(titulo, valor_exibido))
-
-    elementos.append(divisor())
-
     elementos.append(linha("Responsável", obter_nome_responsavel_solicitacao(solicitacao, pessoas_dict)))
     elementos.append(linha("Data da Solicitação", solicitacao.get("data_solicitacao", "—")))
     elementos.append(linha("Data Prevista/Desejada de Entrega", solicitacao.get("data_prevista_entrega", "—")))
 
     elementos.append(divisor())
 
-    # Identificação da comunidade em 3 colunas, no mesmo padrão do diálogo de detalhes
-    comunidade = solicitacao.get("identificacao_comunidade", {})
+    # ---------------------------------------------------------------
+    # Bloco 2: Perguntas personalizadas (primeiro) + identificação da
+    # comunidade (Terra Indígena, etc.), no mesmo bloco, sem divider entre
+    # elas. Perguntas/campos sem resposta não aparecem.
+    # ---------------------------------------------------------------
+    respostas_personalizadas = solicitacao.get("respostas_personalizadas_insumos", [])
+    for resposta in respostas_personalizadas:
+        opcoes_selecionadas = resposta.get("opcoes_selecionadas", [])
+        if opcoes_selecionadas:
+            titulo = resposta.get("titulo_pergunta_insumos", "—")
+            valor_exibido = ", ".join(opcoes_selecionadas)
+            elementos.append(linha(titulo, valor_exibido))
 
     comunidade = solicitacao.get("identificacao_comunidade", {})
-    elementos.append(linha("Terra Indígena (TI)", comunidade.get("terra_indigena")))
-    elementos.append(linha("Nome da Aldeia", comunidade.get("nome_aldeia")))
-    elementos.append(linha("Nome do Grupo/Coletivo", comunidade.get("nome_grupo_coletivo")))
-    elementos.append(linha("Atividade Produtiva Principal", comunidade.get("atividade_produtiva_principal")))
-    elementos.append(linha("Nome do responsável do grupo", comunidade.get("nome_responsavel_grupo")))
-    elementos.append(linha("Nº de Famílias Atendidas", comunidade.get("numero_familias_atendidas")))
+    campos_comunidade = [
+        ("Terra Indígena (TI)", comunidade.get("terra_indigena")),
+        ("Nome da Aldeia", comunidade.get("nome_aldeia")),
+        ("Nome do Grupo/Coletivo", comunidade.get("nome_grupo_coletivo")),
+        ("Atividade Produtiva Principal", comunidade.get("atividade_produtiva_principal")),
+        ("Nome do responsável do grupo", comunidade.get("nome_responsavel_grupo")),
+        ("Nº de Famílias Atendidas", comunidade.get("numero_familias_atendidas")),
+    ]
+    for rotulo, valor in campos_comunidade:
+        if valor not in (None, ""):
+            elementos.append(linha(rotulo, valor))
 
     elementos.append(divisor())
 
+    # ---------------------------------------------------------------
+    # Bloco 3: Justificativa (sem divider depois)
+    # ---------------------------------------------------------------
     elementos.append(linha("Justificativa", solicitacao.get("justificativa_objetivos", "—")))
+    elementos.append(Spacer(1, 25))
 
-    elementos.append(divisor())
-
+    # ---------------------------------------------------------------
+    # Tabela de itens demandados: sem margens laterais (ocupa toda a
+    # largura útil da página) e com a coluna "Unidade" mais larga
+    # ---------------------------------------------------------------
     itens = solicitacao.get("itens_demandados", [])
     if itens:
         estilo_header_tabela = ParagraphStyle(
@@ -257,7 +288,20 @@ def gerar_pdf_solicitacao(solicitacao, projetos_dict, pessoas_dict):
                 Paragraph(str(item.get("Quantidade", "—")), estilo_celula_tabela),
             ])
 
-        tabela = Table(dados_tabela, colWidths=[1.5 * cm, 8.5 * cm, 2.5 * cm, 2.5 * cm], repeatRows=1)
+        # Largura útil da página (A4 = 21cm, com margens de 2cm de cada
+        # lado definidas no doc = 17cm de área útil). A tabela agora ocupa
+        # toda essa largura, e a coluna "Unidade" ficou mais larga.
+        largura_util = 21 * cm - 2 * (2 * cm)  # 17cm
+        col_item = 1.3 * cm
+        col_unidade = 4 * cm
+        col_quantidade = 2.7 * cm
+        col_descricao = largura_util - (col_item + col_unidade + col_quantidade)
+
+        tabela = Table(
+            dados_tabela,
+            colWidths=[col_item, col_descricao, col_unidade, col_quantidade],
+            repeatRows=1,
+        )
         tabela.setStyle(TableStyle([
             # Cabeçalho no estilo do print: fundo cinza claro, texto escuro em negrito
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#F2F2F2")),
@@ -265,6 +309,10 @@ def gerar_pdf_solicitacao(solicitacao, projetos_dict, pessoas_dict):
             ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
             ("LEFTPADDING", (0, 0), (-1, -1), 8),
             ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+            # Remove as margens laterais da tabela: sem padding extra na
+            # borda esquerda da 1ª coluna e na borda direita da última
+            ("LEFTPADDING", (0, 0), (0, -1), 0),
+            ("RIGHTPADDING", (-1, 0), (-1, -1), 0),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
             # Sem grid — apenas linhas horizontais finas, como no print
             ("LINEBELOW", (0, 0), (-1, 0), 1, colors.HexColor("#D0D0D0")),
@@ -358,13 +406,15 @@ def enviar_notificacao_solicitacao(solicitacao, tipo, projetos_dict, pessoas_dic
     corpo = f"""
     <p>Uma solicitação de insumos foi <b>{verbo}</b> pelo Portal Jataí.</p>
 
+    <p><b>Código:</b> {solicitacao.get("codigo_solicitacao", "—")}</p>
     <p><b>Projeto:</b> {nome_projeto}</p>
     
     <p>{tipo} por <b>{nome_usuario_acao}</b> ({email_usuario_acao}) em <b>{data_hora_acao}</b></p>
     """
 
     pdf_bytes = gerar_pdf_solicitacao(solicitacao, projetos_dict, pessoas_dict)
-    nome_arquivo = f"SdI_{sanitizar_nome_arquivo(nome_responsavel)}.pdf"
+    codigo_solicitacao = solicitacao.get("codigo_solicitacao", "0000")
+    nome_arquivo = f"SDI-{codigo_solicitacao}_{sanitizar_nome_arquivo(nome_responsavel)}.pdf"
 
     enviar_email(destinatarios, assunto, corpo, anexo_bytes=pdf_bytes, nome_anexo=nome_arquivo)
 
@@ -627,8 +677,14 @@ def dialog_detalhes(solicitacao, projetos, projetos_dict, pessoas_dict):
     # -------------------- MODO VISUALIZAÇÃO --------------------
     if not editar:
 
+        st.write("")
+        st.write("")
+
         nome_projeto = obter_nome_projeto_por_id(solicitacao.get("projeto_id"), projetos_dict)
-        st.write(f"**Projeto:** {nome_projeto}")
+
+        col1, col2, col3 = st.columns(3)
+        col1.write(f"**Código:** {solicitacao.get('codigo_solicitacao', '—')}")
+        col2.write(f"**Projeto:** {nome_projeto}")
 
         respostas_personalizadas = solicitacao.get("respostas_personalizadas_insumos", [])
         if respostas_personalizadas:
@@ -637,7 +693,7 @@ def dialog_detalhes(solicitacao, projetos, projetos_dict, pessoas_dict):
                 titulo = resposta.get("titulo_pergunta_insumos", "—")
                 opcoes_selecionadas = resposta.get("opcoes_selecionadas", [])
                 valor_exibido = ", ".join(opcoes_selecionadas) if opcoes_selecionadas else "—"
-                st.markdown(f"**{titulo}:** {valor_exibido}")
+                col3.markdown(f"**{titulo}:** {valor_exibido}")
 
         st.divider()
 
@@ -678,6 +734,10 @@ def dialog_detalhes(solicitacao, projetos, projetos_dict, pessoas_dict):
     else:
 
         # -------------------- MODO EDIÇÃO --------------------
+        # O código da solicitação (codigo_solicitacao) NÃO é exibido nem
+        # editável neste formulário — é imutável após a criação da
+        # solicitação e nunca é sobrescrito pelo update abaixo, pois não
+        # faz parte do $set.
         opcoes_projetos = {str(p["_id"]): obter_rotulo_projeto(p) for p in projetos}
         projetos_dict = montar_dict_nomes_projetos(projetos) 
         ids_projetos = list(opcoes_projetos.keys())
@@ -837,6 +897,9 @@ def dialog_detalhes(solicitacao, projetos, projetos_dict, pessoas_dict):
                 for erro in erros:
                     st.error(erro)
             else:
+                # Observação: "codigo_solicitacao" propositalmente não está
+                # neste $set — o código é gerado uma única vez, na criação
+                # da solicitação, e permanece imutável em edições futuras.
                 insumos.update_one(
                     {"_id": solicitacao["_id"]},
                     {"$set": {
@@ -921,7 +984,8 @@ with abas[0]:
         if not solicitacoes:
             st.caption("**Nenhuma solicitação encontrada para o período selecionado.**")
         else:
-            col_proj, col_resp, col_data_sol, col_data_ent, col_botao = st.columns([2, 2, 2, 2, 2])
+            col_codigo, col_proj, col_resp, col_data_sol, col_data_ent, col_botao = st.columns([1, 2, 2, 2, 2, 2])
+            col_codigo.markdown("**Código**")
             col_proj.markdown("**Projeto**")
             col_resp.markdown("**Responsável**")
             col_data_sol.markdown("**Data da Solicitação**")
@@ -931,7 +995,8 @@ with abas[0]:
             st.divider()
 
             for solicitacao in solicitacoes:
-                col_proj, col_resp, col_data_sol, col_data_ent, col_botao = st.columns([2, 2, 2, 2, 2])
+                col_codigo, col_proj, col_resp, col_data_sol, col_data_ent, col_botao = st.columns([1, 2, 2, 2, 2, 2])
+                col_codigo.write(solicitacao.get("codigo_solicitacao", "—"))
                 col_proj.write(obter_nome_projeto_por_id(solicitacao.get("projeto_id"), projetos_dict))
                 col_resp.write(obter_nome_responsavel_solicitacao(solicitacao, pessoas_dict))
                 col_data_sol.write(solicitacao.get("data_solicitacao", "—"))
@@ -1100,7 +1165,14 @@ with abas[1]:
                 for erro in erros:
                     st.error(erro)
             else:
+                # O código é gerado de forma atômica (via find_one_and_update
+                # sobre o contador em "contadores") apenas neste momento, no
+                # instante do envio — evitando que duas solicitações
+                # concorrentes recebam o mesmo código.
+                codigo_solicitacao = gerar_codigo_solicitacao()
+
                 novo_documento = {
+                    "codigo_solicitacao": codigo_solicitacao,
                     "projeto_id": ObjectId(projeto_id_selecionado),
                     "respostas_personalizadas_insumos": list(respostas_personalizadas_novas.values()),
                     "responsavel_id": ObjectId(id_usuario_solicitante) if id_usuario_solicitante else None,
@@ -1125,6 +1197,7 @@ with abas[1]:
 
                 st.success("Solicitação enviada com sucesso!", icon=":material/check:")
                 time.sleep(2)
+                st.cache_data.clear()
                 st.rerun()
 
 
@@ -1147,8 +1220,9 @@ if usuario_tem_acesso_crud(projetos_geral):
             options=list(opcoes_projetos_crud.keys()),
             format_func=lambda x: opcoes_projetos_crud.get(x, x),
             index=None,
-            placeholder="Selecione o projeto para gerenciar as perguntas",
-            key="crud_projeto_selecionado"
+            placeholder="Selecione o projeto",
+            key="crud_projeto_selecionado",
+            width=400
         )
 
         if projeto_id_crud:
