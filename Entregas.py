@@ -1219,15 +1219,15 @@ def render_entregas():
     if "entrega_selecionada_id" not in st.session_state:
         st.session_state["entrega_selecionada_id"] = None
 
-    if "scroll_registros" not in st.session_state:
-        st.session_state["scroll_registros"] = 0
 
     # --------------------------------------------------
     # Scroll da tela
     # --------------------------------------------------
 
     if "scroll_registros" not in st.session_state:
-        st.session_state["scroll_registros"] = False
+        st.session_state["scroll_registros"] = 0
+
+
 
     # --------------------------------------------------
     # Dados utilizados pelo fragmento
