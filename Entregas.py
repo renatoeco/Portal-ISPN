@@ -3,7 +3,6 @@ import pandas as pd
 from datetime import datetime
 from bson import ObjectId
 from funcoes_auxiliares import conectar_mongo_portal_ispn, dialog_editar_entregas, altura_dataframe
-# import streamlit_shadcn_ui as ui
 import plotly.express as px
 import time
 import bson
@@ -25,17 +24,17 @@ estatistica = db["estatistica"]
 colecao_lancamentos = db["lancamentos_indicadores"]
 
 
-# --------------------------------------------------
-# ESTADOS DO DIÁLOGO DE REGISTRO DE ENTREGAS
-# --------------------------------------------------
-if "entrega_selecionada" not in st.session_state:
-    st.session_state["entrega_selecionada"] = None
+# # --------------------------------------------------
+# # ESTADOS DO DIÁLOGO DE REGISTRO DE ENTREGAS
+# # --------------------------------------------------
+# if "entrega_selecionada" not in st.session_state:
+#     st.session_state["entrega_selecionada"] = None
 
-if "entrega_selecionada_tabela_key" not in st.session_state:
-    st.session_state["entrega_selecionada_tabela_key"] = None
+# if "entrega_selecionada_tabela_key" not in st.session_state:
+#     st.session_state["entrega_selecionada_tabela_key"] = None
 
-if "entrega" not in st.session_state:
-    st.session_state["entrega"] = False
+# if "entrega" not in st.session_state:
+#     st.session_state["entrega"] = False
 
 
 # ==========================================================
@@ -138,752 +137,752 @@ st.session_state["pagina_anterior"] = PAGINA_ID
 # ##########################################################
 
 
-# Função para renderizar o formulário de novo registro dentro do diálogo de acompanhamento de entrega
-@st.fragment
-def renderizar_novo_registro(idx):
+# # Função para renderizar o formulário de novo registro dentro do diálogo de acompanhamento de entrega
+# @st.fragment
+# def renderizar_novo_registro(idx):
 
-    st.write("")
+#     st.write("")
 
-    entrega_ctx = st.session_state.get("entrega_selecionada")
+#     entrega_ctx = st.session_state.get("entrega_selecionada")
 
-    projeto_info = projetos_ispn.find_one(
-        {"_id": ObjectId(entrega_ctx["projeto_id"])}
-    )
+#     projeto_info = projetos_ispn.find_one(
+#         {"_id": ObjectId(entrega_ctx["projeto_id"])}
+#     )
 
-    entregas_existentes = projeto_info.get("entregas", [])
+#     entregas_existentes = projeto_info.get("entregas", [])
     
-    entrega_id = entrega_ctx["entrega_id"]
+#     entrega_id = entrega_ctx["entrega_id"]
 
-    entrega = next(
-        e for e in entregas_existentes
-        if e["_id"] == ObjectId(entrega_id)
-    )
+#     entrega = next(
+#         e for e in entregas_existentes
+#         if e["_id"] == ObjectId(entrega_id)
+#     )
 
-    ano_atual = datetime.now().year
-    ano_inicial = ano_atual - 1
-    ano_final = ano_atual + 6
+#     ano_atual = datetime.now().year
+#     ano_inicial = ano_atual - 1
+#     ano_final = ano_atual + 6
 
-    anos_disponiveis = list(range(ano_inicial, ano_final + 1))
+#     anos_disponiveis = list(range(ano_inicial, ano_final + 1))
 
-    # =========================
-    # Dados do lançamento
-    # =========================
+#     # =========================
+#     # Dados do lançamento
+#     # =========================
 
-    ano_lancamento = st.selectbox(
-        "Ano do registro",
-        options=anos_disponiveis,
-        index=anos_disponiveis.index(ano_atual),
-        disabled=usuario_visitante 
-    )
+#     ano_lancamento = st.selectbox(
+#         "Ano do registro",
+#         options=anos_disponiveis,
+#         index=anos_disponiveis.index(ano_atual),
+#         disabled=usuario_visitante 
+#     )
 
-    anotacoes_lancamento = st.text_area(
-        "Anotações",
-        placeholder="",
-        disabled=usuario_visitante 
-    )
+#     anotacoes_lancamento = st.text_area(
+#         "Anotações",
+#         placeholder="",
+#         disabled=usuario_visitante 
+#     )
 
-    st.divider()
+#     st.divider()
 
-    # =========================
-    # Lançamentos de indicadores
-    # =========================
-    st.markdown("### Lançamento de indicadores")
+#     # =========================
+#     # Lançamentos de indicadores
+#     # =========================
+#     st.markdown("### Lançamento de indicadores")
     
-    st.write("")
+#     st.write("")
 
-    valores_indicadores = {}
+#     valores_indicadores = {}
 
-    indicadores_entrega = entrega.get("indicadores_relacionados", [])
+#     indicadores_entrega = entrega.get("indicadores_relacionados", [])
     
-    # Garantir que todos os IDs sejam string
-    indicadores_entrega = [
-        str(i) if not isinstance(i, str) else i
-        for i in indicadores_entrega
-    ]
+#     # Garantir que todos os IDs sejam string
+#     indicadores_entrega = [
+#         str(i) if not isinstance(i, str) else i
+#         for i in indicadores_entrega
+#     ]
 
 
-    for indicador_id in indicadores_entrega:
+#     for indicador_id in indicadores_entrega:
 
-        # ==========================================================
-        # OBTÉM OS DADOS DO INDICADOR
-        # ==========================================================
-        # Cada indicador possui seu próprio tipo de variável
-        # cadastrado no MongoDB.
-        #
-        # Exemplo:
-        # {
-        #     "nome": "valor_da_contrapartida_financeira_projetinhos",
-        #     "tipo_variavel": "int"
-        # }
-        #
-        # O tipo não é mais determinado pelo nome do indicador.
-        # ==========================================================
+#         # ==========================================================
+#         # OBTÉM OS DADOS DO INDICADOR
+#         # ==========================================================
+#         # Cada indicador possui seu próprio tipo de variável
+#         # cadastrado no MongoDB.
+#         #
+#         # Exemplo:
+#         # {
+#         #     "nome": "valor_da_contrapartida_financeira_projetinhos",
+#         #     "tipo_variavel": "int"
+#         # }
+#         #
+#         # O tipo não é mais determinado pelo nome do indicador.
+#         # ==========================================================
 
-        dados_indicador = mapa_indicadores.get(
-            indicador_id,
-            {
-                "nome": "Indicador não encontrado",
-                "tipo_variavel": "str"
-            }
-        )
+#         dados_indicador = mapa_indicadores.get(
+#             indicador_id,
+#             {
+#                 "nome": "Indicador não encontrado",
+#                 "tipo_variavel": "str"
+#             }
+#         )
 
-        nome_indicador = dados_indicador.get(
-            "nome",
-            "Indicador não encontrado"
-        )
+#         nome_indicador = dados_indicador.get(
+#             "nome",
+#             "Indicador não encontrado"
+#         )
 
-        tipo_variavel = dados_indicador.get(
-            "tipo_variavel",
-            "str"
-        )
+#         tipo_variavel = dados_indicador.get(
+#             "tipo_variavel",
+#             "str"
+#         )
 
-        st.markdown(f"**{nome_indicador}**")
+#         st.markdown(f"**{nome_indicador}**")
 
-        col1, col2 = st.columns([2, 3])
+#         col1, col2 = st.columns([2, 3])
 
-        key_base = f"{idx}_{indicador_id}"
+#         key_base = f"{idx}_{indicador_id}"
 
-        # ==========================================================
-        # CAMPO DE VALOR
-        # ==========================================================
-        # O widget é escolhido exclusivamente pelo campo
-        # "tipo_variavel" cadastrado no indicador.
-        # ==========================================================
+#         # ==========================================================
+#         # CAMPO DE VALOR
+#         # ==========================================================
+#         # O widget é escolhido exclusivamente pelo campo
+#         # "tipo_variavel" cadastrado no indicador.
+#         # ==========================================================
 
-        if tipo_variavel == "str":
+#         if tipo_variavel == "str":
 
-            # Indicadores do tipo str utilizam campo de texto.
-            valor = col1.text_input(
-                "Valor",
-                key=f"valor_{key_base}",
-                disabled=usuario_visitante
-            )
+#             # Indicadores do tipo str utilizam campo de texto.
+#             valor = col1.text_input(
+#                 "Valor",
+#                 key=f"valor_{key_base}",
+#                 disabled=usuario_visitante
+#             )
 
-        elif tipo_variavel == "int":
+#         elif tipo_variavel == "int":
 
-            # Indicadores do tipo int utilizam número inteiro.
-            valor = col1.number_input(
-                "Valor",
-                min_value=0,
-                step=1,
-                key=f"valor_{key_base}",
-                disabled=usuario_visitante
-            )
+#             # Indicadores do tipo int utilizam número inteiro.
+#             valor = col1.number_input(
+#                 "Valor",
+#                 min_value=0,
+#                 step=1,
+#                 key=f"valor_{key_base}",
+#                 disabled=usuario_visitante
+#             )
 
-        elif tipo_variavel == "float":
+#         elif tipo_variavel == "float":
 
-            # Indicadores do tipo float utilizam número decimal.
-            valor = col1.number_input(
-                "Valor",
-                min_value=0.0,
-                step=0.01,
-                format="%.2f",
-                key=f"valor_{key_base}",
-                disabled=usuario_visitante
-            )
+#             # Indicadores do tipo float utilizam número decimal.
+#             valor = col1.number_input(
+#                 "Valor",
+#                 min_value=0.0,
+#                 step=0.01,
+#                 format="%.2f",
+#                 key=f"valor_{key_base}",
+#                 disabled=usuario_visitante
+#             )
 
-        else:
+#         else:
 
-            # Caso o banco possua um tipo inesperado, utiliza texto
-            # como fallback para evitar que a página seja interrompida.
-            valor = col1.text_input(
-                "Valor",
-                key=f"valor_{key_base}",
-                disabled=usuario_visitante
-            )
+#             # Caso o banco possua um tipo inesperado, utiliza texto
+#             # como fallback para evitar que a página seja interrompida.
+#             valor = col1.text_input(
+#                 "Valor",
+#                 key=f"valor_{key_base}",
+#                 disabled=usuario_visitante
+#             )
 
-        # ==========================================================
-        # OBSERVAÇÕES
-        # ==========================================================
+#         # ==========================================================
+#         # OBSERVAÇÕES
+#         # ==========================================================
 
-        observacoes = col2.text_input(
-            "Observações",
-            key=f"obs_{key_base}",
-            disabled=usuario_visitante
-        )
+#         observacoes = col2.text_input(
+#             "Observações",
+#             key=f"obs_{key_base}",
+#             disabled=usuario_visitante
+#         )
 
-        # ==========================================================
-        # ARMAZENA OS DADOS TEMPORARIAMENTE
-        # ==========================================================
-        # Mantemos o tipo junto com o valor para utilizar a mesma
-        # definição posteriormente no momento de salvar no MongoDB.
-        # ==========================================================
+#         # ==========================================================
+#         # ARMAZENA OS DADOS TEMPORARIAMENTE
+#         # ==========================================================
+#         # Mantemos o tipo junto com o valor para utilizar a mesma
+#         # definição posteriormente no momento de salvar no MongoDB.
+#         # ==========================================================
 
-        valores_indicadores[indicador_id] = {
-            "valor": valor,
-            "observacoes": observacoes,
-            "tipo_variavel": tipo_variavel
-        }
+#         valores_indicadores[indicador_id] = {
+#             "valor": valor,
+#             "observacoes": observacoes,
+#             "tipo_variavel": tipo_variavel
+#         }
 
-        st.divider()
+#         st.divider()
 
-    # =========================
-    # SALVAR
-    # =========================
-    if st.button("Salvar lançamento", icon=":material/save:", disabled=usuario_visitante):
+#     # =========================
+#     # SALVAR
+#     # =========================
+#     if st.button("Salvar lançamento", icon=":material/save:", disabled=usuario_visitante):
 
-        if not ano_lancamento:
-            st.warning("Informe o ano do lançamento.")
-            st.stop()
+#         if not ano_lancamento:
+#             st.warning("Informe o ano do lançamento.")
+#             st.stop()
 
-        # -------------------------
-        # 1. Salvar lançamento da entrega
-        # -------------------------
-        novo_lancamento_entrega = {
-            "_id": ObjectId(),
-            "ano": str(ano_lancamento),
-            "anotacoes": anotacoes_lancamento,
-            "autor": st.session_state.get("nome")
-        }
+#         # -------------------------
+#         # 1. Salvar lançamento da entrega
+#         # -------------------------
+#         novo_lancamento_entrega = {
+#             "_id": ObjectId(),
+#             "ano": str(ano_lancamento),
+#             "anotacoes": anotacoes_lancamento,
+#             "autor": st.session_state.get("nome")
+#         }
         
-        id_lanc_entrega = novo_lancamento_entrega["_id"]
+#         id_lanc_entrega = novo_lancamento_entrega["_id"]
 
-        for e in entregas_existentes:
-            if e["_id"] == ObjectId(entrega_id):
-                e.setdefault("lancamentos_entregas", []).append(novo_lancamento_entrega)
-                break
+#         for e in entregas_existentes:
+#             if e["_id"] == ObjectId(entrega_id):
+#                 e.setdefault("lancamentos_entregas", []).append(novo_lancamento_entrega)
+#                 break
 
-        projetos_ispn.update_one(
-            {"_id": projeto_info["_id"]},
-            {"$set": {"entregas": entregas_existentes}}
-        )
+#         projetos_ispn.update_one(
+#             {"_id": projeto_info["_id"]},
+#             {"$set": {"entregas": entregas_existentes}}
+#         )
 
 
-        # ==========================================================
-        # SALVAR LANÇAMENTOS DE INDICADORES
-        # ==========================================================
+#         # ==========================================================
+#         # SALVAR LANÇAMENTOS DE INDICADORES
+#         # ==========================================================
 
-        for indicador_id, dados in valores_indicadores.items():
+#         for indicador_id, dados in valores_indicadores.items():
 
-            valor = dados["valor"]
-            tipo_variavel = dados["tipo_variavel"]
+#             valor = dados["valor"]
+#             tipo_variavel = dados["tipo_variavel"]
 
-            # ------------------------------------------------------
-            # Ignora campos vazios.
-            #
-            # Para str, verificamos string vazia.
-            # Para números, verificamos None.
-            # O valor 0 é mantido para indicadores numéricos, pois
-            # zero pode ser um lançamento válido.
-            # ------------------------------------------------------
+#             # ------------------------------------------------------
+#             # Ignora campos vazios.
+#             #
+#             # Para str, verificamos string vazia.
+#             # Para números, verificamos None.
+#             # O valor 0 é mantido para indicadores numéricos, pois
+#             # zero pode ser um lançamento válido.
+#             # ------------------------------------------------------
 
-            if tipo_variavel == "str":
+#             if tipo_variavel == "str":
 
-                if valor is None or str(valor).strip() == "":
-                    continue
+#                 if valor is None or str(valor).strip() == "":
+#                     continue
 
-            else:
+#             else:
 
-                if valor is None:
-                    continue
+#                 if valor is None:
+#                     continue
 
-            # ======================================================
-            # CONVERSÃO PARA O TIPO CORRETO
-            # ======================================================
-            # A conversão é feita antes de inserir no MongoDB para
-            # garantir que o campo "valor" tenha exatamente o tipo
-            # definido no cadastro do indicador.
-            # ======================================================
+#             # ======================================================
+#             # CONVERSÃO PARA O TIPO CORRETO
+#             # ======================================================
+#             # A conversão é feita antes de inserir no MongoDB para
+#             # garantir que o campo "valor" tenha exatamente o tipo
+#             # definido no cadastro do indicador.
+#             # ======================================================
 
-            try:
+#             try:
 
-                if tipo_variavel == "str":
+#                 if tipo_variavel == "str":
 
-                    valor_final = str(valor)
+#                     valor_final = str(valor)
 
-                elif tipo_variavel == "int":
+#                 elif tipo_variavel == "int":
 
-                    valor_final = int(valor)
+#                     valor_final = int(valor)
 
-                elif tipo_variavel == "float":
+#                 elif tipo_variavel == "float":
 
-                    valor_final = float(valor)
+#                     valor_final = float(valor)
 
-                else:
+#                 else:
 
-                    # Fallback para tipos não reconhecidos.
-                    valor_final = str(valor)
+#                     # Fallback para tipos não reconhecidos.
+#                     valor_final = str(valor)
 
-            except (ValueError, TypeError):
+#             except (ValueError, TypeError):
 
-                # ==========================================================
-                # OBTÉM O NOME DO INDICADOR PARA A MENSAGEM DE ERRO
-                # ==========================================================
+#                 # ==========================================================
+#                 # OBTÉM O NOME DO INDICADOR PARA A MENSAGEM DE ERRO
+#                 # ==========================================================
 
-                dados_indicador = mapa_indicadores.get(
-                    str(indicador_id),
-                    {}
-                )
+#                 dados_indicador = mapa_indicadores.get(
+#                     str(indicador_id),
+#                     {}
+#                 )
 
-                nome_indicador = dados_indicador.get(
-                    "nome",
-                    "Indicador"
-                )
+#                 nome_indicador = dados_indicador.get(
+#                     "nome",
+#                     "Indicador"
+#                 )
 
-                st.error(
-                    f"O valor informado para o indicador "
-                    f"'{nome_indicador}' não é válido para o tipo "
-                    f"'{tipo_variavel}'."
-                )
+#                 st.error(
+#                     f"O valor informado para o indicador "
+#                     f"'{nome_indicador}' não é válido para o tipo "
+#                     f"'{tipo_variavel}'."
+#                 )
 
-                st.stop()
+#                 st.stop()
 
-            # ======================================================
-            # DOCUMENTO DO LANÇAMENTO
-            # ======================================================
+#             # ======================================================
+#             # DOCUMENTO DO LANÇAMENTO
+#             # ======================================================
 
-            lancamento_indicador = {
-                "id_do_indicador": ObjectId(indicador_id),
-                "projeto": projeto_info["_id"],
-                "data_anotacao": datetime.now(),
-                "autor_anotacao": st.session_state.get("nome"),
-
-                # O valor já está convertido para str, int ou float
-                # conforme o cadastro do indicador.
-                "valor": valor_final,
-
-                "ano": str(ano_lancamento),
-                "observacoes": dados["observacoes"],
-                "tipo": "ispn",
-                "id_lanc_entrega": id_lanc_entrega
-            }
-
-            colecao_lancamentos.insert_one(lancamento_indicador)
-
-        st.success("Lançamento salvo com sucesso!")
-        time.sleep(2)
-        st.rerun()
-
-
-@st.dialog("Acompanhamento de Entrega", width="large")
-def dialog_registros_entregas():
-
-    entrega_ctx = st.session_state.get("entrega_selecionada")
-
-    if not entrega_ctx:
-        st.warning("Entrega inválida.")
-        return
-
-    idx = entrega_ctx.get("indice")
-    projeto_id = entrega_ctx.get("projeto_id")
-
-    projeto_info = projetos_ispn.find_one(
-        {"_id": ObjectId(projeto_id)}
-    )
-
-    if not projeto_info:
-        st.error("Projeto não encontrado.")
-        return
-
-
-    if idx is None:
-        st.warning("Entrega inválida.")
-        return
-
-    # ===============================
-    # Dados da entrega
-    # ===============================
-    nome_entrega = entrega_ctx.get("entrega", "Entrega")
-    situacao = df_entregas.loc[idx, "situacao"]
-
-    progresso = df_entregas.loc[idx, "progresso"]
-    try:
-        progresso = int(progresso)
-    except (TypeError, ValueError):
-        progresso = 0
-
-    previsao_str = df_entregas.loc[idx, "previsao_da_conclusao_str"]
-    responsaveis = df_entregas.loc[idx, "responsaveis"]
-    responsaveis_ids = df_entregas.loc[idx, "responsaveis_ids"]
-
-    # ===============================
-    # Verificação de registros associados
-    # ===============================
-    qtde_registros = db["registros_entregas"].count_documents({
-        "projeto_id": ObjectId(projeto_id),
-        "nome_da_entrega": nome_entrega
-    })
-
-    tem_registros = qtde_registros > 0
-
-    # ===============================
-    # Cabeçalho
-    # ===============================
-    st.markdown(f"## {nome_entrega}")
-    st.write("")
-
-    #col1, col2, col3, col4 = st.columns([1, 1, 1.5, 2.5])
-    col1, col2, col3, col4, col5 = st.columns([1, 1, 1.5, 2.5, 2.5])
-
-    usuarios_coordenadores = set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)"}
-
-    # ==========================================================
-    # Usuários coordenadores (edição habilitada)
-    # ==========================================================
-    if usuarios_coordenadores:
-
-        situacoes = ["Prevista", "Atrasada", "Concluída"]
-        with col1:
-            st.selectbox(
-                "Situação:",
-                options=situacoes,
-                index=situacoes.index(situacao) if situacao in situacoes else 0,
-                key=f"entrega_situacao_{idx}"
-            )
-
-        opcoes_progresso = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
-        with col2:
-            st.selectbox(
-                "Progresso:",
-                options=opcoes_progresso,
-                index=opcoes_progresso.index(progresso) if progresso in opcoes_progresso else 0,
-                format_func=lambda x: f"{x}%",
-                key=f"entrega_progresso_{idx}"
-            )
-
-        data_previsao = None
-        if previsao_str:
-            try:
-                data_previsao = datetime.strptime(previsao_str, "%d/%m/%Y").date()
-            except ValueError:
-                pass
-
-        with col3:
-            st.date_input(
-                "Previsão de Conclusão:",
-                value=data_previsao,
-                format="DD/MM/YYYY",
-                key=f"entrega_previsao_{idx}"
-            )
-
-        pessoas = list(db["pessoas"].find({}, {"nome_completo": 1}))
-        mapa_pessoas = {
-            str(p["_id"]): p["nome_completo"]
-            for p in sorted(pessoas, key=lambda x: x["nome_completo"])
-        }
-
-        with col4:
-            st.multiselect(
-                "Responsáveis:",
-                options=list(mapa_pessoas.keys()),
-                default=[str(r) for r in responsaveis_ids],
-                format_func=lambda x: mapa_pessoas.get(x, x),
-                key=f"entrega_responsaveis_{idx}"
-            )
-
-        # ==========================================================
-        # PROJETOS RELACIONADOS
-        # ==========================================================
-
-        # Lista de projetos disponíveis
-        lista_projetos = list(
-            projetos_ispn.find(
-                {},
-                {
-                    "_id": 1,
-                    "sigla": 1
-                }
-            )
-        )
-
-        # Remove o próprio projeto da lista
-        lista_projetos = [
-            p for p in lista_projetos
-            if p["_id"] != ObjectId(projeto_id)
-        ]
-
-        # Ordena alfabeticamente pela sigla
-        lista_projetos = sorted(
-            lista_projetos,
-            key=lambda x: x.get("sigla", "").lower()
-        )
-
-        # Mapa id -> sigla
-        mapa_projetos = {
-            str(p["_id"]): p.get("sigla", "")
-            for p in lista_projetos
-        }
-
-        # Busca entrega atual
-        entrega_atual = next(
-            (
-                e for e in projeto_info.get("entregas", [])
-                if e["_id"] == ObjectId(entrega_ctx["entrega_id"])
-            ),
-            {}
-        )
-
-        # Projetos já relacionados
-        projetos_relacionados_ids = [
-            str(p)
-            for p in entrega_atual.get("projetos_relacionados", [])
-        ]
-
-        with col5:
-            st.multiselect(
-                "Demais projetos relacionados:",
-                options=list(mapa_projetos.keys()),
-                default=projetos_relacionados_ids,
-                format_func=lambda x: mapa_projetos.get(x, x),
-                key=f"entrega_projetos_relacionados_{idx}",
-                placeholder=""
-            )
-
-        # st.write("")
-        with st.container(horizontal_alignment="right", horizontal=True):
-            if st.button("Salvar alterações", icon=":material/save:", width=250):
-
-                nova_situacao = st.session_state[f"entrega_situacao_{idx}"]
-                novo_progresso = st.session_state[f"entrega_progresso_{idx}"]
-                nova_data = st.session_state[f"entrega_previsao_{idx}"]
-                novos_responsaveis = st.session_state[f"entrega_responsaveis_{idx}"]
-                novos_projetos_relacionados = st.session_state[f"entrega_projetos_relacionados_{idx}"]
-
-                nova_data_str = nova_data.strftime("%d/%m/%Y") if nova_data else None
-
-                projetos_ispn.update_one(
-                    {"entregas.nome_da_entrega": nome_entrega},
-                    {
-                        "$set": {
-                            "entregas.$.situacao": nova_situacao,
-                            "entregas.$.progresso": novo_progresso,
-                            "entregas.$.previsao_da_conclusao": nova_data_str,
-                            "entregas.$.responsaveis": [ObjectId(r) for r in novos_responsaveis],
-                            "entregas.$.projetos_relacionados": [ObjectId(p) for p in novos_projetos_relacionados],
-                        }
-                    }
-                )
-
-                df_entregas.at[idx, "situacao"] = nova_situacao
-                df_entregas.at[idx, "progresso"] = novo_progresso
-                df_entregas.at[idx, "previsao_da_conclusao_str"] = nova_data_str
-                df_entregas.at[idx, "responsaveis_ids"] = novos_responsaveis
-                df_entregas.at[idx, "responsaveis"] = ", ".join(
-                    mapa_pessoas[str(r)]
-                    for r in novos_responsaveis
-                    if str(r) in mapa_pessoas
-                )
-
-                st.success("Alterações salvas com sucesso.")
-                time.sleep(3)
-                st.rerun()
-
-            if not tem_registros:
-                if st.button(
-                    "Excluir entrega",
-                    icon=":material/delete:",
-                    type="secondary",
-                    width=250,
-                    key=f"excluir_entrega_{idx}"
-                ):
-                    # Confirmação simples
-                    projetos_ispn.update_one(
-                        {"_id": ObjectId(projeto_id)},
-                        {
-                            "$pull": {
-                                "entregas": {
-                                    "nome_da_entrega": nome_entrega
-                                }
-                            }
-                        }
-                    )
-
-                    # Remove do DataFrame local
-                    df_entregas.drop(index=idx, inplace=True)
-                    df_entregas.reset_index(drop=True, inplace=True)
-
-                    st.success("Entrega excluída com sucesso.", icon=":material/check:")
-                    time.sleep(2)
-                    st.rerun()
-
-    # ==========================================================
-    # Usuários comuns (somente leitura)
-    # ==========================================================
-
-    else:
-        with col1:
-            st.write(f"**Situação:** {situacao}")
-        with col2:
-            st.write(f"**Progresso:** {progresso}%")
-        with col3:
-            st.write(f"**Previsão de Conclusão:** {previsao_str}")
-        with col4:
-            st.write(f"**Responsáveis:** {responsaveis}")
-
-    # ================================================================================================
-    # Registros de entrega
-    # ================================================================================================
-
-    st.markdown("### Registros de entrega")
-
-    tab_ver_registros, tab_novo_registro = st.tabs(["Ver registros", "Novo registro"])
-
-    if "editar_lancamento_id" not in st.session_state:
-        st.session_state["editar_lancamento_id"] = None
-
-    # Aba de listagem dos registros de entrega
-    with tab_ver_registros:
-
-        # Define espaçamentos das colunas UMA VEZ
-        colunas = [1, 1, 2, 2, 1]
-
-        lancamentos = df_entregas.loc[idx, "lancamentos_entregas"]
-
-        if not lancamentos:
-            st.caption("Nenhum registro nesta entrega.")
-        else:
-
-            # --------------------------------
-            # Cabeçalho das colunas
-            # --------------------------------
-            col1, col2, col3, col4, col5 = st.columns(colunas)
-
-            with col1:
-                st.markdown("**Ano**")
-            with col2:
-                st.markdown("**Autor(a)**")
-            with col3:
-                st.markdown("**Anotações**")
-            with col4:
-                st.markdown("**Indicadores**")
-            with col5:
-                st.markdown("")
+#             lancamento_indicador = {
+#                 "id_do_indicador": ObjectId(indicador_id),
+#                 "projeto": projeto_info["_id"],
+#                 "data_anotacao": datetime.now(),
+#                 "autor_anotacao": st.session_state.get("nome"),
+
+#                 # O valor já está convertido para str, int ou float
+#                 # conforme o cadastro do indicador.
+#                 "valor": valor_final,
+
+#                 "ano": str(ano_lancamento),
+#                 "observacoes": dados["observacoes"],
+#                 "tipo": "ispn",
+#                 "id_lanc_entrega": id_lanc_entrega
+#             }
+
+#             colecao_lancamentos.insert_one(lancamento_indicador)
+
+#         st.success("Lançamento salvo com sucesso!")
+#         time.sleep(2)
+#         st.rerun()
+
+
+# @st.dialog("Acompanhamento de Entrega", width="large")
+# def dialog_registros_entregas():
+
+#     entrega_ctx = st.session_state.get("entrega_selecionada")
+
+#     if not entrega_ctx:
+#         st.warning("Entrega inválida.")
+#         return
+
+#     idx = entrega_ctx.get("indice")
+#     projeto_id = entrega_ctx.get("projeto_id")
+
+#     projeto_info = projetos_ispn.find_one(
+#         {"_id": ObjectId(projeto_id)}
+#     )
+
+#     if not projeto_info:
+#         st.error("Projeto não encontrado.")
+#         return
+
+
+#     if idx is None:
+#         st.warning("Entrega inválida.")
+#         return
+
+#     # ===============================
+#     # Dados da entrega
+#     # ===============================
+#     nome_entrega = entrega_ctx.get("entrega", "Entrega")
+#     situacao = df_entregas.loc[idx, "situacao"]
+
+#     progresso = df_entregas.loc[idx, "progresso"]
+#     try:
+#         progresso = int(progresso)
+#     except (TypeError, ValueError):
+#         progresso = 0
+
+#     previsao_str = df_entregas.loc[idx, "previsao_da_conclusao_str"]
+#     responsaveis = df_entregas.loc[idx, "responsaveis"]
+#     responsaveis_ids = df_entregas.loc[idx, "responsaveis_ids"]
+
+#     # ===============================
+#     # Verificação de registros associados
+#     # ===============================
+#     qtde_registros = db["registros_entregas"].count_documents({
+#         "projeto_id": ObjectId(projeto_id),
+#         "nome_da_entrega": nome_entrega
+#     })
+
+#     tem_registros = qtde_registros > 0
+
+#     # ===============================
+#     # Cabeçalho
+#     # ===============================
+#     st.markdown(f"## {nome_entrega}")
+#     st.write("")
+
+#     #col1, col2, col3, col4 = st.columns([1, 1, 1.5, 2.5])
+#     col1, col2, col3, col4, col5 = st.columns([1, 1, 1.5, 2.5, 2.5])
+
+#     usuarios_coordenadores = set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)"}
+
+#     # ==========================================================
+#     # Usuários coordenadores (edição habilitada)
+#     # ==========================================================
+#     if usuarios_coordenadores:
+
+#         situacoes = ["Prevista", "Atrasada", "Concluída"]
+#         with col1:
+#             st.selectbox(
+#                 "Situação:",
+#                 options=situacoes,
+#                 index=situacoes.index(situacao) if situacao in situacoes else 0,
+#                 key=f"entrega_situacao_{idx}"
+#             )
+
+#         opcoes_progresso = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+#         with col2:
+#             st.selectbox(
+#                 "Progresso:",
+#                 options=opcoes_progresso,
+#                 index=opcoes_progresso.index(progresso) if progresso in opcoes_progresso else 0,
+#                 format_func=lambda x: f"{x}%",
+#                 key=f"entrega_progresso_{idx}"
+#             )
+
+#         data_previsao = None
+#         if previsao_str:
+#             try:
+#                 data_previsao = datetime.strptime(previsao_str, "%d/%m/%Y").date()
+#             except ValueError:
+#                 pass
+
+#         with col3:
+#             st.date_input(
+#                 "Previsão de Conclusão:",
+#                 value=data_previsao,
+#                 format="DD/MM/YYYY",
+#                 key=f"entrega_previsao_{idx}"
+#             )
+
+#         pessoas = list(db["pessoas"].find({}, {"nome_completo": 1}))
+#         mapa_pessoas = {
+#             str(p["_id"]): p["nome_completo"]
+#             for p in sorted(pessoas, key=lambda x: x["nome_completo"])
+#         }
+
+#         with col4:
+#             st.multiselect(
+#                 "Responsáveis:",
+#                 options=list(mapa_pessoas.keys()),
+#                 default=[str(r) for r in responsaveis_ids],
+#                 format_func=lambda x: mapa_pessoas.get(x, x),
+#                 key=f"entrega_responsaveis_{idx}"
+#             )
+
+#         # ==========================================================
+#         # PROJETOS RELACIONADOS
+#         # ==========================================================
+
+#         # Lista de projetos disponíveis
+#         lista_projetos = list(
+#             projetos_ispn.find(
+#                 {},
+#                 {
+#                     "_id": 1,
+#                     "sigla": 1
+#                 }
+#             )
+#         )
+
+#         # Remove o próprio projeto da lista
+#         lista_projetos = [
+#             p for p in lista_projetos
+#             if p["_id"] != ObjectId(projeto_id)
+#         ]
+
+#         # Ordena alfabeticamente pela sigla
+#         lista_projetos = sorted(
+#             lista_projetos,
+#             key=lambda x: x.get("sigla", "").lower()
+#         )
+
+#         # Mapa id -> sigla
+#         mapa_projetos = {
+#             str(p["_id"]): p.get("sigla", "")
+#             for p in lista_projetos
+#         }
+
+#         # Busca entrega atual
+#         entrega_atual = next(
+#             (
+#                 e for e in projeto_info.get("entregas", [])
+#                 if e["_id"] == ObjectId(entrega_ctx["entrega_id"])
+#             ),
+#             {}
+#         )
+
+#         # Projetos já relacionados
+#         projetos_relacionados_ids = [
+#             str(p)
+#             for p in entrega_atual.get("projetos_relacionados", [])
+#         ]
+
+#         with col5:
+#             st.multiselect(
+#                 "Demais projetos relacionados:",
+#                 options=list(mapa_projetos.keys()),
+#                 default=projetos_relacionados_ids,
+#                 format_func=lambda x: mapa_projetos.get(x, x),
+#                 key=f"entrega_projetos_relacionados_{idx}",
+#                 placeholder=""
+#             )
+
+#         # st.write("")
+#         with st.container(horizontal_alignment="right", horizontal=True):
+#             if st.button("Salvar alterações", icon=":material/save:", width=250):
+
+#                 nova_situacao = st.session_state[f"entrega_situacao_{idx}"]
+#                 novo_progresso = st.session_state[f"entrega_progresso_{idx}"]
+#                 nova_data = st.session_state[f"entrega_previsao_{idx}"]
+#                 novos_responsaveis = st.session_state[f"entrega_responsaveis_{idx}"]
+#                 novos_projetos_relacionados = st.session_state[f"entrega_projetos_relacionados_{idx}"]
+
+#                 nova_data_str = nova_data.strftime("%d/%m/%Y") if nova_data else None
+
+#                 projetos_ispn.update_one(
+#                     {"entregas.nome_da_entrega": nome_entrega},
+#                     {
+#                         "$set": {
+#                             "entregas.$.situacao": nova_situacao,
+#                             "entregas.$.progresso": novo_progresso,
+#                             "entregas.$.previsao_da_conclusao": nova_data_str,
+#                             "entregas.$.responsaveis": [ObjectId(r) for r in novos_responsaveis],
+#                             "entregas.$.projetos_relacionados": [ObjectId(p) for p in novos_projetos_relacionados],
+#                         }
+#                     }
+#                 )
+
+#                 df_entregas.at[idx, "situacao"] = nova_situacao
+#                 df_entregas.at[idx, "progresso"] = novo_progresso
+#                 df_entregas.at[idx, "previsao_da_conclusao_str"] = nova_data_str
+#                 df_entregas.at[idx, "responsaveis_ids"] = novos_responsaveis
+#                 df_entregas.at[idx, "responsaveis"] = ", ".join(
+#                     mapa_pessoas[str(r)]
+#                     for r in novos_responsaveis
+#                     if str(r) in mapa_pessoas
+#                 )
+
+#                 st.success("Alterações salvas com sucesso.")
+#                 time.sleep(3)
+#                 st.rerun()
+
+#             if not tem_registros:
+#                 if st.button(
+#                     "Excluir entrega",
+#                     icon=":material/delete:",
+#                     type="secondary",
+#                     width=250,
+#                     key=f"excluir_entrega_{idx}"
+#                 ):
+#                     # Confirmação simples
+#                     projetos_ispn.update_one(
+#                         {"_id": ObjectId(projeto_id)},
+#                         {
+#                             "$pull": {
+#                                 "entregas": {
+#                                     "nome_da_entrega": nome_entrega
+#                                 }
+#                             }
+#                         }
+#                     )
+
+#                     # Remove do DataFrame local
+#                     df_entregas.drop(index=idx, inplace=True)
+#                     df_entregas.reset_index(drop=True, inplace=True)
+
+#                     st.success("Entrega excluída com sucesso.", icon=":material/check:")
+#                     time.sleep(2)
+#                     st.rerun()
+
+#     # ==========================================================
+#     # Usuários comuns (somente leitura)
+#     # ==========================================================
+
+#     else:
+#         with col1:
+#             st.write(f"**Situação:** {situacao}")
+#         with col2:
+#             st.write(f"**Progresso:** {progresso}%")
+#         with col3:
+#             st.write(f"**Previsão de Conclusão:** {previsao_str}")
+#         with col4:
+#             st.write(f"**Responsáveis:** {responsaveis}")
+
+#     # ================================================================================================
+#     # Registros de entrega
+#     # ================================================================================================
+
+#     st.markdown("### Registros de entrega")
+
+#     tab_ver_registros, tab_novo_registro = st.tabs(["Ver registros", "Novo registro"])
+
+#     if "editar_lancamento_id" not in st.session_state:
+#         st.session_state["editar_lancamento_id"] = None
+
+#     # Aba de listagem dos registros de entrega
+#     with tab_ver_registros:
+
+#         # Define espaçamentos das colunas UMA VEZ
+#         colunas = [1, 1, 2, 2, 1]
+
+#         lancamentos = df_entregas.loc[idx, "lancamentos_entregas"]
+
+#         if not lancamentos:
+#             st.caption("Nenhum registro nesta entrega.")
+#         else:
+
+#             # --------------------------------
+#             # Cabeçalho das colunas
+#             # --------------------------------
+#             col1, col2, col3, col4, col5 = st.columns(colunas)
+
+#             with col1:
+#                 st.markdown("**Ano**")
+#             with col2:
+#                 st.markdown("**Autor(a)**")
+#             with col3:
+#                 st.markdown("**Anotações**")
+#             with col4:
+#                 st.markdown("**Indicadores**")
+#             with col5:
+#                 st.markdown("")
        
-            st.divider()
+#             st.divider()
 
-            # --------------------------------
-            # Registros
-            # --------------------------------
-            for lancamento in lancamentos:
-                col1, col2, col3, col4, col5 = st.columns(colunas)
+#             # --------------------------------
+#             # Registros
+#             # --------------------------------
+#             for lancamento in lancamentos:
+#                 col1, col2, col3, col4, col5 = st.columns(colunas)
 
-                with col1:
-                    st.write(lancamento.get("ano", ""))
+#                 with col1:
+#                     st.write(lancamento.get("ano", ""))
 
-                with col2:
-                    st.write(lancamento.get("autor", ""))
+#                 with col2:
+#                     st.write(lancamento.get("autor", ""))
 
-                with col3:
-                    st.write(lancamento.get("anotacoes", ""))
+#                 with col3:
+#                     st.write(lancamento.get("anotacoes", ""))
 
-                with col4:
-                    with st.popover("Indicadores", type="tertiary"):
+#                 with col4:
+#                     with st.popover("Indicadores", type="tertiary"):
 
-                        id_lanc_entrega = lancamento.get("_id")
+#                         id_lanc_entrega = lancamento.get("_id")
 
-                        if not id_lanc_entrega:
-                            st.caption("Sem indicadores associados.")
-                        else:
-                            registros_indicadores = list(
-                                colecao_lancamentos.find(
-                                    {"id_lanc_entrega": ObjectId(id_lanc_entrega)}
-                                )
-                            )
+#                         if not id_lanc_entrega:
+#                             st.caption("Sem indicadores associados.")
+#                         else:
+#                             registros_indicadores = list(
+#                                 colecao_lancamentos.find(
+#                                     {"id_lanc_entrega": ObjectId(id_lanc_entrega)}
+#                                 )
+#                             )
 
-                            if not registros_indicadores:
-                                st.caption("Nenhum indicador lançado.")
-                            else:
-                                for reg in registros_indicadores:
+#                             if not registros_indicadores:
+#                                 st.caption("Nenhum indicador lançado.")
+#                             else:
+#                                 for reg in registros_indicadores:
 
-                                    # Obtém os dados do indicador associado ao lançamento.
-                                    dados_indicador = mapa_indicadores.get(
-                                        str(reg["id_do_indicador"]),
-                                        {
-                                            "nome": "Indicador não encontrado",
-                                            "tipo_variavel": "str"
-                                        }
-                                    )
+#                                     # Obtém os dados do indicador associado ao lançamento.
+#                                     dados_indicador = mapa_indicadores.get(
+#                                         str(reg["id_do_indicador"]),
+#                                         {
+#                                             "nome": "Indicador não encontrado",
+#                                             "tipo_variavel": "str"
+#                                         }
+#                                     )
 
-                                    nome_indicador = dados_indicador["nome"]
+#                                     nome_indicador = dados_indicador["nome"]
 
-                                    st.markdown(
-                                        f"**{nome_indicador}:** {reg.get('valor')}"
-                                    )
+#                                     st.markdown(
+#                                         f"**{nome_indicador}:** {reg.get('valor')}"
+#                                     )
                                     
-                                    st.write("")
+#                                     st.write("")
 
-                with col5:
-                    editar = st.toggle(
-                        ":material/edit: Editar",
-                        value=st.session_state["editar_lancamento_id"] == str(lancamento["_id"]),
-                        key=f"toggle_editar_lanc_{lancamento['_id']}"
-                    )
+#                 with col5:
+#                     editar = st.toggle(
+#                         ":material/edit: Editar",
+#                         value=st.session_state["editar_lancamento_id"] == str(lancamento["_id"]),
+#                         key=f"toggle_editar_lanc_{lancamento['_id']}"
+#                     )
 
-                    if editar:
-                        st.session_state["editar_lancamento_id"] = str(lancamento["_id"])
-                    elif st.session_state["editar_lancamento_id"] == str(lancamento["_id"]):
-                        st.session_state["editar_lancamento_id"] = None
+#                     if editar:
+#                         st.session_state["editar_lancamento_id"] = str(lancamento["_id"])
+#                     elif st.session_state["editar_lancamento_id"] == str(lancamento["_id"]):
+#                         st.session_state["editar_lancamento_id"] = None
 
-                if st.session_state["editar_lancamento_id"] == str(lancamento["_id"]):
+#                 if st.session_state["editar_lancamento_id"] == str(lancamento["_id"]):
 
-                    with st.container(border=True):
+#                     with st.container(border=True):
 
-                        st.markdown("**Editar registro**")
+#                         st.markdown("**Editar registro**")
 
-                        with st.form(f"form_editar_lanc_{lancamento['_id']}", border=False):
+#                         with st.form(f"form_editar_lanc_{lancamento['_id']}", border=False):
 
-                            ano_atual = datetime.now().year
-                            ano_inicial = ano_atual - 1
-                            ano_final = ano_atual + 6
+#                             ano_atual = datetime.now().year
+#                             ano_inicial = ano_atual - 1
+#                             ano_final = ano_atual + 6
 
-                            anos_disponiveis = list(range(ano_inicial, ano_final + 1))
+#                             anos_disponiveis = list(range(ano_inicial, ano_final + 1))
 
-                            ano_lancamento = lancamento.get("ano")
+#                             ano_lancamento = lancamento.get("ano")
 
-                            try:
-                                index_ano = anos_disponiveis.index(int(ano_lancamento))
-                            except (ValueError, TypeError):
-                                index_ano = 0
+#                             try:
+#                                 index_ano = anos_disponiveis.index(int(ano_lancamento))
+#                             except (ValueError, TypeError):
+#                                 index_ano = 0
 
-                            ano = st.selectbox(
-                                "Ano do registro",
-                                options=anos_disponiveis,
-                                index=index_ano
-                            )
+#                             ano = st.selectbox(
+#                                 "Ano do registro",
+#                                 options=anos_disponiveis,
+#                                 index=index_ano
+#                             )
 
-                            anotacoes = st.text_area(
-                                "Anotações",
-                                value=lancamento.get("anotacoes", ""),
-                                height=120
-                            )
+#                             anotacoes = st.text_area(
+#                                 "Anotações",
+#                                 value=lancamento.get("anotacoes", ""),
+#                                 height=120
+#                             )
 
-                            #col_a, col_b = st.columns(2)
-                            with st.container(border=False, horizontal=True):
+#                             #col_a, col_b = st.columns(2)
+#                             with st.container(border=False, horizontal=True):
                                 
-                                salvar = st.form_submit_button(
-                                    "Salvar",
-                                    type="primary",
-                                    icon=":material/save:"
-                                )
+#                                 salvar = st.form_submit_button(
+#                                     "Salvar",
+#                                     type="primary",
+#                                     icon=":material/save:"
+#                                 )
 
-                        if salvar:
-                            projetos_ispn.update_one(
-                                {"entregas.lancamentos_entregas._id": ObjectId(lancamento["_id"])},
-                                {
-                                    "$set": {
-                                        "entregas.$[].lancamentos_entregas.$[l].ano":  str(ano),
-                                        "entregas.$[].lancamentos_entregas.$[l].anotacoes": anotacoes
-                                    }
-                                },
-                                array_filters=[{"l._id": ObjectId(lancamento["_id"])}]
-                            )
+#                         if salvar:
+#                             projetos_ispn.update_one(
+#                                 {"entregas.lancamentos_entregas._id": ObjectId(lancamento["_id"])},
+#                                 {
+#                                     "$set": {
+#                                         "entregas.$[].lancamentos_entregas.$[l].ano":  str(ano),
+#                                         "entregas.$[].lancamentos_entregas.$[l].anotacoes": anotacoes
+#                                     }
+#                                 },
+#                                 array_filters=[{"l._id": ObjectId(lancamento["_id"])}]
+#                             )
 
-                            # Atualiza o dataframe local
-                            lancamento["ano"] = ano
-                            lancamento["anotacoes"] = anotacoes
+#                             # Atualiza o dataframe local
+#                             lancamento["ano"] = ano
+#                             lancamento["anotacoes"] = anotacoes
 
-                            st.success("Registro atualizado com sucesso.")
-                            st.session_state["editar_lancamento_id"] = None
-                            time.sleep(2)
-                            st.rerun()
+#                             st.success("Registro atualizado com sucesso.")
+#                             st.session_state["editar_lancamento_id"] = None
+#                             time.sleep(2)
+#                             st.rerun()
 
-                st.divider()
+#                 st.divider()
 
-    with tab_novo_registro:
+#     with tab_novo_registro:
 
         
 
-        renderizar_novo_registro(idx)
+#         renderizar_novo_registro(idx)
 
 
 def resolver_responsaveis(lista_ids, pessoas_dict):
@@ -1201,6 +1200,771 @@ def verificar_entregas_atrasadas():
             )
 
 
+
+
+
+
+# ==========================================================
+# INTERFACE DA ABA DE ENTREGAS
+# ==========================================================
+
+@st.fragment
+def render_entregas():
+
+    # --------------------------------------------------
+    # Estado da entrega selecionada
+    # --------------------------------------------------
+
+    if "entrega_selecionada_id" not in st.session_state:
+        st.session_state["entrega_selecionada_id"] = None
+
+    # --------------------------------------------------
+    # Dados utilizados pelo fragmento
+    # --------------------------------------------------
+
+    df = df_entregas_filtrado
+
+    if df.empty:
+        st.info("Nenhuma entrega encontrada.")
+        return
+
+    # --------------------------------------------------
+    # Inicialização dos estados dos checkboxes
+    # --------------------------------------------------
+
+    for _, entrega in df.iterrows():
+
+        entrega_id = str(entrega["entrega_id"])
+        chave_checkbox = f"checkbox_entrega_{entrega_id}"
+
+        if chave_checkbox not in st.session_state:
+            st.session_state[chave_checkbox] = False
+
+    # --------------------------------------------------
+    # Callback de seleção
+    # --------------------------------------------------
+
+    def alterar_entrega_selecionada(entrega_id):
+
+        entrega_id = str(entrega_id)
+        chave_checkbox = f"checkbox_entrega_{entrega_id}"
+
+        selecionada = st.session_state.get(
+            chave_checkbox,
+            False
+        )
+
+        if selecionada:
+
+            # Registra a entrega atualmente selecionada.
+            st.session_state["entrega_selecionada_id"] = entrega_id
+
+            # Mantém apenas uma entrega selecionada.
+            for _, outra_entrega in df.iterrows():
+
+                outro_id = str(outra_entrega["entrega_id"])
+
+                if outro_id != entrega_id:
+
+                    outra_chave = f"checkbox_entrega_{outro_id}"
+
+                    st.session_state[outra_chave] = False
+
+        else:
+
+            # Remove a seleção quando o checkbox ativo é desmarcado.
+            if (
+                st.session_state.get("entrega_selecionada_id")
+                == entrega_id
+            ):
+                st.session_state["entrega_selecionada_id"] = None
+
+    # --------------------------------------------------
+    # Layout principal
+    # --------------------------------------------------
+
+    col_entregas, col_registros = st.columns(
+        [1, 1],
+        gap="medium"
+    )
+
+    # ==================================================
+    # COLUNA ESQUERDA — ENTREGAS
+    # ==================================================
+
+    with col_entregas:
+
+        st.markdown("#### Entregas planejadas")
+
+        for _, entrega in df.iterrows():
+
+            entrega_id = str(entrega["entrega_id"])
+            chave_checkbox = f"checkbox_entrega_{entrega_id}"
+
+            with st.container(border=True):
+
+                # ------------------------------------------
+                # Cabeçalho do card
+                # ------------------------------------------
+
+                col1, col2 = st.columns([3, 1])
+
+                with col1:
+
+                    nome_entrega = entrega.get(
+                        "nome_da_entrega",
+                        "Entrega sem nome"
+                    )
+
+                    st.markdown(
+                        f"**{nome_entrega}**"
+                    )
+
+                with col2:
+
+                    # Menu de ações da entrega.
+                    with st.container(
+                        horizontal=True,
+                        horizontal_alignment="right"
+                    ):
+
+                        with st.popover(
+                            ":material/more_vert:",
+                            width="content"
+                        ):
+
+                            # Edição da entrega utiliza o diálogo
+                            # específico de gerenciamento já existente.
+                            if not usuario_visitante:
+
+                                editar_entrega = st.button(
+                                    "Editar entrega",
+                                    icon=":material/edit:",
+                                    type="tertiary",
+                                    key=f"editar_entrega_{entrega_id}"
+                                )
+
+                                if editar_entrega:
+                                    dialog_editar_entregas()
+
+                # ------------------------------------------
+                # Responsáveis
+                # ------------------------------------------
+
+                responsaveis = entrega.get(
+                    "responsaveis",
+                    ""
+                )
+
+                if responsaveis:
+
+                    st.markdown(
+                        f"**Responsável(is):** {responsaveis}"
+                    )
+
+                else:
+
+                    st.markdown(
+                        "**Responsável(is):** Não informado"
+                    )
+
+                # ------------------------------------------
+                # Informações resumidas
+                # ------------------------------------------
+
+                with st.container(
+                    horizontal=True,
+                    horizontal_alignment="distribute"
+                ):
+
+                    situacao = entrega.get(
+                        "situacao",
+                        "Não informada"
+                    )
+
+                    st.markdown(
+                        f"**Situação:** {situacao}"
+                    )
+
+                    previsao = entrega.get(
+                        "previsao_da_conclusao_str",
+                        ""
+                    )
+
+                    if previsao:
+
+                        st.markdown(
+                            f":material/schedule: {previsao}"
+                        )
+
+                    # ------------------------------------------
+                    # Registros
+                    # ------------------------------------------
+
+                    lancamentos = entrega.get(
+                        "lancamentos_entregas",
+                        []
+                    )
+
+                    if not isinstance(lancamentos, list):
+                        lancamentos = []
+
+                    quantidade_lancamentos = len(lancamentos)
+
+                    if quantidade_lancamentos == 0:
+
+                        st.markdown(
+                            '<span style="color:#F59E0B;"><i>Nenhum registro</i></span>',
+                            unsafe_allow_html=True
+                        )
+
+                    else:
+
+                        texto_registros = (
+                            "registro"
+                            if quantidade_lancamentos == 1
+                            else "registros"
+                        )
+
+                        st.checkbox(
+                            f"**Ver {quantidade_lancamentos} {texto_registros} >>**",
+                            key=chave_checkbox,
+                            on_change=alterar_entrega_selecionada,
+                            args=(entrega_id,)
+                        )
+
+                # ------------------------------------------
+                # Progresso
+                # ------------------------------------------
+
+                progresso = entrega.get(
+                    "progresso",
+                    0
+                )
+
+                try:
+                    progresso = float(progresso)
+                except (TypeError, ValueError):
+                    progresso = 0
+
+                progresso = max(
+                    0,
+                    min(100, progresso)
+                )
+
+                st.progress(
+                    progresso / 100,
+                    text=f"Progresso: {progresso:.0f}%"
+                )
+
+    # ==================================================
+    # ENTREGA SELECIONADA
+    # ==================================================
+
+    entrega_selecionada_id = st.session_state.get(
+        "entrega_selecionada_id"
+    )
+
+    entrega_selecionada = None
+
+    if entrega_selecionada_id:
+
+        for _, entrega in df.iterrows():
+
+            if str(entrega["entrega_id"]) == str(
+                entrega_selecionada_id
+            ):
+
+                entrega_selecionada = entrega
+                break
+
+
+
+
+
+
+
+
+    # ==================================================
+    # COLUNA DIREITA — REGISTROS
+    # ==================================================
+
+    with col_registros:
+
+        st.markdown("#### Registros da Entrega:")
+
+        # Nenhuma entrega selecionada: mantém a área vazia,
+        # exibindo somente as orientações de seleção.
+        if entrega_selecionada is None:
+
+            st.caption(
+                "Selecione uma Entrega na coluna da esquerda"
+            )
+
+            st.caption(
+                "Clique em :material/select_check_box: **Ver x registros**."
+            )
+
+        else:
+
+            # Identificação da entrega selecionada.
+            nome_entrega = entrega_selecionada.get(
+                "nome_da_entrega",
+                "Entrega sem nome"
+            )
+
+            st.markdown(
+                f"##### {nome_entrega}"
+            )
+
+            # Obtém somente os registros pertencentes à entrega selecionada.
+            lancamentos = entrega_selecionada.get(
+                "lancamentos_entregas",
+                []
+            )
+
+            if not isinstance(lancamentos, list):
+                lancamentos = []
+
+            if not lancamentos:
+
+                st.caption(
+                    "Nenhum registro cadastrado para esta entrega."
+                )
+
+            else:
+
+                # Cada registro é apresentado individualmente em um card.
+                for lancamento in lancamentos:
+
+                    with st.container(border=True):
+
+                        # Ano e autor do registro.
+                        with st.container(
+                            horizontal=True,
+                            horizontal_alignment="distribute"
+                        ):
+
+                            ano = lancamento.get(
+                                "ano",
+                                "Não informado"
+                            )
+
+                            autor = lancamento.get(
+                                "autor",
+                                "Não informado"
+                            )
+
+                            st.caption(
+                                f"**{ano}** | Registrado por **{autor}**"
+                            )
+
+                        # Anotações do registro.
+                        anotacoes = lancamento.get(
+                            "anotacoes",
+                            ""
+                        )
+
+                        if anotacoes:
+
+                            st.write(anotacoes)
+
+                        else:
+
+                            st.caption(
+                                "Sem anotações cadastradas."
+                            )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# # ==========================================================
+# # INTERFACE DA ABA DE ENTREGAS
+# # ==========================================================
+
+# @st.fragment
+# def render_entregas():
+
+#     # --------------------------------------------------
+#     # Estado da entrega selecionada
+#     # --------------------------------------------------
+
+#     if "entrega_selecionada_id" not in st.session_state:
+#         st.session_state["entrega_selecionada_id"] = None
+
+#     # --------------------------------------------------
+#     # Dados utilizados pelo fragmento
+#     # --------------------------------------------------
+
+#     df = df_entregas_filtrado
+
+#     if df.empty:
+#         st.info("Nenhuma entrega encontrada.")
+#         return
+
+#     # --------------------------------------------------
+#     # Inicialização dos estados dos checkboxes
+#     # --------------------------------------------------
+
+#     for _, entrega in df.iterrows():
+
+#         entrega_id = str(entrega["entrega_id"])
+#         chave_checkbox = f"checkbox_entrega_{entrega_id}"
+
+#         if chave_checkbox not in st.session_state:
+#             st.session_state[chave_checkbox] = False
+
+#     # --------------------------------------------------
+#     # Callback de seleção
+#     # --------------------------------------------------
+
+#     def alterar_entrega_selecionada(entrega_id):
+
+#         entrega_id = str(entrega_id)
+#         chave_checkbox = f"checkbox_entrega_{entrega_id}"
+
+#         selecionada = st.session_state.get(
+#             chave_checkbox,
+#             False
+#         )
+
+#         if selecionada:
+
+#             # Registra a entrega atualmente selecionada.
+#             st.session_state["entrega_selecionada_id"] = entrega_id
+
+#             # Mantém apenas uma entrega selecionada.
+#             for _, outra_entrega in df.iterrows():
+
+#                 outro_id = str(outra_entrega["entrega_id"])
+
+#                 if outro_id != entrega_id:
+
+#                     outra_chave = f"checkbox_entrega_{outro_id}"
+
+#                     st.session_state[outra_chave] = False
+
+#         else:
+
+#             # Remove a seleção quando o checkbox ativo é desmarcado.
+#             if (
+#                 st.session_state.get("entrega_selecionada_id")
+#                 == entrega_id
+#             ):
+#                 st.session_state["entrega_selecionada_id"] = None
+
+#     # --------------------------------------------------
+#     # Layout principal
+#     # --------------------------------------------------
+
+#     col_entregas, col_registros = st.columns(
+#         [1, 1],
+#         gap="medium"
+#     )
+
+#     # ==================================================
+#     # COLUNA ESQUERDA — ENTREGAS
+#     # ==================================================
+
+#     with col_entregas:
+
+#         st.markdown("#### Entregas planejadas")
+
+#         for _, entrega in df.iterrows():
+
+#             entrega_id = str(entrega["entrega_id"])
+#             chave_checkbox = f"checkbox_entrega_{entrega_id}"
+
+#             with st.container(border=True):
+
+#                 # ------------------------------------------
+#                 # Cabeçalho do card
+#                 # ------------------------------------------
+
+#                 col1, col2 = st.columns([3, 1])
+
+#                 with col1:
+
+#                     nome_entrega = entrega.get(
+#                         "nome_da_entrega",
+#                         "Entrega sem nome"
+#                     )
+
+#                     st.markdown(
+#                         f"**{nome_entrega}**"
+#                     )
+
+#                 with col2:
+
+#                     # Menu de ações da entrega.
+#                     with st.container(
+#                         horizontal=True,
+#                         horizontal_alignment="right"
+#                     ):
+
+#                         with st.popover(
+#                             ":material/more_vert:",
+#                             width="content"
+#                         ):
+
+#                             # Edição da entrega utiliza o diálogo
+#                             # específico de gerenciamento já existente.
+#                             if not usuario_visitante:
+
+#                                 editar_entrega = st.button(
+#                                     "Editar entrega",
+#                                     icon=":material/edit:",
+#                                     type="tertiary",
+#                                     key=f"editar_entrega_{entrega_id}"
+#                                 )
+
+#                                 if editar_entrega:
+#                                     dialog_editar_entregas()
+
+#                 # ------------------------------------------
+#                 # Responsáveis
+#                 # ------------------------------------------
+
+#                 responsaveis = entrega.get(
+#                     "responsaveis",
+#                     ""
+#                 )
+
+#                 if responsaveis:
+
+#                     st.markdown(
+#                         f"**Responsável(is):** {responsaveis}"
+#                     )
+
+#                 else:
+
+#                     st.markdown(
+#                         "**Responsável(is):** Não informado"
+#                     )
+
+#                 # ------------------------------------------
+#                 # Informações resumidas
+#                 # ------------------------------------------
+
+#                 with st.container(
+#                     horizontal=True,
+#                     horizontal_alignment="distribute"
+#                 ):
+
+#                     situacao = entrega.get(
+#                         "situacao",
+#                         "Não informada"
+#                     )
+
+#                     st.markdown(
+#                         f"**Situação:** {situacao}"
+#                     )
+
+#                     previsao = entrega.get(
+#                         "previsao_da_conclusao_str",
+#                         ""
+#                     )
+
+#                     if previsao:
+
+#                         st.markdown(
+#                             f":material/schedule: {previsao}"
+#                         )
+
+#                     # ------------------------------------------
+#                     # Registros
+#                     # ------------------------------------------
+
+#                     lancamentos = entrega.get(
+#                         "lancamentos_entregas",
+#                         []
+#                     )
+
+#                     if not isinstance(lancamentos, list):
+#                         lancamentos = []
+
+#                     quantidade_lancamentos = len(lancamentos)
+
+#                     if quantidade_lancamentos == 0:
+
+#                         st.markdown(
+#                             '<span style="color:#F59E0B;"><i>Nenhum registro</i></span>',
+#                             unsafe_allow_html=True
+#                         )
+
+#                     else:
+
+#                         texto_registros = (
+#                             "registro"
+#                             if quantidade_lancamentos == 1
+#                             else "registros"
+#                         )
+
+#                         st.checkbox(
+#                             f"**Ver {quantidade_lancamentos} {texto_registros} >>**",
+#                             key=chave_checkbox,
+#                             on_change=alterar_entrega_selecionada,
+#                             args=(entrega_id,)
+#                         )
+
+#                 # ------------------------------------------
+#                 # Progresso
+#                 # ------------------------------------------
+
+#                 progresso = entrega.get(
+#                     "progresso",
+#                     0
+#                 )
+
+#                 try:
+#                     progresso = float(progresso)
+#                 except (TypeError, ValueError):
+#                     progresso = 0
+
+#                 progresso = max(
+#                     0,
+#                     min(100, progresso)
+#                 )
+
+#                 st.progress(
+#                     progresso / 100,
+#                     text=f"Progresso: {progresso:.0f}%"
+#                 )
+
+#     # ==================================================
+#     # ENTREGA SELECIONADA
+#     # ==================================================
+
+#     entrega_selecionada_id = st.session_state.get(
+#         "entrega_selecionada_id"
+#     )
+
+#     entrega_selecionada = None
+
+#     if entrega_selecionada_id:
+
+#         for _, entrega in df.iterrows():
+
+#             if str(entrega["entrega_id"]) == str(
+#                 entrega_selecionada_id
+#             ):
+
+#                 entrega_selecionada = entrega
+#                 break
+
+
+
+
+
+
+
+
+#     # ==================================================
+#     # COLUNA DIREITA — REGISTROS
+#     # ==================================================
+
+#     with col_registros:
+
+#         st.markdown("#### Registros da Entrega:")
+
+#         # Nenhuma entrega selecionada: mantém a área vazia,
+#         # exibindo somente as orientações de seleção.
+#         if entrega_selecionada is None:
+
+#             st.caption(
+#                 "Selecione uma Entrega na coluna da esquerda"
+#             )
+
+#             st.caption(
+#                 "Clique em :material/select_check_box: **Ver x registros**."
+#             )
+
+#         else:
+
+#             # Identificação da entrega selecionada.
+#             nome_entrega = entrega_selecionada.get(
+#                 "nome_da_entrega",
+#                 "Entrega sem nome"
+#             )
+
+#             st.markdown(
+#                 f"##### {nome_entrega}"
+#             )
+
+#             # Obtém somente os registros pertencentes à entrega selecionada.
+#             lancamentos = entrega_selecionada.get(
+#                 "lancamentos_entregas",
+#                 []
+#             )
+
+#             if not isinstance(lancamentos, list):
+#                 lancamentos = []
+
+#             if not lancamentos:
+
+#                 st.caption(
+#                     "Nenhum registro cadastrado para esta entrega."
+#                 )
+
+#             else:
+
+#                 # Cada registro é apresentado individualmente em um card.
+#                 for lancamento in lancamentos:
+
+#                     with st.container(border=True):
+
+#                         # Ano e autor do registro.
+#                         with st.container(
+#                             horizontal=True,
+#                             horizontal_alignment="distribute"
+#                         ):
+
+#                             ano = lancamento.get(
+#                                 "ano",
+#                                 "Não informado"
+#                             )
+
+#                             autor = lancamento.get(
+#                                 "autor",
+#                                 "Não informado"
+#                             )
+
+#                             st.caption(
+#                                 f"**{ano}** | Registrado por **{autor}**"
+#                             )
+
+#                         # Anotações do registro.
+#                         anotacoes = lancamento.get(
+#                             "anotacoes",
+#                             ""
+#                         )
+
+#                         if anotacoes:
+
+#                             st.write(anotacoes)
+
+#                         else:
+
+#                             st.caption(
+#                                 "Sem anotações cadastradas."
+#                             )
+
+
+
+
 # ##########################################################
 # INTERFACE
 # ##########################################################
@@ -1379,102 +2143,122 @@ usuario_visitante = "visitante" in st.session_state.get("tipo_usuario", [])
 
 lista_entregas, cronograma_entregas = st.tabs(["Entregas","Cronograma"])
 
+
+
+
+# --------------------------------------------------
+# Interface de entregas e registros
+# --------------------------------------------------
+
 with lista_entregas:
 
-    # Renomeando as colunas
-    RENOMEAR = {
-        "nome_da_entrega": "Entrega",
-        "projetos_str": "Projetos",
-        "data_inicio_str": "Data de Início",
-        "previsao_da_conclusao_str": "Previsão de Conclusão",
-        "responsaveis": "Responsáveis",
-        "situacao": "Situação",
-        "programa_str": "Programa",
-        "progresso": "Progresso"
-    }
-
-    df_entregas_lista = df_entregas_filtrado.copy()
-
-    df_entregas_lista = df_entregas_lista.rename(columns=RENOMEAR)
-
-    df_entregas_lista = df_entregas_lista[[
-        "Entrega",
-        "Projetos",
-        "Programa",
-        "Responsáveis",
-        "Data de Início",
-        "Previsão de Conclusão",
-        "Situação",
-        "Progresso"
-    ]]
-
-    # --------------------------------------------------------------------------
-    # INTERFACE DA ABA LISTA
-    # --------------------------------------------------------------------------
-
-    st.write('')
-
-    # --------------------------------------------------------------------------
-    # CALLBACK PARA ABERTURA DO DIÁLOGO DE REGISTROS DE ENTREGAS
-    # --------------------------------------------------------------------------
-    def criar_callback_selecao_entrega(df_visivel, df_completo, key_df):
-
-        def handle_selecao_entrega():
-            estado = st.session_state.get(key_df, {})
-            linhas = estado.get("selection", {}).get("rows", [])
-
-            if not linhas:
-                return
-
-            idx = linhas[0]
-
-            linha_visivel = df_visivel.iloc[idx]
-            linha_completa = df_completo.iloc[idx]  # AQUI
-
-            st.session_state["entrega_selecionada"] = {
-                "entrega": linha_visivel["Entrega"],
-                "entrega_id": linha_completa["entrega_id"],
-                "indice": idx,
-                "projeto_id": linha_completa["projeto_id"]  # EXISTE
-            }
-
-            st.session_state["abrir_dialogo_entrega"] = True
-
-        return handle_selecao_entrega
 
 
-    key_df = f"df_entregas_lista"
-
-    callback_selecao = criar_callback_selecao_entrega(
-        df_entregas_lista,
-        df_entregas,
-        key_df
-    )
+    render_entregas()
 
 
-    altura_dataframe = altura_dataframe(df_entregas_lista, -0)
-
-    st.dataframe(
-        df_entregas_lista,
-        hide_index=True,
-        selection_mode="single-row",
-        key=key_df,
-        on_select=callback_selecao,
-        height=altura_dataframe,
-        column_config={
-            "Progresso": st.column_config.ProgressColumn(
-                format="%d%%"
-            )
-        }
-    )
 
 
-    # --------------------------------------------------
-    # ABRIR DIÁLOGO
-    # --------------------------------------------------
-    if st.session_state.get("abrir_dialogo_entrega"):
-        dialog_registros_entregas()
-        st.session_state["abrir_dialogo_entrega"] = False
+
+
+
+
+
+
+    # # Renomeando as colunas
+    # RENOMEAR = {
+    #     "nome_da_entrega": "Entrega",
+    #     "projetos_str": "Projetos",
+    #     "data_inicio_str": "Data de Início",
+    #     "previsao_da_conclusao_str": "Previsão de Conclusão",
+    #     "responsaveis": "Responsáveis",
+    #     "situacao": "Situação",
+    #     "programa_str": "Programa",
+    #     "progresso": "Progresso"
+    # }
+
+    # df_entregas_lista = df_entregas_filtrado.copy()
+
+    # df_entregas_lista = df_entregas_lista.rename(columns=RENOMEAR)
+
+    # df_entregas_lista = df_entregas_lista[[
+    #     "Entrega",
+    #     "Projetos",
+    #     "Programa",
+    #     "Responsáveis",
+    #     "Data de Início",
+    #     "Previsão de Conclusão",
+    #     "Situação",
+    #     "Progresso"
+    # ]]
+
+    # # --------------------------------------------------------------------------
+    # # INTERFACE DA ABA LISTA
+    # # --------------------------------------------------------------------------
+
+    # st.write('')
+
+    # # --------------------------------------------------------------------------
+    # # CALLBACK PARA ABERTURA DO DIÁLOGO DE REGISTROS DE ENTREGAS
+    # # --------------------------------------------------------------------------
+    # def criar_callback_selecao_entrega(df_visivel, df_completo, key_df):
+
+    #     def handle_selecao_entrega():
+    #         estado = st.session_state.get(key_df, {})
+    #         linhas = estado.get("selection", {}).get("rows", [])
+
+    #         if not linhas:
+    #             return
+
+    #         idx = linhas[0]
+
+    #         linha_visivel = df_visivel.iloc[idx]
+    #         linha_completa = df_completo.iloc[idx]  # AQUI
+
+    #         st.session_state["entrega_selecionada"] = {
+    #             "entrega": linha_visivel["Entrega"],
+    #             "entrega_id": linha_completa["entrega_id"],
+    #             "indice": idx,
+    #             "projeto_id": linha_completa["projeto_id"]  # EXISTE
+    #         }
+
+    #         st.session_state["abrir_dialogo_entrega"] = True
+
+    #     return handle_selecao_entrega
+
+
+    # key_df = f"df_entregas_lista"
+
+    # callback_selecao = criar_callback_selecao_entrega(
+    #     df_entregas_lista,
+    #     df_entregas,
+    #     key_df
+    # )
+
+
+    # altura_dataframe = altura_dataframe(df_entregas_lista, -0)
+
+    # st.dataframe(
+    #     df_entregas_lista,
+    #     hide_index=True,
+    #     selection_mode="single-row",
+    #     key=key_df,
+    #     on_select=callback_selecao,
+    #     height=altura_dataframe,
+    #     column_config={
+    #         "Progresso": st.column_config.ProgressColumn(
+    #             format="%d%%"
+    #         )
+    #     }
+    # )
+
+
+    # # --------------------------------------------------
+    # # ABRIR DIÁLOGO
+    # # --------------------------------------------------
+    # if st.session_state.get("abrir_dialogo_entrega"):
+    #     dialog_registros_entregas()
+    #     st.session_state["abrir_dialogo_entrega"] = False
 
 
 with cronograma_entregas:
