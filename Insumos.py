@@ -215,7 +215,7 @@ def gerar_pdf_solicitacao(solicitacao, projetos_dict, pessoas_dict):
     except Exception:
         pass
 
-    elementos.append(Paragraph("Detalhes da Solicitação de Insumos", estilo_titulo))
+    elementos.append(Paragraph("Solicitação de Insumos", estilo_titulo))
     elementos.append(Spacer(1, 22))
 
     def linha(rotulo, valor):
