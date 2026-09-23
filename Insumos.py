@@ -1188,7 +1188,6 @@ with abas[1]:
                     },
                     "justificativa_objetivos": justificativa_objetivos,
                     "itens_demandados": itens_registrados,
-                    "status": "Pendente",
                 }
 
                 resultado_insercao = insumos.insert_one(novo_documento)
