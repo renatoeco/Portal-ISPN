@@ -42,7 +42,6 @@ estatistica = db["estatistica"]  # Coleção de estatísticas
 insumos = db["insumos"]
 projetos_ispn = db["projetos_ispn"]
 pessoas = db["pessoas"]
-contadores = db["contadores"]  # Coleção de contadores atômicos (ex.: código sequencial das solicitações de insumos)
 
 
 ###########################################################################################################
@@ -164,18 +163,27 @@ def sanitizar_nome_arquivo(texto):
 
 
 def gerar_codigo_solicitacao():
-    """Gera, de forma atômica, um código único e sequencial de 4 dígitos
-    (iniciando em '0001') para uma nova solicitação de insumos. O
-    incremento é feito com find_one_and_update sobre um único documento
-    contador, o que evita que duas solicitações simultâneas recebam o
-    mesmo código (operação atômica no MongoDB)."""
-    resultado = contadores.find_one_and_update(
-        {"_id": "codigo_insumos"},
-        {"$inc": {"sequencia": 1}},
-        upsert=True,
-        return_document=ReturnDocument.AFTER,
+    """Gera um código sequencial de 4 dígitos (iniciando em '0001') para uma
+    nova solicitação de insumos, com base no maior código atualmente salvo
+    na coleção 'insumos' — e não em um contador separado. Como o código
+    passa a refletir apenas os registros existentes, se solicitações forem
+    excluídas a numeração pode ser reaproveitada (ex.: se as únicas
+    solicitações cadastradas, com códigos 0001 e 0002, forem excluídas, a
+    próxima solicitação volta a receber o código 0001)."""
+    ultima_solicitacao = insumos.find_one(
+        {"codigo_solicitacao": {"$exists": True}},
+        sort=[("codigo_solicitacao", -1)],
     )
-    return f"{resultado['sequencia']:04d}"
+
+    if ultima_solicitacao:
+        try:
+            proximo_numero = int(ultima_solicitacao["codigo_solicitacao"]) + 1
+        except (TypeError, ValueError):
+            proximo_numero = 1
+    else:
+        proximo_numero = 1
+
+    return f"{proximo_numero:04d}"
 
 
 def gerar_pdf_solicitacao(solicitacao, projetos_dict, pessoas_dict):
