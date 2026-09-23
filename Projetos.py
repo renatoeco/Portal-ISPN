@@ -3138,7 +3138,7 @@ with tab_projetos:
 
                                             # Botão de ver detalhes
                                             ver_detalhes_entrega = st.button(
-                                                "Ver detalhes da Entrega planejada",
+                                                "Ver detalhes",
                                                 icon=":material/menu:",
                                                 type="tertiary",
                                                 key=f"ver_detalhes_entrega_{entrega_id}",
@@ -3160,13 +3160,11 @@ with tab_projetos:
                                                 key=f"editar_entrega_{entrega_id}",
                                             )
 
+
                                             if editar_entrega:
                                                 dialog_editar_entrega(
-                                                    projeto_id=projeto_id,
                                                     entrega_id=entrega_id,
                                                 )
-
-
 
 
 
