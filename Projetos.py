@@ -3142,13 +3142,12 @@ with tab_projetos:
                                                 icon=":material/menu:",
                                                 type="tertiary",
                                                 key=f"ver_detalhes_entrega_{entrega_id}",
-                                                on_click=lambda id_entrega=entrega_id: (
-                                                    st.session_state.update({
-                                                        "entrega_detalhes_id": id_entrega
-                                                    }),
-                                                    mostrar_detalhes_entrega()
-                                                ),
                                             )
+
+                                            if ver_detalhes_entrega:
+                                                mostrar_detalhes_entrega(entrega_id)
+
+
 
 
 

@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from bson import ObjectId
-from funcoes_auxiliares import conectar_mongo_portal_ispn, dialog_editar_entregas, dialog_editar_entrega
+from funcoes_auxiliares import conectar_mongo_portal_ispn, dialog_editar_entregas, dialog_editar_entrega, mostrar_detalhes_entrega
 import plotly.express as px
 import time
 import bson
@@ -614,6 +614,23 @@ def render_entregas():
                             width="content"
                         ):
 
+
+
+
+                            # Botão de ver detalhes.
+                            ver_detalhes_entrega = st.button(
+                                "Ver detalhes",
+                                icon=":material/menu:",
+                                type="tertiary",
+                                key=f"ver_detalhes_entrega_{entrega_id}"
+                            )
+
+                            if ver_detalhes_entrega:
+                                mostrar_detalhes_entrega(entrega_id)
+
+
+
+
                             # Edição da entrega utiliza o diálogo
                             # específico de gerenciamento já existente.
                             if not usuario_visitante:
@@ -867,7 +884,6 @@ def render_entregas():
 
 
 
-
 # ##########################################################
 # INTERFACE
 # ##########################################################
@@ -1045,6 +1061,8 @@ st.write("")
 
 # Verifica se o usuário é visitante
 usuario_visitante = "visitante" in st.session_state.get("tipo_usuario", [])
+
+
 
 
 
