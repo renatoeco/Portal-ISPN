@@ -2,7 +2,13 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from bson import ObjectId
-from funcoes_auxiliares import conectar_mongo_portal_ispn, dialog_editar_entregas, dialog_editar_entrega, mostrar_detalhes_entrega
+from funcoes_auxiliares import (
+    conectar_mongo_portal_ispn, 
+    dialog_editar_entregas, 
+    dialog_editar_entrega, 
+    mostrar_detalhes_entrega,
+    cadastrar_entrega
+)
 import plotly.express as px
 import time
 import bson
@@ -576,6 +582,20 @@ def render_entregas():
     with col_entregas:
 
         st.markdown("#### Entregas planejadas")
+
+
+
+        if st.button(
+            "Cadastrar nova entrega",
+            icon=":material/add:",
+            type="primary",
+            key="nova_entrega"
+        ):
+            cadastrar_entrega()
+
+
+
+
 
         for _, entrega in df.iterrows():
 

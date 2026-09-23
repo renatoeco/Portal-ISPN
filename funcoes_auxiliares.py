@@ -145,6 +145,417 @@ def convert_objectid(obj):
 
 
 
+# ##########################################################
+# Diálogo para cadastro de nova entrega
+# ##########################################################
+
+@st.dialog("Cadastrar nova entrega", width="large", on_dismiss="rerun")
+def cadastrar_entrega():
+
+    # Conexão com as coleções utilizadas no formulário.
+    db = conectar_mongo_portal_ispn()
+
+    projetos_ispn = db["projetos_ispn"]
+    programas = db["programas_areas"]
+    indicadores = db["indicadores"]
+    pessoas = db["pessoas"]
+
+    # ----------------------------------------------------------
+    # Mapa de projetos
+    # ----------------------------------------------------------
+
+    projetos = list(
+        projetos_ispn.find(
+            {},
+            {
+                "_id": 1,
+                "sigla": 1,
+                "programas": 1
+            }
+        )
+    )
+
+    projetos_dict = {
+        str(p["_id"]): p.get("sigla", "")
+        for p in projetos
+    }
+
+    projetos_options = sorted(
+        projetos_dict.keys(),
+        key=lambda x: projetos_dict[x].lower()
+    )
+
+    # ----------------------------------------------------------
+    # Projeto de origem
+    # ----------------------------------------------------------
+
+    projeto_selecionado = st.selectbox(
+        "Projeto",
+        options=projetos_options,
+        index=None,
+        format_func=lambda x: projetos_dict.get(
+            x,
+            "Projeto não encontrado"
+        ),
+        placeholder=""
+    )
+
+    # ----------------------------------------------------------
+    # Dados do projeto selecionado
+    # ----------------------------------------------------------
+
+    projeto = None
+
+    if projeto_selecionado:
+
+        projeto = projetos_ispn.find_one(
+            {
+                "_id": ObjectId(projeto_selecionado)
+            }
+        )
+
+    # ----------------------------------------------------------
+    # Programas envolvidos na entrega
+    # ----------------------------------------------------------
+
+    programas_ids = set()
+
+    if projeto:
+
+        programas_projeto = projeto.get(
+            "programas",
+            []
+        )
+
+        if isinstance(programas_projeto, list):
+
+            for programa_id in programas_projeto:
+
+                programas_ids.add(
+                    str(programa_id)
+                )
+
+    # ----------------------------------------------------------
+    # Ações estratégicas dos programas envolvidos
+    # ----------------------------------------------------------
+
+    mapa_acoes_programa = {}
+    mapa_programa_acao = {}
+
+    for programa in programas.find():
+
+        programa_id = str(programa["_id"])
+
+        if programa_id not in programas_ids:
+            continue
+
+        nome_programa = programa.get(
+            "nome_programa_area",
+            ""
+        )
+
+        for acao in programa.get(
+            "acoes_estrategicas",
+            []
+        ):
+
+            acao_id = str(acao["_id"])
+
+            mapa_acoes_programa[acao_id] = acao.get(
+                "acao_estrategica",
+                ""
+            )
+
+            mapa_programa_acao[acao_id] = nome_programa
+
+    # Ordena primeiro pelo programa e depois pela ação.
+    acoes_programa_options = sorted(
+        mapa_acoes_programa.keys(),
+        key=lambda x: (
+            mapa_programa_acao.get(x, "").lower(),
+            mapa_acoes_programa.get(x, "").lower()
+        )
+    )
+
+    # ----------------------------------------------------------
+    # Mapa de pessoas
+    # ----------------------------------------------------------
+
+    pessoas_dict = {
+        str(p["_id"]): p.get("nome_completo", "")
+        for p in pessoas.find(
+            {},
+            {
+                "_id": 1,
+                "nome_completo": 1
+            }
+        )
+    }
+
+    # ----------------------------------------------------------
+    # Mapa de indicadores
+    # ----------------------------------------------------------
+
+    indicadores_dict = {
+        str(indicador["_id"]): indicador.get(
+            "nome_indicador",
+            ""
+        )
+        for indicador in indicadores.find(
+            {},
+            {
+                "_id": 1,
+                "nome_indicador": 1
+            }
+        )
+    }
+
+    indicadores_options = sorted(
+        indicadores_dict.keys(),
+        key=lambda x: indicadores_dict[x].lower()
+    )
+
+    # ----------------------------------------------------------
+    # Identificação da entrega
+    # ----------------------------------------------------------
+
+    if projeto:
+
+        projeto_sigla = projeto.get(
+            "sigla",
+            ""
+        )
+
+        st.caption(
+            f"Projeto: **{projeto_sigla}**"
+        )
+
+    st.write("")
+
+    # ----------------------------------------------------------
+    # Formulário de cadastro
+    # ----------------------------------------------------------
+
+    nome_da_entrega = st.text_input(
+        "Nome da entrega",
+        value=""
+    )
+
+    col1, col2 = st.columns(2)
+
+    data_inicio = col1.date_input(
+        "Data de início",
+        value=None,
+        format="DD/MM/YYYY"
+    )
+
+    data_fim = col2.date_input(
+        "Previsão de conclusão",
+        value=None,
+        format="DD/MM/YYYY"
+    )
+
+    col1, col2 = st.columns(2)
+
+    situacoes = [
+        "Prevista",
+        "Atrasada",
+        "Concluída"
+    ]
+
+    situacao = col1.selectbox(
+        "Situação",
+        options=situacoes,
+        index=None,
+        placeholder=""
+    )
+
+    opcoes_progresso = [
+        0,
+        10,
+        20,
+        30,
+        40,
+        50,
+        60,
+        70,
+        80,
+        90,
+        100
+    ]
+
+    progresso = col2.selectbox(
+        "Progresso",
+        options=opcoes_progresso,
+        index=None,
+        format_func=lambda x: f"{x}%",
+        placeholder=""
+    )
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+
+        responsaveis = st.multiselect(
+            "Responsáveis",
+            options=list(
+                pessoas_dict.keys()
+            ),
+            format_func=lambda x: pessoas_dict.get(
+                x,
+                "Pessoa não encontrada"
+            ),
+            placeholder=""
+        )
+
+    with col2:
+
+        projetos_relacionados_options = [
+            projeto_id
+            for projeto_id in projetos_dict.keys()
+            if projeto_id != projeto_selecionado
+        ]
+
+        projetos_relacionados = st.multiselect(
+            "Demais projetos relacionados",
+            options=projetos_relacionados_options,
+            format_func=lambda x: projetos_dict.get(
+                x,
+                "Projeto não encontrado"
+            ),
+            placeholder=""
+        )
+
+    # ----------------------------------------------------------
+    # Ações estratégicas
+    # ----------------------------------------------------------
+
+    acoes_estrat_programa = st.multiselect(
+        "Contribui com quais ações estratégicas do programa/área?",
+        options=acoes_programa_options,
+        format_func=lambda x: (
+            f"[{mapa_programa_acao.get(x, '')}] "
+            f"{mapa_acoes_programa.get(x, '')}"
+        ),
+        placeholder=""
+    )
+
+    # ----------------------------------------------------------
+    # Indicadores
+    # ----------------------------------------------------------
+
+    indicadores_relacionados = st.multiselect(
+        "Contribui com quais indicadores?",
+        options=indicadores_options,
+        format_func=lambda x: indicadores_dict.get(
+            x,
+            "Indicador não encontrado"
+        ),
+        placeholder=""
+    )
+
+    st.write("")
+
+    cadastrar = st.button(
+        "Cadastrar entrega",
+        icon=":material/save:",
+        width=200
+    )
+
+    # ----------------------------------------------------------
+    # Salvamento da nova entrega
+    # ----------------------------------------------------------
+
+    if cadastrar:
+
+        if not projeto_selecionado:
+            st.warning(
+                "Selecione o projeto da entrega."
+            )
+            return
+
+        if not nome_da_entrega.strip():
+            st.warning(
+                "Informe o nome da entrega."
+            )
+            return
+
+        # Mantém o formato de datas utilizado nos documentos existentes.
+        data_inicio_salvar = (
+            data_inicio.strftime("%d/%m/%Y")
+            if data_inicio
+            else None
+        )
+
+        data_fim_salvar = (
+            data_fim.strftime("%d/%m/%Y")
+            if data_fim
+            else None
+        )
+
+        entrega_id = ObjectId()
+
+        nova_entrega = {
+            "_id": entrega_id,
+            "nome_da_entrega": nome_da_entrega.strip(),
+            "data_inicio": data_inicio_salvar,
+            "previsao_da_conclusao": data_fim_salvar,
+            "responsaveis": [
+                ObjectId(r)
+                for r in responsaveis
+            ],
+            "situacao": situacao,
+            "progresso": int(progresso) if progresso is not None else 0,
+            "projetos_relacionados": [
+                ObjectId(p)
+                for p in projetos_relacionados
+            ],
+            "acoes_estrat_programa": [
+                ObjectId(a)
+                for a in acoes_estrat_programa
+            ],
+            "indicadores_relacionados": [
+                ObjectId(i)
+                for i in indicadores_relacionados
+            ],
+            "_projeto_origem_id": ObjectId(
+                projeto_selecionado
+            ),
+            "_projeto_origem_sigla": projetos_dict[
+                projeto_selecionado
+            ],
+            "lancamentos_entregas": []
+        }
+
+        resultado = projetos_ispn.update_one(
+            {
+                "_id": ObjectId(projeto_selecionado)
+            },
+            {
+                "$push": {
+                    "entregas": nova_entrega
+                }
+            }
+        )
+
+        if resultado.modified_count:
+
+            st.success(
+                "Entrega cadastrada com sucesso!"
+            )
+
+            time.sleep(3)
+
+            st.rerun()
+
+        else:
+
+            st.error(
+                "Não foi possível cadastrar a entrega."
+            )
+
+
+
 
 
 
