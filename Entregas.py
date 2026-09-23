@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from bson import ObjectId
-from funcoes_auxiliares import conectar_mongo_portal_ispn, dialog_editar_entregas, altura_dataframe
+from funcoes_auxiliares import conectar_mongo_portal_ispn, dialog_editar_entregas, dialog_editar_entrega
 import plotly.express as px
 import time
 import bson
@@ -626,7 +626,7 @@ def render_entregas():
                                 )
 
                                 if editar_entrega:
-                                    dialog_editar_entregas()
+                                    dialog_editar_entrega(entrega_id)
 
                 # ------------------------------------------
                 # Responsáveis
@@ -1038,6 +1038,9 @@ if filtro_data_fim:
 df_entregas_filtrado = df_filtrado.copy()
 
 st.write("")
+
+
+
 
 
 # Verifica se o usuário é visitante

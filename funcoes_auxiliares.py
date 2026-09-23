@@ -515,363 +515,937 @@ def mostrar_detalhes_entrega():
 
 
 
+# ##########################################################
+# Diálogo para edição de uma entrega específica
+# ##########################################################
 
 
-# Função do diálogo para edição ou cadastro de uma entrega
-@st.dialog("Editar Entrega", width="large", on_dismiss="rerun")
-def dialog_editar_entrega(projeto_id, entrega_id=None):
+@st.dialog("Editar entrega", width="large", on_dismiss="rerun")
+def dialog_editar_entrega(entrega_id):
 
-    # Identifica o modo de operação conforme a existência da entrega.
-    modo_edicao = entrega_id is not None
-
-    # Conecta ao banco para consultar o projeto selecionado.
+    # Conexão com as coleções utilizadas no formulário.
     db = conectar_mongo_portal_ispn()
 
-    projeto = db["projetos_ispn"].find_one(
-        {"_id": bson.ObjectId(str(projeto_id))}
+    projetos_ispn = db["projetos_ispn"]
+    programas = db["programas_areas"]
+    indicadores = db["indicadores"]
+    pessoas = db["pessoas"]
+
+    # Converte o identificador recebido pelo Streamlit para ObjectId.
+    try:
+        entrega_object_id = ObjectId(entrega_id)
+    except Exception:
+        st.error("Identificador da entrega inválido.")
+        return
+
+    # Localiza o projeto que contém a entrega selecionada.
+    projeto = projetos_ispn.find_one(
+        {
+            "entregas._id": entrega_object_id
+        }
     )
 
     if not projeto:
-        st.error("Projeto não encontrado.")
+        st.error("Projeto da entrega não encontrado.")
         return
 
-    # Localiza a entrega somente no modo de edição.
-    entrega = None
+    # Localiza a entrega dentro do projeto encontrado.
+    entrega = next(
+        (
+            item
+            for item in projeto.get("entregas", [])
+            if item.get("_id") == entrega_object_id
+        ),
+        None
+    )
 
-    if modo_edicao:
+    if not entrega:
+        st.error("Entrega não encontrada.")
+        return
 
-        for item in projeto.get("entregas", []):
+    # ----------------------------------------------------------
+    # Dados básicos do projeto de origem
+    # ----------------------------------------------------------
 
-            if str(item.get("_id")) == str(entrega_id):
-                entrega = item
-                break
+    projeto_id = projeto["_id"]
+    projeto_sigla = projeto.get("sigla", "")
 
-        if entrega is None:
-            st.error("Entrega não encontrada.")
-            return
+    # ----------------------------------------------------------
+    # Mapa de pessoas
+    # ----------------------------------------------------------
 
-
-
-
-    else:
-
-        # Estrutura inicial utilizada para um novo cadastro.
-        entrega = {}
-
-
-
-    # --------------------------------------------------
-    # Dados iniciais dos campos
-    # --------------------------------------------------
-
-    # --------------------------------------------------
-    # Pessoas disponíveis para seleção
-    # --------------------------------------------------
-
-    pessoas = list(
-        db["pessoas"].find(
+    pessoas_dict = {
+        str(p["_id"]): p.get("nome_completo", "")
+        for p in pessoas.find(
             {},
             {
                 "_id": 1,
-                "nome_completo": 1,
+                "nome_completo": 1
             }
         )
-    )
-
-    mapa_pessoas = {
-        str(pessoa["_id"]): pessoa.get(
-            "nome_completo",
-            "Nome não informado"
-        )
-        for pessoa in pessoas
     }
 
-    mapa_pessoas_inverso = {
-        nome: pessoa_id
-        for pessoa_id, nome in mapa_pessoas.items()
-    }
+    # ----------------------------------------------------------
+    # Mapa de projetos
+    # ----------------------------------------------------------
 
-    # Recupera os responsáveis atualmente associados à entrega.
-    responsaveis_ids = entrega.get(
-        "responsaveis",
-        []
-    )
-
-    if not isinstance(responsaveis_ids, list):
-        responsaveis_ids = []
-
-    responsaveis_ids = [
-        str(responsavel_id)
-        for responsavel_id in responsaveis_ids
-    ]
-
-    responsaveis_selecionados = [
-        mapa_pessoas[responsavel_id]
-        for responsavel_id in responsaveis_ids
-        if responsavel_id in mapa_pessoas
-    ]
-
-
-
-    # --------------------------------------------------
-    # Indicadores disponíveis para seleção
-    # --------------------------------------------------
-
-    indicadores = list(
-        db["indicadores"].find(
-            {},
-            {
-                "_id": 1,
-                "nome_indicador": 1,
-            }
-        )
-    )
-
-    mapa_indicadores = {
-        str(indicador["_id"]): indicador.get(
-            "nome_indicador",
-            "Indicador não informado"
-        )
-        for indicador in indicadores
-    }
-
-    # Recupera os indicadores atualmente associados à entrega.
-    indicadores_ids = entrega.get(
-        "indicadores_relacionados",
-        []
-    )
-
-    if not isinstance(indicadores_ids, list):
-        indicadores_ids = []
-
-    indicadores_ids = [
-        str(indicador_id)
-        for indicador_id in indicadores_ids
-    ]
-
-    indicadores_selecionados = [
-        mapa_indicadores[indicador_id]
-        for indicador_id in indicadores_ids
-        if indicador_id in mapa_indicadores
-    ]
-
-
-
-
-    # --------------------------------------------------
-    # Projetos disponíveis para seleção
-    # --------------------------------------------------
-
-    projetos = list(
-        db["projetos_ispn"].find(
+    projetos_dict = {
+        str(p["_id"]): p.get("sigla", "")
+        for p in projetos_ispn.find(
             {},
             {
                 "_id": 1,
                 "sigla": 1,
+                "programas": 1
             }
         )
-    )
-
-    mapa_projetos = {
-        str(projeto["_id"]): projeto.get(
-            "sigla",
-            "Projeto sem sigla"
-        )
-        for projeto in projetos
     }
 
-    # Recupera os projetos atualmente associados à entrega.
-    projetos_ids = entrega.get(
-        "projetos_relacionados",
-        []
+    # ----------------------------------------------------------
+    # Mapa de indicadores
+    # ----------------------------------------------------------
+
+    indicadores_dict = {
+        str(indicador["_id"]): indicador.get(
+            "nome_indicador",
+            ""
+        )
+        for indicador in indicadores.find(
+            {},
+            {
+                "_id": 1,
+                "nome_indicador": 1
+            }
+        )
+    }
+
+    indicadores_options = sorted(
+        indicadores_dict.keys(),
+        key=lambda x: indicadores_dict[x].lower()
     )
 
-    if not isinstance(projetos_ids, list):
-        projetos_ids = []
+    # ----------------------------------------------------------
+    # Projetos relacionados
+    # ----------------------------------------------------------
 
-    projetos_ids = [
-        str(projeto_id)
-        for projeto_id in projetos_ids
+    projetos_relacionados_existentes = [
+        str(pid)
+        for pid in entrega.get(
+            "projetos_relacionados",
+            []
+        )
     ]
 
-    projetos_selecionados = [
-        mapa_projetos[projeto_id]
-        for projeto_id in projetos_ids
-        if projeto_id in mapa_projetos
+    projetos_relacionados_options = sorted(
+        [
+            projeto_id_str
+            for projeto_id_str in projetos_dict.keys()
+            if projeto_id_str != str(projeto_id)
+        ],
+        key=lambda x: projetos_dict[x].lower()
+    )
+
+    # ----------------------------------------------------------
+    # Programas envolvidos na entrega
+    # ----------------------------------------------------------
+
+    programas_ids = set()
+
+    # Programa(s) do projeto de origem.
+    programas_projeto = projeto.get("programas", [])
+
+    if not isinstance(programas_projeto, list):
+        programas_projeto = []
+
+    for programa_id in programas_projeto:
+
+        programas_ids.add(
+            str(programa_id)
+        )
+
+    # Programas dos projetos relacionados.
+    for projeto_relacionado_id in projetos_relacionados_existentes:
+
+        projeto_relacionado = projetos_ispn.find_one(
+            {
+                "_id": ObjectId(projeto_relacionado_id)
+            },
+            {
+                "programas": 1
+            }
+        )
+
+        if not projeto_relacionado:
+            continue
+
+        programas_relacionados = projeto_relacionado.get(
+            "programas",
+            []
+        )
+
+        if not isinstance(programas_relacionados, list):
+            continue
+
+        for programa_id in programas_relacionados:
+
+            programas_ids.add(
+                str(programa_id)
+            )
+
+    # ----------------------------------------------------------
+    # Ações estratégicas dos programas envolvidos
+    # ----------------------------------------------------------
+
+    mapa_acoes_programa = {}
+    mapa_programa_acao = {}
+
+    for programa in programas.find():
+
+        programa_id = str(programa["_id"])
+
+        if programa_id not in programas_ids:
+            continue
+
+        nome_programa = programa.get(
+            "nome_programa_area",
+            ""
+        )
+
+        for acao in programa.get(
+            "acoes_estrategicas",
+            []
+        ):
+
+            acao_id = str(acao["_id"])
+
+            mapa_acoes_programa[acao_id] = acao.get(
+                "acao_estrategica",
+                ""
+            )
+
+            mapa_programa_acao[acao_id] = nome_programa
+
+    # Ordena primeiro pelo programa e depois pela ação.
+    acoes_programa_options = sorted(
+        mapa_acoes_programa.keys(),
+        key=lambda x: (
+            mapa_programa_acao.get(x, "").lower(),
+            mapa_acoes_programa.get(x, "").lower()
+        )
+    )
+
+    # ----------------------------------------------------------
+    # Valores atualmente cadastrados
+    # ----------------------------------------------------------
+
+    responsaveis_existentes = [
+        str(r)
+        for r in entrega.get(
+            "responsaveis",
+            []
+        )
     ]
 
+    acoes_existentes = [
+        str(a)
+        for a in entrega.get(
+            "acoes_estrat_programa",
+            []
+        )
+    ]
 
+    indicadores_existentes = [
+        str(i)
+        for i in entrega.get(
+            "indicadores_relacionados",
+            []
+        )
+    ]
 
+    # ----------------------------------------------------------
+    # Identificação da entrega
+    # ----------------------------------------------------------
 
-
-
-
-
-
-
-    nome_entrega = entrega.get(
-        "nome_da_entrega",
-        ""
+    st.caption(
+        f"Projeto: **{projeto_sigla}**"
     )
 
-    data_inicio = entrega.get(
-        "data_inicio",
-        ""
+    st.write("")
+
+
+
+    # ----------------------------------------------------------
+    # Formulário de edição
+    # ----------------------------------------------------------
+
+    nome_da_entrega = st.text_input(
+        "Nome da entrega",
+        value=entrega.get(
+            "nome_da_entrega",
+            ""
+        )
     )
 
-    previsao_conclusao = entrega.get(
-        "previsao_da_conclusao",
-        ""
+    col1, col2 = st.columns(2)
+
+    # Data de início atual.
+    data_inicio_raw = entrega.get(
+        "data_inicio"
     )
 
-    situacao = entrega.get(
+    data_inicio = None
+
+    if data_inicio_raw:
+
+        data_inicio_convertida = pd.to_datetime(
+            data_inicio_raw,
+            format="%d/%m/%Y",
+            errors="coerce"
+        )
+
+        if not pd.isna(data_inicio_convertida):
+            data_inicio = data_inicio_convertida.date()
+
+    data_inicio = col1.date_input(
+        "Data de início",
+        value=data_inicio,
+        format="DD/MM/YYYY"
+    )
+
+    # Data de conclusão atual.
+    data_fim_raw = entrega.get(
+        "previsao_da_conclusao"
+    )
+
+    data_fim = None
+
+    if data_fim_raw:
+
+        data_fim_convertida = pd.to_datetime(
+            data_fim_raw,
+            format="%d/%m/%Y",
+            errors="coerce"
+        )
+
+        if not pd.isna(data_fim_convertida):
+            data_fim = data_fim_convertida.date()
+
+    data_fim = col2.date_input(
+        "Previsão de conclusão",
+        value=data_fim,
+        format="DD/MM/YYYY"
+    )
+
+    col1, col2 = st.columns(2)
+
+    situacoes = [
+        "Prevista",
+        "Atrasada",
+        "Concluída"
+    ]
+
+    situacao_atual = entrega.get(
         "situacao",
         "Prevista"
     )
 
-    progresso = entrega.get(
+    if situacao_atual not in situacoes:
+        situacao_atual = "Prevista"
+
+    situacao = col1.selectbox(
+        "Situação",
+        options=situacoes,
+        index=situacoes.index(
+            situacao_atual
+        )
+    )
+
+    opcoes_progresso = [
+        0,
+        10,
+        20,
+        30,
+        40,
+        50,
+        60,
+        70,
+        80,
+        90,
+        100
+    ]
+
+    progresso_atual = entrega.get(
         "progresso",
         0
     )
 
     try:
-        progresso = int(progresso)
+        progresso_atual = int(progresso_atual)
     except (TypeError, ValueError):
-        progresso = 0
+        progresso_atual = 0
 
-    progresso = max(
-        0,
-        min(100, progresso)
+    if progresso_atual not in opcoes_progresso:
+        progresso_atual = 0
+
+    progresso = col2.selectbox(
+        "Progresso",
+        options=opcoes_progresso,
+        index=opcoes_progresso.index(
+            progresso_atual
+        ),
+        format_func=lambda x: f"{x}%"
+    )
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+
+        responsaveis = st.multiselect(
+            "Responsáveis",
+            options=list(
+                pessoas_dict.keys()
+            ),
+            default=[
+                r
+                for r in responsaveis_existentes
+                if r in pessoas_dict
+            ],
+            format_func=lambda x: pessoas_dict.get(
+                x,
+                "Pessoa não encontrada"
+            ),
+            placeholder=""
+        )
+
+    with col2:
+
+        projetos_relacionados = st.multiselect(
+            "Demais projetos relacionados",
+            options=projetos_relacionados_options,
+            default=[
+                p
+                for p in projetos_relacionados_existentes
+                if p in projetos_relacionados_options
+            ],
+            format_func=lambda x: projetos_dict.get(
+                x,
+                "Projeto não encontrado"
+            ),
+            placeholder=""
+        )
+
+    # ----------------------------------------------------------
+    # Ações estratégicas
+    # ----------------------------------------------------------
+
+    acoes_estrat_programa = st.multiselect(
+        "Contribui com quais ações estratégicas do programa/área?",
+        options=acoes_programa_options,
+        default=[
+            a
+            for a in acoes_existentes
+            if a in acoes_programa_options
+        ],
+        format_func=lambda x: (
+            f"[{mapa_programa_acao.get(x, '')}] "
+            f"{mapa_acoes_programa.get(x, '')}"
+        ),
+        placeholder=""
+    )
+
+    # ----------------------------------------------------------
+    # Indicadores
+    # ----------------------------------------------------------
+
+    indicadores_relacionados = st.multiselect(
+        "Contribui com quais indicadores?",
+        options=indicadores_options,
+        default=[
+            i
+            for i in indicadores_existentes
+            if i in indicadores_options
+        ],
+        format_func=lambda x: indicadores_dict.get(
+            x,
+            "Indicador não encontrado"
+        ),
+        placeholder=""
+    )
+
+    st.write("")
+
+    salvar_edicao = st.button(
+        "Salvar alterações",
+        icon=":material/save:",
+        width=200
     )
 
 
 
 
 
-    # --------------------------------------------------
-    # Formulário
-    # --------------------------------------------------
+    # ----------------------------------------------------------
+    # Salvamento das alterações
+    # ----------------------------------------------------------
 
-    with st.form("form_editar_entrega"):
+    if salvar_edicao:
 
-        col1, col2 = st.columns(
-            [1, 1],
-            gap="medium"
+        if not nome_da_entrega.strip():
+            st.warning(
+                "Informe o nome da entrega."
+            )
+            return
+
+        # Mantém o formato de datas utilizado nos documentos existentes.
+        data_inicio_salvar = (
+            data_inicio.strftime("%d/%m/%Y")
+            if data_inicio
+            else None
         )
 
-        # ==================================================
-        # COLUNA 1 — INFORMAÇÕES DA ENTREGA
-        # ==================================================
-
-        with col1:
-
-            nome_entrega = st.text_input(
-                "Nome da entrega",
-                value=nome_entrega,
-            )
-
-            st.write("")
-
-            sub_col1, sub_col2 = st.columns(2)
-
-            with sub_col1:
-
-                st.write("**Data de início:**")
-
-            with sub_col2:
-
-                data_inicio = st.text_input(
-                    "Data de início",
-                    value=data_inicio,
-                    label_visibility="collapsed",
-                    placeholder="dd/mm/yyyy",
-                )
-
-            st.write("")
-
-            sub_col1, sub_col2 = st.columns(2)
-
-            with sub_col1:
-
-                st.write("**Previsão de conclusão:**")
-
-            with sub_col2:
-
-                previsao_conclusao = st.text_input(
-                    "Previsão de conclusão",
-                    value=previsao_conclusao,
-                    label_visibility="collapsed",
-                    placeholder="dd/mm/yyyy",
-                )
-
-            st.write("")
-
-            situacao = st.selectbox(
-                "Situação",
-                options=[
-                    "Prevista",
-                    "Atrasada",
-                    "Concluída",
-                ],
-                index=[
-                    "Prevista",
-                    "Atrasada",
-                    "Concluída",
-                ].index(situacao)
-                if situacao in [
-                    "Prevista",
-                    "Atrasada",
-                    "Concluída",
-                ]
-                else 0,
-            )
-
-            progresso = st.selectbox(
-                "Progresso",
-                options=list(range(0, 101, 10)),
-                index=list(range(0, 101, 10)).index(
-                    progresso
-                )
-                if progresso in range(0, 101, 10)
-                else 0,
-                format_func=lambda valor: f"{valor}%",
-            )
-
-        # ==================================================
-        # COLUNA 2 — RELAÇÕES
-        # ==================================================
-
-        with col2:
-
-            responsaveis_selecionados = st.multiselect(
-                "Responsável(is)",
-                options=list(mapa_pessoas.values()),
-                default=responsaveis_selecionados,
-            )
-
-            indicadores_selecionados = st.multiselect(
-                "Indicadores relacionados",
-                options=list(mapa_indicadores.values()),
-                default=indicadores_selecionados,
-            )
-
-
-            projetos_selecionados = st.multiselect(
-                "Projetos relacionados",
-                options=list(mapa_projetos.values()),
-                default=projetos_selecionados,
-            )
-
-
-
-
-        st.write("")
-
-        salvar = st.form_submit_button(
-            "Salvar",
-            icon=":material/save:",
-            type="primary",
+        data_fim_salvar = (
+            data_fim.strftime("%d/%m/%Y")
+            if data_fim
+            else None
         )
+
+        # Atualiza somente os campos editáveis da entrega.
+        campos_atualizacao = {
+            "entregas.$.nome_da_entrega": nome_da_entrega.strip(),
+            "entregas.$.data_inicio": data_inicio_salvar,
+            "entregas.$.previsao_da_conclusao": data_fim_salvar,
+            "entregas.$.responsaveis": [
+                ObjectId(r)
+                for r in responsaveis
+            ],
+            "entregas.$.situacao": situacao,
+            "entregas.$.progresso": int(progresso),
+            "entregas.$.projetos_relacionados": [
+                ObjectId(p)
+                for p in projetos_relacionados
+            ],
+            "entregas.$.acoes_estrat_programa": [
+                ObjectId(a)
+                for a in acoes_estrat_programa
+            ],
+            "entregas.$.indicadores_relacionados": [
+                ObjectId(i)
+                for i in indicadores_relacionados
+            ]
+        }
+
+        resultado = projetos_ispn.update_one(
+            {
+                "_id": projeto_id,
+                "entregas._id": entrega_object_id
+            },
+            {
+                "$set": campos_atualizacao
+            }
+        )
+
+        if resultado.modified_count:
+
+            st.success(
+                "Entrega atualizada com sucesso!"
+            )
+
+            time.sleep(3)
+
+            st.rerun()
+
+        else:
+
+            st.info(
+                "Nenhuma alteração foi realizada."
+            )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# # Função do diálogo para edição ou cadastro de uma entrega
+# @st.dialog("Editar Entrega", width="large", on_dismiss="rerun")
+# def dialog_editar_entrega(projeto_id, entrega_id=None):
+
+#     # Identifica o modo de operação conforme a existência da entrega.
+#     modo_edicao = entrega_id is not None
+
+#     # Conecta ao banco para consultar o projeto selecionado.
+#     db = conectar_mongo_portal_ispn()
+
+#     projeto = db["projetos_ispn"].find_one(
+#         {"_id": bson.ObjectId(str(projeto_id))}
+#     )
+
+#     if not projeto:
+#         st.error("Projeto não encontrado.")
+#         return
+
+#     # Localiza a entrega somente no modo de edição.
+#     entrega = None
+
+#     if modo_edicao:
+
+#         for item in projeto.get("entregas", []):
+
+#             if str(item.get("_id")) == str(entrega_id):
+#                 entrega = item
+#                 break
+
+#         if entrega is None:
+#             st.error("Entrega não encontrada.")
+#             return
+
+
+
+
+#     else:
+
+#         # Estrutura inicial utilizada para um novo cadastro.
+#         entrega = {}
+
+
+
+#     # --------------------------------------------------
+#     # Dados iniciais dos campos
+#     # --------------------------------------------------
+
+#     # --------------------------------------------------
+#     # Pessoas disponíveis para seleção
+#     # --------------------------------------------------
+
+#     pessoas = list(
+#         db["pessoas"].find(
+#             {},
+#             {
+#                 "_id": 1,
+#                 "nome_completo": 1,
+#             }
+#         )
+#     )
+
+#     mapa_pessoas = {
+#         str(pessoa["_id"]): pessoa.get(
+#             "nome_completo",
+#             "Nome não informado"
+#         )
+#         for pessoa in pessoas
+#     }
+
+#     mapa_pessoas_inverso = {
+#         nome: pessoa_id
+#         for pessoa_id, nome in mapa_pessoas.items()
+#     }
+
+#     # Recupera os responsáveis atualmente associados à entrega.
+#     responsaveis_ids = entrega.get(
+#         "responsaveis",
+#         []
+#     )
+
+#     if not isinstance(responsaveis_ids, list):
+#         responsaveis_ids = []
+
+#     responsaveis_ids = [
+#         str(responsavel_id)
+#         for responsavel_id in responsaveis_ids
+#     ]
+
+#     responsaveis_selecionados = [
+#         mapa_pessoas[responsavel_id]
+#         for responsavel_id in responsaveis_ids
+#         if responsavel_id in mapa_pessoas
+#     ]
+
+
+
+#     # --------------------------------------------------
+#     # Indicadores disponíveis para seleção
+#     # --------------------------------------------------
+
+#     indicadores = list(
+#         db["indicadores"].find(
+#             {},
+#             {
+#                 "_id": 1,
+#                 "nome_indicador": 1,
+#             }
+#         )
+#     )
+
+#     mapa_indicadores = {
+#         str(indicador["_id"]): indicador.get(
+#             "nome_indicador",
+#             "Indicador não informado"
+#         )
+#         for indicador in indicadores
+#     }
+
+#     # Recupera os indicadores atualmente associados à entrega.
+#     indicadores_ids = entrega.get(
+#         "indicadores_relacionados",
+#         []
+#     )
+
+#     if not isinstance(indicadores_ids, list):
+#         indicadores_ids = []
+
+#     indicadores_ids = [
+#         str(indicador_id)
+#         for indicador_id in indicadores_ids
+#     ]
+
+#     indicadores_selecionados = [
+#         mapa_indicadores[indicador_id]
+#         for indicador_id in indicadores_ids
+#         if indicador_id in mapa_indicadores
+#     ]
+
+
+
+
+#     # --------------------------------------------------
+#     # Projetos disponíveis para seleção
+#     # --------------------------------------------------
+
+#     projetos = list(
+#         db["projetos_ispn"].find(
+#             {},
+#             {
+#                 "_id": 1,
+#                 "sigla": 1,
+#             }
+#         )
+#     )
+
+#     mapa_projetos = {
+#         str(projeto["_id"]): projeto.get(
+#             "sigla",
+#             "Projeto sem sigla"
+#         )
+#         for projeto in projetos
+#     }
+
+#     # Recupera os projetos atualmente associados à entrega.
+#     projetos_ids = entrega.get(
+#         "projetos_relacionados",
+#         []
+#     )
+
+#     if not isinstance(projetos_ids, list):
+#         projetos_ids = []
+
+#     projetos_ids = [
+#         str(projeto_id)
+#         for projeto_id in projetos_ids
+#     ]
+
+#     projetos_selecionados = [
+#         mapa_projetos[projeto_id]
+#         for projeto_id in projetos_ids
+#         if projeto_id in mapa_projetos
+#     ]
+
+
+
+
+
+
+
+
+
+
+#     nome_entrega = entrega.get(
+#         "nome_da_entrega",
+#         ""
+#     )
+
+#     data_inicio = entrega.get(
+#         "data_inicio",
+#         ""
+#     )
+
+#     previsao_conclusao = entrega.get(
+#         "previsao_da_conclusao",
+#         ""
+#     )
+
+#     situacao = entrega.get(
+#         "situacao",
+#         "Prevista"
+#     )
+
+#     progresso = entrega.get(
+#         "progresso",
+#         0
+#     )
+
+#     try:
+#         progresso = int(progresso)
+#     except (TypeError, ValueError):
+#         progresso = 0
+
+#     progresso = max(
+#         0,
+#         min(100, progresso)
+#     )
+
+
+
+
+
+#     # --------------------------------------------------
+#     # Formulário
+#     # --------------------------------------------------
+
+#     with st.form("form_editar_entrega"):
+
+#         col1, col2 = st.columns(
+#             [1, 1],
+#             gap="medium"
+#         )
+
+#         # ==================================================
+#         # COLUNA 1 — INFORMAÇÕES DA ENTREGA
+#         # ==================================================
+
+#         with col1:
+
+#             nome_entrega = st.text_input(
+#                 "Nome da entrega",
+#                 value=nome_entrega,
+#             )
+
+#             st.write("")
+
+#             sub_col1, sub_col2 = st.columns(2)
+
+#             with sub_col1:
+
+#                 st.write("**Data de início:**")
+
+#             with sub_col2:
+
+#                 data_inicio = st.text_input(
+#                     "Data de início",
+#                     value=data_inicio,
+#                     label_visibility="collapsed",
+#                     placeholder="dd/mm/yyyy",
+#                 )
+
+#             st.write("")
+
+#             sub_col1, sub_col2 = st.columns(2)
+
+#             with sub_col1:
+
+#                 st.write("**Previsão de conclusão:**")
+
+#             with sub_col2:
+
+#                 previsao_conclusao = st.text_input(
+#                     "Previsão de conclusão",
+#                     value=previsao_conclusao,
+#                     label_visibility="collapsed",
+#                     placeholder="dd/mm/yyyy",
+#                 )
+
+#             st.write("")
+
+#             situacao = st.selectbox(
+#                 "Situação",
+#                 options=[
+#                     "Prevista",
+#                     "Atrasada",
+#                     "Concluída",
+#                 ],
+#                 index=[
+#                     "Prevista",
+#                     "Atrasada",
+#                     "Concluída",
+#                 ].index(situacao)
+#                 if situacao in [
+#                     "Prevista",
+#                     "Atrasada",
+#                     "Concluída",
+#                 ]
+#                 else 0,
+#             )
+
+#             progresso = st.selectbox(
+#                 "Progresso",
+#                 options=list(range(0, 101, 10)),
+#                 index=list(range(0, 101, 10)).index(
+#                     progresso
+#                 )
+#                 if progresso in range(0, 101, 10)
+#                 else 0,
+#                 format_func=lambda valor: f"{valor}%",
+#             )
+
+#         # ==================================================
+#         # COLUNA 2 — RELAÇÕES
+#         # ==================================================
+
+#         with col2:
+
+#             responsaveis_selecionados = st.multiselect(
+#                 "Responsável(is)",
+#                 options=list(mapa_pessoas.values()),
+#                 default=responsaveis_selecionados,
+#             )
+
+#             indicadores_selecionados = st.multiselect(
+#                 "Indicadores relacionados",
+#                 options=list(mapa_indicadores.values()),
+#                 default=indicadores_selecionados,
+#             )
+
+
+#             projetos_selecionados = st.multiselect(
+#                 "Projetos relacionados",
+#                 options=list(mapa_projetos.values()),
+#                 default=projetos_selecionados,
+#             )
+
+
+
+
+#         st.write("")
+
+#         salvar = st.form_submit_button(
+#             "Salvar",
+#             icon=":material/save:",
+#             type="primary",
+#         )
 
 
 
