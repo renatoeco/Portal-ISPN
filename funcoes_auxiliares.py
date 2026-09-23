@@ -178,6 +178,30 @@ def mostrar_detalhes_entrega():
         st.warning("Projeto não encontrado no banco de dados.")
         return
 
+
+
+    # Identificação do projeto ao qual a entrega pertence.
+    projeto_sigla = projeto.get(
+        "sigla",
+        ""
+    )
+
+    projeto_nome = projeto.get(
+        "nome_do_projeto",
+        ""
+    )
+
+    projeto_identificacao = " - ".join(
+        valor
+        for valor in [
+            projeto_sigla,
+            projeto_nome
+        ]
+        if valor
+    )
+
+
+
     # Localiza a entrega dentro do projeto selecionado.
     entrega = None
 
@@ -380,10 +404,26 @@ def mostrar_detalhes_entrega():
 
     st.write("")
 
+
+    # Identificação do projeto
+
+    st.write(
+        f"**Projeto:** {projeto_identificacao}"
+    )
+
+
+
+
     col1, col2 = st.columns(
         [1, 1],
         gap="medium"
     )
+
+
+
+
+
+
 
     # ==================================================
     # COLUNA 1 — INFORMAÇÕES DA ENTREGA
@@ -399,9 +439,7 @@ def mostrar_detalhes_entrega():
             f"**Responsável(is):** {responsaveis_texto}"
         )
 
-
-
-        st.write('')
+        st.write("")
 
 
         sub_col1, sub_col2 = st.columns(2        )
