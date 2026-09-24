@@ -572,10 +572,14 @@ def render_entregas():
 
     with col_entregas:
 
-        st.markdown("#### Entregas planejadas")
+        quantidade_entregas = len(df_entregas_filtrado)
 
+        if quantidade_entregas == 1:
+            titulo_entregas = "Entrega planejada"
+        else:
+            titulo_entregas = "Entregas planejadas"
 
-
+        st.markdown(f"#### {titulo_entregas} ({quantidade_entregas})")
         if st.button(
             "Cadastrar nova entrega",
             icon=":material/add:",
