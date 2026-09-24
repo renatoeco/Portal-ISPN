@@ -722,122 +722,6 @@ def render_entregas():
 
 
 
-
-
-
-
-
-
-
-
-                # # ------------------------------------------
-                # # Responsáveis e projetos
-                # # ------------------------------------------
-
-                # col1, col2 = st.columns(2)
-
-                # with col1:
-
-                #     responsaveis = entrega.get(
-                #         "responsaveis",
-                #         ""
-                #     )
-
-                #     if responsaveis:
-
-                #         st.markdown(
-                #             f"**Responsável(is):** {responsaveis}"
-                #         )
-
-                #     else:
-
-                #         st.markdown(
-                #             "**Responsável(is):** Não informado"
-                #         )
-
-
-                # with col2:
-
-                #     projetos_siglas = []
-
-                #     # Inclui o projeto de origem da entrega.
-                #     projeto_origem_sigla = entrega.get(
-                #         "_projeto_origem_sigla",
-                #         ""
-                #     )
-
-                #     if projeto_origem_sigla:
-
-                #         projetos_siglas.append(
-                #             projeto_origem_sigla
-                #         )
-
-                #     # Inclui os demais projetos relacionados.
-                #     projetos_relacionados = entrega.get(
-                #         "projetos_relacionados",
-                #         []
-                #     )
-
-                #     for projeto_id in projetos_relacionados:
-
-                #         projeto_sigla = projetos_dict.get(
-                #             str(projeto_id),
-                #             ""
-                #         )
-
-                #         if projeto_sigla:
-                #             projetos_siglas.append(
-                #                 projeto_sigla
-                #             )
-
-                #     if projetos_siglas:
-
-                #         st.markdown(
-                #             f"**Projetos(s):** {', '.join(projetos_siglas)}"
-                #         )
-
-                #     else:
-
-                #         st.markdown(
-                #             "**Projetos(s):** Não informado"
-                #         )
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                # # ------------------------------------------
-                # # Responsáveis
-                # # ------------------------------------------
-
-                # responsaveis = entrega.get(
-                #     "responsaveis",
-                #     ""
-                # )
-
-                # if responsaveis:
-
-                #     st.markdown(
-                #         f"**Responsável(is):** {responsaveis}"
-                #     )
-
-                # else:
-
-                #     st.markdown(
-                #         "**Responsável(is):** Não informado"
-                #     )
-
                 # ------------------------------------------
                 # Informações resumidas
                 # ------------------------------------------
@@ -861,11 +745,44 @@ def render_entregas():
                         ""
                     )
 
+                    data_previsao = entrega.get(
+                        "previsao_da_conclusao"
+                    )
+
                     if previsao:
 
-                        st.markdown(
-                            f":material/schedule: {previsao}"
+                        # Identifica entregas não concluídas com prazo vencido.
+                        prazo_vencido = (
+                            situacao != "Concluída"
+                            and pd.notna(data_previsao)
+                            and pd.to_datetime(data_previsao).date() < datetime.now().date()
                         )
+
+                        if prazo_vencido:
+
+                            st.markdown(
+                                f':material/schedule: '
+                                f'<span style="color:red;">{previsao}</span>',
+                                unsafe_allow_html=True
+                            )
+
+                        else:
+
+                            st.markdown(
+                                f":material/schedule: {previsao}"
+                            )
+
+
+                    # previsao = entrega.get(
+                    #     "previsao_da_conclusao_str",
+                    #     ""
+                    # )
+
+                    # if previsao:
+
+                    #     st.markdown(
+                    #         f":material/schedule: {previsao}"
+                    #     )
 
                     # ------------------------------------------
                     # Registros
