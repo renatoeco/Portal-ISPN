@@ -8,7 +8,8 @@ from funcoes_auxiliares import (
     dialog_editar_entrega, 
     mostrar_detalhes_entrega,
     cadastrar_entrega,
-    cadastrar_registro_entrega
+    cadastrar_registro_entrega,
+    editar_registro_entrega
 )
 import plotly.express as px
 import time
@@ -32,17 +33,6 @@ estatistica = db["estatistica"]
 colecao_lancamentos = db["lancamentos_indicadores"]
 
 
-# # --------------------------------------------------
-# # ESTADOS DO DIÁLOGO DE REGISTRO DE ENTREGAS
-# # --------------------------------------------------
-# if "entrega_selecionada" not in st.session_state:
-#     st.session_state["entrega_selecionada"] = None
-
-# if "entrega_selecionada_tabela_key" not in st.session_state:
-#     st.session_state["entrega_selecionada_tabela_key"] = None
-
-# if "entrega" not in st.session_state:
-#     st.session_state["entrega"] = False
 
 
 # ==========================================================
@@ -1012,30 +1002,54 @@ def render_entregas():
 
             else:
 
-                # Cada registro é apresentado individualmente em um card.
+
                 for lancamento in lancamentos:
 
                     with st.container(border=True):
 
-                        # Ano e autor do registro.
+                        # Cabeçalho do registro.
                         with st.container(
                             horizontal=True,
                             horizontal_alignment="distribute"
                         ):
 
-                            ano = lancamento.get(
-                                "ano",
-                                "Não informado"
-                            )
+                            with st.container(
+                                horizontal=True
+                            ):
 
-                            autor = lancamento.get(
-                                "autor",
-                                "Não informado"
-                            )
+                                ano = lancamento.get(
+                                    "ano",
+                                    "Não informado"
+                                )
 
-                            st.caption(
-                                f"**{ano}** | Registrado por **{autor}**"
-                            )
+                                autor = lancamento.get(
+                                    "autor",
+                                    "Não informado"
+                                )
+
+                                st.caption(
+                                    f"**{ano}** | Registrado por **{autor}**"
+                                )
+
+                            # Menu de ações do registro.
+                            with st.popover(
+                                ":material/more_vert:",
+                                width="content"
+                            ):
+
+                                editar_registro = st.button(
+                                    "Editar registro",
+                                    icon=":material/edit:",
+                                    type="tertiary",
+                                    key=f"editar_registro_{lancamento['_id']}"
+                                )
+
+                                if editar_registro:
+
+                                    editar_registro_entrega(
+                                        str(lancamento["_id"]),
+                                        str(entrega_selecionada["entrega_id"])
+                                    )
 
                         # Anotações do registro.
                         anotacoes = lancamento.get(
@@ -1052,8 +1066,6 @@ def render_entregas():
                             st.caption(
                                 "Sem anotações cadastradas."
                             )
-
-
 
 
 
@@ -1101,12 +1113,7 @@ df_entregas["responsaveis_ids"] = df_entregas["responsaveis_ids"].apply(lambda x
 df_entregas_lista = df_entregas.copy()
 
 
-# Botão de gerenciar entregas somente para admin e coordenadores
-if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)"}:
-    with st.container(horizontal_alignment="right"):
-        st.write('')    
-        if st.button("Gerenciar entregas", icon=":material/edit:", width=300):
-            dialog_editar_entregas()
+
 
 st.write("")
 st.write("")

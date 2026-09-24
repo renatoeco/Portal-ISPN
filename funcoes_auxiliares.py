@@ -1239,6 +1239,593 @@ def cadastrar_registro_entrega(entrega_id):
 
         st.rerun()
 
+
+
+
+# ##########################################################
+# Diálogo para edição de registro da entrega
+# ##########################################################
+
+@st.dialog("Editar registro", width="large", on_dismiss="rerun")
+def editar_registro_entrega(
+    lancamento_id,
+    entrega_id
+):
+
+    # Conexão com as coleções utilizadas no registro.
+    db = conectar_mongo_portal_ispn()
+
+    projetos_ispn = db["projetos_ispn"]
+    indicadores = db["indicadores"]
+    colecao_lancamentos = db["lancamentos_indicadores"]
+
+    # ----------------------------------------------------------
+    # Converte os identificadores
+    # ----------------------------------------------------------
+
+    try:
+
+        lancamento_object_id = ObjectId(
+            lancamento_id
+        )
+
+        entrega_object_id = ObjectId(
+            entrega_id
+        )
+
+    except Exception:
+
+        st.error(
+            "Identificador do registro ou da entrega inválido."
+        )
+
+        return
+
+    # ----------------------------------------------------------
+    # Localiza o projeto e a entrega
+    # ----------------------------------------------------------
+
+    projeto = projetos_ispn.find_one(
+        {
+            "entregas._id": entrega_object_id
+        }
+    )
+
+    if not projeto:
+
+        st.error(
+            "Projeto da entrega não encontrado."
+        )
+
+        return
+
+    entrega = next(
+        (
+            item
+            for item in projeto.get("entregas", [])
+            if item.get("_id") == entrega_object_id
+        ),
+        None
+    )
+
+    if not entrega:
+
+        st.error(
+            "Entrega não encontrada."
+        )
+
+        return
+
+    # ----------------------------------------------------------
+    # Localiza o registro
+    # ----------------------------------------------------------
+
+    lancamento = next(
+        (
+            item
+            for item in entrega.get(
+                "lancamentos_entregas",
+                []
+            )
+            if item.get("_id") == lancamento_object_id
+        ),
+        None
+    )
+
+    if not lancamento:
+
+        st.error(
+            "Registro não encontrado."
+        )
+
+        return
+
+    # ----------------------------------------------------------
+    # Mapa de indicadores
+    # ----------------------------------------------------------
+
+    mapa_indicadores = {
+        str(indicador["_id"]): indicador.get(
+            "nome_indicador",
+            ""
+        )
+        for indicador in indicadores.find(
+            {},
+            {
+                "_id": 1,
+                "nome_indicador": 1
+            }
+        )
+    }
+
+    mapa_tipo_variavel = {
+        str(indicador["_id"]): indicador.get(
+            "tipo_variavel",
+            "int"
+        )
+        for indicador in indicadores.find(
+            {},
+            {
+                "_id": 1,
+                "tipo_variavel": 1
+            }
+        )
+    }
+
+    # ----------------------------------------------------------
+    # Identificação
+    # ----------------------------------------------------------
+
+    st.caption(
+        f"Entrega: **{entrega.get('nome_da_entrega', '')}**"
+    )
+
+    st.write("")
+
+    # ----------------------------------------------------------
+    # Dados atuais do registro
+    # ----------------------------------------------------------
+
+    ano_atual_registro = lancamento.get(
+        "ano",
+        ""
+    )
+
+    try:
+
+        ano_atual_registro = int(
+            ano_atual_registro
+        )
+
+    except (TypeError, ValueError):
+
+        ano_atual_registro = datetime.now().year
+
+    ano_atual = datetime.now().year
+    ano_inicial = ano_atual - 1
+    ano_final = ano_atual + 6
+
+    anos_disponiveis = list(
+        range(
+            ano_inicial,
+            ano_final + 1
+        )
+    )
+
+    if ano_atual_registro not in anos_disponiveis:
+
+        anos_disponiveis.append(
+            ano_atual_registro
+        )
+
+        anos_disponiveis.sort()
+
+    ano_lancamento = st.selectbox(
+        "Ano do registro",
+        options=anos_disponiveis,
+        index=anos_disponiveis.index(
+            ano_atual_registro
+        )
+    )
+
+    anotacoes_lancamento = st.text_area(
+        "Anotações",
+        value=lancamento.get(
+            "anotacoes",
+            ""
+        )
+    )
+
+    st.divider()
+
+    st.markdown(
+        "### Lançamento de indicadores"
+    )
+
+    # ----------------------------------------------------------
+    # Registros dos indicadores
+    # ----------------------------------------------------------
+
+    valores_indicadores = {}
+
+    indicadores_entrega = entrega.get(
+        "indicadores_relacionados",
+        []
+    )
+
+    for indicador in indicadores_entrega:
+
+        indicador_id = str(indicador)
+
+        nome_indicador = mapa_indicadores.get(
+            indicador_id,
+            "Indicador não encontrado"
+        )
+
+        tipo_variavel = mapa_tipo_variavel.get(
+            indicador_id,
+            "int"
+        )
+
+        st.markdown(
+            f"**{nome_indicador}**"
+        )
+
+        # Busca o lançamento atual deste indicador.
+        lancamento_indicador = colecao_lancamentos.find_one(
+            {
+                "id_lanc_entrega": lancamento_object_id,
+                "id_do_indicador": ObjectId(indicador_id)
+            }
+        )
+
+        valor_atual = ""
+
+        observacoes_atual = ""
+
+        if lancamento_indicador:
+
+            valor_atual = lancamento_indicador.get(
+                "valor",
+                ""
+            )
+
+            observacoes_atual = lancamento_indicador.get(
+                "observacoes",
+                ""
+            )
+
+        col1, col2 = st.columns([2, 3])
+
+        if tipo_variavel == "float":
+
+            try:
+                valor_atual = float(
+                    valor_atual
+                )
+
+            except (TypeError, ValueError):
+
+                valor_atual = 0.0
+
+            valor = col1.number_input(
+                "Valor",
+                value=valor_atual,
+                step=0.01,
+                format="%.2f",
+                key=f"editar_valor_{lancamento_id}_{indicador_id}"
+            )
+
+        elif tipo_variavel == "str":
+
+            valor = col1.text_input(
+                "Valor",
+                value=str(valor_atual)
+                if valor_atual is not None
+                else "",
+                key=f"editar_valor_{lancamento_id}_{indicador_id}"
+            )
+
+        else:
+
+            try:
+                valor_atual = int(
+                    valor_atual
+                )
+
+            except (TypeError, ValueError):
+
+                valor_atual = 0
+
+            valor = col1.number_input(
+                "Valor",
+                value=valor_atual,
+                step=1,
+                format="%d",
+                key=f"editar_valor_{lancamento_id}_{indicador_id}"
+            )
+
+        observacoes = col2.text_input(
+            "Observações",
+            value=str(observacoes_atual)
+            if observacoes_atual is not None
+            else "",
+            key=f"editar_obs_{lancamento_id}_{indicador_id}"
+        )
+
+        valores_indicadores[indicador] = {
+            "valor": valor,
+            "observacoes": observacoes,
+            "lancamento": lancamento_indicador
+        }
+
+        st.divider()
+
+    # ----------------------------------------------------------
+    # Botões
+    # ----------------------------------------------------------
+
+
+    with st.container(horizontal=True, horizontal_alignment="distribute"):
+
+        atualizar = st.button(
+            "Atualizar",
+            icon=":material/save:",
+            type="primary",
+            width=200
+        )
+
+
+        excluir = st.button(
+            "Excluir",
+            icon=":material/delete:",
+            type="secondary",
+            width=200
+        )
+
+    # ----------------------------------------------------------
+    # Confirmação de exclusão
+    # ----------------------------------------------------------
+
+    if excluir:
+
+        col1, col2 = st.columns(2)
+
+        with col2:
+
+            st.warning(
+                "Tem certeza que deseja excluir este registro?"
+            )
+
+            with st.container(horizontal=True, horizontal_alignment="right"):
+
+                confirmar_exclusao = st.button(
+                    "Sim, excluir",
+                    icon=":material/delete:",
+                    type="primary",
+                    key=f"confirmar_exclusao_{lancamento_id}"
+                )
+
+
+                cancelar_exclusao = st.button(
+                    "Cancelar",
+                    key=f"cancelar_exclusao_{lancamento_id}"
+                )
+
+        if confirmar_exclusao:
+
+            # Remove o registro somente da entrega correspondente.
+            resultado = projetos_ispn.update_one(
+                {
+                    "_id": projeto["_id"],
+                    "entregas._id": entrega_object_id
+                },
+                {
+                    "$pull": {
+                        "entregas.$.lancamentos_entregas": {
+                            "_id": lancamento_object_id
+                        }
+                    }
+                }
+            )
+
+            # Remove os lançamentos dos indicadores vinculados ao registro.
+            colecao_lancamentos.delete_many(
+                {
+                    "id_lanc_entrega": lancamento_object_id
+                }
+            )
+
+            if resultado.modified_count:
+
+                st.success(
+                    "Registro excluído com sucesso!"
+                )
+
+                time.sleep(3)
+
+                st.rerun()
+
+            else:
+
+                st.error(
+                    "Não foi possível excluir o registro."
+                )
+
+        return
+
+    # ----------------------------------------------------------
+    # Atualização do registro
+    # ----------------------------------------------------------
+
+    if atualizar:
+
+        # Atualiza somente os campos que realmente foram alterados.
+        campos_atualizacao = {}
+
+        ano_novo = str(
+            ano_lancamento
+        )
+
+        ano_atual_salvo = str(
+            lancamento.get(
+                "ano",
+                ""
+            )
+        )
+
+        if ano_novo != ano_atual_salvo:
+
+            campos_atualizacao[
+                "entregas.$.lancamentos_entregas.$[registro].ano"
+            ] = ano_novo
+
+        anotacoes_novas = anotacoes_lancamento
+
+        anotacoes_atuais = lancamento.get(
+            "anotacoes",
+            ""
+        )
+
+        if anotacoes_novas != anotacoes_atuais:
+
+            campos_atualizacao[
+                "entregas.$.lancamentos_entregas.$[registro].anotacoes"
+            ] = anotacoes_novas
+
+        # Atualiza o registro principal.
+        if campos_atualizacao:
+
+            resultado = projetos_ispn.update_one(
+                {
+                    "_id": projeto["_id"],
+                    "entregas._id": entrega_object_id
+                },
+                {
+                    "$set": campos_atualizacao
+                },
+                array_filters=[
+                    {
+                        "registro._id": lancamento_object_id
+                    }
+                ]
+            )
+
+        # ------------------------------------------------------
+        # Atualiza os indicadores
+        # ------------------------------------------------------
+
+        for indicador_id, dados in valores_indicadores.items():
+
+            indicador_object_id = ObjectId(
+                indicador_id
+            )
+
+            lancamento_indicador = dados[
+                "lancamento"
+            ]
+
+            tipo_variavel = mapa_tipo_variavel.get(
+                indicador_id,
+                "int"
+            )
+
+            valor = dados["valor"]
+
+            if tipo_variavel == "float":
+
+                valor_novo = float(valor)
+
+            elif tipo_variavel == "str":
+
+                valor_novo = str(valor)
+
+            else:
+
+                valor_novo = int(valor)
+
+            observacoes_novas = dados[
+                "observacoes"
+            ]
+
+            # Registro de indicador ainda não existente.
+            if not lancamento_indicador:
+
+                if valor in ["", None, 0]:
+
+                    continue
+
+                colecao_lancamentos.insert_one(
+                    {
+                        "id_do_indicador": indicador_object_id,
+                        "projeto": projeto["_id"],
+                        "data_anotacao": datetime.now(),
+                        "autor_anotacao": st.session_state.get(
+                            "nome"
+                        ),
+                        "valor": valor_novo,
+                        "ano": ano_novo,
+                        "observacoes": observacoes_novas,
+                        "tipo": "ispn",
+                        "id_lanc_entrega": lancamento_object_id
+                    }
+                )
+
+                continue
+
+            # Atualiza somente os campos modificados.
+            campos_indicador = {}
+
+            if lancamento_indicador.get(
+                "valor"
+            ) != valor_novo:
+
+                campos_indicador["valor"] = valor_novo
+
+            if lancamento_indicador.get(
+                "observacoes",
+                ""
+            ) != observacoes_novas:
+
+                campos_indicador[
+                    "observacoes"
+                ] = observacoes_novas
+
+            if lancamento_indicador.get(
+                "ano",
+                ""
+            ) != ano_novo:
+
+                campos_indicador[
+                    "ano"
+                ] = ano_novo
+
+            if campos_indicador:
+
+                colecao_lancamentos.update_one(
+                    {
+                        "_id": lancamento_indicador["_id"]
+                    },
+                    {
+                        "$set": campos_indicador
+                    }
+                )
+
+        st.success(
+            "Registro atualizado com sucesso!"
+        )
+
+        time.sleep(3)
+
+        st.rerun()
+
+
+
+
+
+
+
+
 # ##########################################################
 # Diálogo para edição de uma entrega específica
 # ##########################################################
