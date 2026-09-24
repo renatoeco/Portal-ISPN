@@ -4,7 +4,7 @@ from datetime import datetime
 from bson import ObjectId
 from funcoes_auxiliares import (
     conectar_mongo_portal_ispn, 
-    dialog_editar_entregas, 
+    mostrar_detalhes_registro_entrega, 
     dialog_editar_entrega, 
     mostrar_detalhes_entrega,
     cadastrar_entrega,
@@ -1037,6 +1037,23 @@ def render_entregas():
                                 width="content"
                             ):
 
+                                # Botão de mostrar detalhes do registro
+
+                                ver_detalhes_registro = st.button(
+                                    "Ver detalhes",
+                                    icon=":material/list:",
+                                    type="tertiary",
+                                    key=f"ver_detalhes_registro_{lancamento['_id']}"
+                                )
+
+                                if ver_detalhes_registro:
+                                    mostrar_detalhes_registro_entrega(
+                                        str(lancamento["_id"]),
+                                        str(entrega_selecionada["entrega_id"])
+                                    )
+
+
+                                # Botão de editar o registro
                                 editar_registro = st.button(
                                     "Editar registro",
                                     icon=":material/edit:",

@@ -1241,7 +1241,6 @@ def cadastrar_registro_entrega(entrega_id):
 
 
 
-
 # ##########################################################
 # Diálogo para edição de registro da entrega
 # ##########################################################
@@ -1822,6 +1821,293 @@ def editar_registro_entrega(
 
 
 
+# ##########################################################
+# Diálogo para visualização de registro da entrega
+# ##########################################################
+
+@st.dialog(
+    "Detalhes do registro",
+    width="large",
+    on_dismiss="rerun"
+)
+def mostrar_detalhes_registro_entrega(
+    lancamento_id,
+    entrega_id
+):
+
+    # Conexão com as coleções utilizadas no registro.
+    db = conectar_mongo_portal_ispn()
+
+    projetos_ispn = db["projetos_ispn"]
+    indicadores = db["indicadores"]
+    colecao_lancamentos = db["lancamentos_indicadores"]
+
+    # ----------------------------------------------------------
+    # Converte os identificadores
+    # ----------------------------------------------------------
+
+    try:
+
+        lancamento_object_id = ObjectId(
+            lancamento_id
+        )
+
+        entrega_object_id = ObjectId(
+            entrega_id
+        )
+
+    except Exception:
+
+        st.error(
+            "Identificador do registro ou da entrega inválido."
+        )
+
+        return
+
+    # ----------------------------------------------------------
+    # Localiza o projeto e a entrega
+    # ----------------------------------------------------------
+
+    projeto = projetos_ispn.find_one(
+        {
+            "entregas._id": entrega_object_id
+        }
+    )
+
+    if not projeto:
+
+        st.error(
+            "Projeto da entrega não encontrado."
+        )
+
+        return
+
+    entrega = next(
+        (
+            item
+            for item in projeto.get("entregas", [])
+            if item.get("_id") == entrega_object_id
+        ),
+        None
+    )
+
+    if not entrega:
+
+        st.error(
+            "Entrega não encontrada."
+        )
+
+        return
+
+    # ----------------------------------------------------------
+    # Localiza o registro
+    # ----------------------------------------------------------
+
+    lancamento = next(
+        (
+            item
+            for item in entrega.get(
+                "lancamentos_entregas",
+                []
+            )
+            if item.get("_id") == lancamento_object_id
+        ),
+        None
+    )
+
+    if not lancamento:
+
+        st.error(
+            "Registro não encontrado."
+        )
+
+        return
+
+    # ----------------------------------------------------------
+    # Mapas de indicadores
+    # ----------------------------------------------------------
+
+    mapa_indicadores = {
+        str(indicador["_id"]): indicador.get(
+            "nome_indicador",
+            ""
+        )
+        for indicador in indicadores.find(
+            {},
+            {
+                "_id": 1,
+                "nome_indicador": 1
+            }
+        )
+    }
+
+    mapa_tipo_variavel = {
+        str(indicador["_id"]): indicador.get(
+            "tipo_variavel",
+            "int"
+        )
+        for indicador in indicadores.find(
+            {},
+            {
+                "_id": 1,
+                "tipo_variavel": 1
+            }
+        )
+    }
+
+    # ----------------------------------------------------------
+    # Identificação
+    # ----------------------------------------------------------
+
+    st.write(
+        f"Entrega: **{entrega.get('nome_da_entrega', '')}**"
+    )
+
+    st.write("")
+
+    # ----------------------------------------------------------
+    # Dados do registro
+    # ----------------------------------------------------------
+
+
+    ano = lancamento.get(
+        "ano",
+        "Não informado"
+    )
+
+    autor = lancamento.get(
+        "autor",
+        "Não informado"
+    )
+
+
+
+    col1, col2 = st.columns([2, 3])
+
+
+    col1.markdown(
+        f"**Ano do registro:** {ano}"
+    )
+
+    col2.markdown(
+        f"**Registrado por:** {autor}"
+    )
+
+    anotacoes = lancamento.get(
+        "anotacoes",
+        ""
+    )
+
+    if anotacoes:
+
+        st.markdown(
+            f"**Anotações:**  \n{anotacoes}"
+        )
+
+    else:
+
+        st.caption(
+            "Sem anotações cadastradas."
+        )
+
+    # ----------------------------------------------------------
+    # Indicadores
+    # ----------------------------------------------------------
+
+    st.divider()
+
+    st.markdown(
+        "### Lançamento de indicadores"
+    )
+
+    indicadores_entrega = entrega.get(
+        "indicadores_relacionados",
+        []
+    )
+
+    if not indicadores_entrega:
+
+        st.caption(
+            "Nenhum indicador relacionado a esta entrega."
+        )
+
+    else:
+
+        for indicador in indicadores_entrega:
+
+            indicador_id = str(indicador)
+
+            nome_indicador = mapa_indicadores.get(
+                indicador_id,
+                "Indicador não encontrado"
+            )
+
+            tipo_variavel = mapa_tipo_variavel.get(
+                indicador_id,
+                "int"
+            )
+
+            st.markdown(
+                f"**{nome_indicador}**"
+            )
+
+            # Localiza o lançamento do indicador.
+            lancamento_indicador = (
+                colecao_lancamentos.find_one(
+                    {
+                        "id_lanc_entrega": lancamento_object_id,
+                        "id_do_indicador": ObjectId(
+                            indicador_id
+                        )
+                    }
+                )
+            )
+
+            if not lancamento_indicador:
+
+                st.caption(
+                    "Nenhum valor registrado."
+                )
+
+                st.divider()
+
+                continue
+
+            valor = lancamento_indicador.get(
+                "valor",
+                ""
+            )
+
+            observacoes = lancamento_indicador.get(
+                "observacoes",
+                ""
+            )
+
+            col1, col2 = st.columns([2, 3])
+
+            with col1:
+
+                st.markdown(
+                    f"**Valor**  \n{valor}"
+                )
+
+            with col2:
+
+                if observacoes:
+
+                    st.markdown(
+                        f"**Observações**  \n{observacoes}"
+                    )
+
+                else:
+
+                    st.caption(
+                        "Sem observações."
+                    )
+
+            st.divider()
+
+
 
 
 
@@ -2375,1179 +2661,1179 @@ def dialog_editar_entrega(entrega_id):
 
 
 
-# Função do diálogo para gerenciar entregas  VAI SER SUBSTITUÍDO PELO DIAĹOGO DE EDITAR SOMENTE UMA ENTREGA (ACIMA)
-@st.dialog("Editar Entregas", width="large", on_dismiss="rerun")
-def dialog_editar_entregas():
+# # Função do diálogo para gerenciar entregas  VAI SER SUBSTITUÍDO PELO DIAĹOGO DE EDITAR SOMENTE UMA ENTREGA (ACIMA)
+# @st.dialog("Editar Entregas", width="large", on_dismiss="rerun")
+# def dialog_editar_entregas():
 
-    pagina_atual = st.session_state.get("pagina_anterior")
-    mostrar_lancamentos = (pagina_atual == "pagina_projetos")
+#     pagina_atual = st.session_state.get("pagina_anterior")
+#     mostrar_lancamentos = (pagina_atual == "pagina_projetos")
     
-    db = conectar_mongo_portal_ispn()
-    estrategia = db["estrategia"]  
-    programas = db["programas_areas"]
-    projetos_ispn = db["projetos_ispn"]  
-    indicadores = db["indicadores"]
-    colecao_lancamentos = db["lancamentos_indicadores"]
+#     db = conectar_mongo_portal_ispn()
+#     estrategia = db["estrategia"]  
+#     programas = db["programas_areas"]
+#     projetos_ispn = db["projetos_ispn"]  
+#     indicadores = db["indicadores"]
+#     colecao_lancamentos = db["lancamentos_indicadores"]
     
-    df_projetos_ispn = pd.DataFrame(list(projetos_ispn.find()))
-    df_pessoas = pd.DataFrame(list(db["pessoas"].find()))
-    df_indicadores = pd.DataFrame(list(indicadores.find()))
+#     df_projetos_ispn = pd.DataFrame(list(projetos_ispn.find()))
+#     df_pessoas = pd.DataFrame(list(db["pessoas"].find()))
+#     df_indicadores = pd.DataFrame(list(indicadores.find()))
 
-    def entrega_pode_ser_excluida(entrega: dict, projeto_id) -> bool:
-        entrega_id = entrega.get("_id")
+#     def entrega_pode_ser_excluida(entrega: dict, projeto_id) -> bool:
+#         entrega_id = entrega.get("_id")
 
-        if not entrega_id:
-            return False
+#         if not entrega_id:
+#             return False
 
-        # Verifica lançamentos EMBUTIDOS no projeto
-        lancamentos_embutidos = entrega.get("lancamentos_entregas", [])
-        if lancamentos_embutidos:
-            return False
+#         # Verifica lançamentos EMBUTIDOS no projeto
+#         lancamentos_embutidos = entrega.get("lancamentos_entregas", [])
+#         if lancamentos_embutidos:
+#             return False
 
-        # Verifica lançamentos persistidos na coleção
-        qtd_registros = colecao_lancamentos.count_documents({
-            "projeto": projeto_id,
-            "id_lanc_entrega": entrega_id
-        })
+#         # Verifica lançamentos persistidos na coleção
+#         qtd_registros = colecao_lancamentos.count_documents({
+#             "projeto": projeto_id,
+#             "id_lanc_entrega": entrega_id
+#         })
 
-        return qtd_registros == 0
-
-    
-    # Garantir string do ObjectId (Streamlit trabalha melhor)
-    df_indicadores["_id"] = df_indicadores["_id"].astype(str)
-
-    # Mapa: id -> nome legível
-    mapa_indicadores = dict(
-        zip(df_indicadores["_id"], df_indicadores["nome_indicador"])
-    )
-    
-    # Mapa: id -> tipo_variavel ("int", "float" ou "str")
-    mapa_tipo_variavel = dict(
-        zip(df_indicadores["_id"], df_indicadores["tipo_variavel"])
-    )
-
-    # Lista de IDs (o que será salvo)
-    indicadores_options = sorted(mapa_indicadores.keys(), key=lambda x: mapa_indicadores[x])
+#         return qtd_registros == 0
 
     
-    # --- 2. Criar dicionários de mapeamento ---
-    mapa_doador = {d["_id"]: d["nome_doador"] for d in db["doadores"].find()}
-    mapa_programa = {p["_id"]: p["nome_programa_area"] for p in db["programas_areas"].find()}
+#     # Garantir string do ObjectId (Streamlit trabalha melhor)
+#     df_indicadores["_id"] = df_indicadores["_id"].astype(str)
 
-    # --- 3. Aplicar os mapeamentos ao df_projetos_ispn ---
-    df_projetos_ispn["doador_nome"] = df_projetos_ispn["doador"].apply(
-        lambda x: mapa_doador.get(x, "não informado")
-    )
-
-
-
-    # Converte lista de programas em nomes legíveis
-    def resolver_programas(lista_programas):
-        """
-        Converte lista de ObjectIds de programas em string com nomes legíveis.
-
-        Parâmetros:
-            lista_programas (list | None): Lista de IDs de programas.
-
-        Retorno:
-            str: Nomes dos programas separados por vírgula.
-        """
-        if isinstance(lista_programas, list) and lista_programas:
-            return ", ".join(
-                mapa_programa.get(p, "não informado")
-                for p in lista_programas
-            )
-
-        return "não informado"
-
-    df_projetos_ispn["programa_nome"] = df_projetos_ispn["programas"].apply(resolver_programas)
-
-
-
-    # --- 4. Converter datas para datetime
-    df_projetos_ispn['data_inicio_contrato'] = pd.to_datetime(
-        df_projetos_ispn['data_inicio_contrato'], format="%d/%m/%Y", errors="coerce"
-    )
-    df_projetos_ispn['data_fim_contrato'] = pd.to_datetime(
-        df_projetos_ispn['data_fim_contrato'], format="%d/%m/%Y", errors="coerce"
-    )
-
-    # PESSOAS
-    # Converter objectid para string em df_pessoas
-    df_pessoas = df_pessoas.map(convert_objectid)
-
-    # Criar mapa de _id -> nome_programa_area (como string)
-    mapa_programa = {str(p["_id"]): p["nome_programa_area"] for p in db["programas_areas"].find()}
-
-    # Criar mapa de _id -> nome_completo (coordenador)
-    mapa_coordenador = {str(p["_id"]): p["nome_completo"] for p in db["pessoas"].find()}
-
-    # Aplicar mapeamento no df_pessoas
-    def resolver_programa_area(valor):
-        if isinstance(valor, list):
-            return ", ".join(
-                mapa_programa.get(str(v), "não informado")
-                for v in valor
-            )
-        if valor:
-            return mapa_programa.get(str(valor), "não informado")
-        return "não informado"
-
-    df_pessoas["programa_area_nome"] = df_pessoas["programa_area"].apply(resolver_programa_area)
-
-    df_pessoas["coordenador_nome"] = df_pessoas["coordenador"].map(mapa_coordenador)
-    df_pessoas = df_pessoas.sort_values(by="nome_completo", ascending=True).reset_index(drop=True)
+#     # Mapa: id -> nome legível
+#     mapa_indicadores = dict(
+#         zip(df_indicadores["_id"], df_indicadores["nome_indicador"])
+#     )
     
-    st.write("")
+#     # Mapa: id -> tipo_variavel ("int", "float" ou "str")
+#     mapa_tipo_variavel = dict(
+#         zip(df_indicadores["_id"], df_indicadores["tipo_variavel"])
+#     )
 
-    # =========================
-    # RESOLVER PROJETO (CORRETO)
-    # =========================
+#     # Lista de IDs (o que será salvo)
+#     indicadores_options = sorted(mapa_indicadores.keys(), key=lambda x: mapa_indicadores[x])
 
-    projetos_options = sorted(df_projetos_ispn["sigla"].dropna().unique().tolist())
+    
+#     # --- 2. Criar dicionários de mapeamento ---
+#     mapa_doador = {d["_id"]: d["nome_doador"] for d in db["doadores"].find()}
+#     mapa_programa = {p["_id"]: p["nome_programa_area"] for p in db["programas_areas"].find()}
 
-    projeto_sigla = st.selectbox(
-        "Selecione o projeto",
-        options=[""] + projetos_options,
-        key="projeto_selecionado_entregas"
-    )
-
-    if not projeto_sigla:
-        st.info("Selecione um projeto para gerenciar as entregas.")
-        return
-
-
-    # Projeto já definido (veio da página)
-    projeto_info = df_projetos_ispn.loc[
-        df_projetos_ispn["sigla"] == projeto_sigla
-    ].iloc[0]
+#     # --- 3. Aplicar os mapeamentos ao df_projetos_ispn ---
+#     df_projetos_ispn["doador_nome"] = df_projetos_ispn["doador"].apply(
+#         lambda x: mapa_doador.get(x, "não informado")
+#     )
 
 
-    # ==========================================================
-    # ENTREGAS DO PROJETO + ENTREGAS RELACIONADAS
-    # ==========================================================
 
-    entregas_existentes = []
+#     # Converte lista de programas em nomes legíveis
+#     def resolver_programas(lista_programas):
+#         """
+#         Converte lista de ObjectIds de programas em string com nomes legíveis.
 
-    projeto_atual_id = ObjectId(projeto_info["_id"])
+#         Parâmetros:
+#             lista_programas (list | None): Lista de IDs de programas.
 
-    # ----------------------------------------------------------
-    # 1. Entregas do próprio projeto
-    # ----------------------------------------------------------
+#         Retorno:
+#             str: Nomes dos programas separados por vírgula.
+#         """
+#         if isinstance(lista_programas, list) and lista_programas:
+#             return ", ".join(
+#                 mapa_programa.get(p, "não informado")
+#                 for p in lista_programas
+#             )
 
-    entregas_projeto = projeto_info.get("entregas", [])
+#         return "não informado"
 
-    # Garante lista válida
-    if not isinstance(entregas_projeto, list):
-        entregas_projeto = []
+#     df_projetos_ispn["programa_nome"] = df_projetos_ispn["programas"].apply(resolver_programas)
 
-    for entrega_original in entregas_projeto:
 
-        entrega = dict(entrega_original)
 
-        entrega["_projeto_origem_id"] = projeto_info["_id"]
-        entrega["_projeto_origem_sigla"] = projeto_info.get("sigla", "")
+#     # --- 4. Converter datas para datetime
+#     df_projetos_ispn['data_inicio_contrato'] = pd.to_datetime(
+#         df_projetos_ispn['data_inicio_contrato'], format="%d/%m/%Y", errors="coerce"
+#     )
+#     df_projetos_ispn['data_fim_contrato'] = pd.to_datetime(
+#         df_projetos_ispn['data_fim_contrato'], format="%d/%m/%Y", errors="coerce"
+#     )
 
-        entregas_existentes.append(entrega)
+#     # PESSOAS
+#     # Converter objectid para string em df_pessoas
+#     df_pessoas = df_pessoas.map(convert_objectid)
 
-    # ----------------------------------------------------------
-    # 2. Entregas de outros projetos relacionadas a este
-    # ----------------------------------------------------------
-    outros_projetos = projetos_ispn.find({
-        "_id": {"$ne": projeto_atual_id},
-        "entregas.projetos_relacionados": projeto_atual_id
-    })
+#     # Criar mapa de _id -> nome_programa_area (como string)
+#     mapa_programa = {str(p["_id"]): p["nome_programa_area"] for p in db["programas_areas"].find()}
 
-    for proj in outros_projetos:
+#     # Criar mapa de _id -> nome_completo (coordenador)
+#     mapa_coordenador = {str(p["_id"]): p["nome_completo"] for p in db["pessoas"].find()}
 
-        entregas_proj = proj.get("entregas", [])
+#     # Aplicar mapeamento no df_pessoas
+#     def resolver_programa_area(valor):
+#         if isinstance(valor, list):
+#             return ", ".join(
+#                 mapa_programa.get(str(v), "não informado")
+#                 for v in valor
+#             )
+#         if valor:
+#             return mapa_programa.get(str(valor), "não informado")
+#         return "não informado"
 
-        # Garante lista válida
-        if not isinstance(entregas_proj, list):
-            entregas_proj = []
+#     df_pessoas["programa_area_nome"] = df_pessoas["programa_area"].apply(resolver_programa_area)
 
-        for entrega_original in entregas_proj:
+#     df_pessoas["coordenador_nome"] = df_pessoas["coordenador"].map(mapa_coordenador)
+#     df_pessoas = df_pessoas.sort_values(by="nome_completo", ascending=True).reset_index(drop=True)
+    
+#     st.write("")
 
-            projetos_rel = entrega_original.get(
-                "projetos_relacionados",
-                []
-            )
+#     # =========================
+#     # RESOLVER PROJETO (CORRETO)
+#     # =========================
 
-            if projeto_atual_id in projetos_rel:
+#     projetos_options = sorted(df_projetos_ispn["sigla"].dropna().unique().tolist())
 
-                entrega = dict(entrega_original)
+#     projeto_sigla = st.selectbox(
+#         "Selecione o projeto",
+#         options=[""] + projetos_options,
+#         key="projeto_selecionado_entregas"
+#     )
 
-                entrega["_projeto_origem_id"] = proj["_id"]
-                entrega["_projeto_origem_sigla"] = proj.get("sigla", "")
+#     if not projeto_sigla:
+#         st.info("Selecione um projeto para gerenciar as entregas.")
+#         return
 
-                entregas_existentes.append(entrega)
 
-    # Garante que entregas_existentes seja sempre uma lista
-    if not isinstance(entregas_existentes, list):
-        entregas_existentes = []
+#     # Projeto já definido (veio da página)
+#     projeto_info = df_projetos_ispn.loc[
+#         df_projetos_ispn["sigla"] == projeto_sigla
+#     ].iloc[0]
+
+
+#     # ==========================================================
+#     # ENTREGAS DO PROJETO + ENTREGAS RELACIONADAS
+#     # ==========================================================
+
+#     entregas_existentes = []
+
+#     projeto_atual_id = ObjectId(projeto_info["_id"])
+
+#     # ----------------------------------------------------------
+#     # 1. Entregas do próprio projeto
+#     # ----------------------------------------------------------
+
+#     entregas_projeto = projeto_info.get("entregas", [])
+
+#     # Garante lista válida
+#     if not isinstance(entregas_projeto, list):
+#         entregas_projeto = []
+
+#     for entrega_original in entregas_projeto:
+
+#         entrega = dict(entrega_original)
+
+#         entrega["_projeto_origem_id"] = projeto_info["_id"]
+#         entrega["_projeto_origem_sigla"] = projeto_info.get("sigla", "")
+
+#         entregas_existentes.append(entrega)
+
+#     # ----------------------------------------------------------
+#     # 2. Entregas de outros projetos relacionadas a este
+#     # ----------------------------------------------------------
+#     outros_projetos = projetos_ispn.find({
+#         "_id": {"$ne": projeto_atual_id},
+#         "entregas.projetos_relacionados": projeto_atual_id
+#     })
+
+#     for proj in outros_projetos:
+
+#         entregas_proj = proj.get("entregas", [])
+
+#         # Garante lista válida
+#         if not isinstance(entregas_proj, list):
+#             entregas_proj = []
+
+#         for entrega_original in entregas_proj:
+
+#             projetos_rel = entrega_original.get(
+#                 "projetos_relacionados",
+#                 []
+#             )
+
+#             if projeto_atual_id in projetos_rel:
+
+#                 entrega = dict(entrega_original)
+
+#                 entrega["_projeto_origem_id"] = proj["_id"]
+#                 entrega["_projeto_origem_sigla"] = proj.get("sigla", "")
+
+#                 entregas_existentes.append(entrega)
+
+#     # Garante que entregas_existentes seja sempre uma lista
+#     if not isinstance(entregas_existentes, list):
+#         entregas_existentes = []
         
-    dados_estrategia = list(estrategia.find({}))
-    dados_programas = list(programas.find({}))
+#     dados_estrategia = list(estrategia.find({}))
+#     dados_programas = list(programas.find({}))
 
-    # Recupera lista de programas vinculados ao projeto
-    programas_do_projeto = projeto_info.get("programas", [])
+#     # Recupera lista de programas vinculados ao projeto
+#     programas_do_projeto = projeto_info.get("programas", [])
 
-    # Garante que sempre seja lista
-    if not isinstance(programas_do_projeto, list):
-        programas_do_projeto = []
+#     # Garante que sempre seja lista
+#     if not isinstance(programas_do_projeto, list):
+#         programas_do_projeto = []
 
 
-    #mapa_resultados_mp = {}
-    mapa_metas_mp = {}
-    mapa_acoes_mp = {}
-    mapa_acoes_lp = {}
-    mapa_eixos = {}
-    mapa_objetivos = {}
-    eixos_da_estrategia = []
+#     #mapa_resultados_mp = {}
+#     mapa_metas_mp = {}
+#     mapa_acoes_mp = {}
+#     mapa_acoes_lp = {}
+#     mapa_eixos = {}
+#     mapa_objetivos = {}
+#     eixos_da_estrategia = []
 
-    # ==========================================================
-    # RECUPERA TODOS OS PROGRAMAS DOS PROJETOS ENVOLVIDOS
-    # ==========================================================
+#     # ==========================================================
+#     # RECUPERA TODOS OS PROGRAMAS DOS PROJETOS ENVOLVIDOS
+#     # ==========================================================
 
-    mapa_acoes_programa = {}
-    mapa_acoes_programa_formatadas = {}
+#     mapa_acoes_programa = {}
+#     mapa_acoes_programa_formatadas = {}
 
-    mapa_resultados_programa = {}
-    mapa_resultados_programa_formatados = {}
+#     mapa_resultados_programa = {}
+#     mapa_resultados_programa_formatados = {}
     
 
-    programas_ids = set()
+#     programas_ids = set()
 
-    # ----------------------------------------------------------
-    # 1. Programa(s) do projeto selecionado
-    # ----------------------------------------------------------
+#     # ----------------------------------------------------------
+#     # 1. Programa(s) do projeto selecionado
+#     # ----------------------------------------------------------
 
-    programas_projeto_principal = projeto_info.get("programas", [])
+#     programas_projeto_principal = projeto_info.get("programas", [])
 
-    if isinstance(programas_projeto_principal, list):
+#     if isinstance(programas_projeto_principal, list):
 
-        for p in programas_projeto_principal:
+#         for p in programas_projeto_principal:
 
-            programas_ids.add(
-                ObjectId(p) if isinstance(p, str) else p
-            )
+#             programas_ids.add(
+#                 ObjectId(p) if isinstance(p, str) else p
+#             )
 
-    # ----------------------------------------------------------
-    # 2. Programa(s) dos projetos relacionados
-    # ----------------------------------------------------------
+#     # ----------------------------------------------------------
+#     # 2. Programa(s) dos projetos relacionados
+#     # ----------------------------------------------------------
 
-    for entrega in entregas_existentes:
+#     for entrega in entregas_existentes:
 
-        projetos_relacionados = entrega.get(
-            "projetos_relacionados",
-            []
-        )
+#         projetos_relacionados = entrega.get(
+#             "projetos_relacionados",
+#             []
+#         )
 
-        # Inclui também o projeto de origem da entrega
-        projeto_origem = entrega.get("_projeto_origem_id")
+#         # Inclui também o projeto de origem da entrega
+#         projeto_origem = entrega.get("_projeto_origem_id")
 
-        ids_projetos_considerados = list(projetos_relacionados)
+#         ids_projetos_considerados = list(projetos_relacionados)
 
-        if projeto_origem:
-            ids_projetos_considerados.append(projeto_origem)
+#         if projeto_origem:
+#             ids_projetos_considerados.append(projeto_origem)
 
-        for projeto_id in ids_projetos_considerados:
+#         for projeto_id in ids_projetos_considerados:
 
-            projeto_rel = projetos_ispn.find_one({
-                "_id": ObjectId(projeto_id)
-            })
+#             projeto_rel = projetos_ispn.find_one({
+#                 "_id": ObjectId(projeto_id)
+#             })
 
-            if not projeto_rel:
-                continue
+#             if not projeto_rel:
+#                 continue
 
-            programas_rel = projeto_rel.get("programas", [])
+#             programas_rel = projeto_rel.get("programas", [])
 
-            if not isinstance(programas_rel, list):
-                continue
+#             if not isinstance(programas_rel, list):
+#                 continue
 
-            for prog in programas_rel:
+#             for prog in programas_rel:
 
-                programas_ids.add(
-                    ObjectId(prog)
-                    if isinstance(prog, str)
-                    else prog
-                )
+#                 programas_ids.add(
+#                     ObjectId(prog)
+#                     if isinstance(prog, str)
+#                     else prog
+#                 )
 
-    # ==========================================================
-    # MONTA MAPAS DE AÇÕES E RESULTADOS
-    # ==========================================================
+#     # ==========================================================
+#     # MONTA MAPAS DE AÇÕES E RESULTADOS
+#     # ==========================================================
 
-    for doc in dados_programas:
+#     for doc in dados_programas:
 
-        if doc.get("_id") not in programas_ids:
-            continue
+#         if doc.get("_id") not in programas_ids:
+#             continue
 
-        nome_programa = doc.get("nome_programa_area", "")
+#         nome_programa = doc.get("nome_programa_area", "")
 
-        # -----------------------------------------
-        # AÇÕES ESTRATÉGICAS
-        # -----------------------------------------
-        for acao in doc.get("acoes_estrategicas", []):
+#         # -----------------------------------------
+#         # AÇÕES ESTRATÉGICAS
+#         # -----------------------------------------
+#         for acao in doc.get("acoes_estrategicas", []):
 
-            acao_id = str(acao["_id"])
+#             acao_id = str(acao["_id"])
 
-            mapa_acoes_programa[acao_id] = acao.get(
-                "acao_estrategica",
-                ""
-            )
+#             mapa_acoes_programa[acao_id] = acao.get(
+#                 "acao_estrategica",
+#                 ""
+#             )
 
-            mapa_acoes_programa_formatadas[acao_id] = nome_programa
+#             mapa_acoes_programa_formatadas[acao_id] = nome_programa
 
-    # Mapeia ações estratégicas considerando múltiplos programas
-    programas_ids = set(programas_do_projeto)
+#     # Mapeia ações estratégicas considerando múltiplos programas
+#     programas_ids = set(programas_do_projeto)
 
-    acoes_programa_options = sorted(
-        mapa_acoes_programa.keys(),
-        key=lambda x: (
-            mapa_acoes_programa_formatadas.get(x, "").lower(),
-            mapa_acoes_programa.get(x, "").lower()
-        )
-    )
+#     acoes_programa_options = sorted(
+#         mapa_acoes_programa.keys(),
+#         key=lambda x: (
+#             mapa_acoes_programa_formatadas.get(x, "").lower(),
+#             mapa_acoes_programa.get(x, "").lower()
+#         )
+#     )
         
-    #  Criar lista de opções (nome + _id) ordenadas alfabeticamente
-    df_pessoas_ordenado = df_pessoas.sort_values("nome_completo", ascending=True)
-    responsaveis_dict = {
-        str(row["_id"]): row["nome_completo"]
-        for _, row in df_pessoas_ordenado.iterrows()
-    }
-    responsaveis_options = list(responsaveis_dict.keys())
+#     #  Criar lista de opções (nome + _id) ordenadas alfabeticamente
+#     df_pessoas_ordenado = df_pessoas.sort_values("nome_completo", ascending=True)
+#     responsaveis_dict = {
+#         str(row["_id"]): row["nome_completo"]
+#         for _, row in df_pessoas_ordenado.iterrows()
+#     }
+#     responsaveis_options = list(responsaveis_dict.keys())
 
-    # ==========================================================
-    # PROJETOS RELACIONADOS
-    # ==========================================================
+#     # ==========================================================
+#     # PROJETOS RELACIONADOS
+#     # ==========================================================
 
-    # Cria mapa: id -> sigla
-    mapa_projetos = {
-        str(row["_id"]): row["sigla"]
-        for _, row in df_projetos_ispn.iterrows()
-        if row.get("sigla")
-    }
+#     # Cria mapa: id -> sigla
+#     mapa_projetos = {
+#         str(row["_id"]): row["sigla"]
+#         for _, row in df_projetos_ispn.iterrows()
+#         if row.get("sigla")
+#     }
 
-    # ==========================================================
-    # REMOVE O PROJETO ATUAL DAS OPÇÕES
-    # ==========================================================
+#     # ==========================================================
+#     # REMOVE O PROJETO ATUAL DAS OPÇÕES
+#     # ==========================================================
 
-    projeto_atual_id = str(projeto_info["_id"])
+#     projeto_atual_id = str(projeto_info["_id"])
 
-    # Lista de opções do multiselect sem o projeto atual
-    projetos_relacionados_options = sorted(
-        [
-            projeto_id
-            for projeto_id in mapa_projetos.keys()
-            if projeto_id != projeto_atual_id
-        ],
-        key=lambda x: mapa_projetos[x]
-    )
+#     # Lista de opções do multiselect sem o projeto atual
+#     projetos_relacionados_options = sorted(
+#         [
+#             projeto_id
+#             for projeto_id in mapa_projetos.keys()
+#             if projeto_id != projeto_atual_id
+#         ],
+#         key=lambda x: mapa_projetos[x]
+#     )
     
-    if mostrar_lancamentos:
-        aba_entregas, aba_lancamentos_entregas = st.tabs(
-            [
-                ":material/package_2: Gerenciar entregas",
-                ":material/rocket_launch: Registros de entregas"
-            ]
-        )
-    else:
-        aba_entregas = st.container()
-        st.write("")
+#     if mostrar_lancamentos:
+#         aba_entregas, aba_lancamentos_entregas = st.tabs(
+#             [
+#                 ":material/package_2: Gerenciar entregas",
+#                 ":material/rocket_launch: Registros de entregas"
+#             ]
+#         )
+#     else:
+#         aba_entregas = st.container()
+#         st.write("")
 
-    with aba_entregas:
+#     with aba_entregas:
 
-        with st.expander("Adicionar entrega", expanded=False):
-            with st.form("form_nova_entrega", border=False):
+#         with st.expander("Adicionar entrega", expanded=False):
+#             with st.form("form_nova_entrega", border=False):
                 
-                nome_da_entrega = st.text_input("Nome da entrega")
+#                 nome_da_entrega = st.text_input("Nome da entrega")
                 
-                col1, col2 = st.columns(2)
+#                 col1, col2 = st.columns(2)
                 
-                data_inicio = col1.date_input(
-                    "Data de início",
-                    value=datetime.today(),
-                    format="DD/MM/YYYY"
-                )
+#                 data_inicio = col1.date_input(
+#                     "Data de início",
+#                     value=datetime.today(),
+#                     format="DD/MM/YYYY"
+#                 )
 
-                previsao_da_conclusao = col2.date_input(
-                    "Previsão de conclusão",
-                    format="DD/MM/YYYY"
-                )
+#                 previsao_da_conclusao = col2.date_input(
+#                     "Previsão de conclusão",
+#                     format="DD/MM/YYYY"
+#                 )
                
-                col1, col2 = st.columns(2)
+#                 col1, col2 = st.columns(2)
                 
-                situacao = col1.selectbox("Situação", ["Prevista", "Atrasada", "Concluída"])
+#                 situacao = col1.selectbox("Situação", ["Prevista", "Atrasada", "Concluída"])
                 
-                opcoes_progresso = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+#                 opcoes_progresso = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
                 
-                progresso_nova_entrega = col2.selectbox(
-                    "Progresso",
-                    options=opcoes_progresso,
-                    format_func=lambda x: f"{x}%",
-                    key="progresso_nova_entrega"
-                )
+#                 progresso_nova_entrega = col2.selectbox(
+#                     "Progresso",
+#                     options=opcoes_progresso,
+#                     format_func=lambda x: f"{x}%",
+#                     key="progresso_nova_entrega"
+#                 )
                 
-                col1, col2 = st.columns(2)
+#                 col1, col2 = st.columns(2)
 
-                with col1:
-                    responsaveis_selecionados = st.multiselect(
-                        "Responsáveis",
-                        options=responsaveis_options,
-                        format_func=lambda x: responsaveis_dict.get(x, "Desconhecido"),
-                        placeholder=""
-                    )
+#                 with col1:
+#                     responsaveis_selecionados = st.multiselect(
+#                         "Responsáveis",
+#                         options=responsaveis_options,
+#                         format_func=lambda x: responsaveis_dict.get(x, "Desconhecido"),
+#                         placeholder=""
+#                     )
 
-                with col2:
-                    projetos_relacionados = st.multiselect(
-                        "Demais projetos relacionados",
-                        options=projetos_relacionados_options,
-                        format_func=lambda x: mapa_projetos.get(x, "Projeto não encontrado"),
-                        placeholder=""
-                    )
+#                 with col2:
+#                     projetos_relacionados = st.multiselect(
+#                         "Demais projetos relacionados",
+#                         options=projetos_relacionados_options,
+#                         format_func=lambda x: mapa_projetos.get(x, "Projeto não encontrado"),
+#                         placeholder=""
+#                     )
                 
-                acoes_relacionados = st.multiselect(
-                    "Contribui com quais ações estratégicas do programa/área?",
-                    options=acoes_programa_options,
-                    format_func=lambda x: (
-                        f"[{mapa_acoes_programa_formatadas.get(x, '')}] "
-                        f"{mapa_acoes_programa.get(x, '')}"
-                    ),
-                    placeholder="",
-                    key="nova_acoesrel"
-                )
+#                 acoes_relacionados = st.multiselect(
+#                     "Contribui com quais ações estratégicas do programa/área?",
+#                     options=acoes_programa_options,
+#                     format_func=lambda x: (
+#                         f"[{mapa_acoes_programa_formatadas.get(x, '')}] "
+#                         f"{mapa_acoes_programa.get(x, '')}"
+#                     ),
+#                     placeholder="",
+#                     key="nova_acoesrel"
+#                 )
                 
-                indicadores_relacionados = st.multiselect(
-                    "Contribui com quais indicadores?",
-                    options=indicadores_options, 
-                    format_func=lambda x: mapa_indicadores.get(x, ""),
-                    placeholder="",
-                    key="nova_indrel"
-                )
+#                 indicadores_relacionados = st.multiselect(
+#                     "Contribui com quais indicadores?",
+#                     options=indicadores_options, 
+#                     format_func=lambda x: mapa_indicadores.get(x, ""),
+#                     placeholder="",
+#                     key="nova_indrel"
+#                 )
 
-                st.write("")
+#                 st.write("")
                 
-                salvar_nova = st.form_submit_button("Salvar entrega", icon=":material/save:")
-                if salvar_nova:
+#                 salvar_nova = st.form_submit_button("Salvar entrega", icon=":material/save:")
+#                 if salvar_nova:
                     
-                    if not nome_da_entrega:
-                        st.warning("Por favor preencha o nome da entrega.")
+#                     if not nome_da_entrega:
+#                         st.warning("Por favor preencha o nome da entrega.")
                     
-                    else:
+#                     else:
                         
-                        nova_entrega = {
-                            "_id": ObjectId(),
-                            "nome_da_entrega": nome_da_entrega,
-                            "previsao_da_conclusao": previsao_da_conclusao.strftime("%d/%m/%Y"),
-                            "responsaveis": [ObjectId(r) for r in responsaveis_selecionados],
-                            "situacao": situacao,
-                            "progresso": int(progresso_nova_entrega),
-                            "data_inicio": data_inicio.strftime("%d/%m/%Y"),
-                            "acoes_estrat_programa": [ObjectId(a) for a in acoes_relacionados],
-                            "indicadores_relacionados": [ObjectId(i) for i in indicadores_relacionados],
-                            "projetos_relacionados": [ObjectId(p) for p in projetos_relacionados],
-                        }
+#                         nova_entrega = {
+#                             "_id": ObjectId(),
+#                             "nome_da_entrega": nome_da_entrega,
+#                             "previsao_da_conclusao": previsao_da_conclusao.strftime("%d/%m/%Y"),
+#                             "responsaveis": [ObjectId(r) for r in responsaveis_selecionados],
+#                             "situacao": situacao,
+#                             "progresso": int(progresso_nova_entrega),
+#                             "data_inicio": data_inicio.strftime("%d/%m/%Y"),
+#                             "acoes_estrat_programa": [ObjectId(a) for a in acoes_relacionados],
+#                             "indicadores_relacionados": [ObjectId(i) for i in indicadores_relacionados],
+#                             "projetos_relacionados": [ObjectId(p) for p in projetos_relacionados],
+#                         }
 
-                        # adiciona ao array existente
-                        projetos_ispn.update_one(
-                            {"_id": projeto_info["_id"]},
-                            {"$push": {"entregas": nova_entrega}}
-                        )
+#                         # adiciona ao array existente
+#                         projetos_ispn.update_one(
+#                             {"_id": projeto_info["_id"]},
+#                             {"$push": {"entregas": nova_entrega}}
+#                         )
 
-                        st.success("Entrega adicionada com sucesso!")
-                        time.sleep(2)
-                        st.rerun(scope="fragment")
+#                         st.success("Entrega adicionada com sucesso!")
+#                         time.sleep(2)
+#                         st.rerun(scope="fragment")
                         
 
-        # ============================
-        # EXIBIR ENTREGAS EXISTENTES
-        # ============================
-        if entregas_existentes:
-            st.write("### Entregas cadastradas:")
+#         # ============================
+#         # EXIBIR ENTREGAS EXISTENTES
+#         # ============================
+#         if entregas_existentes:
+#             st.write("### Entregas cadastradas:")
 
-            for i, entrega in enumerate(entregas_existentes):
+#             for i, entrega in enumerate(entregas_existentes):
 
-                entrega_id = str(entrega.get("_id", i))
+#                 entrega_id = str(entrega.get("_id", i))
 
-                with st.expander(f"{entrega.get('nome_da_entrega', 'Sem nome')}"):
-                    # Mostrar nomes reais dos responsáveis
-                    responsaveis_ids = entrega.get("responsaveis", [])
-                    responsaveis_nomes = [
-                        responsaveis_dict.get(str(r), "Desconhecido") for r in responsaveis_ids
-                    ]
-                    responsaveis_formatados = ", ".join(responsaveis_nomes) if responsaveis_nomes else "-"
+#                 with st.expander(f"{entrega.get('nome_da_entrega', 'Sem nome')}"):
+#                     # Mostrar nomes reais dos responsáveis
+#                     responsaveis_ids = entrega.get("responsaveis", [])
+#                     responsaveis_nomes = [
+#                         responsaveis_dict.get(str(r), "Desconhecido") for r in responsaveis_ids
+#                     ]
+#                     responsaveis_formatados = ", ".join(responsaveis_nomes) if responsaveis_nomes else "-"
 
-                    # Alternar entre visualização e edição
-                    modo_edicao = st.toggle(
-                        "Modo de edição",
-                        key=f"toggle_edit_entrega_{entrega_id}"
-                    )
+#                     # Alternar entre visualização e edição
+#                     modo_edicao = st.toggle(
+#                         "Modo de edição",
+#                         key=f"toggle_edit_entrega_{entrega_id}"
+#                     )
 
 
-                    if not modo_edicao:
-                        # --- Modo de visualização ---
-                        st.write(f"**Data de início:** {entrega.get('data_inicio', '-')}")
-                        st.write(f"**Previsão de conclusão:** {entrega.get('previsao_da_conclusao', '-')}")
-                        st.write(f"**Situação:** {entrega.get('situacao', '-')}")
+#                     if not modo_edicao:
+#                         # --- Modo de visualização ---
+#                         st.write(f"**Data de início:** {entrega.get('data_inicio', '-')}")
+#                         st.write(f"**Previsão de conclusão:** {entrega.get('previsao_da_conclusao', '-')}")
+#                         st.write(f"**Situação:** {entrega.get('situacao', '-')}")
                         
-                        progresso = entrega.get("progresso", 0)
-                        try:
-                            progresso = int(progresso)
-                        except (TypeError, ValueError):
-                            progresso = 0
-                        st.write(f"**Progresso:** {progresso}%")
+#                         progresso = entrega.get("progresso", 0)
+#                         try:
+#                             progresso = int(progresso)
+#                         except (TypeError, ValueError):
+#                             progresso = 0
+#                         st.write(f"**Progresso:** {progresso}%")
                         
-                        st.write(f"**Responsáveis:** {responsaveis_formatados}")
+#                         st.write(f"**Responsáveis:** {responsaveis_formatados}")
 
-                        projetos_rel_ids = entrega.get("projetos_relacionados", [])
+#                         projetos_rel_ids = entrega.get("projetos_relacionados", [])
 
-                        projetos_rel_nomes = [
-                            mapa_projetos.get(str(p), "Projeto não encontrado")
-                            for p in projetos_rel_ids
-                        ]
+#                         projetos_rel_nomes = [
+#                             mapa_projetos.get(str(p), "Projeto não encontrado")
+#                             for p in projetos_rel_ids
+#                         ]
 
-                        projetos_rel_formatados = (
-                            ", ".join(projetos_rel_nomes)
-                            if projetos_rel_nomes else "-"
-                        )
+#                         projetos_rel_formatados = (
+#                             ", ".join(projetos_rel_nomes)
+#                             if projetos_rel_nomes else "-"
+#                         )
 
-                        # Projeto principal/origem da entrega
-                        projeto_principal = entrega.get(
-                            "_projeto_origem_sigla",
-                            projeto_info.get("sigla", "-")
-                        )
+#                         # Projeto principal/origem da entrega
+#                         projeto_principal = entrega.get(
+#                             "_projeto_origem_sigla",
+#                             projeto_info.get("sigla", "-")
+#                         )
 
-                        st.write(f"**Projeto principal:** {projeto_principal}")
+#                         st.write(f"**Projeto principal:** {projeto_principal}")
 
-                        # Projetos relacionados
-                        projetos_rel_ids = entrega.get("projetos_relacionados", [])
+#                         # Projetos relacionados
+#                         projetos_rel_ids = entrega.get("projetos_relacionados", [])
 
-                        projetos_rel_nomes = [
-                            mapa_projetos.get(str(p), "Projeto não encontrado")
-                            for p in projetos_rel_ids
-                        ]
+#                         projetos_rel_nomes = [
+#                             mapa_projetos.get(str(p), "Projeto não encontrado")
+#                             for p in projetos_rel_ids
+#                         ]
 
-                        projetos_rel_formatados = (
-                            ", ".join(projetos_rel_nomes)
-                            if projetos_rel_nomes else "-"
-                        )
+#                         projetos_rel_formatados = (
+#                             ", ".join(projetos_rel_nomes)
+#                             if projetos_rel_nomes else "-"
+#                         )
 
-                        st.write(f"**Demais projetos relacionados:** {projetos_rel_formatados}")
+#                         st.write(f"**Demais projetos relacionados:** {projetos_rel_formatados}")
                         
-                        st.write("")
+#                         st.write("")
                         
-                        # Ações estratégicas do programa
-                        acoes = entrega.get("acoes_estrat_programa", [])
-                        if acoes:
-                            st.markdown("**Ações estratégicas do programa/área:**")
-                            for a in acoes:
-                                nome = mapa_acoes_programa.get(str(a), "Não encontrado")
-                                st.markdown(f"- {nome}")
-                        else:
-                            st.markdown("**Ações estratégicas do programa/área:** -")
+#                         # Ações estratégicas do programa
+#                         acoes = entrega.get("acoes_estrat_programa", [])
+#                         if acoes:
+#                             st.markdown("**Ações estratégicas do programa/área:**")
+#                             for a in acoes:
+#                                 nome = mapa_acoes_programa.get(str(a), "Não encontrado")
+#                                 st.markdown(f"- {nome}")
+#                         else:
+#                             st.markdown("**Ações estratégicas do programa/área:** -")
                         
-                        st.write("")
+#                         st.write("")
                         
-                        indicadores_entrega = entrega.get("indicadores_relacionados", [])
+#                         indicadores_entrega = entrega.get("indicadores_relacionados", [])
                         
-                        if indicadores_entrega:
-                            st.markdown("**Indicadores:**")
-                            for i in indicadores_entrega:
-                                nome = mapa_indicadores.get(str(i), "Indicador não encontrado")
-                                st.markdown(f"- {nome}")
+#                         if indicadores_entrega:
+#                             st.markdown("**Indicadores:**")
+#                             for i in indicadores_entrega:
+#                                 nome = mapa_indicadores.get(str(i), "Indicador não encontrado")
+#                                 st.markdown(f"- {nome}")
                                 
-                        else:
-                            st.markdown("**Indicadores:** -")
+#                         else:
+#                             st.markdown("**Indicadores:** -")
 
-                        st.write("")
+#                         st.write("")
                         
-                    else:
-                        # --- Modo de edição ---
-                        with st.form(f"form_edit_entrega_{i}", border=False):
-                            entrega_editada = {**entrega}
+#                     else:
+#                         # --- Modo de edição ---
+#                         with st.form(f"form_edit_entrega_{i}", border=False):
+#                             entrega_editada = {**entrega}
 
-                            entrega_editada["nome_da_entrega"] = st.text_input(
-                                "Nome da entrega", entrega.get("nome_da_entrega", "")
-                            )
+#                             entrega_editada["nome_da_entrega"] = st.text_input(
+#                                 "Nome da entrega", entrega.get("nome_da_entrega", "")
+#                             )
                             
-                            col1, col2 = st.columns(2)
+#                             col1, col2 = st.columns(2)
 
-                            data_inicio_raw = entrega.get("data_inicio")
+#                             data_inicio_raw = entrega.get("data_inicio")
 
-                            data_inicio_edit = col1.date_input(
-                                "Data de início",
-                                value=(
-                                    pd.to_datetime(data_inicio_raw, format="%d/%m/%Y", errors="coerce").date()
-                                    if data_inicio_raw else None
-                                ),
-                                format="DD/MM/YYYY"
-                            )
+#                             data_inicio_edit = col1.date_input(
+#                                 "Data de início",
+#                                 value=(
+#                                     pd.to_datetime(data_inicio_raw, format="%d/%m/%Y", errors="coerce").date()
+#                                     if data_inicio_raw else None
+#                                 ),
+#                                 format="DD/MM/YYYY"
+#                             )
 
-                            entrega_editada["data_inicio"] = (
-                                data_inicio_edit.strftime("%d/%m/%Y")
-                                if data_inicio_edit else None
-                            )
+#                             entrega_editada["data_inicio"] = (
+#                                 data_inicio_edit.strftime("%d/%m/%Y")
+#                                 if data_inicio_edit else None
+#                             )
 
-                            entrega_editada["previsao_da_conclusao"] = col2.date_input(
-                                "Previsão de conclusão",
-                                pd.to_datetime(entrega.get("previsao_da_conclusao"), format="%d/%m/%Y").date()
-                                if entrega.get("previsao_da_conclusao") else datetime.today(),
-                                format="DD/MM/YYYY"
-                            )
-                            entrega_editada["previsao_da_conclusao"] = entrega_editada["previsao_da_conclusao"].strftime("%d/%m/%Y")
+#                             entrega_editada["previsao_da_conclusao"] = col2.date_input(
+#                                 "Previsão de conclusão",
+#                                 pd.to_datetime(entrega.get("previsao_da_conclusao"), format="%d/%m/%Y").date()
+#                                 if entrega.get("previsao_da_conclusao") else datetime.today(),
+#                                 format="DD/MM/YYYY"
+#                             )
+#                             entrega_editada["previsao_da_conclusao"] = entrega_editada["previsao_da_conclusao"].strftime("%d/%m/%Y")
 
-                            col1, col2 = st.columns(2)
+#                             col1, col2 = st.columns(2)
 
-                            entrega_editada["situacao"] = col1.selectbox(
-                                "Situação",
-                                ["Prevista", "Atrasada", "Concluída"],
-                                index=["Prevista", "Atrasada", "Concluída"].index(
-                                    entrega.get("situacao", "Prevista")
-                                )
-                            )
+#                             entrega_editada["situacao"] = col1.selectbox(
+#                                 "Situação",
+#                                 ["Prevista", "Atrasada", "Concluída"],
+#                                 index=["Prevista", "Atrasada", "Concluída"].index(
+#                                     entrega.get("situacao", "Prevista")
+#                                 )
+#                             )
                             
-                            progresso_atual = entrega.get("progresso", 0)
-                            try:
-                                progresso_atual = int(progresso_atual)
-                            except (TypeError, ValueError):
-                                progresso_atual = 0
+#                             progresso_atual = entrega.get("progresso", 0)
+#                             try:
+#                                 progresso_atual = int(progresso_atual)
+#                             except (TypeError, ValueError):
+#                                 progresso_atual = 0
                                 
-                            entrega_editada["progresso"] = col2.selectbox(
-                                "Progresso",
-                                options=opcoes_progresso,
-                                index=opcoes_progresso.index(progresso_atual) if progresso_atual in opcoes_progresso else 0,
-                                format_func=lambda x: f"{x}%",
-                                key=f"entrega_progresso_{i}"
-                            )
+#                             entrega_editada["progresso"] = col2.selectbox(
+#                                 "Progresso",
+#                                 options=opcoes_progresso,
+#                                 index=opcoes_progresso.index(progresso_atual) if progresso_atual in opcoes_progresso else 0,
+#                                 format_func=lambda x: f"{x}%",
+#                                 key=f"entrega_progresso_{i}"
+#                             )
 
-                            col1, col2 = st.columns(2)
+#                             col1, col2 = st.columns(2)
 
-                            responsaveis_existentes = [
-                                str(r) for r in entrega.get("responsaveis", [])
-                            ]
+#                             responsaveis_existentes = [
+#                                 str(r) for r in entrega.get("responsaveis", [])
+#                             ]
 
-                            # Projeto principal/origem da entrega
-                            projeto_principal_id = str(entrega["_projeto_origem_id"])
+#                             # Projeto principal/origem da entrega
+#                             projeto_principal_id = str(entrega["_projeto_origem_id"])
 
-                            # Verifica se a entrega está sendo editada dentro do projeto principal/origem
-                            edicao_no_projeto_principal = (
-                                str(entrega["_projeto_origem_id"]) == str(projeto_info["_id"])
-                            )
+#                             # Verifica se a entrega está sendo editada dentro do projeto principal/origem
+#                             edicao_no_projeto_principal = (
+#                                 str(entrega["_projeto_origem_id"]) == str(projeto_info["_id"])
+#                             )
 
-                            # Se estiver no projeto principal:
-                            # remove ele mesmo das opções
-                            if edicao_no_projeto_principal:
+#                             # Se estiver no projeto principal:
+#                             # remove ele mesmo das opções
+#                             if edicao_no_projeto_principal:
 
-                                projetos_relacionados_options_edicao = [
-                                    p
-                                    for p in projetos_relacionados_options
-                                    if p != projeto_principal_id
-                                ]
+#                                 projetos_relacionados_options_edicao = [
+#                                     p
+#                                     for p in projetos_relacionados_options
+#                                     if p != projeto_principal_id
+#                                 ]
 
-                            # Se estiver em um projeto relacionado:
-                            # mantém todas as opções para exibição
-                            else:
+#                             # Se estiver em um projeto relacionado:
+#                             # mantém todas as opções para exibição
+#                             else:
 
-                                projetos_relacionados_options_edicao = (
-                                    projetos_relacionados_options.copy()
-                                )
+#                                 projetos_relacionados_options_edicao = (
+#                                     projetos_relacionados_options.copy()
+#                                 )
 
-                            # Projetos relacionados já salvos
-                            projetos_relacionados_existentes = [
-                                str(p)
-                                for p in entrega.get("projetos_relacionados", [])
-                                if str(p) in projetos_relacionados_options_edicao
-                            ]
+#                             # Projetos relacionados já salvos
+#                             projetos_relacionados_existentes = [
+#                                 str(p)
+#                                 for p in entrega.get("projetos_relacionados", [])
+#                                 if str(p) in projetos_relacionados_options_edicao
+#                             ]
 
-                            with col1:
-                                entrega_editada["responsaveis"] = st.multiselect(
-                                    "Responsáveis",
-                                    options=list(responsaveis_dict.keys()),
-                                    default=responsaveis_existentes,
-                                    format_func=lambda x: responsaveis_dict.get(x, "Desconhecido"),
-                                    placeholder="Selecione os responsáveis"
-                                )
+#                             with col1:
+#                                 entrega_editada["responsaveis"] = st.multiselect(
+#                                     "Responsáveis",
+#                                     options=list(responsaveis_dict.keys()),
+#                                     default=responsaveis_existentes,
+#                                     format_func=lambda x: responsaveis_dict.get(x, "Desconhecido"),
+#                                     placeholder="Selecione os responsáveis"
+#                                 )
 
-                            with col2:
-                                entrega_editada["projetos_relacionados"] = st.multiselect(
-                                    "Demais projetos relacionados",
-                                    options=projetos_relacionados_options_edicao,
-                                    default=projetos_relacionados_existentes,
-                                    format_func=lambda x: mapa_projetos.get(
-                                        x,
-                                        "Projeto não encontrado"
-                                    ),
-                                    placeholder="",
-                                    disabled=not edicao_no_projeto_principal
-                                )
+#                             with col2:
+#                                 entrega_editada["projetos_relacionados"] = st.multiselect(
+#                                     "Demais projetos relacionados",
+#                                     options=projetos_relacionados_options_edicao,
+#                                     default=projetos_relacionados_existentes,
+#                                     format_func=lambda x: mapa_projetos.get(
+#                                         x,
+#                                         "Projeto não encontrado"
+#                                     ),
+#                                     placeholder="",
+#                                     disabled=not edicao_no_projeto_principal
+#                                 )
 
-                            entrega_editada["projetos_relacionados"] = [
-                                ObjectId(p)
-                                for p in entrega_editada["projetos_relacionados"]
-                            ]
+#                             entrega_editada["projetos_relacionados"] = [
+#                                 ObjectId(p)
+#                                 for p in entrega_editada["projetos_relacionados"]
+#                             ]
 
-                            entrega_editada["acoes_estrat_programa"] = [
-                                ObjectId(a) for a in entrega_editada["acoes_estrat_programa"]
-                            ]
+#                             entrega_editada["acoes_estrat_programa"] = [
+#                                 ObjectId(a) for a in entrega_editada["acoes_estrat_programa"]
+#                             ]
 
-                            acoes_programa_default = [
-                                str(a)
-                                for a in entrega.get("acoes_estrat_programa", [])
-                                if str(a) in acoes_programa_options
-                            ]
+#                             acoes_programa_default = [
+#                                 str(a)
+#                                 for a in entrega.get("acoes_estrat_programa", [])
+#                                 if str(a) in acoes_programa_options
+#                             ]
 
-                            entrega_editada["acoes_estrat_programa"] = st.multiselect(
-                                "Contribui com quais ações estratégicas do programa/área?",
-                                options=acoes_programa_options,
-                                default=acoes_programa_default,
-                                format_func=lambda x: (
-                                    f"[{mapa_acoes_programa_formatadas.get(x, '')}] "
-                                    f"{mapa_acoes_programa.get(x, '')}"
-                                ),
-                                placeholder=""
-                            )
+#                             entrega_editada["acoes_estrat_programa"] = st.multiselect(
+#                                 "Contribui com quais ações estratégicas do programa/área?",
+#                                 options=acoes_programa_options,
+#                                 default=acoes_programa_default,
+#                                 format_func=lambda x: (
+#                                     f"[{mapa_acoes_programa_formatadas.get(x, '')}] "
+#                                     f"{mapa_acoes_programa.get(x, '')}"
+#                                 ),
+#                                 placeholder=""
+#                             )
 
-                            entrega_editada["acoes_estrat_programa"] = [
-                                ObjectId(a) for a in entrega_editada["acoes_estrat_programa"]
-                            ]
+#                             entrega_editada["acoes_estrat_programa"] = [
+#                                 ObjectId(a) for a in entrega_editada["acoes_estrat_programa"]
+#                             ]
 
-                            default_ids = [str(i) for i in entrega.get("indicadores_relacionados", [])]
+#                             default_ids = [str(i) for i in entrega.get("indicadores_relacionados", [])]
 
-                            entrega_editada["indicadores_relacionados"] = st.multiselect(
-                                "Contribui com quais indicadores?",
-                                options=indicadores_options,
-                                default=default_ids,
-                                format_func=lambda x: mapa_indicadores.get(x, ""),
-                                placeholder=""
-                            )
+#                             entrega_editada["indicadores_relacionados"] = st.multiselect(
+#                                 "Contribui com quais indicadores?",
+#                                 options=indicadores_options,
+#                                 default=default_ids,
+#                                 format_func=lambda x: mapa_indicadores.get(x, ""),
+#                                 placeholder=""
+#                             )
                             
-                            entrega_editada["indicadores_relacionados"] = [
-                                ObjectId(i) for i in entrega_editada["indicadores_relacionados"]
-                            ]
+#                             entrega_editada["indicadores_relacionados"] = [
+#                                 ObjectId(i) for i in entrega_editada["indicadores_relacionados"]
+#                             ]
                             
-                            st.write("")
+#                             st.write("")
                             
-                            container_botoes = st.container(horizontal=True)
+#                             container_botoes = st.container(horizontal=True)
 
-                            with container_botoes:
+#                             with container_botoes:
 
-                                salvar_edicao = st.form_submit_button("Salvar alterações", icon=":material/save:")
-                                if salvar_edicao:
+#                                 salvar_edicao = st.form_submit_button("Salvar alterações", icon=":material/save:")
+#                                 if salvar_edicao:
 
-                                    entrega_editada["responsaveis"] = [ObjectId(r) for r in entrega_editada["responsaveis"]]
+#                                     entrega_editada["responsaveis"] = [ObjectId(r) for r in entrega_editada["responsaveis"]]
 
-                                    # Se NÃO estiver no projeto principal, não altera os projetos relacionados
-                                    if not edicao_no_projeto_principal:
+#                                     # Se NÃO estiver no projeto principal, não altera os projetos relacionados
+#                                     if not edicao_no_projeto_principal:
 
-                                        entrega_editada["projetos_relacionados"] = (
-                                            entrega.get("projetos_relacionados", [])
-                                        )
+#                                         entrega_editada["projetos_relacionados"] = (
+#                                             entrega.get("projetos_relacionados", [])
+#                                         )
 
-                                    atualizar_entrega_no_projeto(
-                                        entrega["_projeto_origem_id"],
-                                        entrega_editada
-                                    )
+#                                     atualizar_entrega_no_projeto(
+#                                         entrega["_projeto_origem_id"],
+#                                         entrega_editada
+#                                     )
                                     
-                                    st.success("Entrega atualizada!")
-                                    time.sleep(2)
-                                    st.rerun(scope="fragment")
+#                                     st.success("Entrega atualizada!")
+#                                     time.sleep(2)
+#                                     st.rerun(scope="fragment")
 
-                                pode_excluir = entrega_pode_ser_excluida(
-                                    entrega,
-                                    projeto_info["_id"]
-                                )
+#                                 pode_excluir = entrega_pode_ser_excluida(
+#                                     entrega,
+#                                     projeto_info["_id"]
+#                                 )
 
-                                if pode_excluir:
+#                                 if pode_excluir:
 
-                                    excluir = st.form_submit_button(
-                                        "Excluir entrega",
-                                        type="secondary",
-                                        icon=":material/delete:"
-                                    )
+#                                     excluir = st.form_submit_button(
+#                                         "Excluir entrega",
+#                                         type="secondary",
+#                                         icon=":material/delete:"
+#                                     )
 
-                                    if excluir:
-                                        projeto_origem = projetos_ispn.find_one(
-                                            {"_id": entrega["_projeto_origem_id"]}
-                                        )
+#                                     if excluir:
+#                                         projeto_origem = projetos_ispn.find_one(
+#                                             {"_id": entrega["_projeto_origem_id"]}
+#                                         )
 
-                                        entregas_origem = projeto_origem.get("entregas", [])
+#                                         entregas_origem = projeto_origem.get("entregas", [])
 
-                                        entregas_origem = [
-                                            e for e in entregas_origem
-                                            if e.get("_id") != entrega.get("_id")
-                                        ]
+#                                         entregas_origem = [
+#                                             e for e in entregas_origem
+#                                             if e.get("_id") != entrega.get("_id")
+#                                         ]
 
-                                        projetos_ispn.update_one(
-                                            {"_id": entrega["_projeto_origem_id"]},
-                                            {"$set": {"entregas": entregas_origem}}
-                                        )
+#                                         projetos_ispn.update_one(
+#                                             {"_id": entrega["_projeto_origem_id"]},
+#                                             {"$set": {"entregas": entregas_origem}}
+#                                         )
 
-                                        st.success("Entrega excluída com sucesso.")
-                                        time.sleep(2)
-                                        st.rerun(scope="fragment")
+#                                         st.success("Entrega excluída com sucesso.")
+#                                         time.sleep(2)
+#                                         st.rerun(scope="fragment")
 
 
-    if mostrar_lancamentos:
-        with aba_lancamentos_entregas:
+#     if mostrar_lancamentos:
+#         with aba_lancamentos_entregas:
 
-            #st.subheader("Lançamentos de entregas")
+#             #st.subheader("Lançamentos de entregas")
 
-            if not entregas_existentes:
-                st.info("Este projeto ainda não possui entregas cadastradas.")
-                return
+#             if not entregas_existentes:
+#                 st.info("Este projeto ainda não possui entregas cadastradas.")
+#                 return
 
-            with st.expander("Adicionar registro", expanded=False):
+#             with st.expander("Adicionar registro", expanded=False):
 
-                with st.form("form_adicionar_lancamento", border=False):
+#                 with st.form("form_adicionar_lancamento", border=False):
 
-                    # =========================
-                    # Selecionar entrega
-                    # =========================
-                    nomes_entregas = [e["nome_da_entrega"] for e in entregas_existentes]
+#                     # =========================
+#                     # Selecionar entrega
+#                     # =========================
+#                     nomes_entregas = [e["nome_da_entrega"] for e in entregas_existentes]
 
-                    entrega_selecionada_nome = st.selectbox(
-                        "Selecione a entrega",
-                        options=nomes_entregas
-                    )
+#                     entrega_selecionada_nome = st.selectbox(
+#                         "Selecione a entrega",
+#                         options=nomes_entregas
+#                     )
 
-                    entrega_idx = nomes_entregas.index(entrega_selecionada_nome)
-                    entrega = entregas_existentes[entrega_idx]
+#                     entrega_idx = nomes_entregas.index(entrega_selecionada_nome)
+#                     entrega = entregas_existentes[entrega_idx]
 
-                    # =========================
-                    # Dados do lançamento
-                    # =========================
+#                     # =========================
+#                     # Dados do lançamento
+#                     # =========================
                     
-                    ano_atual = datetime.now().year
-                    ano_inicial = ano_atual - 1
-                    ano_final = ano_atual + 6
+#                     ano_atual = datetime.now().year
+#                     ano_inicial = ano_atual - 1
+#                     ano_final = ano_atual + 6
 
-                    anos_disponiveis = list(range(ano_inicial, ano_final + 1))
+#                     anos_disponiveis = list(range(ano_inicial, ano_final + 1))
                     
-                    ano_lancamento = st.selectbox(
-                        "Ano do registro",
-                        options=anos_disponiveis,
-                        index=anos_disponiveis.index(ano_atual)
-                    )
+#                     ano_lancamento = st.selectbox(
+#                         "Ano do registro",
+#                         options=anos_disponiveis,
+#                         index=anos_disponiveis.index(ano_atual)
+#                     )
 
-                    anotacoes_lancamento = st.text_area(
-                        "Anotações"
-                    )
+#                     anotacoes_lancamento = st.text_area(
+#                         "Anotações"
+#                     )
 
-                    st.divider()
-                    st.markdown("### Lançamento de indicadores")
+#                     st.divider()
+#                     st.markdown("### Lançamento de indicadores")
 
-                    valores_indicadores = {}
-                    indicadores_entrega = entrega.get("indicadores_relacionados", [])
+#                     valores_indicadores = {}
+#                     indicadores_entrega = entrega.get("indicadores_relacionados", [])
 
-                    for indicador in indicadores_entrega:
-                        nome_indicador = mapa_indicadores.get(str(indicador), "Indicador não encontrado")
+#                     for indicador in indicadores_entrega:
+#                         nome_indicador = mapa_indicadores.get(str(indicador), "Indicador não encontrado")
                         
-                        tipo_variavel = mapa_tipo_variavel.get(str(indicador), "int")
+#                         tipo_variavel = mapa_tipo_variavel.get(str(indicador), "int")
                         
-                        st.markdown(f"**{nome_indicador}**")
+#                         st.markdown(f"**{nome_indicador}**")
                         
-                        col1, col2 = st.columns([2, 3])
-                        if tipo_variavel == "float":
-                            valor = col1.number_input(
-                                "Valor",
-                                step=0.01,
-                                format="%.2f",
-                                key=f"valor_{indicador}"
-                            )
+#                         col1, col2 = st.columns([2, 3])
+#                         if tipo_variavel == "float":
+#                             valor = col1.number_input(
+#                                 "Valor",
+#                                 step=0.01,
+#                                 format="%.2f",
+#                                 key=f"valor_{indicador}"
+#                             )
                         
-                        elif tipo_variavel == "str":
-                            valor = col1.text_input(
-                                "Valor",
-                                key=f"valor_{indicador}"
-                            )
+#                         elif tipo_variavel == "str":
+#                             valor = col1.text_input(
+#                                 "Valor",
+#                                 key=f"valor_{indicador}"
+#                             )
                         
-                        else:  # int (fallback também para indicadores sem tipo_variavel definido)
-                            valor = col1.number_input(
-                                "Valor",
-                                step=1,
-                                format="%d",
-                                key=f"valor_{indicador}"
-                            )
+#                         else:  # int (fallback também para indicadores sem tipo_variavel definido)
+#                             valor = col1.number_input(
+#                                 "Valor",
+#                                 step=1,
+#                                 format="%d",
+#                                 key=f"valor_{indicador}"
+#                             )
                         
-                        observacoes = col2.text_input(
-                            "Observações",
-                            key=f"obs_{indicador}"
-                        )
+#                         observacoes = col2.text_input(
+#                             "Observações",
+#                             key=f"obs_{indicador}"
+#                         )
                         
-                        valores_indicadores[indicador] = {
-                            "valor": valor,
-                            "observacoes": observacoes
-                        }
+#                         valores_indicadores[indicador] = {
+#                             "valor": valor,
+#                             "observacoes": observacoes
+#                         }
                         
-                        st.divider()
+#                         st.divider()
 
-                    # =========================
-                    # SUBMIT
-                    # =========================
-                    salvar = st.form_submit_button(
-                        "Salvar registro",
-                        icon=":material/save:"
-                    )
+#                     # =========================
+#                     # SUBMIT
+#                     # =========================
+#                     salvar = st.form_submit_button(
+#                         "Salvar registro",
+#                         icon=":material/save:"
+#                     )
 
 
-                if salvar:
+#                 if salvar:
 
-                    if not ano_lancamento:
-                        st.warning("Informe o ano do registro.")
-                        return
+#                     if not ano_lancamento:
+#                         st.warning("Informe o ano do registro.")
+#                         return
 
-                    novo_lancamento_entrega = {
-                        "_id": ObjectId(),
-                        "ano": str(ano_lancamento),
-                        "anotacoes": anotacoes_lancamento,
-                        "autor": st.session_state.get("nome")
-                    }
+#                     novo_lancamento_entrega = {
+#                         "_id": ObjectId(),
+#                         "ano": str(ano_lancamento),
+#                         "anotacoes": anotacoes_lancamento,
+#                         "autor": st.session_state.get("nome")
+#                     }
 
-                    id_lanc_entrega = novo_lancamento_entrega["_id"]
+#                     id_lanc_entrega = novo_lancamento_entrega["_id"]
 
-                    entregas_existentes[entrega_idx].setdefault(
-                        "lancamentos_entregas", []
-                    ).append(novo_lancamento_entrega)
+#                     entregas_existentes[entrega_idx].setdefault(
+#                         "lancamentos_entregas", []
+#                     ).append(novo_lancamento_entrega)
 
-                    projetos_ispn.update_one(
-                        {"_id": projeto_info["_id"]},
-                        {"$set": {"entregas": entregas_existentes}}
-                    )
+#                     projetos_ispn.update_one(
+#                         {"_id": projeto_info["_id"]},
+#                         {"$set": {"entregas": entregas_existentes}}
+#                     )
 
-                    for indicador_id, dados in valores_indicadores.items():
+#                     for indicador_id, dados in valores_indicadores.items():
                         
-                        if dados["valor"] in ["", None, 0]:
-                            continue
+#                         if dados["valor"] in ["", None, 0]:
+#                             continue
                         
-                        tipo_variavel = mapa_tipo_variavel.get(str(indicador_id), "int")
+#                         tipo_variavel = mapa_tipo_variavel.get(str(indicador_id), "int")
                         
-                        if tipo_variavel == "float":
-                            valor_final = float(dados["valor"])
+#                         if tipo_variavel == "float":
+#                             valor_final = float(dados["valor"])
                         
-                        elif tipo_variavel == "str":
-                            valor_final = str(dados["valor"])
+#                         elif tipo_variavel == "str":
+#                             valor_final = str(dados["valor"])
                         
-                        else:
-                            valor_final = int(dados["valor"])
+#                         else:
+#                             valor_final = int(dados["valor"])
 
-                        colecao_lancamentos.insert_one({
-                            "id_do_indicador": ObjectId(indicador_id),
-                            "projeto": projeto_info["_id"],
-                            "data_anotacao": datetime.now(),
-                            "autor_anotacao": st.session_state.get("nome"),
-                            "valor": valor_final,
-                            "ano": str(ano_lancamento),
-                            "observacoes": dados["observacoes"],
-                            "tipo": "ispn",
-                            "id_lanc_entrega": id_lanc_entrega
-                        })
+#                         colecao_lancamentos.insert_one({
+#                             "id_do_indicador": ObjectId(indicador_id),
+#                             "projeto": projeto_info["_id"],
+#                             "data_anotacao": datetime.now(),
+#                             "autor_anotacao": st.session_state.get("nome"),
+#                             "valor": valor_final,
+#                             "ano": str(ano_lancamento),
+#                             "observacoes": dados["observacoes"],
+#                             "tipo": "ispn",
+#                             "id_lanc_entrega": id_lanc_entrega
+#                         })
 
-                    st.success("Registro salvo com sucesso!")
-                    time.sleep(2)
-                    st.rerun(scope="fragment")
+#                     st.success("Registro salvo com sucesso!")
+#                     time.sleep(2)
+#                     st.rerun(scope="fragment")
                     
-            st.write("")
-            st.markdown("### Registros cadastrados")
-            st.write("")
+#             st.write("")
+#             st.markdown("### Registros cadastrados")
+#             st.write("")
             
-            # Verifica se existe pelo menos um lançamento
-            tem_registros = any(
-                entrega.get("lancamentos_entregas", [])
-                for entrega in entregas_existentes
-            )
+#             # Verifica se existe pelo menos um lançamento
+#             tem_registros = any(
+#                 entrega.get("lancamentos_entregas", [])
+#                 for entrega in entregas_existentes
+#             )
 
-            if not tem_registros:
-                st.caption("Nenhum registro nesta entrega.")
+#             if not tem_registros:
+#                 st.caption("Nenhum registro nesta entrega.")
                 
-            else:
-                st.write("")
+#             else:
+#                 st.write("")
 
-                if "editar_lancamento_entrega_id" not in st.session_state:
-                    st.session_state["editar_lancamento_entrega_id"] = None
+#                 if "editar_lancamento_entrega_id" not in st.session_state:
+#                     st.session_state["editar_lancamento_entrega_id"] = None
 
-                colunas = [1, 2, 2, 2, 1]
+#                 colunas = [1, 2, 2, 2, 1]
 
-                # --------------------------------
-                # Cabeçalho
-                # --------------------------------
-                c1, c2, c3, c4, c5 = st.columns(colunas)
+#                 # --------------------------------
+#                 # Cabeçalho
+#                 # --------------------------------
+#                 c1, c2, c3, c4, c5 = st.columns(colunas)
 
-                with c1:
-                    st.markdown("**Ano**")
+#                 with c1:
+#                     st.markdown("**Ano**")
 
-                with c2:
-                    st.markdown("**Entrega**")
+#                 with c2:
+#                     st.markdown("**Entrega**")
 
-                with c3:
-                    st.markdown("**Autor(a)**")
+#                 with c3:
+#                     st.markdown("**Autor(a)**")
 
-                with c4:
-                    st.markdown("**Indicadores**")
+#                 with c4:
+#                     st.markdown("**Indicadores**")
 
-                with c5:
-                    st.markdown("")
+#                 with c5:
+#                     st.markdown("")
 
-                st.divider()
+#                 st.divider()
 
-                # --------------------------------
-                # Registros
-                # --------------------------------
-                for entrega_idx, entrega in enumerate(entregas_existentes):
+#                 # --------------------------------
+#                 # Registros
+#                 # --------------------------------
+#                 for entrega_idx, entrega in enumerate(entregas_existentes):
 
-                    nome_entrega = entrega.get("nome_da_entrega", "Entrega")
+#                     nome_entrega = entrega.get("nome_da_entrega", "Entrega")
 
-                    lancamentos = entrega.get("lancamentos_entregas", [])
+#                     lancamentos = entrega.get("lancamentos_entregas", [])
 
-                    for idx_lanc, lanc in enumerate(lancamentos):
+#                     for idx_lanc, lanc in enumerate(lancamentos):
 
-                        c1, c2, c3, c4, c5 = st.columns(colunas)
+#                         c1, c2, c3, c4, c5 = st.columns(colunas)
 
-                        with c1:
-                            st.write(lanc.get("ano", ""))
+#                         with c1:
+#                             st.write(lanc.get("ano", ""))
 
-                        with c2:
-                            st.write(nome_entrega)
+#                         with c2:
+#                             st.write(nome_entrega)
 
-                        with c3:
-                            st.write(lanc.get("autor", ""))
+#                         with c3:
+#                             st.write(lanc.get("autor", ""))
 
-                        with c4:
+#                         with c4:
 
-                            with st.popover(
-                                "Indicadores",
-                                type="tertiary"
-                            ):
+#                             with st.popover(
+#                                 "Indicadores",
+#                                 type="tertiary"
+#                             ):
 
-                                id_lanc_entrega = lanc.get("_id")
+#                                 id_lanc_entrega = lanc.get("_id")
 
-                                registros_indicadores = list(
-                                    colecao_lancamentos.find(
-                                        {
-                                            "id_lanc_entrega": ObjectId(id_lanc_entrega)
-                                        }
-                                    )
-                                )
+#                                 registros_indicadores = list(
+#                                     colecao_lancamentos.find(
+#                                         {
+#                                             "id_lanc_entrega": ObjectId(id_lanc_entrega)
+#                                         }
+#                                     )
+#                                 )
 
-                                if not registros_indicadores:
-                                    st.caption("Nenhum indicador lançado.")
+#                                 if not registros_indicadores:
+#                                     st.caption("Nenhum indicador lançado.")
 
-                                else:
+#                                 else:
 
-                                    for reg in registros_indicadores:
-                                        nome_indicador = mapa_indicadores.get(
-                                            str(reg["id_do_indicador"]),
-                                            "Indicador não encontrado"
-                                        )
+#                                     for reg in registros_indicadores:
+#                                         nome_indicador = mapa_indicadores.get(
+#                                             str(reg["id_do_indicador"]),
+#                                             "Indicador não encontrado"
+#                                         )
                                         
-                                        st.markdown(
-                                            f"**{nome_indicador}:** "
-                                            f"{reg.get('valor')}"
-                                        )
+#                                         st.markdown(
+#                                             f"**{nome_indicador}:** "
+#                                             f"{reg.get('valor')}"
+#                                         )
                                         
-                                        if reg.get("observacoes"):
-                                            st.caption(reg["observacoes"])
+#                                         if reg.get("observacoes"):
+#                                             st.caption(reg["observacoes"])
 
-                        with c5:
+#                         with c5:
 
-                            editar = st.toggle(
-                                ":material/edit: Editar",
-                                value=(
-                                    st.session_state["editar_lancamento_entrega_id"]
-                                    == str(lanc["_id"])
-                                ),
-                                key=f"editar_lancamento_entrega_{lanc['_id']}"
-                            )
+#                             editar = st.toggle(
+#                                 ":material/edit: Editar",
+#                                 value=(
+#                                     st.session_state["editar_lancamento_entrega_id"]
+#                                     == str(lanc["_id"])
+#                                 ),
+#                                 key=f"editar_lancamento_entrega_{lanc['_id']}"
+#                             )
 
-                            if editar:
-                                st.session_state["editar_lancamento_entrega_id"] = str(
-                                    lanc["_id"]
-                                )
+#                             if editar:
+#                                 st.session_state["editar_lancamento_entrega_id"] = str(
+#                                     lanc["_id"]
+#                                 )
 
-                            elif (
-                                st.session_state["editar_lancamento_entrega_id"]
-                                == str(lanc["_id"])
-                            ):
-                                st.session_state["editar_lancamento_entrega_id"] = None
+#                             elif (
+#                                 st.session_state["editar_lancamento_entrega_id"]
+#                                 == str(lanc["_id"])
+#                             ):
+#                                 st.session_state["editar_lancamento_entrega_id"] = None
 
-                        # ==================================
-                        # FORMULÁRIO DE EDIÇÃO
-                        # ==================================
-                        if (
-                            st.session_state["editar_lancamento_entrega_id"]
-                            == str(lanc["_id"])
-                        ):
+#                         # ==================================
+#                         # FORMULÁRIO DE EDIÇÃO
+#                         # ==================================
+#                         if (
+#                             st.session_state["editar_lancamento_entrega_id"]
+#                             == str(lanc["_id"])
+#                         ):
 
-                            with st.container(border=True):
+#                             with st.container(border=True):
 
-                                st.markdown("**Editar registro**")
+#                                 st.markdown("**Editar registro**")
 
-                                with st.form(
-                                    f"form_editar_lancamento_entrega_{lanc['_id']}",
-                                    border=False
-                                ):
+#                                 with st.form(
+#                                     f"form_editar_lancamento_entrega_{lanc['_id']}",
+#                                     border=False
+#                                 ):
 
-                                    ano_atual = datetime.now().year
+#                                     ano_atual = datetime.now().year
 
-                                    anos_disponiveis = list(
-                                        range(
-                                            ano_atual - 1,
-                                            ano_atual + 7
-                                        )
-                                    )
+#                                     anos_disponiveis = list(
+#                                         range(
+#                                             ano_atual - 1,
+#                                             ano_atual + 7
+#                                         )
+#                                     )
 
-                                    try:
-                                        idx_ano = anos_disponiveis.index(
-                                            int(lanc.get("ano"))
-                                        )
-                                    except:
-                                        idx_ano = 0
+#                                     try:
+#                                         idx_ano = anos_disponiveis.index(
+#                                             int(lanc.get("ano"))
+#                                         )
+#                                     except:
+#                                         idx_ano = 0
 
-                                    novo_ano = st.selectbox(
-                                        "Ano do registro",
-                                        options=anos_disponiveis,
-                                        index=idx_ano
-                                    )
+#                                     novo_ano = st.selectbox(
+#                                         "Ano do registro",
+#                                         options=anos_disponiveis,
+#                                         index=idx_ano
+#                                     )
 
-                                    novas_anotacoes = st.text_area(
-                                        "Anotações",
-                                        value=lanc.get("anotacoes", ""),
-                                        height=120
-                                    )
+#                                     novas_anotacoes = st.text_area(
+#                                         "Anotações",
+#                                         value=lanc.get("anotacoes", ""),
+#                                         height=120
+#                                     )
 
-                                    salvar = st.form_submit_button(
-                                        "Salvar alterações",
-                                        icon=":material/save:"
-                                    )
+#                                     salvar = st.form_submit_button(
+#                                         "Salvar alterações",
+#                                         icon=":material/save:"
+#                                     )
 
-                                if salvar:
+#                                 if salvar:
 
-                                    lanc["ano"] = str(novo_ano)
-                                    lanc["anotacoes"] = novas_anotacoes
+#                                     lanc["ano"] = str(novo_ano)
+#                                     lanc["anotacoes"] = novas_anotacoes
 
-                                    entregas_existentes[entrega_idx][
-                                        "lancamentos_entregas"
-                                    ][idx_lanc] = lanc
+#                                     entregas_existentes[entrega_idx][
+#                                         "lancamentos_entregas"
+#                                     ][idx_lanc] = lanc
 
-                                    projetos_ispn.update_one(
-                                        {"_id": projeto_info["_id"]},
-                                        {
-                                            "$set": {
-                                                "entregas": entregas_existentes
-                                            }
-                                        }
-                                    )
+#                                     projetos_ispn.update_one(
+#                                         {"_id": projeto_info["_id"]},
+#                                         {
+#                                             "$set": {
+#                                                 "entregas": entregas_existentes
+#                                             }
+#                                         }
+#                                     )
 
-                                    st.success("Registro atualizado.")
+#                                     st.success("Registro atualizado.")
 
-                                    st.session_state[
-                                        "editar_lancamento_entrega_id"
-                                    ] = None
+#                                     st.session_state[
+#                                         "editar_lancamento_entrega_id"
+#                                     ] = None
 
-                                    time.sleep(2)
+#                                     time.sleep(2)
 
-                                    st.rerun(scope="fragment")
+#                                     st.rerun(scope="fragment")
 
-                        st.divider()
+#                         st.divider()
 
 
 
