@@ -7,7 +7,8 @@ from funcoes_auxiliares import (
     dialog_editar_entregas, 
     dialog_editar_entrega, 
     mostrar_detalhes_entrega,
-    cadastrar_entrega
+    cadastrar_entrega,
+    cadastrar_registro_entrega
 )
 import plotly.express as px
 import time
@@ -634,6 +635,16 @@ def render_entregas():
                             width="content"
                         ):
 
+                            # Cadastro de novo registro da entrega.
+                            novo_registro = st.button(
+                                "Novo registro de entrega",
+                                icon=":material/add:",
+                                type="tertiary",
+                                key=f"novo_registro_entrega_{entrega_id}"
+                            )
+
+                            if novo_registro:
+                                cadastrar_registro_entrega(entrega_id)
 
 
 
@@ -811,7 +822,7 @@ def render_entregas():
 
 
 
-        st.markdown("#### Registros da Entrega:")
+        st.markdown("#### Registros de Entrega:")
 
         # Nenhuma entrega selecionada: mantém a área vazia,
         # exibindo somente as orientações de seleção.

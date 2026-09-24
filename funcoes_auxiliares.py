@@ -937,7 +937,307 @@ def mostrar_detalhes_entrega(entrega_id):
 
 
 
+# ##########################################################
+# Diálogo para cadastro de novo registro da entrega
+# ##########################################################
 
+@st.dialog("Novo registro de entrega", width="large", on_dismiss="rerun")
+def cadastrar_registro_entrega(entrega_id):
+
+    # Conexão com as coleções utilizadas no registro.
+    db = conectar_mongo_portal_ispn()
+
+    projetos_ispn = db["projetos_ispn"]
+    indicadores = db["indicadores"]
+    colecao_lancamentos = db["lancamentos_indicadores"]
+
+    # ----------------------------------------------------------
+    # Localiza o projeto que contém a entrega
+    # ----------------------------------------------------------
+
+    try:
+        entrega_object_id = ObjectId(entrega_id)
+    except Exception:
+        st.error("Identificador da entrega inválido.")
+        return
+
+    projeto = projetos_ispn.find_one(
+        {
+            "entregas._id": entrega_object_id
+        }
+    )
+
+    if not projeto:
+        st.error("Projeto da entrega não encontrado.")
+        return
+
+    # ----------------------------------------------------------
+    # Localiza a entrega
+    # ----------------------------------------------------------
+
+    entrega = next(
+        (
+            item
+            for item in projeto.get("entregas", [])
+            if item.get("_id") == entrega_object_id
+        ),
+        None
+    )
+
+    if not entrega:
+        st.error("Entrega não encontrada.")
+        return
+
+    # ----------------------------------------------------------
+    # Mapa de indicadores
+    # ----------------------------------------------------------
+
+    mapa_indicadores = {
+        str(indicador["_id"]): indicador.get(
+            "nome_indicador",
+            ""
+        )
+        for indicador in indicadores.find(
+            {},
+            {
+                "_id": 1,
+                "nome_indicador": 1
+            }
+        )
+    }
+
+    # ----------------------------------------------------------
+    # Mapa do tipo de variável
+    # ----------------------------------------------------------
+
+    mapa_tipo_variavel = {
+        str(indicador["_id"]): indicador.get(
+            "tipo_variavel",
+            "int"
+        )
+        for indicador in indicadores.find(
+            {},
+            {
+                "_id": 1,
+                "tipo_variavel": 1
+            }
+        )
+    }
+
+    # ----------------------------------------------------------
+    # Identificação da entrega
+    # ----------------------------------------------------------
+
+    st.write(
+        f"Entrega: **{entrega.get('nome_da_entrega', '')}**"
+    )
+
+    st.write("")
+
+    # ----------------------------------------------------------
+    # Dados do lançamento
+    # ----------------------------------------------------------
+
+    ano_atual = datetime.now().year
+    ano_inicial = ano_atual - 1
+    ano_final = ano_atual + 6
+
+    anos_disponiveis = list(
+        range(
+            ano_inicial,
+            ano_final + 1
+        )
+    )
+
+    ano_lancamento = st.selectbox(
+        "Ano do registro",
+        options=anos_disponiveis,
+        index=anos_disponiveis.index(ano_atual)
+    )
+
+    anotacoes_lancamento = st.text_area(
+        "Anotações"
+    )
+
+    st.divider()
+
+    st.markdown(
+        "### Lançamento de indicadores"
+    )
+
+    valores_indicadores = {}
+
+    indicadores_entrega = entrega.get(
+        "indicadores_relacionados",
+        []
+    )
+
+    for indicador in indicadores_entrega:
+
+        indicador_id = str(indicador)
+
+        nome_indicador = mapa_indicadores.get(
+            indicador_id,
+            "Indicador não encontrado"
+        )
+
+        tipo_variavel = mapa_tipo_variavel.get(
+            indicador_id,
+            "int"
+        )
+
+        st.markdown(
+            f"**{nome_indicador}**"
+        )
+
+        col1, col2 = st.columns([1, 4])
+
+        if tipo_variavel == "float":
+
+            valor = col1.number_input(
+                "Valor",
+                step=0.01,
+                format="%.2f",
+                key=f"valor_{entrega_id}_{indicador_id}"
+            )
+
+        elif tipo_variavel == "str":
+
+            valor = col1.text_input(
+                "Valor",
+                key=f"valor_{entrega_id}_{indicador_id}"
+            )
+
+        else:
+
+            valor = col1.number_input(
+                "Valor",
+                step=1,
+                format="%d",
+                key=f"valor_{entrega_id}_{indicador_id}"
+            )
+
+        observacoes = col2.text_input(
+            "Observações",
+            key=f"obs_{entrega_id}_{indicador_id}"
+        )
+
+        valores_indicadores[indicador] = {
+            "valor": valor,
+            "observacoes": observacoes
+        }
+
+        st.divider()
+
+    # ----------------------------------------------------------
+    # Salvamento
+    # ----------------------------------------------------------
+
+    salvar = st.button(
+        "Salvar registro",
+        icon=":material/save:",
+        type="primary"
+    )
+
+    if salvar:
+
+        if not ano_lancamento:
+
+            st.warning(
+                "Informe o ano do registro."
+            )
+
+            return
+
+        novo_lancamento_entrega = {
+            "_id": ObjectId(),
+            "ano": str(ano_lancamento),
+            "anotacoes": anotacoes_lancamento,
+            "autor": st.session_state.get("nome")
+        }
+
+        id_lanc_entrega = novo_lancamento_entrega["_id"]
+
+        # Adiciona o lançamento somente à entrega selecionada.
+        resultado = projetos_ispn.update_one(
+            {
+                "_id": projeto["_id"],
+                "entregas._id": entrega_object_id
+            },
+            {
+                "$push": {
+                    "entregas.$.lancamentos_entregas":
+                        novo_lancamento_entrega
+                }
+            }
+        )
+
+        if not resultado.modified_count:
+
+            st.error(
+                "Não foi possível salvar o registro."
+            )
+
+            return
+
+        # ------------------------------------------------------
+        # Registros dos indicadores
+        # ------------------------------------------------------
+
+        for indicador_id, dados in valores_indicadores.items():
+
+            if dados["valor"] in ["", None, 0]:
+                continue
+
+            tipo_variavel = mapa_tipo_variavel.get(
+                str(indicador_id),
+                "int"
+            )
+
+            if tipo_variavel == "float":
+
+                valor_final = float(
+                    dados["valor"]
+                )
+
+            elif tipo_variavel == "str":
+
+                valor_final = str(
+                    dados["valor"]
+                )
+
+            else:
+
+                valor_final = int(
+                    dados["valor"]
+                )
+
+            colecao_lancamentos.insert_one(
+                {
+                    "id_do_indicador": ObjectId(
+                        indicador_id
+                    ),
+                    "projeto": projeto["_id"],
+                    "data_anotacao": datetime.now(),
+                    "autor_anotacao": st.session_state.get(
+                        "nome"
+                    ),
+                    "valor": valor_final,
+                    "ano": str(ano_lancamento),
+                    "observacoes": dados["observacoes"],
+                    "tipo": "ispn",
+                    "id_lanc_entrega": id_lanc_entrega
+                }
+            )
+
+        st.success(
+            "Registro salvo com sucesso!",
+            icon=":material/check:"
+        )
+
+        time.sleep(3)
+
+        st.rerun()
 
 # ##########################################################
 # Diálogo para edição de uma entrega específica
@@ -1483,11 +1783,6 @@ def dialog_editar_entrega(entrega_id):
             st.info(
                 "Nenhuma alteração foi realizada."
             )
-
-
-
-
-
 
 
 
@@ -2668,6 +2963,9 @@ def dialog_editar_entregas():
                         st.divider()
 
 
+
+
+
 def atualizar_entrega_no_projeto(
     projeto_origem_id,
     entrega_editada
@@ -2707,6 +3005,9 @@ def atualizar_entrega_no_projeto(
         {"_id": ObjectId(projeto_origem_id)},
         {"$set": {"entregas": entregas}}
     )
+
+
+
 
 
 ###########################################################################################################
