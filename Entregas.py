@@ -92,6 +92,14 @@ else:
     mapa_indicadores = {}
 
 
+# Mapa de pessoas
+pessoas = {
+    p["_id"]: p["nome_completo"]
+    for p in db["pessoas"].find({}, {"nome_completo": 1})
+}
+
+
+
 ###########################################################################################################
 # CONTADOR DE ACESSOS À PÁGINA
 ###########################################################################################################
@@ -150,10 +158,10 @@ def carregar_entregas():
     Retorna DataFrame com TODAS as entregas,
     já resolvendo responsáveis e programa
     """
-    pessoas = {
-        p["_id"]: p["nome_completo"]
-        for p in db["pessoas"].find({}, {"nome_completo": 1})
-    }
+    # pessoas = {
+    #     p["_id"]: p["nome_completo"]
+    #     for p in db["pessoas"].find({}, {"nome_completo": 1})
+    # }
 
     programas_dict = {
         p["_id"]: p.get("nome_programa_area", "")
@@ -452,10 +460,8 @@ def verificar_entregas_atrasadas():
 
 
 
+# ABA DE ENTREGAS
 
-# ==========================================================
-# INTERFACE DA ABA DE ENTREGAS
-# ==========================================================
 
 @st.fragment
 def render_entregas():
@@ -1050,8 +1056,6 @@ df_entregas["responsaveis_ids"] = df_entregas["responsaveis_ids"].apply(lambda x
 df_entregas_lista = df_entregas.copy()
 
 
-
-
 st.write("")
 
 
@@ -1059,7 +1063,10 @@ st.write("")
 # FILTROS
 # ==========================================================
 
+
+
 col1, col2, col3 = st.columns(3)
+
 
 # -------- Projetos --------
 projetos_opcoes = sorted({
@@ -1071,25 +1078,12 @@ projetos_opcoes = sorted({
 
 with col1:
     filtro_projetos = st.multiselect(
-        "Projetos",
+        "Projeto",
         options=projetos_opcoes,
         placeholder=""
     )
 
-# -------- Status --------
-status_opcoes = sorted(
-    df_entregas["situacao"]
-    .dropna()
-    .unique()
-    .tolist()
-)
 
-with col2:
-    filtro_status = st.multiselect(
-        "Situação",
-        options=status_opcoes,
-        placeholder=""
-    )
 
 # -------- Programas --------
 programas_opcoes = sorted({
@@ -1099,27 +1093,72 @@ programas_opcoes = sorted({
     if prog
 })
 
-with col3:
+with col2:
     filtro_programas = st.multiselect(
         "Programa",
         options=programas_opcoes,
         placeholder=""
     )
 
-col1, col2 = st.columns(2)
 
-# -------- Datas de Início e Fim --------
+
+# -------- Status --------
+status_opcoes = sorted(
+    df_entregas["situacao"]
+    .dropna()
+    .unique()
+    .tolist()
+)
+
+with col3:
+    filtro_status = st.multiselect(
+        "Situação da entrega",
+        options=status_opcoes,
+        placeholder=""
+    )
+
+
+
+
+col1, col2, col3 = st.columns(3)
+
+# -------- Responsáveis --------
+
+responsaveis_opcoes = sorted({
+    responsavel.strip()
+    for responsaveis in df_entregas["responsaveis"]
+    for responsavel in (
+        responsaveis.split(",")
+        if isinstance(responsaveis, str)
+        else []
+    )
+    if responsavel.strip()
+})
 
 with col1:
+
+    filtro_responsaveis = st.multiselect(
+        "Responsável",
+        options=responsaveis_opcoes,
+        placeholder=""
+    )
+
+# -------- Data de início --------
+
+with col2:
+
     filtro_data_inicio = st.date_input(
-        "Data de início",
+        "Data de início a partir de",
         value=None,
         format="DD/MM/YYYY"
     )
 
-with col2:
+# -------- Previsão de conclusão --------
+
+with col3:
+
     filtro_data_fim = st.date_input(
-        "Previsão de conclusão",
+        "Previsão de conclusão até",
         value=None,
         format="DD/MM/YYYY"
     )
@@ -1127,6 +1166,11 @@ with col2:
 # ==========================================================
 # APLICAÇÃO DOS FILTROS
 # ==========================================================
+
+pessoas_id_por_nome = {
+    nome: str(pessoa_id)
+    for pessoa_id, nome in pessoas.items()
+}
 
 df_filtrado = df_entregas.copy()
 
@@ -1154,6 +1198,32 @@ if filtro_programas:
             )
         )
     ]
+
+
+if filtro_responsaveis:
+
+    ids_responsaveis_selecionados = {
+        pessoa_id
+        for pessoa_id, nome in pessoas.items()
+        if nome in filtro_responsaveis
+    }
+
+    ids_responsaveis_selecionados = {
+        str(pessoa_id)
+        for pessoa_id in ids_responsaveis_selecionados
+    }
+
+    df_filtrado = df_filtrado[
+        df_filtrado["responsaveis_ids"].apply(
+            lambda lista: any(
+                responsavel_id in ids_responsaveis_selecionados
+                for responsavel_id in (
+                    lista if isinstance(lista, list) else []
+                )
+            )
+        )
+    ]
+
 
 if filtro_data_inicio:
     df_filtrado = df_filtrado[
