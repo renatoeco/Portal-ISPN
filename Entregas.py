@@ -1105,7 +1105,6 @@ st.logo("images/logo_ISPN_horizontal_ass.png", size='large')
 
 st.header("Entregas")
 
-st.write("")
 
 # ==========================================================
 # VERIFICAÇÃO DE ENTREGAS ATRASADAS
@@ -1137,83 +1136,75 @@ df_entregas_lista = df_entregas.copy()
 
 
 st.write("")
-st.write("")
-st.write("")
+
 
 # ==========================================================
 # FILTROS
 # ==========================================================
 
-with st.form("filtros_entregas", border=False):
+col1, col2, col3 = st.columns(3)
 
-    col1, col2, col3 = st.columns(3)
+# -------- Projetos --------
+projetos_opcoes = sorted({
+    projeto
+    for lista in df_entregas["projetos"]
+    for projeto in (lista if isinstance(lista, list) else [])
+    if projeto
+})
 
-    # -------- Projetos --------
-    projetos_opcoes = sorted({
-        projeto
-        for lista in df_entregas["projetos"]
-        for projeto in (lista if isinstance(lista, list) else [])
-        if projeto
-    })
-
-    with col1:
-        filtro_projetos = st.multiselect(
-            "Projetos",
-            options=projetos_opcoes,
-            placeholder=""
-        )
-
-    # -------- Status --------
-    status_opcoes = sorted(
-        df_entregas["situacao"]
-        .dropna()
-        .unique()
-        .tolist()
+with col1:
+    filtro_projetos = st.multiselect(
+        "Projetos",
+        options=projetos_opcoes,
+        placeholder=""
     )
 
-    with col2:
-        filtro_status = st.multiselect(
-            "Situação",
-            options=status_opcoes,
-            placeholder=""
-        )
+# -------- Status --------
+status_opcoes = sorted(
+    df_entregas["situacao"]
+    .dropna()
+    .unique()
+    .tolist()
+)
 
-    # -------- Programas --------
-    programas_opcoes = sorted({
-        prog
-        for lista in df_entregas["programa"]
-        for prog in (lista if isinstance(lista, list) else [])
-        if prog
-    })
+with col2:
+    filtro_status = st.multiselect(
+        "Situação",
+        options=status_opcoes,
+        placeholder=""
+    )
 
-    with col3:
-        filtro_programas = st.multiselect(
-            "Programa",
-            options=programas_opcoes,
-            placeholder=""
-        )
+# -------- Programas --------
+programas_opcoes = sorted({
+    prog
+    for lista in df_entregas["programa"]
+    for prog in (lista if isinstance(lista, list) else [])
+    if prog
+})
 
-    col1, col2 = st.columns(2)
+with col3:
+    filtro_programas = st.multiselect(
+        "Programa",
+        options=programas_opcoes,
+        placeholder=""
+    )
 
-        # -------- Datas de Início e Fim --------
+col1, col2 = st.columns(2)
 
-    with col1:
-        filtro_data_inicio = st.date_input(
-            "Data de início",
-            value=None,
-            format="DD/MM/YYYY"
-        )
+# -------- Datas de Início e Fim --------
 
-    with col2:
-        filtro_data_fim = st.date_input(
-            "Previsão de conclusão",
-            value=None,
-            format="DD/MM/YYYY"
-        )
+with col1:
+    filtro_data_inicio = st.date_input(
+        "Data de início",
+        value=None,
+        format="DD/MM/YYYY"
+    )
 
-    aplicar = st.form_submit_button(
-        "Aplicar filtros",
-        icon=":material/filter_alt:"
+with col2:
+    filtro_data_fim = st.date_input(
+        "Previsão de conclusão",
+        value=None,
+        format="DD/MM/YYYY"
     )
 
 # ==========================================================
@@ -1240,7 +1231,10 @@ if filtro_status:
 if filtro_programas:
     df_filtrado = df_filtrado[
         df_filtrado["programa"].apply(
-            lambda lista: any(p in filtro_programas for p in lista)
+            lambda lista: any(
+                p in filtro_programas
+                for p in (lista if isinstance(lista, list) else [])
+            )
         )
     ]
 
