@@ -676,26 +676,173 @@ def render_entregas():
                                 if editar_entrega:
                                     dialog_editar_entrega(entrega_id)
 
+
+
+
+
+
                 # ------------------------------------------
-                # Responsáveis
+                # Responsáveis e projetos
                 # ------------------------------------------
 
-                responsaveis = entrega.get(
-                    "responsaveis",
-                    ""
-                )
+                with st.container(horizontal=True, horizontal_alignment="distribute"):
 
-                if responsaveis:
 
-                    st.markdown(
-                        f"**Responsável(is):** {responsaveis}"
+                    projetos_str = entrega.get(
+                        "projetos_str",
+                        ""
                     )
 
-                else:
+                    if projetos_str:
 
-                    st.markdown(
-                        "**Responsável(is):** Não informado"
+                        st.markdown(
+                            f"**{projetos_str}**"
+                        )
+
+                    else:
+
+                        st.markdown(
+                            "Projeto não informado"
+                        )
+
+
+
+                    responsaveis = entrega.get(
+                        "responsaveis",
+                        ""
                     )
+
+                    if responsaveis:
+
+                        st.markdown(
+                            f":material/group: {responsaveis}"
+                        )
+
+                    else:
+
+                        st.markdown(
+                            ":material/group: Não informado"
+                        )
+
+
+
+
+
+
+
+
+
+
+
+
+
+                # # ------------------------------------------
+                # # Responsáveis e projetos
+                # # ------------------------------------------
+
+                # col1, col2 = st.columns(2)
+
+                # with col1:
+
+                #     responsaveis = entrega.get(
+                #         "responsaveis",
+                #         ""
+                #     )
+
+                #     if responsaveis:
+
+                #         st.markdown(
+                #             f"**Responsável(is):** {responsaveis}"
+                #         )
+
+                #     else:
+
+                #         st.markdown(
+                #             "**Responsável(is):** Não informado"
+                #         )
+
+
+                # with col2:
+
+                #     projetos_siglas = []
+
+                #     # Inclui o projeto de origem da entrega.
+                #     projeto_origem_sigla = entrega.get(
+                #         "_projeto_origem_sigla",
+                #         ""
+                #     )
+
+                #     if projeto_origem_sigla:
+
+                #         projetos_siglas.append(
+                #             projeto_origem_sigla
+                #         )
+
+                #     # Inclui os demais projetos relacionados.
+                #     projetos_relacionados = entrega.get(
+                #         "projetos_relacionados",
+                #         []
+                #     )
+
+                #     for projeto_id in projetos_relacionados:
+
+                #         projeto_sigla = projetos_dict.get(
+                #             str(projeto_id),
+                #             ""
+                #         )
+
+                #         if projeto_sigla:
+                #             projetos_siglas.append(
+                #                 projeto_sigla
+                #             )
+
+                #     if projetos_siglas:
+
+                #         st.markdown(
+                #             f"**Projetos(s):** {', '.join(projetos_siglas)}"
+                #         )
+
+                #     else:
+
+                #         st.markdown(
+                #             "**Projetos(s):** Não informado"
+                #         )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                # # ------------------------------------------
+                # # Responsáveis
+                # # ------------------------------------------
+
+                # responsaveis = entrega.get(
+                #     "responsaveis",
+                #     ""
+                # )
+
+                # if responsaveis:
+
+                #     st.markdown(
+                #         f"**Responsável(is):** {responsaveis}"
+                #     )
+
+                # else:
+
+                #     st.markdown(
+                #         "**Responsável(is):** Não informado"
+                #     )
 
                 # ------------------------------------------
                 # Informações resumidas
