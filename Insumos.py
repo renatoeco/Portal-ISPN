@@ -18,9 +18,11 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import cm
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_CENTER
+from reportlab.lib.enums import TA_LEFT
+from reportlab.lib.utils import ImageReader
 from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, HRFlowable
+    BaseDocTemplate, PageTemplate, Frame, SimpleDocTemplate,
+    Paragraph, Spacer, Table, TableStyle, Image, HRFlowable
 )
 
 # ##################################################################
@@ -42,7 +44,7 @@ estatistica = db["estatistica"]  # Coleção de estatísticas
 insumos = db["insumos"]
 projetos_ispn = db["projetos_ispn"]
 pessoas = db["pessoas"]
-contadores = db["contadores"]  # Coleção de contadores atômicos (ex.: código sequencial das solicitações de insumos)
+contadores = db["contadores"]
 
 
 ###########################################################################################################
@@ -164,18 +166,20 @@ def sanitizar_nome_arquivo(texto):
 
 
 def gerar_codigo_solicitacao():
-    """Gera, de forma atômica, um código único e sequencial de 4 dígitos
-    (iniciando em '0001') para uma nova solicitação de insumos. O
-    incremento é feito com find_one_and_update sobre um único documento
-    contador, o que evita que duas solicitações simultâneas recebam o
-    mesmo código (operação atômica no MongoDB)."""
-    resultado = contadores.find_one_and_update(
-        {"_id": "codigo_insumos"},
+    """Gera, de forma atômica, um código sequencial de 4 dígitos (iniciando
+    em '0001') para uma nova solicitação de insumos, usando um contador
+    dedicado na coleção 'contadores' (documento de _id
+    'codigo_solicitacao_insumos'). Diferente de basear-se no maior código
+    já salvo na coleção 'insumos', os códigos nunca se repetem: mesmo que
+    uma solicitação seja excluída, seu código não volta a ser usado."""
+    contador_atualizado = contadores.find_one_and_update(
+        {"_id": "codigo_solicitacao_insumos"},
         {"$inc": {"sequencia": 1}},
         upsert=True,
         return_document=ReturnDocument.AFTER,
     )
-    return f"{resultado['sequencia']:04d}"
+
+    return f"SDI-{contador_atualizado['sequencia']:04d}"
 
 
 def gerar_pdf_solicitacao(solicitacao, projetos_dict, pessoas_dict):
@@ -184,56 +188,137 @@ def gerar_pdf_solicitacao(solicitacao, projetos_dict, pessoas_dict):
     bytes do PDF."""
 
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(
+    doc = BaseDocTemplate(
         buffer, pagesize=A4,
         topMargin=1.5 * cm, bottomMargin=1.5 * cm,
         leftMargin=2 * cm, rightMargin=2 * cm,
     )
 
+    # Frame SEM padding interno: assim a largura disponível é exatamente
+    # doc.width (17 cm) e tudo (divisores, tabelas, textos) fica alinhado.
+    frame = Frame(
+        doc.leftMargin, doc.bottomMargin, doc.width, doc.height,
+        leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0,
+        id="frame_principal",
+    )
+
+    largura_util = doc.width
+
     styles = getSampleStyleSheet()
     estilo_titulo = ParagraphStyle(
-        "TituloSolicitacao", parent=styles["Title"], alignment=TA_CENTER, fontSize=16
+        "TituloSolicitacao", parent=styles["Title"], alignment=TA_LEFT,
+        fontSize=16, leading=20, spaceAfter=4,
+    )
+    estilo_subtitulo = ParagraphStyle(
+        "SubtituloSolicitacao", parent=styles["Normal"], alignment=TA_LEFT,
+        fontSize=11, leading=14, textColor=colors.HexColor("#333333"),
     )
     estilo_normal = ParagraphStyle("NormalSolicitacao", parent=styles["Normal"], fontSize=10, leading=14)
 
     elementos = []
-
-    # Logo do ISPN centralizada no topo, com espaçamento maior até o título
-    try:
-        logo = Image("images/logo_ISPN_horizontal_ass.png", width=6 * cm, height=1.8 * cm)
-        logo.hAlign = "CENTER"
-        elementos.append(logo)
-        elementos.append(Spacer(1, 40))
-    except Exception:
-        pass
-
-    elementos.append(Paragraph("Detalhes da Solicitação de Insumos", estilo_titulo))
-    elementos.append(Spacer(1, 22))
 
     def linha(rotulo, valor):
         texto = valor if valor not in (None, "") else "—"
         return Paragraph(f"<b>{rotulo}:</b> {texto}", estilo_normal)
 
     def divisor():
-        return HRFlowable(width="150%", thickness=0.75, color=colors.grey, spaceBefore=8, spaceAfter=8)
+        return HRFlowable(width="100%", thickness=0.75, color=colors.grey, spaceBefore=10, spaceAfter=10)
 
     # ---------------------------------------------------------------
-    # Bloco 1: Código, Projeto, Responsável e Data Prevista juntos (mesmo
-    # bloco, sem divider entre eles)
+    # Cabeçalho: logo à esquerda; à direita, "Solicitação de Insumos"
+    # e, logo abaixo, o "Código:". A faixa colorida é desenhada no canvas
+    # da página, de ponta a ponta, desde o topo.
+    # ---------------------------------------------------------------
+    largura_logo = 4 * cm
+    separacao_logo_titulo = 5 * cm   # <- aumente/diminua para ajustar o espaço
+
+    caminho_logo = "images/logo_ISPN_horizontal_ass.png"
+    try:
+        iw, ih = ImageReader(caminho_logo).getSize()
+        logo = Image(caminho_logo, width=largura_logo, height=largura_logo * ih / iw)
+        logo.hAlign = "LEFT"
+    except Exception:
+        largura_logo = 0
+        logo = ""
+
+    codigo_exibido = obter_codigo_solicitacao_exibido(solicitacao)
+    bloco_titulo = [
+        Paragraph("Solicitação de Insumos", estilo_titulo),
+        Paragraph(f"<b>Código: {codigo_exibido}</b>", estilo_subtitulo),
+    ]
+
+    col_logo = largura_logo + separacao_logo_titulo
+    tabela_cabecalho = Table(
+        [[logo, bloco_titulo]],
+        colWidths=[col_logo, largura_util - col_logo],
+    )
+    tabela_cabecalho.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ALIGN", (0, 0), (0, 0), "LEFT"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+    ]))
+
+    # Altura da faixa = margem superior + altura do cabeçalho + margem inferior
+    _, altura_cabecalho = tabela_cabecalho.wrap(largura_util, 0)
+    margem_inferior_faixa = 1.5 * cm
+    altura_faixa = doc.topMargin + altura_cabecalho + margem_inferior_faixa
+
+    def desenhar_faixa_cabecalho(canvas, doc_):
+        # Só na primeira página, pois o cabeçalho aparece apenas nela
+        if canvas.getPageNumber() != 1:
+            return
+        canvas.saveState()
+        canvas.setFillColor(colors.HexColor("#eaecf9"))
+        canvas.rect(0, A4[1] - altura_faixa, A4[0], altura_faixa, stroke=0, fill=1)
+        canvas.restoreState()
+
+    doc.addPageTemplates([
+        PageTemplate(id="principal", frames=[frame], onPage=desenhar_faixa_cabecalho)
+    ])
+
+    elementos.append(tabela_cabecalho)
+    # Sai da faixa colorida (margem inferior) + espaço até o restante do PDF
+    elementos.append(Spacer(1, margem_inferior_faixa + 30))
+
+    # ---------------------------------------------------------------
+    # Bloco 1
     # ---------------------------------------------------------------
     nome_projeto = obter_nome_projeto_por_id(solicitacao.get("projeto_id"), projetos_dict)
-    elementos.append(linha("Código", solicitacao.get("codigo_solicitacao", "—")))
-    elementos.append(linha("Projeto", nome_projeto))
-    elementos.append(linha("Responsável", obter_nome_responsavel_solicitacao(solicitacao, pessoas_dict)))
-    elementos.append(linha("Data da Solicitação", solicitacao.get("data_solicitacao", "—")))
-    elementos.append(linha("Data Prevista/Desejada de Entrega", solicitacao.get("data_prevista_entrega", "—")))
+
+    campos_coluna_esquerda = [
+        linha("Projeto", nome_projeto),
+        linha("Responsável", obter_nome_responsavel_solicitacao(solicitacao, pessoas_dict)),
+        linha("Data Prevista/Desejada de Entrega", solicitacao.get("data_prevista_entrega", "—")),
+    ]
+
+    campos_coluna_direita = [linha("Data da Solicitação", solicitacao.get("data_solicitacao", "—"))]
+    ultima_edicao = solicitacao.get("ultima_edicao")
+    if ultima_edicao:
+        campos_coluna_direita.append(linha("Editado em", ultima_edicao))
+
+    col_esquerda_bloco1 = 11 * cm
+    col_direita_bloco1 = largura_util - col_esquerda_bloco1
+
+    tabela_bloco1 = Table(
+        [[campos_coluna_esquerda, campos_coluna_direita]],
+        colWidths=[col_esquerda_bloco1, col_direita_bloco1],
+    )
+    tabela_bloco1.setStyle(TableStyle([
+        ("LEFTPADDING", (0, 0), (0, -1), 0),
+        ("RIGHTPADDING", (-1, 0), (-1, -1), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+    ]))
+    elementos.append(tabela_bloco1)
 
     elementos.append(divisor())
 
     # ---------------------------------------------------------------
-    # Bloco 2: Perguntas personalizadas (primeiro) + identificação da
-    # comunidade (Terra Indígena, etc.), no mesmo bloco, sem divider entre
-    # elas. Perguntas/campos sem resposta não aparecem.
+    # Bloco 2: Perguntas personalizadas + identificação da comunidade
     # ---------------------------------------------------------------
     respostas_personalizadas = solicitacao.get("respostas_personalizadas_insumos", [])
     for resposta in respostas_personalizadas:
@@ -259,14 +344,13 @@ def gerar_pdf_solicitacao(solicitacao, projetos_dict, pessoas_dict):
     elementos.append(divisor())
 
     # ---------------------------------------------------------------
-    # Bloco 3: Justificativa (sem divider depois)
+    # Bloco 3: Justificativa
     # ---------------------------------------------------------------
     elementos.append(linha("Justificativa", solicitacao.get("justificativa_objetivos", "—")))
     elementos.append(Spacer(1, 25))
 
     # ---------------------------------------------------------------
-    # Tabela de itens demandados: sem margens laterais (ocupa toda a
-    # largura útil da página) e com a coluna "Unidade" mais larga
+    # Tabela de itens demandados
     # ---------------------------------------------------------------
     itens = solicitacao.get("itens_demandados", [])
     if itens:
@@ -288,11 +372,7 @@ def gerar_pdf_solicitacao(solicitacao, projetos_dict, pessoas_dict):
                 Paragraph(str(item.get("Quantidade", "—")), estilo_celula_tabela),
             ])
 
-        # Largura útil da página (A4 = 21cm, com margens de 2cm de cada
-        # lado definidas no doc = 17cm de área útil). A tabela agora ocupa
-        # toda essa largura, e a coluna "Unidade" ficou mais larga.
-        largura_util = 21 * cm - 2 * (2 * cm)  # 17cm
-        col_item = 1.3 * cm
+        col_item = 1.8 * cm
         col_unidade = 4 * cm
         col_quantidade = 2.7 * cm
         col_descricao = largura_util - (col_item + col_unidade + col_quantidade)
@@ -303,18 +383,12 @@ def gerar_pdf_solicitacao(solicitacao, projetos_dict, pessoas_dict):
             repeatRows=1,
         )
         tabela.setStyle(TableStyle([
-            # Cabeçalho no estilo do print: fundo cinza claro, texto escuro em negrito
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#F2F2F2")),
             ("TOPPADDING", (0, 0), (-1, -1), 8),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
             ("LEFTPADDING", (0, 0), (-1, -1), 8),
             ("RIGHTPADDING", (0, 0), (-1, -1), 8),
-            # Remove as margens laterais da tabela: sem padding extra na
-            # borda esquerda da 1ª coluna e na borda direita da última
-            ("LEFTPADDING", (0, 0), (0, -1), 0),
-            ("RIGHTPADDING", (-1, 0), (-1, -1), 0),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            # Sem grid — apenas linhas horizontais finas, como no print
             ("LINEBELOW", (0, 0), (-1, 0), 1, colors.HexColor("#D0D0D0")),
             ("LINEBELOW", (0, 1), (-1, -2), 0.5, colors.HexColor("#E5E5E5")),
         ]))
@@ -406,15 +480,15 @@ def enviar_notificacao_solicitacao(solicitacao, tipo, projetos_dict, pessoas_dic
     corpo = f"""
     <p>Uma solicitação de insumos foi <b>{verbo}</b> pelo Portal Jataí.</p>
 
-    <p><b>Código:</b> {solicitacao.get("codigo_solicitacao", "—")}</p>
+    <p><b>Código:</b> {obter_codigo_solicitacao_exibido(solicitacao)}</p>
     <p><b>Projeto:</b> {nome_projeto}</p>
     
     <p>{tipo} por <b>{nome_usuario_acao}</b> ({email_usuario_acao}) em <b>{data_hora_acao}</b></p>
     """
 
     pdf_bytes = gerar_pdf_solicitacao(solicitacao, projetos_dict, pessoas_dict)
-    codigo_solicitacao = solicitacao.get("codigo_solicitacao", "0000")
-    nome_arquivo = f"SDI-{codigo_solicitacao}_{sanitizar_nome_arquivo(nome_responsavel)}.pdf"
+    codigo_solicitacao_exibido = obter_codigo_solicitacao_exibido(solicitacao)
+    nome_arquivo = f"{codigo_solicitacao_exibido}_{sanitizar_nome_arquivo(nome_responsavel)}.pdf"
 
     enviar_email(destinatarios, assunto, corpo, anexo_bytes=pdf_bytes, nome_anexo=nome_arquivo)
 
@@ -496,6 +570,18 @@ def obter_nome_pessoa_por_id(pessoa_id, pessoas_dict):
         return nome
     pessoa = pessoas.find_one({"_id": ObjectId(pessoa_id)}, {"nome_completo": 1})
     return obter_nome_pessoa(pessoa) if pessoa else "—"
+
+
+def obter_codigo_solicitacao_exibido(solicitacao):
+    """Retorna o código da solicitação sempre com a sigla 'SDI-' antes do
+    número, mesmo para registros antigos que tenham sido salvos sem o
+    prefixo (o padrão a partir de agora é salvar com ele, mas isso garante
+    a exibição correta também nesses casos legados)."""
+    codigo = solicitacao.get("codigo_solicitacao")
+    if not codigo:
+        return "—"
+    codigo = str(codigo)
+    return codigo if codigo.upper().startswith("SDI-") else f"SDI-{codigo}"
 
 
 def obter_nome_responsavel_solicitacao(solicitacao, pessoas_dict):
@@ -603,6 +689,7 @@ def dialog_editar_pergunta(projeto_id, pergunta):
     key_confirmar_exclusao = f"confirmar_exclusao_pergunta_{pergunta['_id']}"
 
     if salvar:
+        
         if not titulo_editado or not titulo_editado.strip():
             st.error("Informe o título da pergunta.")
         else:
@@ -616,6 +703,7 @@ def dialog_editar_pergunta(projeto_id, pergunta):
             if not opcoes_registradas:
                 st.error("Informe ao menos uma opção de resposta.")
             else:
+
                 projetos_ispn.update_one(
                     {"_id": ObjectId(projeto_id), "perguntas_personalizadas_insumos._id": pergunta["_id"]},
                     {"$set": {
@@ -683,24 +771,22 @@ def dialog_detalhes(solicitacao, projetos, projetos_dict, pessoas_dict):
         nome_projeto = obter_nome_projeto_por_id(solicitacao.get("projeto_id"), projetos_dict)
 
         col1, col2, col3 = st.columns(3)
-        col1.write(f"**Código:** {solicitacao.get('codigo_solicitacao', '—')}")
+        col1.write(f"**Código:** {obter_codigo_solicitacao_exibido(solicitacao)}")
         col2.write(f"**Projeto:** {nome_projeto}")
-
-        respostas_personalizadas = solicitacao.get("respostas_personalizadas_insumos", [])
-        if respostas_personalizadas:
-            st.write("")
-            for resposta in respostas_personalizadas:
-                titulo = resposta.get("titulo_pergunta_insumos", "—")
-                opcoes_selecionadas = resposta.get("opcoes_selecionadas", [])
-                valor_exibido = ", ".join(opcoes_selecionadas) if opcoes_selecionadas else "—"
-                col3.markdown(f"**{titulo}:** {valor_exibido}")
+        col3.write(f"**Responsável:** {obter_nome_responsavel_solicitacao(solicitacao, pessoas_dict)}")
 
         st.divider()
 
-        col1, col2, col3 = st.columns(3)
-        col1.markdown(f"**Responsável:** {obter_nome_responsavel_solicitacao(solicitacao, pessoas_dict)}")
-        col2.markdown(f"**Data da Solicitação:** {solicitacao.get('data_solicitacao', '—')}")
-        col3.markdown(f"**Data Prevista/Desejada de Entrega:** {solicitacao.get('data_prevista_entrega', '—')}")
+        ultima_edicao = solicitacao.get("ultima_edicao")
+        if ultima_edicao:
+            col1, col2, col3 = st.columns(3)
+            col1.markdown(f"**Data da Solicitação:** {solicitacao.get('data_solicitacao', '—')}")
+            col2.markdown(f"**Editado em:** {ultima_edicao}")
+            col3.markdown(f"**Data Prevista/Desejada de Entrega:** {solicitacao.get('data_prevista_entrega', '—')}")
+        else:
+            col1, col2, col3 = st.columns(3)
+            col1.markdown(f"**Data da Solicitação:** {solicitacao.get('data_solicitacao', '—')}")
+            col2.markdown(f"**Data Prevista/Desejada de Entrega:** {solicitacao.get('data_prevista_entrega', '—')}")
 
         st.divider()
 
@@ -714,6 +800,16 @@ def dialog_detalhes(solicitacao, projetos, projetos_dict, pessoas_dict):
         col3.markdown(f"**Nº de Famílias Atendidas:** {comunidade.get('numero_familias_atendidas') or '—'}")
 
         st.divider()
+
+        respostas_personalizadas = solicitacao.get("respostas_personalizadas_insumos", [])
+        if respostas_personalizadas:
+            for resposta in respostas_personalizadas:
+                titulo = resposta.get("titulo_pergunta_insumos", "—")
+                opcoes_selecionadas = resposta.get("opcoes_selecionadas", [])
+                valor_exibido = ", ".join(opcoes_selecionadas) if opcoes_selecionadas else "—"
+                st.markdown(f"**{titulo}:** {valor_exibido}")
+
+            st.divider()
 
         st.write(f"**Justificativa:** {solicitacao.get('justificativa_objetivos', '—')}")
 
@@ -900,30 +996,35 @@ def dialog_detalhes(solicitacao, projetos, projetos_dict, pessoas_dict):
                 # Observação: "codigo_solicitacao" propositalmente não está
                 # neste $set — o código é gerado uma única vez, na criação
                 # da solicitação, e permanece imutável em edições futuras.
-                insumos.update_one(
-                    {"_id": solicitacao["_id"]},
-                    {"$set": {
-                        "projeto_id": ObjectId(projeto_id_editado),
-                        "respostas_personalizadas_insumos": list(respostas_personalizadas_editadas.values()),
-                        "data_prevista_entrega": data_prevista_editada.strftime("%d/%m/%Y"),
-                        "identificacao_comunidade": {
-                            "terra_indigena": terra_indigena_editada,
-                            "nome_aldeia": nome_aldeia_editada,
-                            "nome_grupo_coletivo": nome_grupo_coletivo_editado,
-                            "atividade_produtiva_principal": atividade_produtiva_editada,
-                            "nome_responsavel_grupo": nome_responsavel_grupo_editado,
-                            "numero_familias_atendidas": numero_familias_editado,
-                        },
-                        "justificativa_objetivos": justificativa_editada,
-                        "itens_demandados": itens_registrados,
-                    }}
-                )
+                # "ultima_edicao" registra a data e hora desta edição, para
+                # ser exibida como "Editado em:" tanto no diálogo de
+                # detalhes quanto no PDF gerado.
+                with st.spinner(text="Salvando alterações..."):
+                    insumos.update_one(
+                        {"_id": solicitacao["_id"]},
+                        {"$set": {
+                            "projeto_id": ObjectId(projeto_id_editado),
+                            "respostas_personalizadas_insumos": list(respostas_personalizadas_editadas.values()),
+                            "data_prevista_entrega": data_prevista_editada.strftime("%d/%m/%Y"),
+                            "identificacao_comunidade": {
+                                "terra_indigena": terra_indigena_editada,
+                                "nome_aldeia": nome_aldeia_editada,
+                                "nome_grupo_coletivo": nome_grupo_coletivo_editado,
+                                "atividade_produtiva_principal": atividade_produtiva_editada,
+                                "nome_responsavel_grupo": nome_responsavel_grupo_editado,
+                                "numero_familias_atendidas": numero_familias_editado,
+                            },
+                            "justificativa_objetivos": justificativa_editada,
+                            "itens_demandados": itens_registrados,
+                            "ultima_edicao": datetime.now().strftime("%d/%m/%Y %H:%M"),
+                        }}
+                    )
 
-                solicitacao_atualizada = insumos.find_one({"_id": solicitacao["_id"]})
-                enviar_notificacao_solicitacao(solicitacao_atualizada, "Editado", projetos_dict, pessoas_dict)
-                st.success("Solicitação atualizada com sucesso!", icon=":material/check:")
-                time.sleep(2)
-                st.rerun()
+                    solicitacao_atualizada = insumos.find_one({"_id": solicitacao["_id"]})
+                    enviar_notificacao_solicitacao(solicitacao_atualizada, "Editado", projetos_dict, pessoas_dict)
+                    st.success("Solicitação atualizada com sucesso!", icon=":material/check:")
+                    time.sleep(2)
+                    st.rerun()
 
 
 ###########################################################################################################
@@ -996,7 +1097,7 @@ with abas[0]:
 
             for solicitacao in solicitacoes:
                 col_codigo, col_proj, col_resp, col_data_sol, col_data_ent, col_botao = st.columns([1, 2, 2, 2, 2, 2])
-                col_codigo.write(solicitacao.get("codigo_solicitacao", "—"))
+                col_codigo.write(obter_codigo_solicitacao_exibido(solicitacao))
                 col_proj.write(obter_nome_projeto_por_id(solicitacao.get("projeto_id"), projetos_dict))
                 col_resp.write(obter_nome_responsavel_solicitacao(solicitacao, pessoas_dict))
                 col_data_sol.write(solicitacao.get("data_solicitacao", "—"))
@@ -1166,9 +1267,11 @@ with abas[1]:
                     st.error(erro)
             else:
                 # O código é gerado de forma atômica (via find_one_and_update
-                # sobre o contador em "contadores") apenas neste momento, no
-                # instante do envio — evitando que duas solicitações
-                # concorrentes recebam o mesmo código.
+                # sobre o contador dedicado na coleção "contadores") apenas
+                # neste momento, no instante do envio — evitando que duas
+                # solicitações concorrentes recebam o mesmo código, e
+                # garantindo que o código nunca se repita mesmo que
+                # solicitações sejam excluídas depois.
                 codigo_solicitacao = gerar_codigo_solicitacao()
 
                 novo_documento = {
@@ -1188,7 +1291,6 @@ with abas[1]:
                     },
                     "justificativa_objetivos": justificativa_objetivos,
                     "itens_demandados": itens_registrados,
-                    "status": "Pendente",
                 }
 
                 resultado_insercao = insumos.insert_one(novo_documento)
