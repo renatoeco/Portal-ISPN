@@ -15,6 +15,7 @@ import plotly.express as px
 import time
 import bson
 from streamlit_scroll_to_top import scroll_to_here
+from streamlit_calendar import calendar
 
 
 
@@ -325,103 +326,100 @@ def carregar_entregas():
     )
 
 
+
+
 def grafico_cronograma(df, titulo):
 
-    if df.empty:
-        st.info("Nenhuma entrega encontrada.")
+    # Cria uma cópia para não alterar o DataFrame original.
+    df_cronograma = df.copy()
+
+    # Converte as datas para datetime.
+    df_cronograma["data_inicio"] = pd.to_datetime(
+        df_cronograma["data_inicio"],
+        errors="coerce"
+    )
+
+    df_cronograma["previsao_da_conclusao"] = pd.to_datetime(
+        df_cronograma["previsao_da_conclusao"],
+        errors="coerce"
+    )
+
+    # Mantém somente entregas com data de início cadastrada.
+    df_cronograma = df_cronograma[
+        df_cronograma["data_inicio"].notna()
+    ].copy()
+
+    if df_cronograma.empty:
+
+        st.info(
+            "Não há entregas com data de início cadastrada."
+        )
+
         return
 
-    df_plot = df.copy()
+    eventos = []
 
-    # Considera apenas entregas ativas
-    df_plot = df_plot[
-        df_plot["situacao"].isin(["Prevista", "Atrasada"])
-    ]
+    for _, entrega in df_cronograma.iterrows():
 
-    # Considera apenas entregas com data_inicio e data_fim válidas
-    df_plot = df_plot[
-        df_plot["data_inicio"].notna() &
-        df_plot["previsao_da_conclusao"].notna()
-    ]
+        data_previsao = entrega["previsao_da_conclusao"]
 
-    if df_plot.empty:
-        st.caption("Nenhuma entrega com data de início.")
-        return
+        # Não cria evento para entregas sem previsão de conclusão.
+        if pd.isna(data_previsao):
+            continue
 
-    df_plot["Inicio"] = df_plot["data_inicio"]
-    df_plot["Fim"] = df_plot["previsao_da_conclusao"]
-    
-    # ==================================================
-    # LIMITES DO EIXO X (ANO MAIS ANTIGO → MAIS RECENTE)
-    # ==================================================
-
-    xmin = df_plot["Inicio"].min()
-    xmax = df_plot["Fim"].max()
-
-    # ==================================================
-    # HOVER
-    # ==================================================
-
-    # Ordena visualmente
-    df_plot = df_plot.sort_values("Inicio", ascending=False)
-
-    altura_total = max(300, len(df_plot) * 45)
-
-    df_plot["inicio_hover"] = df_plot["data_inicio_str"]
-    df_plot["previsao_hover"] = df_plot["previsao_da_conclusao_str"]
-
-    fig = px.timeline(
-        df_plot,
-        x_start="Inicio",
-        x_end="Fim",
-        y="nome_da_entrega",
-        color="situacao",
-        custom_data=[
+        nome_entrega = entrega.get(
             "nome_da_entrega",
-            "projetos_str",
-            "inicio_hover",
-            "previsao_hover",
-            "responsaveis",
-            "programa_str"
-        ],
-        height=altura_total,
-        title=titulo
+            "Entrega sem nome"
+        )
+
+        situacao = entrega.get(
+            "situacao",
+            "Prevista"
+        )
+
+        # Define a cor conforme a situação da entrega.
+        if situacao == "Concluída":
+
+            cor = "#ADD8E6"
+
+        elif situacao == "Atrasada":
+
+            cor = "#F4CCCC"
+
+        else:
+
+            cor = "#FFF2CC"
+
+        eventos.append({
+            "title": nome_entrega,
+            "start": data_previsao.strftime("%Y-%m-%d"),
+            "backgroundColor": cor,
+            "borderColor": cor,
+            "textColor": "#262730",
+            "allDay": True
+        })
+
+    opcoes = {
+        "initialView": "dayGridMonth",
+        "headerToolbar": {
+            "left": "prev,next today",
+            "center": "title",
+            "right": "dayGridMonth,timeGridWeek,listMonth"
+        },
+        "locale": "pt-br",
+        "height": 700,
+        "editable": False,
+        "selectable": False,
+        "eventDisplay": "block"
+    }
+
+    calendar(
+        events=eventos,
+        options=opcoes
     )
 
-    fig.update_traces(
-        hovertemplate=
-        "<b>Entrega:</b> %{customdata[0]}<br>"
-        "<b>Projeto:</b> %{customdata[1]}<br>"
-        "<b>Data de início:</b> %{customdata[2]}<br>"
-        "<b>Previsão de Conclusão:</b> %{customdata[3]}<br>"
-        "<b>Responsáveis:</b> %{customdata[4]}<br>"
-        "<b>Programa:</b> %{customdata[5]}<br>"
-        "<extra></extra>"
-    )
 
-    fig.update_yaxes(
-        categoryorder="array",
-        categoryarray=df_plot["nome_da_entrega"].tolist(),
-        title=""
-    )
 
-    fig.update_xaxes(
-        range=[xmin, xmax],
-
-        # Intervalo maior (menos poluição)
-        dtick="M1",  # 1 mês (melhor que D30)
-
-        # Formato mais limpo
-        tickformat="%b/%Y",  # Ex: Jan/2026
-
-        hoverformat="%d/%m/%Y"
-    )
-
-    fig.update_layout(
-        margin=dict(l=180, r=40, t=60, b=40)
-    )
-
-    st.plotly_chart(fig)
 
 
 def verificar_entregas_atrasadas():
@@ -1277,8 +1275,12 @@ with lista_entregas:
 
 with cronograma_entregas:
 
-    st.caption("Somente entregas com data de início cadastrada são exibidas no cronograma.")
+    st.write(
+        "**Calendário da data prevista de conclusão das Entregas.**"
+    )
+
     grafico_cronograma(
         df_entregas_filtrado,
         "Cronograma de Entregas"
     )
+
