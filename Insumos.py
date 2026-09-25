@@ -1165,8 +1165,7 @@ with abas[1]:
                     "opcoes_selecionadas": opcoes_selecionadas,
                 }
                 
-        else:
-            st.caption("Este projeto ainda não possui perguntas personalizadas cadastradas.")
+
 
     st.write("")
 
