@@ -1341,59 +1341,62 @@ if usuario_tem_acesso_crud(projetos_geral):
             key_titulo_nova_pergunta = f"crud_titulo_nova_pergunta_{projeto_id_crud}"
             key_data_editor_nova_pergunta = f"crud_data_editor_nova_pergunta_{projeto_id_crud}"
 
-            titulo_nova_pergunta = st.text_input(
-                "Qual o título da pergunta?",
-                key=key_titulo_nova_pergunta
-            )
+            with st.expander("Cadastrar nova pergunta", expanded=False, icon=":material/add:"):
+                
 
-            if titulo_nova_pergunta and titulo_nova_pergunta.strip():
-
-                df_opcoes_vazio = pd.DataFrame({"Opção de Resposta": pd.array([], dtype="string")})
-
-                df_opcoes_nova_pergunta = st.data_editor(
-                    df_opcoes_vazio,
-                    num_rows="dynamic",
-                    hide_index=True,
-                    width="stretch",
-                    column_config={
-                        "Opção de Resposta": st.column_config.TextColumn("Opção de Resposta", width="large"),
-                    },
-                    key=key_data_editor_nova_pergunta
+                titulo_nova_pergunta = st.text_input(
+                    "Qual o título da pergunta?",
+                    key=key_titulo_nova_pergunta
                 )
 
-                st.write("")
-                if st.button(
-                    "Cadastrar pergunta", type="primary", icon=":material/save:",
-                    key=f"crud_botao_cadastrar_{projeto_id_crud}"
-                ):
-                    opcoes_registradas = sorted(
-                        {
-                            o.strip() for o in df_opcoes_nova_pergunta["Opção de Resposta"].tolist()
-                            if isinstance(o, str) and o.strip()
+                if titulo_nova_pergunta and titulo_nova_pergunta.strip():
+
+                    df_opcoes_vazio = pd.DataFrame({"Opção de Resposta": pd.array([], dtype="string")})
+
+                    df_opcoes_nova_pergunta = st.data_editor(
+                        df_opcoes_vazio,
+                        num_rows="dynamic",
+                        hide_index=True,
+                        width="stretch",
+                        column_config={
+                            "Opção de Resposta": st.column_config.TextColumn("Opção de Resposta", width="large"),
                         },
-                        key=str.lower
+                        key=key_data_editor_nova_pergunta
                     )
 
-                    if not opcoes_registradas:
-                        st.error("Informe ao menos uma opção de resposta.")
-                    else:
-                        nova_pergunta = {
-                            "_id": ObjectId(),
-                            "titulo_pergunta_insumos": titulo_nova_pergunta.strip(),
-                            "opcoes_resposta_insumos": opcoes_registradas,
-                        }
-                        projetos_ispn.update_one(
-                            {"_id": ObjectId(projeto_id_crud)},
-                            {"$push": {"perguntas_personalizadas_insumos": nova_pergunta}}
+                    st.write("")
+                    if st.button(
+                        "Cadastrar pergunta", type="primary", icon=":material/save:",
+                        key=f"crud_botao_cadastrar_{projeto_id_crud}"
+                    ):
+                        opcoes_registradas = sorted(
+                            {
+                                o.strip() for o in df_opcoes_nova_pergunta["Opção de Resposta"].tolist()
+                                if isinstance(o, str) and o.strip()
+                            },
+                            key=str.lower
                         )
-                        st.success("Pergunta cadastrada com sucesso!", icon=":material/check:")
-                        # Limpa os campos de cadastro antes do rerun, para que o
-                        # formulário volte vazio e pronto para uma nova pergunta.
-                        st.session_state.pop(key_titulo_nova_pergunta, None)
-                        st.session_state.pop(key_data_editor_nova_pergunta, None)
-                        time.sleep(2)
-                        st.cache_data.clear()
-                        st.rerun()
+
+                        if not opcoes_registradas:
+                            st.error("Informe ao menos uma opção de resposta.")
+                        else:
+                            nova_pergunta = {
+                                "_id": ObjectId(),
+                                "titulo_pergunta_insumos": titulo_nova_pergunta.strip(),
+                                "opcoes_resposta_insumos": opcoes_registradas,
+                            }
+                            projetos_ispn.update_one(
+                                {"_id": ObjectId(projeto_id_crud)},
+                                {"$push": {"perguntas_personalizadas_insumos": nova_pergunta}}
+                            )
+                            st.success("Pergunta cadastrada com sucesso!", icon=":material/check:")
+                            # Limpa os campos de cadastro antes do rerun, para que o
+                            # formulário volte vazio e pronto para uma nova pergunta.
+                            st.session_state.pop(key_titulo_nova_pergunta, None)
+                            st.session_state.pop(key_data_editor_nova_pergunta, None)
+                            time.sleep(2)
+                            st.cache_data.clear()
+                            st.rerun()
 
             st.write("")
             st.markdown("**Perguntas cadastradas**")
