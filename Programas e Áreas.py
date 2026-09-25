@@ -315,11 +315,10 @@ def gerenciar_programa_dialog(programa):
 
 
     # ------------------- Aba principal -------------------
-    aba_principal, aba_acoes, aba_resultados = st.tabs([
+    aba_principal, aba_resultados, aba_acoes = st.tabs([
         "Informações Gerais",
-        "Ações Estratégicas",
-        "Resultados do programa"
-        
+        "Resultados do programa",
+        "Ações Estratégicas"    
 
     ])
 
