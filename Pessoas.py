@@ -225,7 +225,7 @@ meses_pt = [
 opcoes_cargos = [
     "Analista de advocacy", "Analista de comunicação", "Analista de dados", "Analista Administrativo/Financeiro",
     "Analista de Recursos Humanos", "Analista socioambiental", "Analista socioambiental pleno", "Analista socioambiental sênior",
-    "Assessora de advocacy", "Assessor de Comunicação", "Auxiliar de Serviços Gerais", "Auxiliar Administrativo/financeiro",
+    "Assessora de advocacy", "Assessor de Comunicação", "Assessor de dados", "Auxiliar de Serviços Gerais", "Auxiliar Administrativo/financeiro",
     "Assistente Administrativo/financeiro", "Assistente socioambiental", "Coordenador Administrativo/financeiro de escritório",
     "Coordenador Geral administrativo/financeiro", "Coordenador Executivo", "Coordenador de Área", "Coordenador de Programa", "Estagiário",
     "Motorista", "Secretária(o)/Recepcionista", "Técnico de campo", "Técnico em informática"
