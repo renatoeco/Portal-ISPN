@@ -886,17 +886,28 @@ def render_entregas():
 
         st.markdown("#### Registros de Entrega:")
 
-        # Nenhuma entrega selecionada: mantém a área vazia,
-        # exibindo somente as orientações de seleção.
+        # Nenhuma entrega selecionada
+        # exibindo somente as orientações de seleção e botão de novo registro.
         if entrega_selecionada is None:
 
             st.caption(
-                "Selecione uma Entrega na coluna da esquerda"
+                "Clique em :material/select_check_box: **Ver x registros** na coluna da esquerda ou adicione um novo registro."
             )
 
-            st.caption(
-                "Clique em :material/select_check_box: **Ver x registros**."
+            novo_registro = st.button(
+                "Novo registro de entrega",
+                icon=":material/add:",
+                type="primary",
+                key="novo_registro_sem_entrega_selecionada"
             )
+
+            if novo_registro:
+
+                cadastrar_registro_entrega(
+                    entrega_selecionada=False
+                )
+
+
 
         else:
 
@@ -910,11 +921,28 @@ def render_entregas():
                 f"##### {nome_entrega}"
             )
 
+
+            # Identificação da entrega e cadastro de novo registro.
+
+            novo_registro = st.button(
+                "Novo registro de entrega",
+                icon=":material/add:",
+                type="primary",
+                key=f"novo_registro_entrega_selecionada_{entrega_selecionada['entrega_id']}"
+            )
+
+            if novo_registro:
+
+                cadastrar_registro_entrega(
+                    str(entrega_selecionada["entrega_id"])
+                )
+
             # Obtém somente os registros pertencentes à entrega selecionada.
             lancamentos = entrega_selecionada.get(
                 "lancamentos_entregas",
                 []
             )
+
 
             if not isinstance(lancamentos, list):
                 lancamentos = []

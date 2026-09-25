@@ -942,7 +942,10 @@ def mostrar_detalhes_entrega(entrega_id):
 # ##########################################################
 
 @st.dialog("Novo registro de entrega", width="large", on_dismiss="rerun")
-def cadastrar_registro_entrega(entrega_id):
+def cadastrar_registro_entrega(
+    entrega_id=None,
+    entrega_selecionada=True
+):
 
     # Conexão com as coleções utilizadas no registro.
     db = conectar_mongo_portal_ispn()
@@ -951,14 +954,117 @@ def cadastrar_registro_entrega(entrega_id):
     indicadores = db["indicadores"]
     colecao_lancamentos = db["lancamentos_indicadores"]
 
+
+
+    # ----------------------------------------------------------
+    # Seleção do projeto e da entrega
+    # ----------------------------------------------------------
+
+    if not entrega_selecionada:
+
+        projetos = list(
+            projetos_ispn.find(
+                {},
+                {
+                    "_id": 1,
+                    "sigla": 1,
+                    "entregas": 1
+                }
+            )
+        )
+
+        projetos_com_entregas = [
+            projeto
+            for projeto in projetos
+            if projeto.get("entregas")
+        ]
+
+        if not projetos_com_entregas:
+
+            st.warning(
+                "Não há projetos com entregas cadastradas."
+            )
+
+            return
+
+        projetos_dict = {
+            str(projeto["_id"]): projeto.get(
+                "sigla",
+                "Projeto sem sigla"
+            )
+            for projeto in projetos_com_entregas
+        }
+
+        projeto_id_selecionado = st.selectbox(
+            "Projeto",
+            options=list(projetos_dict.keys()),
+            format_func=lambda projeto_id: projetos_dict[projeto_id],
+            index=None,
+            placeholder="Selecione o projeto"
+        )
+
+        if not projeto_id_selecionado:
+
+            st.caption(
+                "Selecione um projeto para visualizar suas entregas."
+            )
+
+            return
+
+        projeto = next(
+            projeto
+            for projeto in projetos_com_entregas
+            if str(projeto["_id"]) == projeto_id_selecionado
+        )
+
+        entregas_projeto = projeto.get(
+            "entregas",
+            []
+        )
+
+        entregas_dict = {
+            str(entrega["_id"]): entrega.get(
+                "nome_da_entrega",
+                "Entrega sem nome"
+            )
+            for entrega in entregas_projeto
+        }
+
+        entrega_id_selecionada = st.selectbox(
+            "Entrega",
+            options=list(entregas_dict.keys()),
+            format_func=lambda entrega_id: entregas_dict[entrega_id],
+            index=None,
+            placeholder="Selecione a entrega"
+        )
+
+        if not entrega_id_selecionada:
+
+            st.caption(
+                "Selecione uma entrega para continuar."
+            )
+
+            return
+
+        entrega_id = entrega_id_selecionada
+
+
     # ----------------------------------------------------------
     # Localiza o projeto que contém a entrega
     # ----------------------------------------------------------
 
     try:
-        entrega_object_id = ObjectId(entrega_id)
+
+        entrega_object_id = ObjectId(
+            entrega_id
+        )
+
     except Exception:
-        st.error("Identificador da entrega inválido.")
+
+        st.error(
+            "Identificador da entrega inválido."
+        )
+
         return
 
     projeto = projetos_ispn.find_one(
@@ -968,8 +1074,14 @@ def cadastrar_registro_entrega(entrega_id):
     )
 
     if not projeto:
-        st.error("Projeto da entrega não encontrado.")
+
+        st.error(
+            "Projeto da entrega não encontrado."
+        )
+
         return
+
+
 
     # ----------------------------------------------------------
     # Localiza a entrega
