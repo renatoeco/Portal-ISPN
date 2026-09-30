@@ -114,6 +114,7 @@ def carregar_todos_projetos():
                 "nome_do_projeto": 1,
                 "sigla": 1,
                 "codigo": 1,
+                "perguntas_personalizadas_insumos": 1,
             }
         )
     )
@@ -1294,6 +1295,52 @@ with abas[1]:
     # Recupera o ID do projeto selecionado para utilização nas consultas ao banco.
     projeto_id_selecionado = projetos_opcoes[projeto_selecionado]
 
+
+
+
+    # Localiza os dados completos do projeto selecionado.
+    projeto_selecionado_dados = next(
+        (
+            projeto
+            for projeto in projetos_lista
+            if str(projeto["_id"]) == projeto_id_selecionado
+        ),
+        None
+    )
+
+    # Recupera as perguntas personalizadas cadastradas para o projeto.
+    perguntas_personalizadas = (
+        obter_perguntas_personalizadas_projeto(projeto_selecionado_dados)
+        if projeto_selecionado_dados
+        else []
+    )
+
+
+
+
+
+    # Localiza o projeto selecionado para obter suas configurações específicas
+    # de perguntas personalizadas para a consulta.
+    projeto_selecionado_dados = next(
+        (
+            projeto
+            for projeto in projetos_lista
+            if str(projeto["_id"]) == projeto_id_selecionado
+        ),
+        None
+    )
+
+    # Recupera as perguntas personalizadas cadastradas para o projeto.
+    perguntas_personalizadas = (
+        projeto_selecionado_dados.get(
+            "perguntas_personalizadas_insumos",
+            []
+        )
+        if projeto_selecionado_dados
+        else []
+    )
+
+
     # Carrega somente as solicitações vinculadas ao projeto selecionado.
     solicitacoes_consulta = carregar_solicitacoes_por_projeto(
         projeto_id_selecionado
@@ -1491,6 +1538,35 @@ with abas[1]:
     )
 
 
+    # Mantém a área das perguntas personalizadas organizada em três colunas.
+    colunas_perguntas = st.columns(3)
+
+    respostas_personalizadas_selecionadas = {}
+
+    for indice, pergunta in enumerate(perguntas_personalizadas):
+        pergunta_id = str(pergunta["_id"])
+        titulo_pergunta = pergunta.get(
+            "titulo_pergunta_insumos",
+            "Pergunta"
+        )
+        opcoes_resposta = pergunta.get(
+            "opcoes_resposta_insumos",
+            []
+        )
+
+        coluna = colunas_perguntas[indice % 3]
+
+        respostas_personalizadas_selecionadas[pergunta_id] = coluna.selectbox(
+            titulo_pergunta,
+            options=opcoes_resposta,
+            index=None,
+            placeholder="Selecione uma opção",
+            key=f"consulta_insumos_pergunta_{pergunta_id}",
+        )
+
+
+
+
 
 
 
@@ -1585,7 +1661,41 @@ with abas[1]:
 
 
 
+    # Aplica os filtros das perguntas personalizadas do projeto.
+    for pergunta_id, resposta_selecionada in respostas_personalizadas_selecionadas.items():
 
+        if resposta_selecionada is None:
+            continue
+
+        solicitacoes_filtradas = []
+
+        for solicitacao in solicitacoes_consulta:
+            respostas = solicitacao.get(
+                "respostas_personalizadas_insumos",
+                []
+            )
+
+            resposta_pergunta = next(
+                (
+                    resposta
+                    for resposta in respostas
+                    if str(resposta.get("pergunta_id")) == pergunta_id
+                ),
+                None
+            )
+
+            if not resposta_pergunta:
+                continue
+
+            opcoes_selecionadas = resposta_pergunta.get(
+                "opcoes_selecionadas",
+                []
+            )
+
+            if resposta_selecionada in opcoes_selecionadas:
+                solicitacoes_filtradas.append(solicitacao)
+
+        solicitacoes_consulta = solicitacoes_filtradas
 
 
 
