@@ -7,6 +7,8 @@ from bson import ObjectId
 from pymongo import ReturnDocument
 from st_rsuite import date_picker
 import io
+
+
 import smtplib
 import re
 import unicodedata
@@ -1244,7 +1246,6 @@ with abas[0]:
 with abas[1]:
 
     st.write("")
-    st.write("")
 
     # Carrega as pessoas para resolução dos responsáveis exibidos na consulta.
     pessoas_lista = carregar_pessoas()
@@ -1905,10 +1906,8 @@ with abas[1]:
                 f"Unidade: {unidades_formatadas}"
             )
 
-        # Apresenta os filtros em uma única frase, separados por ponto e vírgula.
-        st.markdown(
-            "**Filtros aplicados:** " + "; ".join(filtros_ativos) + "."
-        )
+
+
 
 
 
@@ -1927,6 +1926,46 @@ with abas[1]:
             "Data da Solicitação",
             "Data Prevista de Entrega",
         ]
+
+
+
+
+        with st.container(horizontal=True, horizontal_alignment="distribute"):
+
+
+            # Exibe a descrição dos filtros atualmente aplicados.
+            if filtros_ativos:
+                st.caption(
+                    "Filtros aplicados: " + " | ".join(filtros_ativos)
+                )
+
+            # Prepara o resultado filtrado para exportação.
+            df_exportacao = df_consulta[colunas_consulta].copy()
+
+            # Gera o arquivo XLSX em memória.
+            buffer_xlsx = io.BytesIO()
+
+            with pd.ExcelWriter(buffer_xlsx, engine="openpyxl") as writer:
+                df_exportacao.to_excel(
+                    writer,
+                    index=False,
+                    sheet_name="Consulta",
+                )
+
+            buffer_xlsx.seek(0)
+
+            st.download_button(
+                "Baixar em xlsx",
+                data=buffer_xlsx,
+                file_name="consulta_insumos.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                icon=":material/download:",
+            )
+
+        st.write('')
+
+
+
 
         # Acrescenta as perguntas personalizadas ao final do dataframe.
         colunas_consulta.extend(
