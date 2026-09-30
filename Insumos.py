@@ -1308,12 +1308,6 @@ with abas[1]:
         None
     )
 
-    # Recupera as perguntas personalizadas cadastradas para o projeto.
-    perguntas_personalizadas = (
-        obter_perguntas_personalizadas_projeto(projeto_selecionado_dados)
-        if projeto_selecionado_dados
-        else []
-    )
 
 
 
@@ -1760,7 +1754,10 @@ with abas[1]:
             ):
                 continue
 
-            registros_consulta.append({
+
+
+
+            registro = {
                 "Código": obter_codigo_solicitacao_exibido(solicitacao),
                 "Projeto": nome_projeto,
                 "Responsável": nome_responsavel,
@@ -1789,7 +1786,47 @@ with abas[1]:
                 ),
                 "Unidade": unidade or "",
                 "Quantidade": item.get("Quantidade"),
-            })
+            }
+
+            # Recupera as respostas personalizadas registradas na solicitação.
+            respostas_personalizadas = solicitacao.get(
+                "respostas_personalizadas_insumos",
+                []
+            )
+
+            # Organiza as respostas pelo ID da pergunta.
+            respostas_por_pergunta = {
+                str(resposta.get("pergunta_id")): resposta.get(
+                    "opcoes_selecionadas",
+                    []
+                )
+                for resposta in respostas_personalizadas
+            }
+
+            # Acrescenta as respostas personalizadas ao registro.
+            for pergunta in perguntas_personalizadas:
+
+                pergunta_id = str(pergunta["_id"])
+
+                titulo_pergunta = pergunta.get(
+                    "titulo_pergunta_insumos",
+                    "Pergunta"
+                )
+
+                opcoes_selecionadas = respostas_por_pergunta.get(
+                    pergunta_id,
+                    []
+                )
+
+                registro[titulo_pergunta] = ", ".join(
+                    str(opcao)
+                    for opcao in opcoes_selecionadas
+                )
+
+            registros_consulta.append(registro)
+
+
+
 
     df_consulta = pd.DataFrame(registros_consulta)
 
@@ -1888,8 +1925,17 @@ with abas[1]:
             "Nome da Aldeia",
             "Nome do Grupo/Coletivo",
             "Data da Solicitação",
-            "Data Prevista de Entrega",            
+            "Data Prevista de Entrega",
         ]
+
+        # Acrescenta as perguntas personalizadas ao final do dataframe.
+        colunas_consulta.extend(
+            pergunta.get(
+                "titulo_pergunta_insumos",
+                "Pergunta"
+            )
+            for pergunta in perguntas_personalizadas
+        )
 
         st.dataframe(
             df_consulta[colunas_consulta],
