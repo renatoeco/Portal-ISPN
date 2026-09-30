@@ -1064,28 +1064,14 @@ with abas[0]:
         st.write("")
         st.write("")
 
-        col_filtro, _ = st.columns([2, 3])
-        intervalo_data_solicitacao = col_filtro.date_input(
-            "Data da Solicitação",
-            value=(),
-            format="DD/MM/YYYY",
-            key="insumos_filtro_data_solicitacao"
-        )
-
-        data_inicio_filtro = None
-        data_fim_filtro = None
-        if isinstance(intervalo_data_solicitacao, tuple) and len(intervalo_data_solicitacao) == 2:
-            data_inicio_filtro, data_fim_filtro = intervalo_data_solicitacao
-
-        solicitacoes = filtrar_solicitacoes_por_data(solicitacoes, data_inicio_filtro, data_fim_filtro)
-
-        st.write("")
-        st.write("")
-
         if not solicitacoes:
-            st.caption("**Nenhuma solicitação encontrada para o período selecionado.**")
+            st.caption("**Nenhuma solicitação encontrada.**")
+
         else:
-            col_codigo, col_proj, col_resp, col_data_sol, col_data_ent, col_botao = st.columns([1, 2, 2, 2, 2, 2])
+            col_codigo, col_proj, col_resp, col_data_sol, col_data_ent, col_botao = st.columns(
+                [1, 2, 2, 2, 2, 2]
+            )
+
             col_codigo.markdown("**Código**")
             col_proj.markdown("**Projeto**")
             col_resp.markdown("**Responsável**")
@@ -1096,18 +1082,46 @@ with abas[0]:
             st.divider()
 
             for solicitacao in solicitacoes:
-                col_codigo, col_proj, col_resp, col_data_sol, col_data_ent, col_botao = st.columns([1, 2, 2, 2, 2, 2])
+
+                col_codigo, col_proj, col_resp, col_data_sol, col_data_ent, col_botao = st.columns(
+                    [1, 2, 2, 2, 2, 2]
+                )
+
                 col_codigo.write(obter_codigo_solicitacao_exibido(solicitacao))
-                col_proj.write(obter_nome_projeto_por_id(solicitacao.get("projeto_id"), projetos_dict))
-                col_resp.write(obter_nome_responsavel_solicitacao(solicitacao, pessoas_dict))
+                col_proj.write(
+                    obter_nome_projeto_por_id(
+                        solicitacao.get("projeto_id"),
+                        projetos_dict
+                    )
+                )
+                col_resp.write(
+                    obter_nome_responsavel_solicitacao(
+                        solicitacao,
+                        pessoas_dict
+                    )
+                )
                 col_data_sol.write(solicitacao.get("data_solicitacao", "—"))
                 col_data_ent.write(solicitacao.get("data_prevista_entrega", "—"))
 
-                if col_botao.button("Detalhes", key=f"detalhes_{solicitacao['_id']}", icon=":material/info:"):
-                    dialog_detalhes(solicitacao, projetos_lista, projetos_dict, pessoas_dict)
+                with col_botao:
+
+                    with st.container(horizontal=True, horizontal_alignment="right"):
+
+
+                        if st.button(
+                            "Detalhes",
+                            key=f"detalhes_{solicitacao['_id']}",
+                            icon=":material/info:",
+                            width=150
+                        ):
+                            dialog_detalhes(
+                                solicitacao,
+                                projetos_lista,
+                                projetos_dict,
+                                pessoas_dict
+                            )
 
                 st.divider()
-
 
 ###########################################################################################################
 # ABA 2 — FORMULÁRIO DE NOVA SOLICITAÇÃO
