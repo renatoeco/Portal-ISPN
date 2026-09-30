@@ -93,6 +93,110 @@ st.session_state["pagina_anterior"] = PAGINA_ID
 ###########################################################################################################
 
 
+def carregar_solicitacoes_por_projeto(projeto_id):
+    """Carrega as solicitações de insumos vinculadas ao projeto informado."""
+    solicitacoes = list(
+        insumos.find(
+            {"projeto_id": ObjectId(projeto_id)}
+        ).sort("data_solicitacao", -1)
+    )
+
+    return solicitacoes
+
+
+
+def carregar_todos_projetos():
+    """Carrega todos os projetos cadastrados, independentemente do status."""
+    projetos = list(
+        projetos_ispn.find(
+            {},
+            {
+                "nome_do_projeto": 1,
+                "sigla": 1,
+                "codigo": 1,
+            }
+        )
+    )
+
+    projetos.sort(key=lambda p: obter_rotulo_projeto(p).lower())
+
+    return projetos
+
+
+
+
+def preparar_dados_consulta(solicitacoes, projetos_dict, pessoas_dict):
+    """Transforma as solicitações em registros individuais de itens
+    demandados, incorporando os dados da solicitação e da identificação
+    da comunidade."""
+    
+    registros = []
+
+    for solicitacao in solicitacoes:
+
+        projeto_id = solicitacao.get("projeto_id")
+        responsavel_id = solicitacao.get("responsavel_id")
+
+        nome_projeto = obter_nome_projeto_por_id(
+            projeto_id,
+            projetos_dict
+        )
+
+        nome_responsavel = obter_nome_responsavel_solicitacao(
+            solicitacao,
+            pessoas_dict
+        )
+
+        identificacao = solicitacao.get("identificacao_comunidade", {}) or {}
+
+        terra_indigena = identificacao.get("terra_indigena", "")
+        nome_aldeia = identificacao.get("nome_aldeia", "")
+        nome_grupo_coletivo = identificacao.get("nome_grupo_coletivo", "")
+
+        itens = solicitacao.get("itens_demandados", []) or []
+
+        for item in itens:
+
+            descricao = item.get(
+                "Descrição Material/ Equipamento/ Insumo"
+            )
+
+            unidade = item.get("Unidade")
+
+            # Itens sem descrição e sem unidade não participam da consulta.
+            if descricao is None and unidade is None:
+                continue
+
+            registros.append({
+                "_id_solicitacao": solicitacao.get("_id"),
+                "Código": obter_codigo_solicitacao_exibido(solicitacao),
+                "Projeto": nome_projeto,
+                "Responsável": nome_responsavel,
+                "Data da Solicitação": solicitacao.get(
+                    "data_solicitacao",
+                    ""
+                ),
+                "Data Prevista de Entrega": solicitacao.get(
+                    "data_prevista_entrega",
+                    ""
+                ),
+                "Terra Indígena (TI)": terra_indigena or "",
+                "Nome da Aldeia": nome_aldeia or "",
+                "Nome do Grupo/Coletivo": nome_grupo_coletivo or "",
+                "Descrição material/equipamento/insumo": descricao or "",
+                "Unidade": unidade or "",
+                "Quantidade": item.get("Quantidade"),
+            })
+
+    return pd.DataFrame(registros)
+
+
+
+
+
+
+
+
 def obter_rotulo_projeto(projeto):
     """Retorna o rótulo de exibição do projeto: sigla > código > nome."""
     return projeto.get("sigla") or projeto.get("codigo") or projeto.get("nome_do_projeto") or "Sem identificação"
@@ -1034,7 +1138,12 @@ def dialog_detalhes(solicitacao, projetos, projetos_dict, pessoas_dict):
 
 projetos_geral = carregar_projetos()
 
-nomes_abas = [":material/list: Solicitações", ":material/add: Nova Solicitação"]
+nomes_abas = [
+    ":material/list: Solicitações",
+    ":material/search: Consultas",
+    ":material/add: Nova Solicitação"
+]
+
 if usuario_tem_acesso_crud(projetos_geral):
     nomes_abas.append(":material/quiz: Perguntas Personalizadas")
 
@@ -1042,7 +1151,7 @@ abas = st.tabs(nomes_abas)
 
 
 ###########################################################################################################
-# ABA 1 — LISTAGEM DE SOLICITAÇÕES
+# ABA 0 — LISTAGEM DE SOLICITAÇÕES
 ###########################################################################################################
 
 with abas[0]:
@@ -1123,13 +1232,583 @@ with abas[0]:
 
                 st.divider()
 
-###########################################################################################################
-# ABA 2 — FORMULÁRIO DE NOVA SOLICITAÇÃO
-###########################################################################################################
+
+
+
+
+# ###########################################################################################################
+# ABA 1 — CONSULTAS
+# ###########################################################################################################
 
 with abas[1]:
 
     st.write("")
+    st.write("")
+
+    # Carrega as pessoas para resolução dos responsáveis exibidos na consulta.
+    pessoas_lista = carregar_pessoas()
+    pessoas_dict = montar_dict_nomes_pessoas(pessoas_lista)
+
+    # Carrega todos os projetos para disponibilização no filtro de consulta.
+    projetos_lista = carregar_todos_projetos()
+
+    st.markdown("#### Filtros")
+
+
+
+    # ########################################################################  
+    # FILTROS 
+    # ########################################################################  
+
+    projetos_lista = carregar_todos_projetos()
+
+
+    # Define colunas.
+    col_1, col_2, col_3 = st.columns(3)
+
+
+
+    # Monta as opções de projeto utilizando o rótulo de exibição definido
+    # para cada projeto e mantendo o respectivo ID disponível para a consulta.
+    projetos_opcoes = {
+        obter_rotulo_projeto(projeto): str(projeto["_id"])
+        for projeto in projetos_lista
+    }
+
+    # O filtro inicia sem seleção para que a consulta somente seja executada
+    # após a definição de pelo menos um critério.
+    projeto_selecionado = col_1.selectbox(
+        "Projeto",
+        options=list(projetos_opcoes.keys()),
+        index=None,
+        placeholder="Selecione um projeto",
+        key="consulta_insumos_projeto"
+    )
+
+    # A consulta permanece vazia enquanto nenhum projeto tiver sido selecionado.
+    # Os demais filtros e o DataFrame serão processados somente após essa seleção.
+    if projeto_selecionado is None:
+        st.stop()
+
+
+    # Recupera o ID do projeto selecionado para utilização nas consultas ao banco.
+    projeto_id_selecionado = projetos_opcoes[projeto_selecionado]
+
+    # Carrega somente as solicitações vinculadas ao projeto selecionado.
+    solicitacoes_consulta = carregar_solicitacoes_por_projeto(
+        projeto_id_selecionado
+    )
+
+
+    # Obtém os IDs dos responsáveis vinculados às solicitações do projeto.
+    responsaveis_ids = {
+        str(solicitacao["responsavel_id"])
+        for solicitacao in solicitacoes_consulta
+        if solicitacao.get("responsavel_id")
+    }
+
+    # Resolve os IDs para os nomes completos das pessoas cadastradas.
+    responsaveis_consulta = sorted(
+        [
+            pessoa
+            for pessoa in pessoas_lista
+            if str(pessoa["_id"]) in responsaveis_ids
+        ],
+        key=lambda pessoa: obter_nome_pessoa(pessoa).lower()
+    )
+
+
+    # Monta as opções do filtro utilizando o nome completo como rótulo
+    # e o ID da pessoa como valor associado à seleção.
+    responsaveis_opcoes = {
+        obter_nome_pessoa(pessoa): str(pessoa["_id"])
+        for pessoa in responsaveis_consulta
+    }
+
+    # O filtro permanece sem seleção até que um responsável seja definido.
+    # Nenhuma opção genérica como "Todos" é incluída.
+    responsavel_selecionado = col_2.selectbox(
+        "Nome do responsável pela solicitação",
+        options=list(responsaveis_opcoes.keys()),
+        index=None,
+        placeholder="Selecione um responsável",
+        key="consulta_insumos_responsavel"
+    )
+
+
+
+    # Data inicial do período de consulta.
+    data_solicitacao_inicio = col_1.date_input(
+        "Solicitações a partir de",
+        value=None,
+        format="DD/MM/YYYY",
+        key="consulta_insumos_data_inicio"
+    )
+
+    # Data final do período de consulta.
+    data_solicitacao_fim = col_2.date_input(
+        "Solicitações até",
+        value=None,
+        format="DD/MM/YYYY",
+        key="consulta_insumos_data_fim"
+    )
+
+
+    # Obtém os valores de Terra Indígena presentes nas solicitações
+    # atualmente disponíveis para a consulta.
+    terras_indigenas = sorted(
+        {
+            solicitacao.get("identificacao_comunidade", {}).get(
+                "terra_indigena",
+                ""
+            ).strip()
+            for solicitacao in solicitacoes_consulta
+            if solicitacao.get("identificacao_comunidade", {}).get(
+                "terra_indigena",
+                ""
+            ).strip()
+        },
+        key=str.lower
+    )
+
+
+    # Define colunas.
+    col_1, col_2, col_3 = st.columns(3)
+
+
+    # Filtro de Terra Indígena.
+    terra_indigena_selecionada = col_1.selectbox(
+        "Terra Indígena (TI)",
+        options=terras_indigenas,
+        index=None,
+        placeholder="Selecione uma Terra Indígena",
+        key="consulta_insumos_terra_indigena"
+    )
+
+    # Obtém os valores de aldeia presentes nas solicitações disponíveis.
+    nomes_aldeias = sorted(
+        {
+            solicitacao.get("identificacao_comunidade", {}).get(
+                "nome_aldeia",
+                ""
+            ).strip()
+            for solicitacao in solicitacoes_consulta
+            if solicitacao.get("identificacao_comunidade", {}).get(
+                "nome_aldeia",
+                ""
+            ).strip()
+        },
+        key=str.lower
+    )
+
+    # Filtro de nome da aldeia.
+    aldeia_selecionada = col_2.selectbox(
+        "Nome da Aldeia",
+        options=nomes_aldeias,
+        index=None,
+        placeholder="Selecione uma aldeia",
+        key="consulta_insumos_aldeia"
+    )
+
+    # Obtém os nomes de grupos ou coletivos presentes nas solicitações disponíveis.
+    nomes_grupos_coletivos = sorted(
+        {
+            solicitacao.get("identificacao_comunidade", {}).get(
+                "nome_grupo_coletivo",
+                ""
+            ).strip()
+            for solicitacao in solicitacoes_consulta
+            if solicitacao.get("identificacao_comunidade", {}).get(
+                "nome_grupo_coletivo",
+                ""
+            ).strip()
+        },
+        key=str.lower
+    )
+
+    # Filtro de nome do grupo ou coletivo.
+    grupo_coletivo_selecionado = col_3.selectbox(
+        "Nome do Grupo/Coletivo",
+        options=nomes_grupos_coletivos,
+        index=None,
+        placeholder="Selecione um grupo/coletivo",
+        key="consulta_insumos_grupo_coletivo"
+    )
+
+
+
+    # FILTROS DO REFERENTES AOS ITENS DEMANDADOS
+
+    # Define colunas.
+    col_1, col_2 = st.columns([2, 1])
+
+
+    # Reúne todas as descrições de materiais cadastradas nos itens das solicitações.
+    # O conjunto elimina valores duplicados antes da ordenação alfabética.
+    materiais_disponiveis = {
+        item.get("Descrição Material/ Equipamento/ Insumo")
+        for solicitacao in solicitacoes
+        for item in solicitacao.get("itens_demandados", [])
+        if item.get("Descrição Material/ Equipamento/ Insumo")
+        and str(item.get("Descrição Material/ Equipamento/ Insumo")).strip()
+    }
+
+    # Ordena as descrições sem diferenciar letras maiúsculas e minúsculas.
+    materiais_disponiveis = sorted(
+        materiais_disponiveis,
+        key=lambda valor: str(valor).lower()
+    )
+
+    # Permite selecionar vários materiais simultaneamente.
+    materiais_selecionados = col_1.multiselect(
+        "Descrição material/equipamento/insumo",
+        options=materiais_disponiveis,
+        key="consulta_insumos_materiais"
+    )
+
+
+    # Reúne todas as unidades cadastradas nos itens das solicitações.
+    # O conjunto elimina valores duplicados antes da ordenação alfabética.
+    unidades_disponiveis = {
+        item.get("Unidade")
+        for solicitacao in solicitacoes
+        for item in solicitacao.get("itens_demandados", [])
+        if item.get("Unidade")
+        and str(item.get("Unidade")).strip()
+    }
+
+    # Ordena as unidades sem diferenciar letras maiúsculas e minúsculas.
+    unidades_disponiveis = sorted(
+        unidades_disponiveis,
+        key=lambda valor: str(valor).lower()
+    )
+
+    # Permite selecionar várias unidades simultaneamente.
+    unidades_selecionadas = col_2.multiselect(
+        "Unidade",
+        options=unidades_disponiveis,
+        key="consulta_insumos_unidades"
+    )
+
+
+
+
+
+    # ########################################################################  
+    # APLICAÇÃO DOS FILTROS 
+    # ########################################################################  
+
+    # Aplica o filtro de responsável somente quando houver uma seleção.
+    # Na ausência de seleção, todas as solicitações do projeto permanecem disponíveis.
+    if responsavel_selecionado is not None:
+
+        responsavel_id_selecionado = responsaveis_opcoes[
+            responsavel_selecionado
+        ]
+
+        solicitacoes_consulta = [
+            solicitacao
+            for solicitacao in solicitacoes_consulta
+            if str(solicitacao.get("responsavel_id")) == responsavel_id_selecionado
+        ]
+
+
+    # Aplica o limite inicial do período quando uma data de início foi informada.
+    if data_solicitacao_inicio:
+
+        solicitacoes_consulta = [
+            solicitacao
+            for solicitacao in solicitacoes_consulta
+            if (
+                parse_data_solicitacao(
+                    solicitacao.get("data_solicitacao")
+                )
+                and parse_data_solicitacao(
+                    solicitacao.get("data_solicitacao")
+                ) >= data_solicitacao_inicio
+            )
+        ]
+
+    # Aplica o limite final do período quando uma data de fim foi informada.
+    if data_solicitacao_fim:
+
+        solicitacoes_consulta = [
+            solicitacao
+            for solicitacao in solicitacoes_consulta
+            if (
+                parse_data_solicitacao(
+                    solicitacao.get("data_solicitacao")
+                )
+                and parse_data_solicitacao(
+                    solicitacao.get("data_solicitacao")
+                ) <= data_solicitacao_fim
+            )
+        ]
+
+
+    # Aplica o filtro de Terra Indígena quando houver uma seleção.
+    if terra_indigena_selecionada is not None:
+
+        solicitacoes_consulta = [
+            solicitacao
+            for solicitacao in solicitacoes_consulta
+            if solicitacao.get("identificacao_comunidade", {}).get(
+                "terra_indigena",
+                ""
+            ).strip() == terra_indigena_selecionada
+        ]
+
+    # Aplica o filtro de aldeia quando houver uma seleção.
+    if aldeia_selecionada is not None:
+
+        solicitacoes_consulta = [
+            solicitacao
+            for solicitacao in solicitacoes_consulta
+            if solicitacao.get("identificacao_comunidade", {}).get(
+                "nome_aldeia",
+                ""
+            ).strip() == aldeia_selecionada
+        ]
+
+    # Aplica o filtro de grupo ou coletivo quando houver uma seleção.
+    if grupo_coletivo_selecionado is not None:
+
+        solicitacoes_consulta = [
+            solicitacao
+            for solicitacao in solicitacoes_consulta
+            if solicitacao.get("identificacao_comunidade", {}).get(
+                "nome_grupo_coletivo",
+                ""
+            ).strip() == grupo_coletivo_selecionado
+        ]
+
+
+
+
+
+
+
+
+
+
+
+
+    # ########################################################################  
+    # PREPARAÇÃO DOS REGISTROS DE CONSULTA PARA VISUALIZAÇÃO
+    # ########################################################################
+
+
+    # Prepara uma linha para cada item das solicitações que permaneceram na consulta.
+    registros_consulta = []
+
+    for solicitacao in solicitacoes_consulta:
+
+        identificacao_comunidade = (
+            solicitacao.get("identificacao_comunidade", {})
+            or {}
+        )
+
+        projeto_id = solicitacao.get("projeto_id")
+        responsavel_id = solicitacao.get("responsavel_id")
+
+        # Resolve os dados de identificação utilizados na exibição da consulta.
+        nome_projeto = obter_nome_projeto_por_id(
+            projeto_id,
+            projetos_dict
+        )
+
+        nome_responsavel = obter_nome_responsavel_solicitacao(
+            solicitacao,
+            pessoas_dict
+        )
+
+        for item in solicitacao.get("itens_demandados", []):
+
+            descricao_material = item.get(
+                "Descrição Material/ Equipamento/ Insumo"
+            )
+
+            unidade = item.get("Unidade")
+
+            # Ignora linhas de itens que não possuem material nem unidade.
+            if not descricao_material and not unidade:
+                continue
+
+            # Mantém somente os itens compatíveis com o filtro de material,
+            # quando houver materiais selecionados.
+            if (
+                materiais_selecionados
+                and descricao_material not in materiais_selecionados
+            ):
+                continue
+
+            # Mantém somente os itens compatíveis com o filtro de unidade,
+            # quando houver unidades selecionadas.
+            if (
+                unidades_selecionadas
+                and unidade not in unidades_selecionadas
+            ):
+                continue
+
+            registros_consulta.append({
+                "Código": obter_codigo_solicitacao_exibido(solicitacao),
+                "Projeto": nome_projeto,
+                "Responsável": nome_responsavel,
+                "Data da Solicitação": solicitacao.get(
+                    "data_solicitacao",
+                    "—"
+                ),
+                "Data Prevista de Entrega": solicitacao.get(
+                    "data_prevista_entrega",
+                    "—"
+                ),
+                "Terra Indígena (TI)": identificacao_comunidade.get(
+                    "terra_indigena",
+                    ""
+                ),
+                "Nome da Aldeia": identificacao_comunidade.get(
+                    "nome_aldeia",
+                    ""
+                ),
+                "Nome do Grupo/Coletivo": identificacao_comunidade.get(
+                    "nome_grupo_coletivo",
+                    ""
+                ),
+                "Descrição material/equipamento/insumo": (
+                    descricao_material or ""
+                ),
+                "Unidade": unidade or "",
+                "Quantidade": item.get("Quantidade"),
+            })
+
+    df_consulta = pd.DataFrame(registros_consulta)
+
+
+
+    # ########################################################################  
+    # VISUALIZAÇÃO DOS REGISTROS DE CONSULTA
+    # ########################################################################
+
+    # Exibe os resultados somente após a definição de um projeto.
+    # As demais opções de filtro podem permanecer sem seleção.
+    if not df_consulta.empty:
+
+        st.write("")
+        st.write("")
+
+        st.markdown("#### Itens solicitados")
+
+
+        # Frase automática do filtro
+        # Monta a descrição dos filtros atualmente ativos na consulta.
+        filtros_ativos = []
+
+        if projeto_selecionado:
+            filtros_ativos.append(
+                f"Projeto: **{projeto_selecionado}**"
+            )
+
+        if responsavel_selecionado:
+            filtros_ativos.append(
+                f"Responsável: **{responsavel_selecionado}**"
+            )
+
+        if data_solicitacao_inicio:
+            data_inicio_formatada = data_solicitacao_inicio.strftime("%d/%m/%Y")
+            filtros_ativos.append(
+                f"Solicitação a partir de: **{data_inicio_formatada}**"
+            )
+
+        if data_solicitacao_fim:
+            data_fim_formatada = data_solicitacao_fim.strftime("%d/%m/%Y")
+            filtros_ativos.append(
+                f"Solicitação até: **{data_fim_formatada}**"
+            )
+
+        if terra_indigena_selecionada:
+            filtros_ativos.append(
+                f"Terra Indígena (TI): **{terra_indigena_selecionada}**"
+            )
+
+        if aldeia_selecionada:
+            filtros_ativos.append(
+                f"Nome da Aldeia: **{aldeia_selecionada}**"
+            )
+
+        if grupo_coletivo_selecionado:
+            filtros_ativos.append(
+                f"Nome do Grupo/Coletivo: **{grupo_coletivo_selecionado}**"
+            )
+
+        if materiais_selecionados:
+            materiais_formatados = ", ".join(
+                f"**{material}**"
+                for material in materiais_selecionados
+            )
+            filtros_ativos.append(
+                f"Material/equipamento/insumo: {materiais_formatados}"
+            )
+
+        if unidades_selecionadas:
+            unidades_formatadas = ", ".join(
+                f"**{unidade}**"
+                for unidade in unidades_selecionadas
+            )
+            filtros_ativos.append(
+                f"Unidade: {unidades_formatadas}"
+            )
+
+        # Apresenta os filtros em uma única frase, separados por ponto e vírgula.
+        st.markdown(
+            "**Filtros aplicados:** " + "; ".join(filtros_ativos) + "."
+        )
+
+
+
+
+        # Define a ordem das colunas apresentada no resultado da consulta.
+        colunas_consulta = [
+            "Código",
+            "Projeto",
+            "Descrição material/equipamento/insumo",
+            "Unidade",
+            "Quantidade",
+            "Responsável",
+            "Terra Indígena (TI)",
+            "Nome da Aldeia",
+            "Nome do Grupo/Coletivo",
+            "Data da Solicitação",
+            "Data Prevista de Entrega",            
+        ]
+
+        st.dataframe(
+            df_consulta[colunas_consulta],
+            hide_index=True
+        )
+
+    else:
+
+        # Informa quando a combinação de filtros não possui registros.
+        st.caption(
+            "**Nenhum registro encontrado para os filtros selecionados.**"
+        )
+
+
+
+
+
+
+
+
+
+
+
+###########################################################################################################
+# ABA 2 — FORMULÁRIO DE NOVA SOLICITAÇÃO
+###########################################################################################################
+
+with abas[2]:
+
     st.write("")
 
     projetos = carregar_projetos()
@@ -1321,9 +2000,8 @@ with abas[1]:
 ###########################################################################################################
 
 if usuario_tem_acesso_crud(projetos_geral):
-    with abas[2]:
+    with abas[3]:
 
-        st.write("")
         st.write("")
 
         projetos_crud = carregar_projetos()
