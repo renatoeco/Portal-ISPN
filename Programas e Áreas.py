@@ -318,8 +318,7 @@ def gerenciar_programa_dialog(programa):
     aba_principal, aba_resultados, aba_acoes = st.tabs([
         "Informações Gerais",
         "Resultados do programa",
-        "Ações Estratégicas"    
-
+        "Ações Estratégicas",
     ])
 
     # ======================================================
@@ -394,9 +393,107 @@ def gerenciar_programa_dialog(programa):
                     time.sleep(2)
                     st.rerun(scope="fragment")
 
-    
+
     # ======================================================
-    # ABA 2 - AÇÕES ESTRATÉGICAS
+    # ABA 2 - RESULTADOS DO PROGRAMA
+    # ======================================================
+    with aba_resultados:
+
+        # ---------------- EXPANDER PARA ADICIONAR RESULTADO ----------------
+        with st.expander("Adicionar novo resultado", expanded=False, icon=":material/add_notes:"):
+
+            with st.form(key=f"form_add_resultado_{programa['id']}", clear_on_submit=True, border=False):
+
+                novo_resultado = st.text_input("Título do resultado")
+
+                st.write("")
+
+                adicionar = st.form_submit_button("Adicionar resultado", icon=":material/add:")
+
+                if adicionar and novo_resultado.strip():
+
+                    nova_entrada = {
+                        "_id": ObjectId(),
+                        "titulo": novo_resultado.strip(),
+                    }
+
+                    programas_areas.update_one(
+                        {"_id": ObjectId(programa["id"])},
+                        {"$push": {"resultados_programa": nova_entrada}}
+                    )
+
+                    st.success("Resultado adicionado com sucesso!", icon=":material/check:")
+                    time.sleep(2)
+                    st.rerun(scope="fragment")
+            
+        # ---------------- LISTA DE RESULTADOS ----------------
+        if resultados_programa:
+
+            st.write("")
+            st.write("**Resultados cadastrados:**")
+
+            for resultado in resultados_programa:
+
+                resultado_id = str(resultado["_id"])
+                descricao = resultado.get("titulo", "")
+
+                eixo_atual = [str(i) for i in resultado.get("eixo_relacionado", [])]
+                mp_atual = [str(i) for i in resultado.get("resultados_medio_prazo_relacionados", [])]
+                lp_atual = [str(i) for i in resultado.get("resultados_longo_prazo_relacionados", [])]
+                objetivos_atual = [str(i) for i in resultado.get("objetivos_estrategicos_relacionados", [])]
+
+                with st.expander(descricao or "Sem título"):
+
+                    toggle_edicao = st.toggle(
+                        "Editar resultado",
+                        key=f"toggle_resultado_{resultado_id}",
+                        value=False
+                    )
+
+                    st.write("")
+
+                    # =====================================================
+                    # MODO EDIÇÃO COM FORM
+                    # =====================================================
+                    if toggle_edicao:
+
+                        # IMPORTANTE: form precisa de key única
+                        with st.form(key=f"form_edit_resultado_{resultado_id}", border=False):
+
+                            # Campo de texto
+                            nova_descricao = st.text_input(
+                                "Título",
+                                value=descricao,
+                                key=f"desc_{resultado_id}"
+                            )
+
+                            st.write("")
+
+                            # Botão do form (ESSENCIAL)
+                            salvar = st.form_submit_button("Salvar alterações")
+
+                            if salvar:
+
+                                programas_areas.update_one(
+                                    {
+                                        "_id": ObjectId(programa["id"]),
+                                        "resultados_programa._id": ObjectId(resultado_id)
+                                    },
+                                    {
+                                        "$set": {
+                                            # CORREÇÃO: campo correto é "titulo"
+                                            "resultados_programa.$.titulo": nova_descricao,
+                                        }
+                                    }
+                                )
+
+                                st.success("Resultado atualizado!", icon=":material/check:")
+                                time.sleep(2)
+                                st.rerun(scope="fragment")
+
+                
+    # ======================================================
+    # ABA 3 - AÇÕES ESTRATÉGICAS
     # ======================================================
     with aba_acoes:
 
@@ -606,106 +703,6 @@ def gerenciar_programa_dialog(programa):
                             st.markdown("**Contribui com Eixos da Estratégia:**")
                             for aid in eixos_relacionados:
                                 st.markdown(f"- {mapa_eixos.get(aid, '')}")
-
-
-    # ======================================================
-    # ABA 3 - RESULTADOS DO PROGRAMA
-    # ======================================================
-    with aba_resultados:
-
-        # ---------------- EXPANDER PARA ADICIONAR RESULTADO ----------------
-        with st.expander("Adicionar novo resultado", expanded=False, icon=":material/add_notes:"):
-
-            with st.form(key=f"form_add_resultado_{programa['id']}", clear_on_submit=True, border=False):
-
-                novo_resultado = st.text_input("Título do resultado")
-
-                st.write("")
-
-                adicionar = st.form_submit_button("Adicionar resultado", icon=":material/add:")
-
-                if adicionar and novo_resultado.strip():
-
-                    nova_entrada = {
-                        "_id": ObjectId(),
-                        "titulo": novo_resultado.strip(),
-                    }
-
-                    programas_areas.update_one(
-                        {"_id": ObjectId(programa["id"])},
-                        {"$push": {"resultados_programa": nova_entrada}}
-                    )
-
-                    st.success("Resultado adicionado com sucesso!", icon=":material/check:")
-                    time.sleep(2)
-                    st.rerun(scope="fragment")
-            
-        # ---------------- LISTA DE RESULTADOS ----------------
-        if resultados_programa:
-
-            st.write("")
-            st.write("**Resultados cadastrados:**")
-
-            for resultado in resultados_programa:
-
-                resultado_id = str(resultado["_id"])
-                descricao = resultado.get("titulo", "")
-
-                eixo_atual = [str(i) for i in resultado.get("eixo_relacionado", [])]
-                mp_atual = [str(i) for i in resultado.get("resultados_medio_prazo_relacionados", [])]
-                lp_atual = [str(i) for i in resultado.get("resultados_longo_prazo_relacionados", [])]
-                objetivos_atual = [str(i) for i in resultado.get("objetivos_estrategicos_relacionados", [])]
-
-                with st.expander(descricao or "Sem título"):
-
-                    toggle_edicao = st.toggle(
-                        "Editar resultado",
-                        key=f"toggle_resultado_{resultado_id}",
-                        value=False
-                    )
-
-                    st.write("")
-
-                    # =====================================================
-                    # MODO EDIÇÃO COM FORM
-                    # =====================================================
-                    if toggle_edicao:
-
-                        # IMPORTANTE: form precisa de key única
-                        with st.form(key=f"form_edit_resultado_{resultado_id}", border=False):
-
-                            # Campo de texto
-                            nova_descricao = st.text_input(
-                                "Título",
-                                value=descricao,
-                                key=f"desc_{resultado_id}"
-                            )
-
-                            st.write("")
-
-                            # Botão do form (ESSENCIAL)
-                            salvar = st.form_submit_button("Salvar alterações")
-
-                            if salvar:
-
-                                programas_areas.update_one(
-                                    {
-                                        "_id": ObjectId(programa["id"]),
-                                        "resultados_programa._id": ObjectId(resultado_id)
-                                    },
-                                    {
-                                        "$set": {
-                                            # CORREÇÃO: campo correto é "titulo"
-                                            "resultados_programa.$.titulo": nova_descricao,
-                                        }
-                                    }
-                                )
-
-                                st.success("Resultado atualizado!", icon=":material/check:")
-                                time.sleep(2)
-                                st.rerun(scope="fragment")
-                
-
 
 
 
@@ -2484,7 +2481,7 @@ def gerenciar_pessoas(pessoa_sel):
                     opcoes_cargos = [
                         "Analista de advocacy", "Analista de comunicação", "Analista de dados", "Analista Administrativo/Financeiro",
                         "Analista de Recursos Humanos", "Analista socioambiental", "Analista socioambiental pleno", "Analista socioambiental sênior",
-                        "Assessora de advocacy", "Assessor de Comunicação", "Auxiliar de Serviços Gerais", "Auxiliar Administrativo/financeiro",
+                        "Assessora de advocacy", "Assessor de Comunicação", "Assessor de dados", "Auxiliar de Serviços Gerais", "Auxiliar Administrativo/financeiro",
                         "Assistente Administrativo/financeiro", "Assistente socioambiental", "Coordenador Administrativo/financeiro de escritório",
                         "Coordenador Geral administrativo/financeiro", "Coordenador Executivo", "Coordenador de Área", "Coordenador de Programa", "Estagiário",
                         "Motorista", "Secretária(o)/Recepcionista", "Técnico de campo", "Técnico em informática"

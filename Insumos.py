@@ -470,7 +470,7 @@ def enviar_notificacao_solicitacao(solicitacao, tipo, projetos_dict, pessoas_dic
     id_usuario_acao = usuario_id_atual()
     nome_usuario_acao = obter_nome_pessoa_por_id(id_usuario_acao, pessoas_dict)
     email_usuario_acao = obter_email_pessoa_por_id(id_usuario_acao) or "—"
-    data_hora_acao = datetime.now().strftime("%d/%m/%Y %H:%M")
+    data_hora_acao = datetime.now().strftime("%d/%m/%Y às %H:%M")
 
     nome_projeto = obter_nome_projeto_por_id(solicitacao.get("projeto_id"), projetos_dict)
     nome_responsavel = obter_nome_responsavel_solicitacao(solicitacao, pessoas_dict)
@@ -1016,7 +1016,7 @@ def dialog_detalhes(solicitacao, projetos, projetos_dict, pessoas_dict):
                             },
                             "justificativa_objetivos": justificativa_editada,
                             "itens_demandados": itens_registrados,
-                            "ultima_edicao": datetime.now().strftime("%d/%m/%Y %H:%M"),
+                            "ultima_edicao": datetime.now().strftime("%d/%m/%Y às %H:%M"),
                         }}
                     )
 
