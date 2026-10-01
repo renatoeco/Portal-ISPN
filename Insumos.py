@@ -1287,706 +1287,706 @@ with abas[1]:
         key="consulta_insumos_projeto"
     )
 
-    # A consulta permanece vazia enquanto nenhum projeto tiver sido selecionado.
-    # Os demais filtros e o DataFrame serão processados somente após essa seleção.
-    if projeto_selecionado is None:
-        st.stop()
-
-
-    # Recupera o ID do projeto selecionado para utilização nas consultas ao banco.
-    projeto_id_selecionado = projetos_opcoes[projeto_selecionado]
 
 
 
+    # # A consulta permanece vazia enquanto nenhum projeto tiver sido selecionado.
+    # # Os demais filtros e o DataFrame serão processados somente após essa seleção.
 
-    # Localiza os dados completos do projeto selecionado.
-    projeto_selecionado_dados = next(
-        (
-            projeto
-            for projeto in projetos_lista
-            if str(projeto["_id"]) == projeto_id_selecionado
-        ),
-        None
-    )
+    if projeto_selecionado is not None:
+        # todo o restante da aba Consultas
 
 
 
+        # Recupera o ID do projeto selecionado para utilização nas consultas ao banco.
+        projeto_id_selecionado = projetos_opcoes[projeto_selecionado]
 
 
-
-    # Localiza o projeto selecionado para obter suas configurações específicas
-    # de perguntas personalizadas para a consulta.
-    projeto_selecionado_dados = next(
-        (
-            projeto
-            for projeto in projetos_lista
-            if str(projeto["_id"]) == projeto_id_selecionado
-        ),
-        None
-    )
-
-    # Recupera as perguntas personalizadas cadastradas para o projeto.
-    perguntas_personalizadas = (
-        projeto_selecionado_dados.get(
-            "perguntas_personalizadas_insumos",
-            []
-        )
-        if projeto_selecionado_dados
-        else []
-    )
-
-
-    # Carrega somente as solicitações vinculadas ao projeto selecionado.
-    solicitacoes_consulta = carregar_solicitacoes_por_projeto(
-        projeto_id_selecionado
-    )
-
-
-    # Obtém os IDs dos responsáveis vinculados às solicitações do projeto.
-    responsaveis_ids = {
-        str(solicitacao["responsavel_id"])
-        for solicitacao in solicitacoes_consulta
-        if solicitacao.get("responsavel_id")
-    }
-
-    # Resolve os IDs para os nomes completos das pessoas cadastradas.
-    responsaveis_consulta = sorted(
-        [
-            pessoa
-            for pessoa in pessoas_lista
-            if str(pessoa["_id"]) in responsaveis_ids
-        ],
-        key=lambda pessoa: obter_nome_pessoa(pessoa).lower()
-    )
-
-
-    # Monta as opções do filtro utilizando o nome completo como rótulo
-    # e o ID da pessoa como valor associado à seleção.
-    responsaveis_opcoes = {
-        obter_nome_pessoa(pessoa): str(pessoa["_id"])
-        for pessoa in responsaveis_consulta
-    }
-
-    # O filtro permanece sem seleção até que um responsável seja definido.
-    # Nenhuma opção genérica como "Todos" é incluída.
-    responsavel_selecionado = col_2.selectbox(
-        "Nome do responsável pela solicitação",
-        options=list(responsaveis_opcoes.keys()),
-        index=None,
-        placeholder="Selecione um responsável",
-        key="consulta_insumos_responsavel"
-    )
-
-
-
-    # Data inicial do período de consulta.
-    data_solicitacao_inicio = col_1.date_input(
-        "Solicitações a partir de",
-        value=None,
-        format="DD/MM/YYYY",
-        key="consulta_insumos_data_inicio"
-    )
-
-    # Data final do período de consulta.
-    data_solicitacao_fim = col_2.date_input(
-        "Solicitações até",
-        value=None,
-        format="DD/MM/YYYY",
-        key="consulta_insumos_data_fim"
-    )
-
-
-    # Obtém os valores de Terra Indígena presentes nas solicitações
-    # atualmente disponíveis para a consulta.
-    terras_indigenas = sorted(
-        {
-            solicitacao.get("identificacao_comunidade", {}).get(
-                "terra_indigena",
-                ""
-            ).strip()
-            for solicitacao in solicitacoes_consulta
-            if solicitacao.get("identificacao_comunidade", {}).get(
-                "terra_indigena",
-                ""
-            ).strip()
-        },
-        key=str.lower
-    )
-
-
-    # Define colunas.
-    col_1, col_2, col_3 = st.columns(3)
-
-
-    # Filtro de Terra Indígena.
-    terra_indigena_selecionada = col_1.selectbox(
-        "Terra Indígena (TI)",
-        options=terras_indigenas,
-        index=None,
-        placeholder="Selecione uma Terra Indígena",
-        key="consulta_insumos_terra_indigena"
-    )
-
-    # Obtém os valores de aldeia presentes nas solicitações disponíveis.
-    nomes_aldeias = sorted(
-        {
-            solicitacao.get("identificacao_comunidade", {}).get(
-                "nome_aldeia",
-                ""
-            ).strip()
-            for solicitacao in solicitacoes_consulta
-            if solicitacao.get("identificacao_comunidade", {}).get(
-                "nome_aldeia",
-                ""
-            ).strip()
-        },
-        key=str.lower
-    )
-
-    # Filtro de nome da aldeia.
-    aldeia_selecionada = col_2.selectbox(
-        "Nome da Aldeia",
-        options=nomes_aldeias,
-        index=None,
-        placeholder="Selecione uma aldeia",
-        key="consulta_insumos_aldeia"
-    )
-
-    # Obtém os nomes de grupos ou coletivos presentes nas solicitações disponíveis.
-    nomes_grupos_coletivos = sorted(
-        {
-            solicitacao.get("identificacao_comunidade", {}).get(
-                "nome_grupo_coletivo",
-                ""
-            ).strip()
-            for solicitacao in solicitacoes_consulta
-            if solicitacao.get("identificacao_comunidade", {}).get(
-                "nome_grupo_coletivo",
-                ""
-            ).strip()
-        },
-        key=str.lower
-    )
-
-    # Filtro de nome do grupo ou coletivo.
-    grupo_coletivo_selecionado = col_3.selectbox(
-        "Nome do Grupo/Coletivo",
-        options=nomes_grupos_coletivos,
-        index=None,
-        placeholder="Selecione um grupo/coletivo",
-        key="consulta_insumos_grupo_coletivo"
-    )
-
-
-
-    # FILTROS DO REFERENTES AOS ITENS DEMANDADOS
-
-    # Define colunas.
-    col_1, col_2 = st.columns([2, 1])
-
-
-    # Reúne todas as descrições de materiais cadastradas nos itens das solicitações.
-    # O conjunto elimina valores duplicados antes da ordenação alfabética.
-    materiais_disponiveis = {
-        item.get("Descrição Material/ Equipamento/ Insumo")
-        for solicitacao in solicitacoes
-        for item in solicitacao.get("itens_demandados", [])
-        if item.get("Descrição Material/ Equipamento/ Insumo")
-        and str(item.get("Descrição Material/ Equipamento/ Insumo")).strip()
-    }
-
-    # Ordena as descrições sem diferenciar letras maiúsculas e minúsculas.
-    materiais_disponiveis = sorted(
-        materiais_disponiveis,
-        key=lambda valor: str(valor).lower()
-    )
-
-    # Permite selecionar vários materiais simultaneamente.
-    materiais_selecionados = col_1.multiselect(
-        "Descrição material/equipamento/insumo",
-        options=materiais_disponiveis,
-        key="consulta_insumos_materiais"
-    )
-
-
-    # Reúne todas as unidades cadastradas nos itens das solicitações.
-    # O conjunto elimina valores duplicados antes da ordenação alfabética.
-    unidades_disponiveis = {
-        item.get("Unidade")
-        for solicitacao in solicitacoes
-        for item in solicitacao.get("itens_demandados", [])
-        if item.get("Unidade")
-        and str(item.get("Unidade")).strip()
-    }
-
-    # Ordena as unidades sem diferenciar letras maiúsculas e minúsculas.
-    unidades_disponiveis = sorted(
-        unidades_disponiveis,
-        key=lambda valor: str(valor).lower()
-    )
-
-    # Permite selecionar várias unidades simultaneamente.
-    unidades_selecionadas = col_2.multiselect(
-        "Unidade",
-        options=unidades_disponiveis,
-        key="consulta_insumos_unidades"
-    )
-
-
-    # Mantém a área das perguntas personalizadas organizada em três colunas.
-    colunas_perguntas = st.columns(3)
-
-    respostas_personalizadas_selecionadas = {}
-
-    for indice, pergunta in enumerate(perguntas_personalizadas):
-        pergunta_id = str(pergunta["_id"])
-        titulo_pergunta = pergunta.get(
-            "titulo_pergunta_insumos",
-            "Pergunta"
-        )
-        opcoes_resposta = pergunta.get(
-            "opcoes_resposta_insumos",
-            []
+        # Localiza os dados completos do projeto selecionado.
+        projeto_selecionado_dados = next(
+            (
+                projeto
+                for projeto in projetos_lista
+                if str(projeto["_id"]) == projeto_id_selecionado
+            ),
+            None
         )
 
-        coluna = colunas_perguntas[indice % 3]
 
-        respostas_personalizadas_selecionadas[pergunta_id] = coluna.selectbox(
-            titulo_pergunta,
-            options=opcoes_resposta,
+
+        # Localiza o projeto selecionado para obter suas configurações específicas
+        # de perguntas personalizadas para a consulta.
+        projeto_selecionado_dados = next(
+            (
+                projeto
+                for projeto in projetos_lista
+                if str(projeto["_id"]) == projeto_id_selecionado
+            ),
+            None
+        )
+
+        # Recupera as perguntas personalizadas cadastradas para o projeto.
+        perguntas_personalizadas = (
+            projeto_selecionado_dados.get(
+                "perguntas_personalizadas_insumos",
+                []
+            )
+            if projeto_selecionado_dados
+            else []
+        )
+
+
+        # Carrega somente as solicitações vinculadas ao projeto selecionado.
+        solicitacoes_consulta = carregar_solicitacoes_por_projeto(
+            projeto_id_selecionado
+        )
+
+
+        # Obtém os IDs dos responsáveis vinculados às solicitações do projeto.
+        responsaveis_ids = {
+            str(solicitacao["responsavel_id"])
+            for solicitacao in solicitacoes_consulta
+            if solicitacao.get("responsavel_id")
+        }
+
+        # Resolve os IDs para os nomes completos das pessoas cadastradas.
+        responsaveis_consulta = sorted(
+            [
+                pessoa
+                for pessoa in pessoas_lista
+                if str(pessoa["_id"]) in responsaveis_ids
+            ],
+            key=lambda pessoa: obter_nome_pessoa(pessoa).lower()
+        )
+
+
+        # Monta as opções do filtro utilizando o nome completo como rótulo
+        # e o ID da pessoa como valor associado à seleção.
+        responsaveis_opcoes = {
+            obter_nome_pessoa(pessoa): str(pessoa["_id"])
+            for pessoa in responsaveis_consulta
+        }
+
+        # O filtro permanece sem seleção até que um responsável seja definido.
+        # Nenhuma opção genérica como "Todos" é incluída.
+        responsavel_selecionado = col_2.selectbox(
+            "Nome do responsável pela solicitação",
+            options=list(responsaveis_opcoes.keys()),
             index=None,
-            placeholder="Selecione uma opção",
-            key=f"consulta_insumos_pergunta_{pergunta_id}",
+            placeholder="Selecione um responsável",
+            key="consulta_insumos_responsavel"
         )
 
 
 
-
-
-
-
-    # ########################################################################  
-    # APLICAÇÃO DOS FILTROS 
-    # ########################################################################  
-
-    # Aplica o filtro de responsável somente quando houver uma seleção.
-    # Na ausência de seleção, todas as solicitações do projeto permanecem disponíveis.
-    if responsavel_selecionado is not None:
-
-        responsavel_id_selecionado = responsaveis_opcoes[
-            responsavel_selecionado
-        ]
-
-        solicitacoes_consulta = [
-            solicitacao
-            for solicitacao in solicitacoes_consulta
-            if str(solicitacao.get("responsavel_id")) == responsavel_id_selecionado
-        ]
-
-
-    # Aplica o limite inicial do período quando uma data de início foi informada.
-    if data_solicitacao_inicio:
-
-        solicitacoes_consulta = [
-            solicitacao
-            for solicitacao in solicitacoes_consulta
-            if (
-                parse_data_solicitacao(
-                    solicitacao.get("data_solicitacao")
-                )
-                and parse_data_solicitacao(
-                    solicitacao.get("data_solicitacao")
-                ) >= data_solicitacao_inicio
-            )
-        ]
-
-    # Aplica o limite final do período quando uma data de fim foi informada.
-    if data_solicitacao_fim:
-
-        solicitacoes_consulta = [
-            solicitacao
-            for solicitacao in solicitacoes_consulta
-            if (
-                parse_data_solicitacao(
-                    solicitacao.get("data_solicitacao")
-                )
-                and parse_data_solicitacao(
-                    solicitacao.get("data_solicitacao")
-                ) <= data_solicitacao_fim
-            )
-        ]
-
-
-    # Aplica o filtro de Terra Indígena quando houver uma seleção.
-    if terra_indigena_selecionada is not None:
-
-        solicitacoes_consulta = [
-            solicitacao
-            for solicitacao in solicitacoes_consulta
-            if solicitacao.get("identificacao_comunidade", {}).get(
-                "terra_indigena",
-                ""
-            ).strip() == terra_indigena_selecionada
-        ]
-
-    # Aplica o filtro de aldeia quando houver uma seleção.
-    if aldeia_selecionada is not None:
-
-        solicitacoes_consulta = [
-            solicitacao
-            for solicitacao in solicitacoes_consulta
-            if solicitacao.get("identificacao_comunidade", {}).get(
-                "nome_aldeia",
-                ""
-            ).strip() == aldeia_selecionada
-        ]
-
-    # Aplica o filtro de grupo ou coletivo quando houver uma seleção.
-    if grupo_coletivo_selecionado is not None:
-
-        solicitacoes_consulta = [
-            solicitacao
-            for solicitacao in solicitacoes_consulta
-            if solicitacao.get("identificacao_comunidade", {}).get(
-                "nome_grupo_coletivo",
-                ""
-            ).strip() == grupo_coletivo_selecionado
-        ]
-
-
-
-
-    # Aplica os filtros das perguntas personalizadas do projeto.
-    for pergunta_id, resposta_selecionada in respostas_personalizadas_selecionadas.items():
-
-        if resposta_selecionada is None:
-            continue
-
-        solicitacoes_filtradas = []
-
-        for solicitacao in solicitacoes_consulta:
-            respostas = solicitacao.get(
-                "respostas_personalizadas_insumos",
-                []
-            )
-
-            resposta_pergunta = next(
-                (
-                    resposta
-                    for resposta in respostas
-                    if str(resposta.get("pergunta_id")) == pergunta_id
-                ),
-                None
-            )
-
-            if not resposta_pergunta:
-                continue
-
-            opcoes_selecionadas = resposta_pergunta.get(
-                "opcoes_selecionadas",
-                []
-            )
-
-            if resposta_selecionada in opcoes_selecionadas:
-                solicitacoes_filtradas.append(solicitacao)
-
-        solicitacoes_consulta = solicitacoes_filtradas
-
-
-
-
-
-
-
-    # ########################################################################  
-    # PREPARAÇÃO DOS REGISTROS DE CONSULTA PARA VISUALIZAÇÃO
-    # ########################################################################
-
-
-    # Prepara uma linha para cada item das solicitações que permaneceram na consulta.
-    registros_consulta = []
-
-    for solicitacao in solicitacoes_consulta:
-
-        identificacao_comunidade = (
-            solicitacao.get("identificacao_comunidade", {})
-            or {}
+        # Data inicial do período de consulta.
+        data_solicitacao_inicio = col_1.date_input(
+            "Solicitações a partir de",
+            value=None,
+            format="DD/MM/YYYY",
+            key="consulta_insumos_data_inicio"
         )
 
-        projeto_id = solicitacao.get("projeto_id")
-        responsavel_id = solicitacao.get("responsavel_id")
-
-        # Resolve os dados de identificação utilizados na exibição da consulta.
-        nome_projeto = obter_nome_projeto_por_id(
-            projeto_id,
-            projetos_dict
+        # Data final do período de consulta.
+        data_solicitacao_fim = col_2.date_input(
+            "Solicitações até",
+            value=None,
+            format="DD/MM/YYYY",
+            key="consulta_insumos_data_fim"
         )
 
-        nome_responsavel = obter_nome_responsavel_solicitacao(
-            solicitacao,
-            pessoas_dict
-        )
 
-        for item in solicitacao.get("itens_demandados", []):
-
-            descricao_material = item.get(
-                "Descrição Material/ Equipamento/ Insumo"
-            )
-
-            unidade = item.get("Unidade")
-
-            # Ignora linhas de itens que não possuem material nem unidade.
-            if not descricao_material and not unidade:
-                continue
-
-            # Mantém somente os itens compatíveis com o filtro de material,
-            # quando houver materiais selecionados.
-            if (
-                materiais_selecionados
-                and descricao_material not in materiais_selecionados
-            ):
-                continue
-
-            # Mantém somente os itens compatíveis com o filtro de unidade,
-            # quando houver unidades selecionadas.
-            if (
-                unidades_selecionadas
-                and unidade not in unidades_selecionadas
-            ):
-                continue
-
-
-
-
-            registro = {
-                "Código": obter_codigo_solicitacao_exibido(solicitacao),
-                "Projeto": nome_projeto,
-                "Responsável": nome_responsavel,
-                "Data da Solicitação": solicitacao.get(
-                    "data_solicitacao",
-                    "—"
-                ),
-                "Data Prevista de Entrega": solicitacao.get(
-                    "data_prevista_entrega",
-                    "—"
-                ),
-                "Terra Indígena (TI)": identificacao_comunidade.get(
+        # Obtém os valores de Terra Indígena presentes nas solicitações
+        # atualmente disponíveis para a consulta.
+        terras_indigenas = sorted(
+            {
+                solicitacao.get("identificacao_comunidade", {}).get(
                     "terra_indigena",
                     ""
-                ),
-                "Nome da Aldeia": identificacao_comunidade.get(
+                ).strip()
+                for solicitacao in solicitacoes_consulta
+                if solicitacao.get("identificacao_comunidade", {}).get(
+                    "terra_indigena",
+                    ""
+                ).strip()
+            },
+            key=str.lower
+        )
+
+
+        # Define colunas.
+        col_1, col_2, col_3 = st.columns(3)
+
+
+        # Filtro de Terra Indígena.
+        terra_indigena_selecionada = col_1.selectbox(
+            "Terra Indígena (TI)",
+            options=terras_indigenas,
+            index=None,
+            placeholder="Selecione uma Terra Indígena",
+            key="consulta_insumos_terra_indigena"
+        )
+
+        # Obtém os valores de aldeia presentes nas solicitações disponíveis.
+        nomes_aldeias = sorted(
+            {
+                solicitacao.get("identificacao_comunidade", {}).get(
                     "nome_aldeia",
                     ""
-                ),
-                "Nome do Grupo/Coletivo": identificacao_comunidade.get(
+                ).strip()
+                for solicitacao in solicitacoes_consulta
+                if solicitacao.get("identificacao_comunidade", {}).get(
+                    "nome_aldeia",
+                    ""
+                ).strip()
+            },
+            key=str.lower
+        )
+
+        # Filtro de nome da aldeia.
+        aldeia_selecionada = col_2.selectbox(
+            "Nome da Aldeia",
+            options=nomes_aldeias,
+            index=None,
+            placeholder="Selecione uma aldeia",
+            key="consulta_insumos_aldeia"
+        )
+
+        # Obtém os nomes de grupos ou coletivos presentes nas solicitações disponíveis.
+        nomes_grupos_coletivos = sorted(
+            {
+                solicitacao.get("identificacao_comunidade", {}).get(
                     "nome_grupo_coletivo",
                     ""
-                ),
-                "Descrição material/equipamento/insumo": (
-                    descricao_material or ""
-                ),
-                "Unidade": unidade or "",
-                "Quantidade": item.get("Quantidade"),
-            }
+                ).strip()
+                for solicitacao in solicitacoes_consulta
+                if solicitacao.get("identificacao_comunidade", {}).get(
+                    "nome_grupo_coletivo",
+                    ""
+                ).strip()
+            },
+            key=str.lower
+        )
 
-            # Recupera as respostas personalizadas registradas na solicitação.
-            respostas_personalizadas = solicitacao.get(
-                "respostas_personalizadas_insumos",
-                []
-            )
-
-            # Organiza as respostas pelo ID da pergunta.
-            respostas_por_pergunta = {
-                str(resposta.get("pergunta_id")): resposta.get(
-                    "opcoes_selecionadas",
-                    []
-                )
-                for resposta in respostas_personalizadas
-            }
-
-            # Acrescenta as respostas personalizadas ao registro.
-            for pergunta in perguntas_personalizadas:
-
-                pergunta_id = str(pergunta["_id"])
-
-                titulo_pergunta = pergunta.get(
-                    "titulo_pergunta_insumos",
-                    "Pergunta"
-                )
-
-                opcoes_selecionadas = respostas_por_pergunta.get(
-                    pergunta_id,
-                    []
-                )
-
-                registro[titulo_pergunta] = ", ".join(
-                    str(opcao)
-                    for opcao in opcoes_selecionadas
-                )
-
-            registros_consulta.append(registro)
-
-
-
-
-    df_consulta = pd.DataFrame(registros_consulta)
-
-
-
-    # ########################################################################  
-    # VISUALIZAÇÃO DOS REGISTROS DE CONSULTA
-    # ########################################################################
-
-    # Exibe os resultados somente após a definição de um projeto.
-    # As demais opções de filtro podem permanecer sem seleção.
-    if not df_consulta.empty:
-
-        st.write("")
-        st.write("")
-
-        st.markdown("#### Itens solicitados")
-
-
-        # Frase automática do filtro
-        # Monta a descrição dos filtros atualmente ativos na consulta.
-        filtros_ativos = []
-
-        if projeto_selecionado:
-            filtros_ativos.append(
-                f"Projeto: **{projeto_selecionado}**"
-            )
-
-        if responsavel_selecionado:
-            filtros_ativos.append(
-                f"Responsável: **{responsavel_selecionado}**"
-            )
-
-        if data_solicitacao_inicio:
-            data_inicio_formatada = data_solicitacao_inicio.strftime("%d/%m/%Y")
-            filtros_ativos.append(
-                f"Solicitação a partir de: **{data_inicio_formatada}**"
-            )
-
-        if data_solicitacao_fim:
-            data_fim_formatada = data_solicitacao_fim.strftime("%d/%m/%Y")
-            filtros_ativos.append(
-                f"Solicitação até: **{data_fim_formatada}**"
-            )
-
-        if terra_indigena_selecionada:
-            filtros_ativos.append(
-                f"Terra Indígena (TI): **{terra_indigena_selecionada}**"
-            )
-
-        if aldeia_selecionada:
-            filtros_ativos.append(
-                f"Nome da Aldeia: **{aldeia_selecionada}**"
-            )
-
-        if grupo_coletivo_selecionado:
-            filtros_ativos.append(
-                f"Nome do Grupo/Coletivo: **{grupo_coletivo_selecionado}**"
-            )
-
-        if materiais_selecionados:
-            materiais_formatados = ", ".join(
-                f"**{material}**"
-                for material in materiais_selecionados
-            )
-            filtros_ativos.append(
-                f"Material/equipamento/insumo: {materiais_formatados}"
-            )
-
-        if unidades_selecionadas:
-            unidades_formatadas = ", ".join(
-                f"**{unidade}**"
-                for unidade in unidades_selecionadas
-            )
-            filtros_ativos.append(
-                f"Unidade: {unidades_formatadas}"
-            )
-
-
-
-
-
-
-
-        # Define a ordem das colunas apresentada no resultado da consulta.
-        colunas_consulta = [
-            "Código",
-            "Projeto",
-            "Descrição material/equipamento/insumo",
-            "Unidade",
-            "Quantidade",
-            "Responsável",
-            "Terra Indígena (TI)",
-            "Nome da Aldeia",
+        # Filtro de nome do grupo ou coletivo.
+        grupo_coletivo_selecionado = col_3.selectbox(
             "Nome do Grupo/Coletivo",
-            "Data da Solicitação",
-            "Data Prevista de Entrega",
-        ]
+            options=nomes_grupos_coletivos,
+            index=None,
+            placeholder="Selecione um grupo/coletivo",
+            key="consulta_insumos_grupo_coletivo"
+        )
 
 
 
+        # FILTROS DO REFERENTES AOS ITENS DEMANDADOS
 
-        with st.container(horizontal=True, horizontal_alignment="distribute"):
-
-
-            # Exibe a descrição dos filtros atualmente aplicados.
-            if filtros_ativos:
-                st.caption(
-                    "Filtros aplicados: " + " | ".join(filtros_ativos)
-                )
-
-            # Prepara o resultado filtrado para exportação.
-            df_exportacao = df_consulta[colunas_consulta].copy()
-
-            # Gera o arquivo XLSX em memória.
-            buffer_xlsx = io.BytesIO()
-
-            with pd.ExcelWriter(buffer_xlsx, engine="openpyxl") as writer:
-                df_exportacao.to_excel(
-                    writer,
-                    index=False,
-                    sheet_name="Consulta",
-                )
-
-            buffer_xlsx.seek(0)
-
-            st.download_button(
-                "Baixar em xlsx",
-                data=buffer_xlsx,
-                file_name="consulta_insumos.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                icon=":material/download:",
-            )
-
-        st.write('')
+        # Define colunas.
+        col_1, col_2 = st.columns([2, 1])
 
 
+        # Reúne todas as descrições de materiais cadastradas nos itens das solicitações.
+        # O conjunto elimina valores duplicados antes da ordenação alfabética.
+        materiais_disponiveis = {
+            item.get("Descrição Material/ Equipamento/ Insumo")
+            for solicitacao in solicitacoes
+            for item in solicitacao.get("itens_demandados", [])
+            if item.get("Descrição Material/ Equipamento/ Insumo")
+            and str(item.get("Descrição Material/ Equipamento/ Insumo")).strip()
+        }
+
+        # Ordena as descrições sem diferenciar letras maiúsculas e minúsculas.
+        materiais_disponiveis = sorted(
+            materiais_disponiveis,
+            key=lambda valor: str(valor).lower()
+        )
+
+        # Permite selecionar vários materiais simultaneamente.
+        materiais_selecionados = col_1.multiselect(
+            "Descrição material/equipamento/insumo",
+            options=materiais_disponiveis,
+            key="consulta_insumos_materiais"
+        )
 
 
-        # Acrescenta as perguntas personalizadas ao final do dataframe.
-        colunas_consulta.extend(
-            pergunta.get(
+        # Reúne todas as unidades cadastradas nos itens das solicitações.
+        # O conjunto elimina valores duplicados antes da ordenação alfabética.
+        unidades_disponiveis = {
+            item.get("Unidade")
+            for solicitacao in solicitacoes
+            for item in solicitacao.get("itens_demandados", [])
+            if item.get("Unidade")
+            and str(item.get("Unidade")).strip()
+        }
+
+        # Ordena as unidades sem diferenciar letras maiúsculas e minúsculas.
+        unidades_disponiveis = sorted(
+            unidades_disponiveis,
+            key=lambda valor: str(valor).lower()
+        )
+
+        # Permite selecionar várias unidades simultaneamente.
+        unidades_selecionadas = col_2.multiselect(
+            "Unidade",
+            options=unidades_disponiveis,
+            key="consulta_insumos_unidades"
+        )
+
+
+        # Mantém a área das perguntas personalizadas organizada em três colunas.
+        colunas_perguntas = st.columns(3)
+
+        respostas_personalizadas_selecionadas = {}
+
+        for indice, pergunta in enumerate(perguntas_personalizadas):
+            pergunta_id = str(pergunta["_id"])
+            titulo_pergunta = pergunta.get(
                 "titulo_pergunta_insumos",
                 "Pergunta"
             )
-            for pergunta in perguntas_personalizadas
-        )
+            opcoes_resposta = pergunta.get(
+                "opcoes_resposta_insumos",
+                []
+            )
 
-        st.dataframe(
-            df_consulta[colunas_consulta],
-            hide_index=True
-        )
+            coluna = colunas_perguntas[indice % 3]
 
-    else:
+            respostas_personalizadas_selecionadas[pergunta_id] = coluna.selectbox(
+                titulo_pergunta,
+                options=opcoes_resposta,
+                index=None,
+                placeholder="Selecione uma opção",
+                key=f"consulta_insumos_pergunta_{pergunta_id}",
+            )
 
-        # Informa quando a combinação de filtros não possui registros.
-        st.caption(
-            "**Nenhum registro encontrado para os filtros selecionados.**"
-        )
+
+
+
+
+
+
+        # ########################################################################  
+        # APLICAÇÃO DOS FILTROS 
+        # ########################################################################  
+
+        # Aplica o filtro de responsável somente quando houver uma seleção.
+        # Na ausência de seleção, todas as solicitações do projeto permanecem disponíveis.
+        if responsavel_selecionado is not None:
+
+            responsavel_id_selecionado = responsaveis_opcoes[
+                responsavel_selecionado
+            ]
+
+            solicitacoes_consulta = [
+                solicitacao
+                for solicitacao in solicitacoes_consulta
+                if str(solicitacao.get("responsavel_id")) == responsavel_id_selecionado
+            ]
+
+
+        # Aplica o limite inicial do período quando uma data de início foi informada.
+        if data_solicitacao_inicio:
+
+            solicitacoes_consulta = [
+                solicitacao
+                for solicitacao in solicitacoes_consulta
+                if (
+                    parse_data_solicitacao(
+                        solicitacao.get("data_solicitacao")
+                    )
+                    and parse_data_solicitacao(
+                        solicitacao.get("data_solicitacao")
+                    ) >= data_solicitacao_inicio
+                )
+            ]
+
+        # Aplica o limite final do período quando uma data de fim foi informada.
+        if data_solicitacao_fim:
+
+            solicitacoes_consulta = [
+                solicitacao
+                for solicitacao in solicitacoes_consulta
+                if (
+                    parse_data_solicitacao(
+                        solicitacao.get("data_solicitacao")
+                    )
+                    and parse_data_solicitacao(
+                        solicitacao.get("data_solicitacao")
+                    ) <= data_solicitacao_fim
+                )
+            ]
+
+
+        # Aplica o filtro de Terra Indígena quando houver uma seleção.
+        if terra_indigena_selecionada is not None:
+
+            solicitacoes_consulta = [
+                solicitacao
+                for solicitacao in solicitacoes_consulta
+                if solicitacao.get("identificacao_comunidade", {}).get(
+                    "terra_indigena",
+                    ""
+                ).strip() == terra_indigena_selecionada
+            ]
+
+        # Aplica o filtro de aldeia quando houver uma seleção.
+        if aldeia_selecionada is not None:
+
+            solicitacoes_consulta = [
+                solicitacao
+                for solicitacao in solicitacoes_consulta
+                if solicitacao.get("identificacao_comunidade", {}).get(
+                    "nome_aldeia",
+                    ""
+                ).strip() == aldeia_selecionada
+            ]
+
+        # Aplica o filtro de grupo ou coletivo quando houver uma seleção.
+        if grupo_coletivo_selecionado is not None:
+
+            solicitacoes_consulta = [
+                solicitacao
+                for solicitacao in solicitacoes_consulta
+                if solicitacao.get("identificacao_comunidade", {}).get(
+                    "nome_grupo_coletivo",
+                    ""
+                ).strip() == grupo_coletivo_selecionado
+            ]
+
+
+
+
+        # Aplica os filtros das perguntas personalizadas do projeto.
+        for pergunta_id, resposta_selecionada in respostas_personalizadas_selecionadas.items():
+
+            if resposta_selecionada is None:
+                continue
+
+            solicitacoes_filtradas = []
+
+            for solicitacao in solicitacoes_consulta:
+                respostas = solicitacao.get(
+                    "respostas_personalizadas_insumos",
+                    []
+                )
+
+                resposta_pergunta = next(
+                    (
+                        resposta
+                        for resposta in respostas
+                        if str(resposta.get("pergunta_id")) == pergunta_id
+                    ),
+                    None
+                )
+
+                if not resposta_pergunta:
+                    continue
+
+                opcoes_selecionadas = resposta_pergunta.get(
+                    "opcoes_selecionadas",
+                    []
+                )
+
+                if resposta_selecionada in opcoes_selecionadas:
+                    solicitacoes_filtradas.append(solicitacao)
+
+            solicitacoes_consulta = solicitacoes_filtradas
+
+
+
+
+
+
+
+        # ########################################################################  
+        # PREPARAÇÃO DOS REGISTROS DE CONSULTA PARA VISUALIZAÇÃO
+        # ########################################################################
+
+
+        # Prepara uma linha para cada item das solicitações que permaneceram na consulta.
+        registros_consulta = []
+
+        for solicitacao in solicitacoes_consulta:
+
+            identificacao_comunidade = (
+                solicitacao.get("identificacao_comunidade", {})
+                or {}
+            )
+
+            projeto_id = solicitacao.get("projeto_id")
+            responsavel_id = solicitacao.get("responsavel_id")
+
+            # Resolve os dados de identificação utilizados na exibição da consulta.
+            nome_projeto = obter_nome_projeto_por_id(
+                projeto_id,
+                projetos_dict
+            )
+
+            nome_responsavel = obter_nome_responsavel_solicitacao(
+                solicitacao,
+                pessoas_dict
+            )
+
+            for item in solicitacao.get("itens_demandados", []):
+
+                descricao_material = item.get(
+                    "Descrição Material/ Equipamento/ Insumo"
+                )
+
+                unidade = item.get("Unidade")
+
+                # Ignora linhas de itens que não possuem material nem unidade.
+                if not descricao_material and not unidade:
+                    continue
+
+                # Mantém somente os itens compatíveis com o filtro de material,
+                # quando houver materiais selecionados.
+                if (
+                    materiais_selecionados
+                    and descricao_material not in materiais_selecionados
+                ):
+                    continue
+
+                # Mantém somente os itens compatíveis com o filtro de unidade,
+                # quando houver unidades selecionadas.
+                if (
+                    unidades_selecionadas
+                    and unidade not in unidades_selecionadas
+                ):
+                    continue
+
+
+
+
+                registro = {
+                    "Código": obter_codigo_solicitacao_exibido(solicitacao),
+                    "Projeto": nome_projeto,
+                    "Responsável": nome_responsavel,
+                    "Data da Solicitação": solicitacao.get(
+                        "data_solicitacao",
+                        "—"
+                    ),
+                    "Data Prevista de Entrega": solicitacao.get(
+                        "data_prevista_entrega",
+                        "—"
+                    ),
+                    "Terra Indígena (TI)": identificacao_comunidade.get(
+                        "terra_indigena",
+                        ""
+                    ),
+                    "Nome da Aldeia": identificacao_comunidade.get(
+                        "nome_aldeia",
+                        ""
+                    ),
+                    "Nome do Grupo/Coletivo": identificacao_comunidade.get(
+                        "nome_grupo_coletivo",
+                        ""
+                    ),
+                    "Descrição material/equipamento/insumo": (
+                        descricao_material or ""
+                    ),
+                    "Unidade": unidade or "",
+                    "Quantidade": item.get("Quantidade"),
+                }
+
+                # Recupera as respostas personalizadas registradas na solicitação.
+                respostas_personalizadas = solicitacao.get(
+                    "respostas_personalizadas_insumos",
+                    []
+                )
+
+                # Organiza as respostas pelo ID da pergunta.
+                respostas_por_pergunta = {
+                    str(resposta.get("pergunta_id")): resposta.get(
+                        "opcoes_selecionadas",
+                        []
+                    )
+                    for resposta in respostas_personalizadas
+                }
+
+                # Acrescenta as respostas personalizadas ao registro.
+                for pergunta in perguntas_personalizadas:
+
+                    pergunta_id = str(pergunta["_id"])
+
+                    titulo_pergunta = pergunta.get(
+                        "titulo_pergunta_insumos",
+                        "Pergunta"
+                    )
+
+                    opcoes_selecionadas = respostas_por_pergunta.get(
+                        pergunta_id,
+                        []
+                    )
+
+                    registro[titulo_pergunta] = ", ".join(
+                        str(opcao)
+                        for opcao in opcoes_selecionadas
+                    )
+
+                registros_consulta.append(registro)
+
+
+
+
+        df_consulta = pd.DataFrame(registros_consulta)
+
+
+
+        # ########################################################################  
+        # VISUALIZAÇÃO DOS REGISTROS DE CONSULTA
+        # ########################################################################
+
+        # Exibe os resultados somente após a definição de um projeto.
+        # As demais opções de filtro podem permanecer sem seleção.
+        if not df_consulta.empty:
+
+            st.write("")
+            st.write("")
+
+            st.markdown("#### Itens solicitados")
+
+
+            # Frase automática do filtro
+            # Monta a descrição dos filtros atualmente ativos na consulta.
+            filtros_ativos = []
+
+            if projeto_selecionado:
+                filtros_ativos.append(
+                    f"Projeto: **{projeto_selecionado}**"
+                )
+
+            if responsavel_selecionado:
+                filtros_ativos.append(
+                    f"Responsável: **{responsavel_selecionado}**"
+                )
+
+            if data_solicitacao_inicio:
+                data_inicio_formatada = data_solicitacao_inicio.strftime("%d/%m/%Y")
+                filtros_ativos.append(
+                    f"Solicitação a partir de: **{data_inicio_formatada}**"
+                )
+
+            if data_solicitacao_fim:
+                data_fim_formatada = data_solicitacao_fim.strftime("%d/%m/%Y")
+                filtros_ativos.append(
+                    f"Solicitação até: **{data_fim_formatada}**"
+                )
+
+            if terra_indigena_selecionada:
+                filtros_ativos.append(
+                    f"Terra Indígena (TI): **{terra_indigena_selecionada}**"
+                )
+
+            if aldeia_selecionada:
+                filtros_ativos.append(
+                    f"Nome da Aldeia: **{aldeia_selecionada}**"
+                )
+
+            if grupo_coletivo_selecionado:
+                filtros_ativos.append(
+                    f"Nome do Grupo/Coletivo: **{grupo_coletivo_selecionado}**"
+                )
+
+            if materiais_selecionados:
+                materiais_formatados = ", ".join(
+                    f"**{material}**"
+                    for material in materiais_selecionados
+                )
+                filtros_ativos.append(
+                    f"Material/equipamento/insumo: {materiais_formatados}"
+                )
+
+            if unidades_selecionadas:
+                unidades_formatadas = ", ".join(
+                    f"**{unidade}**"
+                    for unidade in unidades_selecionadas
+                )
+                filtros_ativos.append(
+                    f"Unidade: {unidades_formatadas}"
+                )
+
+
+
+
+
+
+
+            # Define a ordem das colunas apresentada no resultado da consulta.
+            colunas_consulta = [
+                "Código",
+                "Projeto",
+                "Descrição material/equipamento/insumo",
+                "Unidade",
+                "Quantidade",
+                "Responsável",
+                "Terra Indígena (TI)",
+                "Nome da Aldeia",
+                "Nome do Grupo/Coletivo",
+                "Data da Solicitação",
+                "Data Prevista de Entrega",
+            ]
+
+
+
+
+            with st.container(horizontal=True, horizontal_alignment="distribute"):
+
+
+                # Exibe a descrição dos filtros atualmente aplicados.
+                if filtros_ativos:
+                    st.caption(
+                        "Filtros aplicados: " + " | ".join(filtros_ativos)
+                    )
+
+                # Prepara o resultado filtrado para exportação.
+                df_exportacao = df_consulta[colunas_consulta].copy()
+
+                # Gera o arquivo XLSX em memória.
+                buffer_xlsx = io.BytesIO()
+
+                with pd.ExcelWriter(buffer_xlsx, engine="openpyxl") as writer:
+                    df_exportacao.to_excel(
+                        writer,
+                        index=False,
+                        sheet_name="Consulta",
+                    )
+
+                buffer_xlsx.seek(0)
+
+                st.download_button(
+                    "Baixar em xlsx",
+                    data=buffer_xlsx,
+                    file_name="consulta_insumos.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    icon=":material/download:",
+                )
+
+            st.write('')
+
+
+
+
+            # Acrescenta as perguntas personalizadas ao final do dataframe.
+            colunas_consulta.extend(
+                pergunta.get(
+                    "titulo_pergunta_insumos",
+                    "Pergunta"
+                )
+                for pergunta in perguntas_personalizadas
+            )
+
+            st.dataframe(
+                df_consulta[colunas_consulta],
+                hide_index=True
+            )
+
+        else:
+
+            # Informa quando a combinação de filtros não possui registros.
+            st.caption(
+                "**Nenhum registro encontrado para os filtros selecionados.**"
+            )
 
 
 
