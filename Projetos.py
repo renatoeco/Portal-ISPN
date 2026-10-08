@@ -1734,9 +1734,35 @@ def dialog_editar_projeto():
             )
 
             st.write('')
-        
+
+
+            # ADAPTAÇÃO E MITIGAÇÃO DAS MUDANÇAS CLIMÁTICAS
+            col1, col2 = st.columns(2)
+
+            adaptacao = col1.toggle(
+                "Contribui com a adaptação às mudanças climáticas",
+                value=projeto_info.get("adaptacao", False)
+            )
+
+            mitigacao = col2.toggle(
+                "Contribui para a mitigação das mudanças climáticas",
+                value=projeto_info.get("mitigacao", False)
+            )
+
+            st.write("")
+
+
+
             # Botão de salvar
-            submit = st.form_submit_button("Salvar", icon=":material/save:", type="primary", width=200)
+            submit = st.form_submit_button(
+                "Salvar",
+                icon=":material/save:",
+                type="primary",
+                width=200
+            )
+
+
+
             if submit:
                 # Converter coordenador, doador e programa para ObjectId antes de salvar
                 coordenador_objid = bson.ObjectId(coordenador) if coordenador else None
@@ -1805,6 +1831,8 @@ def dialog_editar_projeto():
                             for ano, v in orcamento_por_ano.items()
                             if v > 0
                         },
+                        "adaptacao": adaptacao,
+                        "mitigacao": mitigacao,
                     }
 
                     projetos_ispn.update_one({"_id": projeto_info["_id"]}, {"$set": update_doc})
@@ -2419,6 +2447,50 @@ with tab_projetos:
                 )
             else:
                 st.write(f"**Resumo do projeto:** {resumo_do_projeto}")
+
+
+
+            # Adaptação e mitigação das mudanças climáticas
+
+            adaptacao = df_projetos_ispn.loc[
+                df_projetos_ispn["sigla"] == projeto_selecionado,
+                "adaptacao"
+            ].values[0] if "adaptacao" in df_projetos_ispn.columns else False
+
+            mitigacao = df_projetos_ispn.loc[
+                df_projetos_ispn["sigla"] == projeto_selecionado,
+                "mitigacao"
+            ].values[0] if "mitigacao" in df_projetos_ispn.columns else False
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                
+                with st.container(horizontal=True):
+
+                    st.write("**Contribui com a adaptação às mudanças climáticas**")
+                    st.badge(
+                        "Sim" if adaptacao else "Não",
+                        color="blue" if adaptacao else "red"
+                    )
+
+            with col2:
+                
+                with st.container(horizontal=True):
+
+                    st.write("**Contribui para a mitigação das mudanças climáticas**")
+                    st.badge(
+                        "Sim" if mitigacao else "Não",
+                        color="blue" if mitigacao else "red"
+                    )
+
+            st.write("")
+
+
+
+
+
+
 
 
             st.write('')
