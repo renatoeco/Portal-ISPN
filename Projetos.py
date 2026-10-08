@@ -438,6 +438,9 @@ def dialog_cadastrar_projeto():
         elif "ucs" in doc:
             dados_uc = doc["ucs"]
 
+
+
+
     # =========================================================
     # PROJETO ESTRATÉGICO
     # =========================================================
@@ -854,6 +857,31 @@ def dialog_cadastrar_projeto():
     
             st.write('')
 
+
+
+
+        # ----------------------------------------------------------
+        # ADAPTAÇÃO E MITIGAÇÃO DAS MUDANÇAS CLIMÁTICAS
+        # ----------------------------------------------------------
+
+
+        col1, col2 = st.columns(2)
+
+        adaptacao = col1.toggle(
+            "Contribui com a adaptação às mudanças climáticas",
+            value=False
+        )
+
+        mitigacao = col2.toggle(
+            "Contribui para a mitigação das mudanças climáticas",
+            value=False
+        )
+
+        st.write("")
+
+
+
+
         # --- Botão de salvar ---
         submit = st.form_submit_button("Cadastrar", icon=":material/save:", width=200, type="primary")
         if submit:
@@ -979,6 +1007,8 @@ def dialog_cadastrar_projeto():
                         for ano, v in orcamento_por_ano.items()
                         if v > 0
                     },
+                    "adaptacao": adaptacao,
+                    "mitigacao": mitigacao,
                 }
 
                 # --- Inserir no MongoDB ---
