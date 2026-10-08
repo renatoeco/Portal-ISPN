@@ -351,6 +351,7 @@ def mostrar_detalhes(codigo_proj: str):
             key=f"editar_projeto_{proj_id}"
         )
 
+        # Modo edição dos detalhes do projeto
 
         if editar_projeto:
 
@@ -413,12 +414,10 @@ def mostrar_detalhes(codigo_proj: str):
                 else:
                     st.error("O projeto não foi encontrado para atualização.")
 
+
+
+        # Modo visualização dos detalhes do projeto
         else:
-
-            # A partir deste ponto permanece todo o conteúdo atual
-            # da visualização do projeto.
-
-
 
 
             st.write(titulo_projeto)
@@ -550,6 +549,51 @@ def mostrar_detalhes(codigo_proj: str):
             df_regioes = pd.DataFrame(linhas)
 
             st.dataframe(df_regioes, width="content", hide_index=True)    
+
+
+
+            # ---------------------------------------------------------
+            #  ADAPTAÇÃO E MITIGAÇÃO DAS MUDANÇAS CLIMÁTICAS
+            # ---------------------------------------------------------
+
+            st.write("")
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+
+                with st.container(horizontal=True):
+
+                    st.markdown("**Contribui com a adaptação às mudanças climáticas**")
+                    st.badge(
+                        "Sim" if projeto.get("adaptacao", False) else "Não",
+                        icon=(
+                            ":material/check:"
+                            if projeto.get("adaptacao", False)
+                            else ":material/close:"
+                        ),
+                        color="blue" if projeto.get("adaptacao", False) else "red"
+                    )
+
+            with col2:
+
+                with st.container(horizontal=True):
+
+                    st.markdown("**Contribui para a mitigação das mudanças climáticas**")
+                    st.badge(
+                        "Sim" if projeto.get("mitigacao", False) else "Não",
+                        icon=(
+                            ":material/check:"
+                            if projeto.get("mitigacao", False)
+                            else ":material/close:"
+                        ),
+                        color="blue" if projeto.get("mitigacao", False) else "red"
+                    )
+
+
+
+
+
 
 
 
@@ -1614,12 +1658,36 @@ def form_projeto(
             placeholder="Selecione..."
         )
 
+
+        st.write("")
+
+        # ----------------------------------------------------------------------
+        # Adaptação e mitigação das mudanças climáticas
+        # ----------------------------------------------------------------------
+
+        col1, col2 = st.columns(2)
+
+        adaptacao = col1.toggle(
+            "Contribui com a adaptação às mudanças climáticas",
+            value=bool(projeto.get("adaptacao", False)),
+            key=f"adaptacao_{form_key}"
+        )
+
+        mitigacao = col2.toggle(
+            "Contribui para a mitigação das mudanças climáticas",
+            value=bool(projeto.get("mitigacao", False)),
+            key=f"mitigacao_{form_key}"
+        )
+
         st.write("")
 
         # -------------------------
         # Botão de salvar
         # -------------------------
         salvar = st.form_submit_button("Salvar", icon=":material/save:")
+
+
+
 
         if salvar:
             # --- Campos obrigatórios ---
@@ -1755,7 +1823,10 @@ def form_projeto(
                 "municipio_principal": str(municipio_principal) if municipio_principal is not None else "",
                 "municipios": ",".join(str(codigo) for codigo in municipios_atuacao),
                 "regioes_atuacao": regioes_atuacao,
+                "adaptacao": bool(adaptacao),
+                "mitigacao": bool(mitigacao),
             }
+
             if tipo_projeto == "PF":
                 doc["cpf"] = proponentes_dict.get(proponente_selecionado, {}).get("cpf", "")
                 doc["genero"] = proponentes_dict.get(proponente_selecionado, {}).get("genero", "")
