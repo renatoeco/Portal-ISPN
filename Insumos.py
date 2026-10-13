@@ -568,9 +568,23 @@ def obter_destinatarios_adm(solicitacao):
 def enviar_notificacao_solicitacao(solicitacao, tipo, projetos_dict, pessoas_dict):
     """Dispara o e-mail de notificação (Enviado/Editado), com o PDF da
     solicitação em anexo, para o e-mail administrativo do escritório do
-    responsável pela solicitação."""
+    responsável pela solicitação e também para o próprio responsável."""
 
-    destinatarios = obter_destinatarios_adm(solicitacao)
+    destinatarios = list(obter_destinatarios_adm(solicitacao))
+
+    # Inclui o e-mail de quem fez a solicitação (responsável original)
+    email_responsavel = obter_email_pessoa_por_id(solicitacao.get("responsavel_id"))
+    if email_responsavel:
+        destinatarios.append(email_responsavel)
+
+    # Remove duplicados (ex.: se o responsável também for o e-mail adm),
+    # preservando a ordem e ignorando diferenças de maiúsculas/minúsculas
+    vistos = set()
+    destinatarios = [
+        e for e in destinatarios
+        if e and not (e.strip().lower() in vistos or vistos.add(e.strip().lower()))
+    ]
+
     if not destinatarios:
         return
 
