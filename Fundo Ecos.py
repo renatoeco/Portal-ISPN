@@ -12,7 +12,7 @@ from openpyxl.utils import get_column_letter
 import plotly.express as px
 from folium.plugins import MarkerCluster, OverlappingMarkerSpiderfier
 from streamlit_folium import st_folium
-from funcoes_auxiliares import conectar_mongo_portal_ispn
+from funcoes_auxiliares import conectar_mongo_portal_ispn, conectar_mongo_coruja2
 import streamlit_shadcn_ui as ui
 
 
@@ -45,6 +45,8 @@ pessoas_beneficiarias = db["pessoas_beneficiarias"]
 indicadores = db["indicadores"]
 colecao_lancamentos = db["lancamentos_indicadores"]
 
+
+db_coruja2 = conectar_mongo_coruja2()
 
 ###########################################################################################################
 # CONTADOR DE ACESSOS À PÁGINA
@@ -346,11 +348,18 @@ def mostrar_detalhes(codigo_proj: str):
 
     with aba_detalhes:
 
-        editar_projeto = st.toggle(
-            "Editar",
-            value=False,
-            key=f"editar_projeto_{proj_id}"
-        )
+        fonte_bd = projeto.get("fonte_bd", "bd_jatai")
+
+        if fonte_bd == "bd_coruja2":
+            editar_projeto = False
+            st.write("")
+            st.caption("**Projeto cadastrado no sistema Coruja 2**")
+        else:
+            editar_projeto = st.toggle(
+                "Editar",
+                value=False,
+                key=f"editar_projeto_{proj_id}"
+            )
 
         # Modo edição dos detalhes do projeto
 
@@ -447,6 +456,10 @@ def mostrar_detalhes(codigo_proj: str):
                 )
                 if pessoa:
                     nome_ponto_focal = pessoa.get("nome_completo", "Não encontrado")
+                    
+            elif isinstance(ponto_focal_obj, str) and ponto_focal_obj.strip():
+                # Projetos do Coruja 2 já trazem o(s) nome(s) do ponto focal
+                nome_ponto_focal = ponto_focal_obj
 
             # Corpo do diálogo
 
@@ -593,18 +606,11 @@ def mostrar_detalhes(codigo_proj: str):
 
 
 
-
-
-
-
-
-
-
-
-
-
         with aba_indicadores:
-
+            
+            if fonte_bd == "bd_coruja2":
+                st.caption("**Os indicadores deste projeto são gerenciados no sistema Coruja 2.**")
+                return
             
             # Tratamento dos dados
 
@@ -2045,17 +2051,313 @@ def edital_key(x):
 ######################################################################################################
 
 
-# Combine os dados
-todos_projetos = pj + pf
+# ---------------------------------------------------------------------
+# PROJETOS DO CORUJA 2 (somente visualização)
+# ---------------------------------------------------------------------
 
+def _parse_data_br(texto):
+    """Converte 'dd/mm/aaaa' em datetime.
+    Devolve None se o texto estiver vazio, for None ou tiver outro formato."""
+    
+    try:
+        return datetime.datetime.strptime(str(texto).strip(), "%d/%m/%Y")
+    except (ValueError, TypeError):
+        return None
+
+
+def _oid(valor):
+    """Converte string/ObjectId em ObjectId (None se for inválido).
+    No Coruja 2 os relacionamentos (ex.: lista de doadores de um ciclo) podem vir
+    gravados como texto, mas as chaves dos dicionários abaixo são ObjectId.
+    Esta função padroniza o tipo para a busca funcionar nos dois casos."""
+    
+    if isinstance(valor, ObjectId):
+        return valor
+    try:
+        return ObjectId(str(valor))
+    except Exception:
+        return None
+
+
+def formatar_edital_coruja2(edital):
+    """Mostra só o texto depois da segunda '/' (ex.: 'BRA/26/45' -> '45').
+    Se não houver duas '/', devolve o código completo.
+    Atenção: serve só para EXIBIÇÃO. A busca do doador continua usando o código
+    completo do edital, como vem do banco."""
+    
+    texto = str(edital or "").strip()
+    partes = texto.split("/", 2)   # no máximo 3 partes: antes, meio e o restante
+    if len(partes) == 3 and partes[2].strip():
+        return partes[2].strip()
+    return texto
+
+
+# Editais cujos projetos devem ser ignorados em toda a página
+# (não aparecem na tabela, nos filtros, nas métricas, no gráfico nem no mapa).
+# Para ignorar outros editais, basta acrescentar o código completo aqui.
+EDITAIS_IGNORADOS = {"ECV/26/01/TESTE"}
+def edital_ignorado(edital):
+    """True se o edital (código completo, como vem do banco) deve ser ignorado.
+    Ignora espaços nas pontas e diferença entre maiúsculas e minúsculas."""
+    return str(edital or "").strip().upper() in EDITAIS_IGNORADOS
+
+
+def normalizar_projeto_coruja2(p, orgs, editais, ciclos, doadores, publicos, pontos_focais):
+    """Converte um documento da coleção 'projetos' do Coruja 2 para o formato
+    dos projetos do portal ISPN, mantendo só os campos usados nesta página.
+
+    Parâmetros:
+        p             documento do projeto no Coruja 2
+        orgs          {_id da organização: documento com nome, sigla e CNPJ}
+        editais       {código do edital: documento com ciclos e data de lançamento}
+        ciclos        {_id do ciclo: documento com a lista de doadores}
+        doadores      {_id do doador: documento com a sigla}
+        publicos      {_id do público: nome do público}
+        pontos_focais {id do projeto (str): lista de nomes dos pontos focais}
+    """
+
+    # Organização proponente do projeto (vazio se não for encontrada)
+    org = orgs.get(p.get("id_organizacao"), {})
+
+    # "or {}" protege contra campos ausentes ou nulos no documento
+    locais = p.get("locais") or {}
+    financeiro = p.get("financeiro") or {}
+
+    # Códigos IBGE de estados e municípios, como texto (mesmo formato do portal,
+    # onde ficam separados por vírgula)
+    estados = [
+        str(e["codigo_uf"]) for e in locais.get("estados", [])
+        if e.get("codigo_uf") is not None
+    ]
+    municipios = [
+        str(m["codigo_municipio"]) for m in locais.get("municipios", [])
+        if m.get("codigo_municipio") is not None
+    ]
+
+    # Primeira localidade com coordenadas vira a "lat, long principal"
+    # (formato igual ao do portal: "-9.62, -40.64")
+    lat_long = ""
+    for loc in locais.get("localidades", []):
+        if loc.get("latitude") is not None and loc.get("longitude") is not None:
+            lat_long = f"{loc['latitude']}, {loc['longitude']}"
+            break
+
+    # Datas do contrato (datetime ou None)
+    data_inicio = _parse_data_br(p.get("data_inicio_contrato"))
+    data_fim = _parse_data_br(p.get("data_fim_contrato"))
+
+    # Valor total do projeto; descarta valores que não sejam número ou que sejam NaN
+    valor = financeiro.get("valor_total")
+    if not isinstance(valor, (int, float)) or math.isnan(valor):
+        valor = None
+
+    # O Coruja 2 não tem "status" como o portal; ele é deduzido pela data de fim:
+    # contrato já encerrado = Finalizado, caso contrário = Em andamento
+    if data_fim and data_fim.date() < datetime.date.today():
+        status = "Finalizado"
+    else:
+        status = "Em andamento"
+
+    # ---- Doadores: edital -> ciclos de investimento -> doadores (sigla) ----
+    # Cadeia de busca:
+    #   projeto.edital == editais.codigo_edital
+    #   edital.ciclo_investimento (lista de ids) -> ciclos_investimento._id
+    #   ciclo.doadores (lista de ids)            -> doadores._id -> sigla_doador
+    edital_doc = editais.get(str(p.get("edital", "")).strip(), {})
+
+    siglas_doadores = []
+    for id_ciclo in edital_doc.get("ciclo_investimento", []) or []:
+        ciclo = ciclos.get(_oid(id_ciclo), {})
+        for id_doador in ciclo.get("doadores", []) or []:
+            sigla = doadores.get(_oid(id_doador), {}).get("sigla_doador")
+            # "not in" evita sigla repetida quando o mesmo doador aparece em vários ciclos
+            if sigla and sigla not in siglas_doadores:
+                siglas_doadores.append(sigla)
+
+    # ---- Públicos: ids da coleção 'publicos' -> campo 'publico' ----
+    nomes_publicos = []
+    for id_publico in p.get("publicos", []) or []:
+        nome = publicos.get(_oid(id_publico))
+        if nome and nome not in nomes_publicos:
+            nomes_publicos.append(nome)
+
+    # ---- Temas: direcoes_estrategicas[].tema ----
+    temas = []
+    for direcao in p.get("direcoes_estrategicas", []) or []:
+        tema = str(direcao.get("tema") or "").strip()
+        if tema and tema not in temas:
+            temas.append(tema)
+
+    # Ano: do lançamento do edital; se não houver, do início do contrato
+    data_lancamento = _parse_data_br(edital_doc.get("data_lancamento"))
+    if data_lancamento:
+        ano = data_lancamento.year
+    elif data_inicio:
+        ano = data_inicio.year
+    else:
+        ano = ""
+
+    # Dicionário final, com os MESMOS nomes de campo dos projetos do portal ISPN.
+    # Campos que não existem no Coruja 2 ficam vazios.
+    return {
+        "_id": p["_id"],
+        "codigo": p.get("codigo", ""),
+        # Sigla da organização; se ela não for encontrada, usa a sigla do próprio projeto.
+        # Para usar sempre a sigla do projeto: p.get("sigla", "")
+        "sigla": org.get("sigla_organizacao") or p.get("sigla", ""),
+        "proponente": org.get("nome_organizacao", ""),
+        "cnpj": org.get("cnpj", ""),   # usado na métrica "Organizações apoiadas" e na busca
+        "tipo": "PJ",                  # no Coruja 2 o proponente é sempre uma organização, por enquanto
+        "nome_do_projeto": p.get("nome_do_projeto", ""),
+        "objetivo_geral": p.get("objetivo_geral", ""),
+        "edital": formatar_edital_coruja2(p.get("edital", "")),   # só para exibição
+        "doador": ", ".join(siglas_doadores),   # já pronto; o laço mais abaixo não o sobrescreve
+        "categoria": "",   # não existe no Coruja 2
+        "programa": "",    # não existe no Coruja 2
+        "ano_de_aprovacao": ano,
+        "ufs": ",".join(estados),
+        "municipios": ",".join(municipios),
+        # O Coruja 2 não define município principal: usa o primeiro da lista
+        "municipio_principal": municipios[0] if municipios else "",
+        "lat_long_principal": lat_long,
+        "duracao_original_meses": str(p.get("duracao", "")),
+        "data_inicio_do_contrato": p.get("data_inicio_contrato", ""),
+        "data_final_do_contrato": p.get("data_fim_contrato", ""),
+        "moeda": "real",   # o Coruja 2 não guarda a moeda; assume-se real
+        "valor": valor,
+        # Já vai como TEXTO (nomes separados por vírgula), não como id.
+        # O filtro, o diálogo e o mapa tratam esse caso para projetos do Coruja 2.
+        "ponto_focal": ", ".join(sorted(pontos_focais.get(str(p["_id"]), []))),
+        "temas": ", ".join(temas),
+        "publico": ", ".join(nomes_publicos),
+        "bioma": "",       # não existe no Coruja 2
+        "genero": "",      # só se aplica a pessoa física no portal
+        "cpf": "",         # idem
+        "status": status,
+        "regioes_atuacao": [],   # sem equivalente no Coruja 2 (tabela de regiões fica vazia)
+        "adaptacao": bool(p.get("adaptacao", False)),
+        "mitigacao": bool(p.get("mitigacao", False)),
+        "fonte_bd": "bd_coruja2",   # marca a origem; o diálogo usa isso para bloquear edição
+    }
+
+
+# ---------------------------------------------------------------------
+# CARGA DAS COLEÇÕES DO CORUJA 2 QUE COMPLEMENTAM OS PROJETOS
+# ---------------------------------------------------------------------
+# Cada consulta traz apenas os campos necessários (segundo argumento do find),
+# para manter a página leve. Cada resultado vira um dicionário indexado pelo
+# identificador, o que torna a busca dentro de "normalizar_projeto_coruja2" imediata.
+
+# Organizações: só nome, sigla e CNPJ  ->  {_id: documento}
+orgs_coruja2 = {
+    o["_id"]: o
+    for o in db_coruja2["organizacoes"].find(
+        {}, {"nome_organizacao": 1, "sigla_organizacao": 1, "cnpj": 1}
+    )
+}
+
+# Editais, ciclos de investimento, doadores e públicos
+# Editais indexados pelo CÓDIGO do edital (e não pelo _id), porque é o código que
+# o projeto guarda  ->  {codigo_edital: documento}
+editais_coruja2 = {
+    str(e.get("codigo_edital", "")).strip(): e
+    for e in db_coruja2["editais"].find(
+        {}, {"codigo_edital": 1, "ciclo_investimento": 1, "data_lancamento": 1}
+    )
+}
+
+# Ciclos de investimento  ->  {_id: documento com a lista de doadores}
+ciclos_coruja2 = {
+    c["_id"]: c
+    for c in db_coruja2["ciclos_investimento"].find({}, {"doadores": 1})
+}
+
+# Doadores  ->  {_id: documento com a sigla}
+doadores_coruja2 = {
+    d["_id"]: d
+    for d in db_coruja2["doadores"].find({}, {"sigla_doador": 1})
+}
+
+# Públicos  ->  {_id: nome do público}
+publicos_coruja2 = {
+    pb["_id"]: pb.get("publico", "")
+    for pb in db_coruja2["publicos"].find({}, {"publico": 1})
+}
+
+# Pontos focais: pessoas admin/equipe com projetos cadastrados no documento
+# Regra: quem tem tipo_usuario "admin" ou "equipe" e ids de projetos no seu
+# documento é ponto focal desses projetos.
+pontos_focais_coruja2 = {}   # id do projeto (str) -> lista de nomes
+
+for pessoa in db_coruja2["pessoas"].find(
+    {
+        "tipo_usuario": {"$in": ["admin", "equipe"]},
+        "projetos.0": {"$exists": True},   # tem ao menos um projeto
+    },
+    {"nome_completo": 1, "projetos": 1},   # não traz senha nem contatos
+):
+    nome = str(pessoa.get("nome_completo") or "").strip()
+    if not nome:
+        continue
+
+    # Inverte a relação: em vez de "pessoa -> projetos", monta "projeto -> pessoas"
+    for id_proj in pessoa.get("projetos", []) or []:
+        nomes = pontos_focais_coruja2.setdefault(str(id_proj), [])
+        if nome not in nomes:   # evita nome repetido no mesmo projeto
+            nomes.append(nome)
+
+# Projeção para não trazer relatórios, financeiro detalhado etc.
+# (o documento de projeto do Coruja 2 é grande; aqui só entram os campos usados)
+projecao_coruja2 = {
+    "edital": 1, "codigo": 1, "sigla": 1, "id_organizacao": 1,
+    "nome_do_projeto": 1, "objetivo_geral": 1, "duracao": 1,
+    "data_inicio_contrato": 1, "data_fim_contrato": 1,
+    "financeiro.valor_total": 1,
+    "locais.estados": 1, "locais.municipios": 1, "locais.localidades": 1,
+    "publicos": 1, "direcoes_estrategicas.tema": 1,
+    "adaptacao": 1, "mitigacao": 1,
+}
+
+# Projetos do Coruja 2 já convertidos para o formato do portal.
+# O "if" no final descarta os projetos dos editais ignorados ANTES de qualquer
+# lista ou DataFrame ser montado, para que eles não apareçam nem sejam contados.
+projetos_coruja2 = [
+    normalizar_projeto_coruja2(
+        p, orgs_coruja2, editais_coruja2, ciclos_coruja2,
+        doadores_coruja2, publicos_coruja2, pontos_focais_coruja2
+    )
+    for p in db_coruja2["projetos"].find({}, projecao_coruja2)
+    if not edital_ignorado(p.get("edital"))
+]
+
+# Projetos do portal ISPN (PJ + PF), também sem os editais ignorados
+projetos_jatai = [p for p in (pj + pf) if not edital_ignorado(p.get("edital"))]
+
+# A ordem (jatai primeiro, coruja2 depois) precisa ser a mesma do concat abaixo.
+# Vários trechos da página usam o índice da linha do DataFrame para achar o
+# dicionário correspondente em "todos_projetos"; se a ordem mudar, os dados
+# de um projeto passam a aparecer na linha de outro.
+todos_projetos = projetos_jatai + projetos_coruja2
+
+# Busca rápida de projeto pelo código (usada pelo diálogo de detalhes).
+# Atenção: se o mesmo código existir nos dois bancos, o último prevalece.
 projetos_por_codigo = {str(p.get("codigo", "")).strip(): p for p in todos_projetos if p.get("codigo") is not None}
 
+# Tabela de estados e municípios do portal (códigos IBGE -> nomes)
 dados_municipios = list(ufs_municipios.find())
 
+# ---------------------------------------------------------------------
+# DOADOR DOS PROJETOS DO PORTAL ISPN
+# ---------------------------------------------------------------------
+# No portal, o doador de um projeto é descoberto por: projeto -> projeto pai
+# (coleção projetos_ispn) -> doador. Aqui monta-se {id do projeto pai: nome do doador}.
+
+# {id do doador (str): nome do doador}
 mapa_nome_doador = {
     str(d["_id"]): d.get("nome_doador", "") for d in colecao_doadores.find()
 }
 
+# {id do projeto pai (str): nome do doador}
 mapa_doador = {}
 for proj in projetos_ispn:
     id_proj = str(proj["_id"])
@@ -2078,34 +2380,58 @@ codigo_para_nome = {}
 for doc in dados_municipios:
     for m in doc.get("municipios", []):
         codigo_para_nome[str(m["codigo_municipio"])] = m["nome_municipio"]
-         
+
+# ---------------------------------------------------------------------
+# AJUSTES FINAIS EM CADA PROJETO (doador e valor numérico)
+# ---------------------------------------------------------------------
 for projeto in todos_projetos:
-    projeto_pai_id = projeto.get("codigo_projeto_pai")
-    if projeto_pai_id:
-        projeto["doador"] = mapa_doador.get(str(projeto_pai_id), "")
-    else:
-        projeto["doador"] = ""
+    # Doador: só para projetos do portal. Os do Coruja 2 já trazem o doador
+    # preenchido (veja "normalizar_projeto_coruja2"), então não podem ser
+    # sobrescritos aqui.
+    if projeto.get("fonte_bd") != "bd_coruja2":
+        projeto_pai_id = projeto.get("codigo_projeto_pai")
+        if projeto_pai_id:
+            projeto["doador"] = mapa_doador.get(str(projeto_pai_id), "")
+        else:
+            projeto["doador"] = ""
 
 
-# for projeto in todos_projetos:
+    # Valor: padroniza como número (float) para os dois bancos.
+    # No portal ele vem como texto no formato brasileiro ("26.980,00");
+    # no Coruja 2 já é número.
     valor_bruto = projeto.get("valor")
 
     if isinstance(valor_bruto, str):
+        # tira o separador de milhar e troca a vírgula decimal por ponto
         valor_limpo = valor_bruto.replace(".", "").replace(",", ".")
         try:
             projeto["valor"] = float(valor_limpo)
         except:
-            projeto["valor"] = None
+            projeto["valor"] = None   # texto que não é número
     elif isinstance(valor_bruto, (int, float)):
         projeto["valor"] = float(valor_bruto)
     else:
         projeto["valor"] = None
 
 
+# ---------------------------------------------------------------------
+# DATAFRAME ÚNICO COM OS DOIS BANCOS
+# ---------------------------------------------------------------------
 # Transforme em DataFrame
-df_projetos = pd.DataFrame(todos_projetos)
+# Um DataFrame por banco, cada um com a coluna "fonte_bd" indicando a origem
+# (bd_jatai = portal ISPN, bd_coruja2 = Coruja 2)
+df_jatai = pd.DataFrame(projetos_jatai)
+df_jatai["fonte_bd"] = "bd_jatai"
+
+df_coruja2 = pd.DataFrame(projetos_coruja2)
+df_coruja2["fonte_bd"] = "bd_coruja2"
+
+# Colunas com o mesmo nome são unidas automaticamente
+# (ignore_index renumera as linhas de 0 em diante: jatai primeiro, depois coruja2)
+df_projetos = pd.concat([df_jatai, df_coruja2], ignore_index=True)
 
 # Dicionário de símbolos por moeda
+# (usado mais adiante para formatar a coluna Valor, ex.: "R$ 150.000,00")
 simbolos = {
     "reais": "R$",
     "real": "R$",
@@ -2116,6 +2442,8 @@ simbolos = {
 }
 
 # Lista base de colunas obrigatórias
+# Só estas colunas seguem para a tabela, os filtros, as métricas e o mapa.
+# Qualquer outro campo dos dicionários de projeto é descartado do DataFrame.
 colunas = [
     "codigo",
     "sigla",
@@ -2139,7 +2467,8 @@ colunas = [
     "proponente",
     "ponto_focal",
     "data_inicio_do_contrato",
-    "data_final_do_contrato"
+    "data_final_do_contrato",
+    "fonte_bd"   # origem do projeto (bd_jatai ou bd_coruja2); fica fora da tabela exibida
 ]
 
 # Adiciona "doador" se ela estiver presente no DataFrame
@@ -2266,12 +2595,24 @@ with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
         pessoas_dict = {str(p["_id"]): p["nome_completo"] for p in pessoas.find()}
         programas_dict = {str(p["_id"]): p["nome_programa_area"] for p in programas.find()}
 
-        df_base["Ponto Focal"] = df_base["Ponto Focal"].apply(lambda x: pessoas_dict.get(str(x), "Não informado") if pd.notna(x) else "Não informado")
+        df_base["Ponto Focal"] = [
+            (x.strip() or "Não informado") if fonte == "bd_coruja2"
+            else pessoas_dict.get(str(x), "Não informado")
+            for x, fonte in zip(df_base["Ponto Focal"], df_base["fonte_bd"])
+        ]
+        
         df_base["Programa"] = df_base["Programa"].apply(lambda x: programas_dict.get(str(x), "Não informado") if pd.notna(x) else "Não informado")
 
         col1, col2, col3, col4 = st.columns(4)
         categoria_sel = col1.multiselect("Categoria", sorted(df_base["Categoria"].dropna().unique()), placeholder="Todos")
-        ponto_focal_sel = col2.multiselect("Ponto Focal", sorted(df_base["Ponto Focal"].dropna().unique()), placeholder="Todos")
+        
+        ponto_focal_opcoes = sorted(
+            df_base["Ponto Focal"].dropna()
+            .apply(lambda x: [m.strip() for m in x.split(",")]).explode().unique(),
+            key=normalizar
+        )
+        ponto_focal_sel = col2.multiselect("Ponto Focal", ponto_focal_opcoes, placeholder="Todos")
+        
         programa_sel = col3.multiselect("Programa", sorted(df_base["Programa"].dropna().unique()), placeholder="Todos")
         genero_sel = col4.multiselect("Gênero", sorted(df_base["Gênero"].dropna().unique()), placeholder="Todos")
 
@@ -2814,7 +3155,8 @@ if lista.open:
                 "Status",
                 "Ponto Focal",
                 "Data Início",
-                "Data Fim"
+                "Data Fim",
+                "fonte_bd"
             ]
         ]
 
@@ -3098,9 +3440,10 @@ if mapa.open:
 
                 ponto_focal_obj = projeto.get("ponto_focal")
 
-                nome_ponto_focal = pontos_focais_dict.get(
-                    ponto_focal_obj,
-                    "Não informado"
+                nome_ponto_focal = pontos_focais_dict.get(ponto_focal_obj) or (
+                    ponto_focal_obj
+                    if isinstance(ponto_focal_obj, str) and ponto_focal_obj.strip()
+                    else "Não informado"
                 )
 
                 # ==========================================================

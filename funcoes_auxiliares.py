@@ -29,6 +29,13 @@ def conectar_mongo_pls():
     return db_pls
 
 
+@st.cache_resource
+def conectar_mongo_coruja2():
+    cliente_3 = MongoClient(
+    st.secrets["senhas"]["senha_mongo_coruja2"])
+    db_coruja2 = cliente_3["Coruja"]                   
+    return db_coruja2
+
 
 # VERSÃO NOVA
 def altura_dataframe(df, linhas_adicionais=1):
