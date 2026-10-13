@@ -8,6 +8,7 @@ import time
 import datetime
 import io
 from bson import ObjectId
+from openpyxl.utils import get_column_letter
 import plotly.express as px
 from folium.plugins import MarkerCluster, OverlappingMarkerSpiderfier
 from streamlit_folium import st_folium
@@ -2617,48 +2618,71 @@ if lista.open:
 
         st.write("")
 
-        # Gera o Excel em memória
-        output = io.BytesIO()
-        df_filtrado.to_excel(output, index=False)
-        output.seek(0)
+        # Função que gera o Excel. Só roda quando o botão de download é clicado.
+        def gerar_excel():
+
+            df_export = df_filtrado.copy()
+
+            # Converte as colunas de data para texto dd/mm/aaaa (vazio quando não há data)
+            for coluna_data in ["Data Início", "Data Fim"]:
+                if coluna_data in df_export.columns:
+                    df_export[coluna_data] = (
+                        pd.to_datetime(df_export[coluna_data], errors="coerce")
+                        .dt.strftime("%d/%m/%Y")
+                        .fillna("")
+                    )
+
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine="openpyxl") as writer:
+                df_export.to_excel(writer, index=False, sheet_name="Projetos")
+
+                worksheet = writer.sheets["Projetos"]
+
+                # Ajusta a largura de cada coluna ao conteúdo (com limite máximo)
+                for i, coluna in enumerate(df_export.columns, start=1):
+                    maior_conteudo = df_export[coluna].astype(str).str.len().max()
+                    maior_conteudo = 0 if pd.isna(maior_conteudo) else maior_conteudo
+                    largura = min(max(maior_conteudo, len(str(coluna))) + 2, 60)
+                    worksheet.column_dimensions[get_column_letter(i)].width = largura
+
+            return output.getvalue()
 
         # Nome do arquivo
         data_de_hoje = datetime.date.today().strftime("%d-%m-%Y")
 
         if set(st.session_state.tipo_usuario) & {"admin", "gestao_fundo_ecos"}:
-            
 
             container_botoes = st.container(horizontal=True, horizontal_alignment="right")
 
             container_botoes.download_button(
                 label="Baixar tabela",
-                data=output,
+                data=gerar_excel,  # passa a função, sem parênteses
                 file_name=f"tabela_de_projetos_{data_de_hoje}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 width=260,
-                icon=":material/file_download:"
+                icon=":material/file_download:",
+                on_click="ignore",  # evita rerun da página ao baixar
             )
 
-            container_botoes.button("Cadastrar proponente", on_click=cadastrar_proponente, 
-                                    width=260, 
+            container_botoes.button("Cadastrar proponente", on_click=cadastrar_proponente,
+                                    width=260,
                                     icon=":material/add_business:")
 
-            container_botoes.button("Gerenciar projetos", on_click=gerenciar_projetos, 
-                                    width=260, 
+            container_botoes.button("Gerenciar projetos", on_click=gerenciar_projetos,
+                                    width=260,
                                     icon=":material/contract_edit:")
-            
-            
 
         else:
 
             container_botoes = st.container(horizontal=True, horizontal_alignment="center")
             container_botoes.download_button(
                 label="Baixar projetos filtrados",
-                data=output,
+                data=gerar_excel,
                 file_name=f"projetos_filtrados_{data_de_hoje}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 width=300,
-                icon=":material/file_download:"
+                icon=":material/file_download:",
+                on_click="ignore",
             )
 
 
