@@ -312,7 +312,8 @@ def gerar_excel_colaboradores(dados_pessoas, id_para_nome_programa):
             "data_fim_contrato_+_recente": (
                 contrato_recente.get("data_fim", "")
                 if contrato_recente else ""
-            )
+            ),
+            "data_inicio_estagio": pessoa.get("data_inicio_estagio", ""),
         })
 
     df_exportacao = pd.DataFrame(registros)
@@ -842,7 +843,25 @@ def gerenciar_pessoas(pessoa_id=None):
                             c["id"] for c in coordenadores_possiveis if c["nome"] == coordenador_nome
                         )   
 
-                    cols = st.columns(2)   
+                    cols = st.columns(3)
+
+                    # Data de início de estágio
+                    data_inicio_estagio_str = pessoa.get("data_inicio_estagio", "")
+                    if data_inicio_estagio_str:
+                        data_inicio_estagio = datetime.datetime.strptime(
+                            data_inicio_estagio_str,
+                            "%d/%m/%Y"
+                        )
+                    else:
+                        data_inicio_estagio = None
+
+                    data_inicio_estagio = cols[0].date_input(
+                        "Data de início do estágio:",
+                        format="DD/MM/YYYY",
+                        value=data_inicio_estagio,
+                        min_value=datetime.date(1920, 1, 1),
+                        key=f"editar_data_inicio_estagio_{pessoa_id}"
+                    )
 
                     # Data de entrada
                     data_entrada_str = pessoa.get("data_entrada", "")
@@ -854,7 +873,7 @@ def gerenciar_pessoas(pessoa_id=None):
                     else:
                         data_entrada = None
 
-                    data_entrada = cols[0].date_input(
+                    data_entrada = cols[1].date_input(
                         "Data de entrada:",
                         format="DD/MM/YYYY",
                         value=data_entrada,
@@ -872,7 +891,7 @@ def gerenciar_pessoas(pessoa_id=None):
                     else:
                         data_desligamento = None
 
-                    data_desligamento = cols[1].date_input(
+                    data_desligamento = cols[2].date_input(
                         "Data de desligamento:",
                         format="DD/MM/YYYY",
                         value=data_desligamento,
@@ -1081,6 +1100,7 @@ def gerenciar_pessoas(pessoa_id=None):
                             "status": status,
                             "data_entrada": data_entrada.strftime("%d/%m/%Y") if data_entrada else None,
                             "data_desligamento": data_desligamento.strftime("%d/%m/%Y") if data_desligamento else None,
+                            "data_inicio_estagio": data_inicio_estagio.strftime("%d/%m/%Y") if data_inicio_estagio else None
                         }
 
                         if tipo_contratacao in ["PJ1", "PJ2"]:
@@ -2077,7 +2097,7 @@ def gerenciar_pessoas(pessoa_id=None):
             # Cargo e nome do coordenador
             # -------------------------------------------------
 
-            cols = st.columns([3, 2, 2])
+            cols = st.columns([3, 2])
 
             # Cargo
             cargo = cols[0].selectbox("Cargo:", opcoes_cargos, index=None, placeholder="")
@@ -2105,10 +2125,20 @@ def gerenciar_pessoas(pessoa_id=None):
                     coordenador_id = c["id"]
                     break
 
-            data_entrada = cols[2].date_input(
+            cols = st.columns(2)
+
+            data_inicio_estagio = cols[0].date_input(
+                "Data de início do estágio:",
+                format="DD/MM/YYYY",
+                value=None,
+                min_value=datetime.date(1920, 1, 1)
+            )
+
+            data_entrada = cols[1].date_input(
                 "Data de entrada:",
                 format="DD/MM/YYYY",
-                value=None
+                value=None,
+                min_value=datetime.date(1920, 1, 1)
             )
 
             # ===============================
@@ -2121,7 +2151,7 @@ def gerenciar_pessoas(pessoa_id=None):
     
             if tipo_contratacao in ["PJ1", "PJ2"]:
                 cnpj, nome_empresa = None, None
-  
+
                 cols = st.columns([3, 2])
 
                 nome_empresa = cols[0].text_input("Nome da empresa:")
@@ -2379,6 +2409,10 @@ def gerenciar_pessoas(pessoa_id=None):
                         "data_entrada": (
                             data_entrada.strftime("%d/%m/%Y")
                             if data_entrada else None
+                        ),
+                        "data_inicio_estagio": (
+                            data_inicio_estagio.strftime("%d/%m/%Y")
+                            if data_inicio_estagio else None
                         ),
                         "data_desligamento": None,
                         "anotacoes": [
