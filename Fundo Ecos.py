@@ -2171,6 +2171,16 @@ def normalizar_projeto_coruja2(p, orgs, editais, ciclos, doadores, publicos, pon
         str(m["codigo_municipio"]) for m in locais.get("municipios", [])
         if m.get("codigo_municipio") is not None
     ]
+    
+    # Município principal: agora vem salvo no projeto (locais.municipio_principal).
+    # Se um projeto antigo não tiver, usa o primeiro município da lista como plano B.
+    municipio_principal_doc = locais.get("municipio_principal") or {}
+    codigo_municipio_principal = municipio_principal_doc.get("codigo_municipio")
+
+    if codigo_municipio_principal is not None:
+        municipio_principal = str(codigo_municipio_principal)
+    else:
+        municipio_principal = municipios[0] if municipios else ""
 
     # Primeira localidade com coordenadas vira a "lat, long principal"
     # (formato igual ao do portal: "-9.62, -40.64")
@@ -2273,8 +2283,8 @@ def normalizar_projeto_coruja2(p, orgs, editais, ciclos, doadores, publicos, pon
         "ano_de_aprovacao": ano,
         "ufs": ",".join(estados),
         "municipios": ",".join(municipios),
-        # O Coruja 2 não define município principal: usa o primeiro da lista
-        "municipio_principal": municipios[0] if municipios else "",
+        # Código IBGE do município principal 
+        "municipio_principal": municipio_principal,
         "lat_long_principal": lat_long,
         "duracao_original_meses": str(p.get("duracao", "")),
         "data_inicio_do_contrato": p.get("data_inicio_contrato", ""),
@@ -2380,7 +2390,7 @@ projecao_coruja2 = {
     "financeiro.valor_dolar_original": 1,
     "financeiro.moeda": 1,
     "financeiro.categoria_projeto": 1,
-    "locais.estados": 1, "locais.municipios": 1, "locais.localidades": 1,
+    "locais.estados": 1, "locais.municipios": 1, "locais.localidades": 1, "locais.municipio_principal": 1,
     "publicos": 1, "temas": 1, "programas": 1, "biomas": 1,
     "adaptacao": 1, "mitigacao": 1,
 }
