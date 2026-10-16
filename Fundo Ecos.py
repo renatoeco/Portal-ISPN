@@ -2550,6 +2550,8 @@ colunas = [
     "ponto_focal",
     "data_inicio_do_contrato",
     "data_final_do_contrato",
+    "nome_do_projeto",   # usado na busca por texto; fica fora da tabela exibida
+    "objetivo_geral",    # idem
     "fonte_bd"   # origem do projeto (bd_jatai ou bd_coruja2); fica fora da tabela exibida
 ]
 
@@ -2582,7 +2584,9 @@ df_projetos = df_projetos[colunas].rename(columns={
     "status": "Status",
     "ponto_focal": "Ponto Focal",
     "data_inicio_do_contrato": "Data Início",
-    "data_final_do_contrato": "Data Fim"
+    "data_final_do_contrato": "Data Fim",
+    "nome_do_projeto": "Nome do projeto",
+    "objetivo_geral": "Objetivo geral"
 })
 
 
@@ -2662,176 +2666,242 @@ st.header("Fundo Ecos")
 
 st.write('')
 
-with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
-    with st.form("form_filtros", border=False):
-        df_base = df_projetos.copy()
-        mask = pd.Series(True, index=df_base.index)
 
-        # ===== PRIMEIRA LINHA =====
-        col1, col2 = st.columns([1, 5])
-        tipos_disponiveis = ["Projetos PJ", "Projetos PF"]
-        tipo_sel = col1.pills("Tipo", tipos_disponiveis, selection_mode="multi")
-        busca_geral = col2.text_input("Buscar por Sigla, Proponente, CNPJ ou CPF").strip()
+# ---------------------------------------------------------------------
+# BASE COMUM AOS FILTROS DAS ABAS
+# ---------------------------------------------------------------------
+# Preparada uma única vez; cada aba aplica os seus próprios filtros sobre ela.
 
-        # ===== Segunda Linha =====
-        pessoas_dict = {str(p["_id"]): p["nome_completo"] for p in pessoas.find()}
-        programas_dict = {str(p["_id"]): p["nome_programa_area"] for p in programas.find()}
+df_base = df_projetos.copy()
 
-        df_base["Ponto Focal"] = [
-            (x.strip() or "Não informado") if fonte == "bd_coruja2"
-            else pessoas_dict.get(str(x), "Não informado")
-            for x, fonte in zip(df_base["Ponto Focal"], df_base["fonte_bd"])
-        ]
-        
-        df_base["Programa"] = [
-            (x.strip() or "Não informado") if fonte == "bd_coruja2"
-            else programas_dict.get(str(x), "Não informado")
-            for x, fonte in zip(df_base["Programa"], df_base["fonte_bd"])
-        ]
+pessoas_dict = {str(p["_id"]): p["nome_completo"] for p in pessoas.find()}
+programas_dict = {str(p["_id"]): p["nome_programa_area"] for p in programas.find()}
 
-        col1, col2, col3, col4 = st.columns(4)
-        categoria_sel = col1.multiselect("Categoria", sorted(df_base["Categoria"].dropna().unique()), placeholder="Todos")
-        
-        ponto_focal_opcoes = sorted(
-            df_base["Ponto Focal"].dropna()
-            .apply(lambda x: [m.strip() for m in x.split(",")]).explode().unique(),
-            key=normalizar
-        )
-        ponto_focal_sel = col2.multiselect("Ponto Focal", ponto_focal_opcoes, placeholder="Todos")
-        
-        programa_opcoes = sorted(
-            df_base["Programa"].dropna()
-            .apply(lambda x: [m.strip() for m in x.split(",")]).explode().unique(),
-            key=normalizar
-        )
-        programa_sel = col3.multiselect("Programa", programa_opcoes, placeholder="Todos")
-        
-        genero_sel = col4.multiselect("Gênero", sorted(df_base["Gênero"].dropna().unique()), placeholder="Todos")
+df_base["Ponto Focal"] = [
+    (x.strip() or "Não informado") if fonte == "bd_coruja2"
+    else pessoas_dict.get(str(x), "Não informado")
+    for x, fonte in zip(df_base["Ponto Focal"], df_base["fonte_bd"])
+]
 
-        # ===== Terceira Linha =====
-        col1, col2, col3, col4 = st.columns(4)
-        edital_sel = col1.multiselect("Edital", sorted(df_base["Edital"].dropna().unique(), key=edital_key), placeholder="Todos")
-        ano_sel = col2.multiselect("Ano do edital", sorted(df_base["Ano"].dropna().unique()), placeholder="Todos")
-        doador_sel = col3.multiselect("Doador", sorted(df_base["Doador"].dropna().unique()), placeholder="Todos")
-        codigo_sel = col4.multiselect("Código", sorted(df_base["Código"].dropna().unique()), placeholder="Todos")
+df_base["Programa"] = [
+    (x.strip() or "Não informado") if fonte == "bd_coruja2"
+    else programas_dict.get(str(x), "Não informado")
+    for x, fonte in zip(df_base["Programa"], df_base["fonte_bd"])
+]
 
-        # ===== Quarta Linha =====
-        col1, col2, col3, col4 = st.columns(4)
-        temas_disponiveis = sorted(df_base["Temas"].dropna().apply(lambda x: [m.strip() for m in x.split(",")]).explode().unique(), key=normalizar)
-        temas_sel = col1.multiselect("Temas", temas_disponiveis, placeholder="Todos")
+# Textos já normalizados (sem acento e em minúsculas) para as buscas livres.
+# São calculados uma vez só, em vez de a cada filtro aplicado.
+busca_identificacao = (
+    df_base["Sigla"] + "\n" + df_base["Proponente"] + "\n"
+    + df_base["CNPJ"] + "\n" + df_base["CPF"]
+).map(normalizar)
 
-        publicos_disponiveis = sorted(df_base["Público"].dropna().apply(lambda x: [m.strip() for m in x.split(",")]).explode().unique(), key=normalizar)
-        publicos_sel = col2.multiselect("Público", publicos_disponiveis, placeholder="Todos")
+busca_conteudo = (
+    df_base["Nome do projeto"] + "\n" + df_base["Objetivo geral"]
+).map(normalizar)
 
-        biomas_disponiveis = sorted(df_base["Bioma"].dropna().apply(lambda x: [m.strip() for m in x.split(",")]).explode().unique(), key=normalizar)
-        biomas_sel = col3.multiselect("Bioma", biomas_disponiveis, placeholder="Todos")
 
-        status_sel = col4.multiselect("Status", sorted(df_base["Status"].dropna().unique()), placeholder="Todos")
+def _opcoes_multivalor(coluna, ordenar_por=None):
+    """Opções de um filtro cuja coluna guarda vários valores separados por vírgula."""
+    return sorted(extrair_itens_distintos(df_base[coluna]).unique(), key=ordenar_por)
 
-        # ===== Quinta Linha =====
-        col1, col2, col3, col4 = st.columns(4)
-        
-        data_inicio_filtro = col1.date_input(
-            "Data início do projeto",
-            value=None,
-            min_value=datetime.date(1990, 1, 1),
-            format="DD/MM/YYYY"
-        )
 
-        data_fim_filtro = col2.date_input(
-            "Data fim do projeto",
-            value=None,
-            min_value=datetime.date(1990, 1, 1),
-            format="DD/MM/YYYY"
-        )
+# Opções de cada filtro (iguais para todas as abas)
+TIPOS_PROJETO = ["Projetos PJ", "Projetos PF"]
 
-        estados_unicos = sorted(
-            df_base["Estado(s)"]
-            .dropna()
-            .apply(lambda x: [m.strip() for m in x.split(",")])
-            .explode()
-            .unique()
-        )
-        uf_sel = col3.multiselect("Estado(s)", estados_unicos, placeholder="Todos")
+OPCOES_FILTROS = {
+    "categoria": sorted(df_base["Categoria"].dropna().unique()),
+    "ponto_focal": _opcoes_multivalor("Ponto Focal", normalizar),
+    "programa": _opcoes_multivalor("Programa", normalizar),
+    "genero": sorted(df_base["Gênero"].dropna().unique()),
+    "edital": sorted(df_base["Edital"].dropna().unique(), key=edital_key),
+    "ano": sorted(df_base["Ano"].dropna().unique()),
+    "doador": sorted(df_base["Doador"].dropna().unique()),
+    "codigo": sorted(df_base["Código"].dropna().unique()),
+    "temas": _opcoes_multivalor("Temas", normalizar),
+    "publico": _opcoes_multivalor("Público", normalizar),
+    "bioma": _opcoes_multivalor("Bioma", normalizar),
+    "status": sorted(df_base["Status"].dropna().unique()),
+    "uf": _opcoes_multivalor("Estado(s)"),
+    "municipio": _opcoes_multivalor("Município(s)"),
+}
 
-        municipios_unicos = sorted(
-            df_base["Município(s)"]
-            .dropna()
-            .apply(lambda x: [m.strip() for m in x.split(",")])
-            .explode()
-            .unique()
-        )
-        municipio_sel = col4.multiselect("Município(s)", municipios_unicos, placeholder="Todos")
+# Estado inicial dos filtros (nenhum filtro ativo)
+FILTROS_PADRAO = {
+    "tipo": [], "busca_geral": "", "busca_conteudo": "",
+    "categoria": [], "ponto_focal": [], "programa": [], "genero": [],
+    "edital": [], "ano": [], "doador": [], "codigo": [],
+    "temas": [], "publico": [], "bioma": [], "status": [],
+    "data_inicio": None, "data_fim": None, "uf": [], "municipio": [],
+}
 
-        # ===== Botão =====
-        aplicar = st.form_submit_button("Aplicar filtros")
 
-    # ===== Valor padrão =====
-    df_filtrado = df_base.copy()
+def _validos(selecionados, opcoes):
+    """Mantém só os valores salvos que ainda existem nas opções do filtro."""
+    return [v for v in selecionados if v in opcoes]
 
-    # ===== Se clicou, aplica =====
+
+def _contem_algum(serie, selecionados):
+    """True quando algum dos itens separados por vírgula está entre os selecionados."""
+    return serie.apply(
+        lambda x: any(m.strip() in selecionados for m in x.split(","))
+        if isinstance(x, str) else False
+    )
+
+
+def aplicar_filtros(df, f):
+    """Aplica o dicionário de filtros 'f' sobre df_base e devolve o resultado."""
+
+    mask = pd.Series(True, index=df.index)
+
+    tipo = f["tipo"]
+    if "Projetos PJ" in tipo and "Projetos PF" not in tipo:
+        mask &= (df["Tipo"] == "PJ")
+    elif "Projetos PF" in tipo and "Projetos PJ" not in tipo:
+        mask &= (df["Tipo"] == "PF")
+
+    # Busca por Sigla, Proponente, CNPJ ou CPF
+    if f["busca_geral"]:
+        termo = normalizar(f["busca_geral"])
+        mask &= busca_identificacao.str.contains(termo, regex=False)
+
+    # Busca no nome do projeto e no objetivo geral
+    if f["busca_conteudo"]:
+        termo = normalizar(f["busca_conteudo"])
+        mask &= busca_conteudo.str.contains(termo, regex=False)
+
+    if f["categoria"]: mask &= df["Categoria"].isin(f["categoria"])
+    if f["ponto_focal"]: mask &= _contem_algum(df["Ponto Focal"], f["ponto_focal"])
+    if f["programa"]: mask &= _contem_algum(df["Programa"], f["programa"])
+    if f["genero"]: mask &= df["Gênero"].isin(f["genero"])
+    if f["edital"]: mask &= df["Edital"].isin(f["edital"])
+    if f["ano"]: mask &= df["Ano"].isin(f["ano"])
+    if f["doador"]: mask &= df["Doador"].isin(f["doador"])
+    if f["codigo"]: mask &= df["Código"].isin(f["codigo"])
+    if f["temas"]: mask &= _contem_algum(df["Temas"], f["temas"])
+    if f["publico"]: mask &= _contem_algum(df["Público"], f["publico"])
+    if f["bioma"]: mask &= _contem_algum(df["Bioma"], f["bioma"])
+    if f["status"]: mask &= df["Status"].isin(f["status"])
+    if f["uf"]: mask &= _contem_algum(df["Estado(s)"], f["uf"])
+    if f["municipio"]: mask &= _contem_algum(df["Município(s)"], f["municipio"])
+
+    if f["data_inicio"]:
+        mask &= df["Data Início"].notna() & (df["Data Início"].dt.date >= f["data_inicio"])
+
+    if f["data_fim"]:
+        mask &= df["Data Fim"].notna() & (df["Data Fim"].dt.date <= f["data_fim"])
+
+    return df.loc[mask].copy()
+
+
+def renderizar_filtros(chave, reiniciar_paginacao=False):
+    """Desenha o expander de filtros de uma aba e devolve o DataFrame filtrado.
+
+    'chave' identifica a aba ("geral", "lista", "mapa"): cada aba tem os seus
+    próprios widgets e os seus próprios filtros salvos no session_state, que
+    continuam valendo ao trocar de aba ou de página da tabela.
+    """
+
+    chave_estado = f"filtros_aplicados_{chave}"
+    f = st.session_state.get(chave_estado, FILTROS_PADRAO)
+    o = OPCOES_FILTROS
+    
+    st.write("")
+
+    with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
+        with st.form(f"form_filtros_{chave}", border=False):
+
+            # ===== Primeira linha =====
+            col1, col2, col3 = st.columns([1, 3, 3])
+            tipo_sel = col1.pills(
+                "Tipo", TIPOS_PROJETO, selection_mode="multi",
+                default=_validos(f["tipo"], TIPOS_PROJETO), key=f"tipo_{chave}"
+            )
+            busca_geral = col2.text_input(
+                "Buscar por Sigla, Proponente, CNPJ ou CPF",
+                value=f["busca_geral"], key=f"busca_geral_{chave}"
+            )
+            busca_texto = col3.text_input(
+                "Buscar no nome do projeto ou no objetivo geral",
+                value=f["busca_conteudo"], key=f"busca_conteudo_{chave}"
+            )
+
+            # ===== Segunda linha =====
+            col1, col2, col3, col4 = st.columns(4)
+            categoria_sel = col1.multiselect("Categoria", o["categoria"], default=_validos(f["categoria"], o["categoria"]), placeholder="Todos", key=f"categoria_{chave}")
+            ponto_focal_sel = col2.multiselect("Ponto Focal", o["ponto_focal"], default=_validos(f["ponto_focal"], o["ponto_focal"]), placeholder="Todos", key=f"ponto_focal_{chave}")
+            programa_sel = col3.multiselect("Programa", o["programa"], default=_validos(f["programa"], o["programa"]), placeholder="Todos", key=f"programa_{chave}")
+            genero_sel = col4.multiselect("Gênero", o["genero"], default=_validos(f["genero"], o["genero"]), placeholder="Todos", key=f"genero_{chave}")
+
+            # ===== Terceira linha =====
+            col1, col2, col3, col4 = st.columns(4)
+            edital_sel = col1.multiselect("Edital", o["edital"], default=_validos(f["edital"], o["edital"]), placeholder="Todos", key=f"edital_{chave}")
+            ano_sel = col2.multiselect("Ano do edital", o["ano"], default=_validos(f["ano"], o["ano"]), placeholder="Todos", key=f"ano_{chave}")
+            doador_sel = col3.multiselect("Doador", o["doador"], default=_validos(f["doador"], o["doador"]), placeholder="Todos", key=f"doador_{chave}")
+            codigo_sel = col4.multiselect("Código", o["codigo"], default=_validos(f["codigo"], o["codigo"]), placeholder="Todos", key=f"codigo_{chave}")
+
+            # ===== Quarta linha =====
+            col1, col2, col3, col4 = st.columns(4)
+            temas_sel = col1.multiselect("Temas", o["temas"], default=_validos(f["temas"], o["temas"]), placeholder="Todos", key=f"temas_{chave}")
+            publicos_sel = col2.multiselect("Público", o["publico"], default=_validos(f["publico"], o["publico"]), placeholder="Todos", key=f"publico_{chave}")
+            biomas_sel = col3.multiselect("Bioma", o["bioma"], default=_validos(f["bioma"], o["bioma"]), placeholder="Todos", key=f"bioma_{chave}")
+            status_sel = col4.multiselect("Status", o["status"], default=_validos(f["status"], o["status"]), placeholder="Todos", key=f"status_{chave}")
+
+            # ===== Quinta linha =====
+            col1, col2, col3, col4 = st.columns(4)
+            data_inicio_filtro = col1.date_input(
+                "Data início do projeto", value=f["data_inicio"],
+                min_value=datetime.date(1990, 1, 1), format="DD/MM/YYYY",
+                key=f"data_inicio_{chave}"
+            )
+            data_fim_filtro = col2.date_input(
+                "Data fim do projeto", value=f["data_fim"],
+                min_value=datetime.date(1990, 1, 1), format="DD/MM/YYYY",
+                key=f"data_fim_{chave}"
+            )
+            uf_sel = col3.multiselect("Estado(s)", o["uf"], default=_validos(f["uf"], o["uf"]), placeholder="Todos", key=f"uf_{chave}")
+            municipio_sel = col4.multiselect("Município(s)", o["municipio"], default=_validos(f["municipio"], o["municipio"]), placeholder="Todos", key=f"municipio_{chave}")
+
+            aplicar = st.form_submit_button("Aplicar filtros")
+
+    st.write("")
+
+    # Ao aplicar, os valores escolhidos passam a ser os filtros salvos desta aba
     if aplicar:
-        # Aplica todos os filtros (como no código anterior)
-        if tipo_sel:
-            if "Projetos PJ" in tipo_sel and "Projetos PF" not in tipo_sel:
-                mask &= (df_base["Tipo"] == "PJ")
-            elif "Projetos PF" in tipo_sel and "Projetos PJ" not in tipo_sel:
-                mask &= (df_base["Tipo"] == "PF")
+        f = {
+            "tipo": tipo_sel or [],
+            "busca_geral": busca_geral.strip(),
+            "busca_conteudo": busca_texto.strip(),
+            "categoria": categoria_sel, "ponto_focal": ponto_focal_sel,
+            "programa": programa_sel, "genero": genero_sel,
+            "edital": edital_sel, "ano": ano_sel,
+            "doador": doador_sel, "codigo": codigo_sel,
+            "temas": temas_sel, "publico": publicos_sel,
+            "bioma": biomas_sel, "status": status_sel,
+            "data_inicio": data_inicio_filtro, "data_fim": data_fim_filtro,
+            "uf": uf_sel, "municipio": municipio_sel,
+        }
+        st.session_state[chave_estado] = f
 
-        if busca_geral:
-            termo = normalizar(busca_geral)
-            def corresponde(row):
-                return (
-                    termo in normalizar(row["Sigla"]) or
-                    termo in normalizar(row["Proponente"]) or
-                    termo in normalizar(row["CNPJ"]) or
-                    termo in normalizar(row["CPF"])
-                )
-            mask &= df_base.apply(corresponde, axis=1)
+        # Na aba de projetos, volta para a primeira página da tabela
+        if reiniciar_paginacao:
+            for k in ("pagina_atual", "pagina_topo", "pagina_rodape"):
+                st.session_state[k] = 1
 
-        # Demais filtros...
-        if categoria_sel: mask &= df_base["Categoria"].isin(categoria_sel)
-        if ponto_focal_sel: mask &= df_base["Ponto Focal"].apply(lambda x: any(m.strip() in ponto_focal_sel for m in x.split(",")) if isinstance(x, str) else False)
-        if programa_sel: mask &= df_base["Programa"].apply(lambda x: any(m.strip() in programa_sel for m in x.split(",")) if isinstance(x, str) else False)
-        if genero_sel: mask &= df_base["Gênero"].isin(genero_sel)
-        if edital_sel: mask &= df_base["Edital"].isin(edital_sel)
-        if ano_sel: mask &= df_base["Ano"].isin(ano_sel)
-        if doador_sel: mask &= df_base["Doador"].isin(doador_sel)
-        if codigo_sel: mask &= df_base["Código"].isin(codigo_sel)
-        if temas_sel: mask &= df_base["Temas"].apply(lambda x: any(m.strip() in temas_sel for m in x.split(",")) if isinstance(x, str) else False)
-        if publicos_sel: mask &= df_base["Público"].apply(lambda x: any(m.strip() in publicos_sel for m in x.split(",")) if isinstance(x, str) else False)
-        if biomas_sel: mask &= df_base["Bioma"].apply(lambda x: any(m.strip() in biomas_sel for m in x.split(",")) if isinstance(x, str) else False)
-        if status_sel: mask &= df_base["Status"].isin(status_sel)
-        if uf_sel: mask &= df_base["Estado(s)"].apply(lambda x: any(m.strip() in uf_sel for m in x.split(",")) if isinstance(x, str) else False)
-        if municipio_sel: mask &= df_base["Município(s)"].apply(lambda x: any(m.strip() in municipio_sel for m in x.split(",")) if isinstance(x, str) else False)
+    df_resultado = aplicar_filtros(df_base, f)
 
-        if data_inicio_filtro:
-            mask &= (
-                df_base["Data Início"].notna() &
-                (df_base["Data Início"].dt.date >= data_inicio_filtro)
-            )
+    if df_resultado.empty and any(f.values()):
+        st.warning("Nenhum projeto encontrado")
 
-        if data_fim_filtro:
-            mask &= (
-                df_base["Data Fim"].notna() &
-                (df_base["Data Fim"].dt.date <= data_fim_filtro)
-            )
-
-        df_filtrado = df_base.loc[mask].copy()
-
-        if df_filtrado.empty:
-            st.warning("Nenhum projeto encontrado")
-        #else:
-            #st.success(f"{len(df_filtrado)} projetos encontrados")
-
-
-# Salva no session_state para o diálogo de detalhes
-st.session_state["df_filtrado"] = df_filtrado
+    return df_resultado
 
 geral, lista, mapa = st.tabs(["Visão geral", "Projetos", "Mapa"], on_change="rerun")
 
 if geral.open:
     with geral:
+
+        df_filtrado = renderizar_filtros("geral")
+        st.write("")
     
         # Separar projetos PF e PJ
         df_pf = df_filtrado[df_filtrado['Tipo'] == 'PF']
@@ -3049,6 +3119,11 @@ if geral.open:
 if lista.open:
     with lista:
 
+        df_filtrado = renderizar_filtros("lista", reiniciar_paginacao=True)
+
+        # Salva no session_state para o diálogo de detalhes e para a tabela
+        st.session_state["df_filtrado"] = df_filtrado
+
         st.write("")
 
         # Função que gera o Excel. Só roda quando o botão de download é clicado.
@@ -3248,6 +3323,8 @@ if lista.open:
                 "Ponto Focal",
                 "Data Início",
                 "Data Fim",
+                "Nome do projeto",
+                "Objetivo geral",
                 "fonte_bd"
             ]
         ]
@@ -3298,9 +3375,12 @@ if lista.open:
         st.write("")
 
 
-
 if mapa.open:
     with mapa:
+
+        df_filtrado = renderizar_filtros("mapa")
+        st.write("")
+
         st.subheader("Mapa de distribuição de projetos")
 
         # ==========================================================
@@ -3463,18 +3543,22 @@ if mapa.open:
             # ==========================================================
             # MAPA BASE
             # ==========================================================
+            # Os tiles da CARTO (CartoDB positron) passaram a exigir chave de API,
+            # por isso Cluster e Spider usam o fundo cinza da Esri, que é livre.
 
-            tiles = (
-                "Esri.WorldImagery"
-                if not usar_cluster and not modo_spider
-                else "CartoDB positron"
-            )
+            if not usar_cluster and not modo_spider:
+                tiles = "Esri.WorldImagery"      # satélite (modo Pontos)
+                zoom_maximo = 18
+            else:
+                tiles = "OpenStreetMap"  
+                zoom_maximo = 16                
 
             m = folium.Map(
                 location=[-15.78, -47.93],
                 zoom_start=4,
                 tiles=tiles,
                 attr="Esri",
+                max_zoom=zoom_maximo,
                 height="800px"
             )
 
