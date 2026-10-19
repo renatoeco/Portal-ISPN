@@ -866,6 +866,13 @@ def dialog_cadastrar_projeto():
                 options=sorted(bacia_micro_codigo_para_label.values()),
                 placeholder=""
             )
+
+            # ----------------------- OBSERVAÇÕES -----------------------
+            observacoes_regioes = st.text_area(
+                "Observações",
+                value="",
+                placeholder="Informações adicionais sobre as regiões de atuação"
+            )
     
             st.write('')
 
@@ -1014,6 +1021,7 @@ def dialog_cadastrar_projeto():
                     "objetivo_geral": objetivo_geral,
                     "resumo_projeto": resumo_projeto,
                     "regioes_atuacao": regioes_atuacao,  
+                    "observacoes_regioes": observacoes_regioes,
                     "orcamento_por_ano": {
                         ano: float_to_br(v)
                         for ano, v in orcamento_por_ano.items()
@@ -1748,6 +1756,15 @@ def dialog_editar_projeto():
                 placeholder=""
             )
 
+            # ----------------------- OBSERVAÇÕES -----------------------
+            observacoes_regioes_atual = projeto_info.get("observacoes_regioes", "")
+
+            observacoes_regioes = st.text_area(
+                "Observações",
+                value=str(observacoes_regioes_atual) if pd.notna(observacoes_regioes_atual) else "",
+                placeholder="Informações adicionais sobre as regiões de atuação"
+            )
+
             st.write('')
 
 
@@ -1841,6 +1858,7 @@ def dialog_editar_projeto():
                         "objetivo_geral": objetivo_geral,
                         "resumo_projeto": resumo_projeto,
                         "regioes_atuacao": regioes_atuacao,
+                        "observacoes_regioes": observacoes_regioes,
                         "orcamento_por_ano": {
                             ano: float_to_br(v)
                             for ano, v in orcamento_por_ano.items()
