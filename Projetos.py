@@ -37,6 +37,14 @@ moedas = {
     "euro": "€"
 }
 
+# Opções fixas do campo Situação (status) dos projetos 
+OPCOES_SITUACAO_PROJETO = [
+    "Em andamento",
+    "Responsável financeiro",
+    "Finalizado",
+    "Cancelado",
+]
+
 # Lista de nomes legíveis na ordem definida
 ordem_indicadores = [
     "Número de organizações apoiadas",
@@ -576,8 +584,12 @@ def dialog_cadastrar_projeto():
             col1, col2, col3 = st.columns(3)
 
             # --- Status ---
-            status_options = ["", "Em andamento", "Finalizado", "Cancelado"]
-            status = col1.selectbox("Status", options=status_options, index=0)
+            status = col1.selectbox(
+            "Situação",
+                options=OPCOES_SITUACAO_PROJETO,
+                index=None,
+                placeholder=""
+            )
 
             # --- Datas ---
             data_inicio = col2.date_input("Data de início", value=datetime.date.today(), format="DD/MM/YYYY")
@@ -1013,7 +1025,7 @@ def dialog_cadastrar_projeto():
 
                 # --- Inserir no MongoDB ---
                 projetos_ispn.insert_one(doc)
-                st.success("Projeto cadastrado com sucesso!")
+                st.success("Projeto cadastrado com sucesso!", icon=":material/check:")
                 time.sleep(2)
                 st.rerun()
 
@@ -1327,15 +1339,18 @@ def dialog_editar_projeto():
             col1, col2, col3 = st.columns(3)
 
             # Status
-            status_options = ["", "Em andamento", "Finalizado", "Cancelado"]
-
             status_atual = projeto_info.get("status", "")
-            index_status = status_options.index(status_atual) if status_atual in status_options else 0
+            index_status = (
+                OPCOES_SITUACAO_PROJETO.index(status_atual)
+                if status_atual in OPCOES_SITUACAO_PROJETO
+                else None
+            )
 
             status = col1.selectbox(
-                "Status",
-                options=status_options,
-                index=index_status
+                "Situação",
+                options=OPCOES_SITUACAO_PROJETO,
+                index=index_status,
+                placeholder=""
             )
 
             # Datas
@@ -4150,7 +4165,9 @@ with tab_projetos:
             color='status',
             color_discrete_map={
                 'Em andamento': 'rgba(0,122,211,0.5)',
+                'Responsável financeiro': 'rgba(245,158,11,0.5)',
                 'Finalizado': "rgba(131,201,255,0.5)",
+                'Cancelado': 'rgba(150,150,150,0.5)',
                 '': 'red',
             },
             height=altura,  
