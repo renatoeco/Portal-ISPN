@@ -2062,7 +2062,7 @@ def edital_key(x):
 # O que mudou em relação à versão anterior:
 #   - o campo "edital" do projeto agora é um ObjectId que aponta para a coleção "editais";
 #     o código do edital (ex.: "ECV/26/01/TESTE") vem do documento do edital
-#   - moeda, categoria e valores em dólar vêm de "financeiro"
+#   - moeda e valores vêm de "financeiro"
 #   - temas, programas e biomas vêm de listas no topo do documento
 #   - a verificação de edital ignorado passou a usar o código do edital já resolvido
 
@@ -2203,7 +2203,7 @@ def normalizar_projeto_coruja2(p, orgs, editais, ciclos, doadores, publicos, pon
     moeda = str(financeiro.get("moeda") or "real").strip().lower()
 
     # Categoria do projeto (ex.: "Pequeno")
-    categoria = str(financeiro.get("categoria_projeto") or "").strip()
+    categoria = str(p.get("categoria") or "").strip()
 
     # O Coruja 2 não tem "status" como o portal; ele é deduzido pela data de fim:
     # contrato já encerrado = Finalizado, caso contrário = Em andamento
@@ -2389,7 +2389,7 @@ projecao_coruja2 = {
     "financeiro.valor_dolar_atualizado": 1,
     "financeiro.valor_dolar_original": 1,
     "financeiro.moeda": 1,
-    "financeiro.categoria_projeto": 1,
+    "categoria": 1,
     "locais.estados": 1, "locais.municipios": 1, "locais.localidades": 1, "locais.municipio_principal": 1,
     "publicos": 1, "temas": 1, "programas": 1, "biomas": 1,
     "adaptacao": 1, "mitigacao": 1,
