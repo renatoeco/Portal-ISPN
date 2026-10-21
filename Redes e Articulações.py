@@ -3,6 +3,7 @@ import pandas as pd
 from datetime import datetime
 import time
 import re
+import unicodedata
 
 from funcoes_auxiliares import (
     conectar_mongo_portal_ispn,
@@ -84,6 +85,13 @@ db = conectar_mongo_portal_ispn()
 redes = db["redes_articulacoes"]
 pessoas = db["pessoas"]
 estatistica = db["estatistica"]
+ufs_municipios = db["ufs_municipios"]
+
+# Cria a coleção de registros caso ainda não exista
+if "registros_incidencia_politica" not in db.list_collection_names():
+    db.create_collection("registros_incidencia_politica")
+
+registros_incidencia = db["registros_incidencia_politica"]
 
 
 ###########################################################################################################
@@ -879,7 +887,42 @@ def enviar_email_acompanhamento(destinatario: str, nome_destinatario: str, rede_
     except Exception as e:
         st.error(f"Erro ao enviar e-mail: {e}")
         return False
-    
+
+
+def _chave_ordenacao(texto: str) -> str:
+    """Remove acentos para ordenar alfabeticamente (ex: 'Água Boa' junto dos 'A')."""
+    return unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode().lower()
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def carregar_opcoes_territorio() -> list[str]:
+    """
+    Monta a lista de opções 'Município - UF' a partir da coleção ufs_municipios.
+    O código da UF corresponde aos 2 primeiros dígitos do código IBGE do município.
+    """
+    doc_ufs = ufs_municipios.find_one({"ufs": {"$exists": True}}) or {}
+    doc_munis = ufs_municipios.find_one({"municipios": {"$exists": True}}) or {}
+
+    # codigo_uf -> sigla_uf
+    mapa_ufs = {
+        int(uf["codigo_uf"]): uf["sigla_uf"]
+        for uf in doc_ufs.get("ufs", [])
+        if uf.get("codigo_uf") and uf.get("sigla_uf")
+    }
+
+    opcoes = []
+    for muni in doc_munis.get("municipios", []):
+        nome = muni.get("nome_municipio")
+        codigo = muni.get("codigo_municipio")
+        if not nome or not codigo:
+            continue
+
+        sigla = mapa_ufs.get(int(str(codigo)[:2]))
+        if sigla:
+            opcoes.append(f"{nome} - {sigla}")
+
+    return sorted(set(opcoes), key=_chave_ordenacao)
+
 
 ######################################################################################################
 # MAIN
@@ -889,218 +932,331 @@ def enviar_email_acompanhamento(destinatario: str, nome_destinatario: str, rede_
 # Verifica se o usuário é visitante
 usuario_visitante = "visitante" in st.session_state.get("tipo_usuario", [])
 
-
-
 st.header("Redes e Articulações")
 st.write("")
 st.write("")
 st.write("")
 
-# Container horizontal de botões
-container_botoes = st.container(horizontal=True, horizontal_alignment="right")
 
-# Roteamento de tipo de usuário
-if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)"}:
+aba_redes, aba_registros, aba_forms  = st.tabs([":material/network_node: Redes e Articulações", ":material/menu_book: Registros de Incidências e Articulações", ":material/add: Novo registro",])
 
-    # Botão para abrir o diálogo de gerenciamento de colaboradores
-    container_botoes.button("Cadastrar rede", on_click=cadastro_rede, icon=":material/network_node:", width=300)
+with aba_redes:
+
+    
+
+    # Container horizontal de botões
+    container_botoes = st.container(horizontal=True, horizontal_alignment="right")
+
+    # Roteamento de tipo de usuário
+    if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)"}:
+
+        # Botão para abrir o diálogo de gerenciamento de colaboradores
+        container_botoes.button("Cadastrar rede", on_click=cadastro_rede, icon=":material/network_node:", width=300)
+        st.write('')
+
+
+    # --- Carrega dados do MongoDB ---
+    dados_redes = list(redes.find())
+
+    df_redes = pd.DataFrame(dados_redes)
+    df_redes = df_redes.rename(columns={
+        "rede_articulacao": "Nome",
+        "tipo_rede": "Tipo de Rede",
+        "ponto_focal": "Ponto Focal",
+        "prioridade": "Prioridade",
+        "dedicacao": "Dedicação",
+        "programa": "Programa",
+        "status": "Status",
+        "tema": "Tema"  
+    })
+
+    # Garante existência da coluna mesmo em documentos antigos
+    if "Tipo de Rede" not in df_redes.columns:
+        df_redes["Tipo de Rede"] = ""
+
+    # Preenche valores nulos
+    df_redes["Tipo de Rede"] = df_redes["Tipo de Rede"].fillna("")
+
+    df_redes = df_redes[["Nome", "Tipo de Rede", "Ponto Focal", "Tema", "Prioridade", "Dedicação", "Programa", "Status"]]
+
+    # --- Preparar listas únicas para filtros ---
+    pontos_unicos = (
+        df_redes["Ponto Focal"]
+        .dropna()
+        .astype(str)
+        .str.split(",")
+        .explode()
+        .str.strip()
+        .unique()
+        .tolist()
+    )
+
+    programas_unicos = (
+        df_redes["Programa"]
+        .dropna()
+        .astype(str)
+        .str.split(",")
+        .explode()
+        .str.strip()
+        .unique()
+        .tolist()
+    )
+
+    temas_unicos = (
+        df_redes["Tema"]
+        .dropna()
+        .astype(str)
+        .str.split(",")
+        .explode()
+        .str.strip()
+        .unique()
+        .tolist()
+    )
+
+    status_unicos = df_redes["Status"].dropna().unique().tolist()
+    if not status_unicos:
+        status_unicos = ["ativa", "inativa"]  # fallback se não existir no banco
+
+    # --- Filtros ---
+    with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
+        colf1, colf2, colf3, colf4 = st.columns(4)
+        
+        rede_sel = colf1.multiselect(
+            "Rede",
+            options=sorted(df_redes["Nome"].dropna().unique().tolist()), placeholder=""
+        )
+        tipo_rede_sel = colf4.multiselect(
+            "Tipo de Rede",
+            options=["1", "2", "3"],
+            placeholder=""
+        )
+        ponto_sel = colf2.multiselect(
+            "Ponto Focal",
+            options=sorted(pontos_unicos), placeholder=""
+        )
+        tema_sel = colf3.multiselect(  
+            "Tema",
+            options=sorted(temas_unicos), placeholder=""
+        )
+        
+        colf1, colf2, colf3, colf4 = st.columns(4)
+
+        prioridade_sel = colf1.multiselect(
+            "Grau de Prioridade",
+            options=["Estratégico", "Médio", "Baixo"], placeholder=""
+        )
+        dedicacao_sel = colf2.multiselect(
+            "Dedicação",
+            options=sorted(df_redes["Dedicação"].dropna().unique().tolist()), placeholder=""
+        )
+        programa_sel = colf3.multiselect(
+            "Programa",
+            options=sorted(programas_unicos), placeholder=""
+        )
+        status_sel = colf4.multiselect(
+            "Status",
+            options=sorted(status_unicos),
+            default=["ativa"], 
+            placeholder=""
+        )
+
+    st.write("")
+
+    # --- Aplica filtros ---
+    df_filtrado = df_redes.copy()
+
+    if rede_sel:
+        df_filtrado = df_filtrado[df_filtrado["Nome"].isin(rede_sel)]
+
+    if prioridade_sel:
+        df_filtrado = df_filtrado[df_filtrado["Prioridade"].isin(prioridade_sel)]
+
+    if dedicacao_sel:
+        df_filtrado = df_filtrado[df_filtrado["Dedicação"].isin(dedicacao_sel)]
+
+    if ponto_sel:
+        df_filtrado = df_filtrado[
+            df_filtrado["Ponto Focal"]
+            .astype(str)
+            .apply(lambda x: any(p in x for p in ponto_sel))
+        ]
+
+    if programa_sel:
+        df_filtrado = df_filtrado[
+            df_filtrado["Programa"]
+            .astype(str)
+            .apply(lambda x: any(p in x for p in programa_sel))
+        ]
+
+    if tema_sel:
+        df_filtrado = df_filtrado[
+            df_filtrado["Tema"]
+            .astype(str)
+            .apply(lambda x: any(t in x for t in tema_sel))
+        ]
+
+    # Filtro Status
+    if status_sel:
+        df_filtrado = df_filtrado[df_filtrado["Status"].isin(status_sel)]
+
+    # Filtro tipo de rede 
+    if tipo_rede_sel:
+        df_filtrado = df_filtrado[
+            df_filtrado["Tipo de Rede"].isin(tipo_rede_sel)
+        ]
+
+    # --- Ordenação customizada pelo Grau de Prioridade ---
+    ordem_prioridade = ["Estratégico", "Médio", "Baixo"]
+    df_filtrado["Prioridade"] = pd.Categorical(
+        df_filtrado["Prioridade"],
+        categories=ordem_prioridade,
+        ordered=True
+    )
+
+    df_exibir = (
+        df_filtrado
+        .sort_values(by=["Nome"])
+        .reset_index(drop=True)
+    )
+
+    # SUBHEADER DE CONTAGEM
+    st.subheader(f"{len(df_exibir)} Redes e Articulações")
     st.write('')
 
+    # --- Layout da tabela customizada ---
+    colunas_visiveis = ["Nome", "Tipo de Rede", "Ponto Focal", "Prioridade", "Dedicação", "Programa"]
+    headers = colunas_visiveis + ["Detalhes"]
 
-# --- Carrega dados do MongoDB ---
-dados_redes = list(redes.find())
+    # Ajuste dos tamanhos de coluna (ponto focal mais estreito)
+    col_sizes = [4, 1, 4, 1, 1, 2, 2]
 
-df_redes = pd.DataFrame(dados_redes)
-df_redes = df_redes.rename(columns={
-    "rede_articulacao": "Nome",
-    "tipo_rede": "Tipo de Rede",
-    "ponto_focal": "Ponto Focal",
-    "prioridade": "Prioridade",
-    "dedicacao": "Dedicação",
-    "programa": "Programa",
-    "status": "Status",
-    "tema": "Tema"  
-})
+    # Cabeçalho
+    header_cols = st.columns(col_sizes)
+    for col, header in zip(header_cols, headers):
+        col.markdown(f"**{header}**")
 
-# Garante existência da coluna mesmo em documentos antigos
-if "Tipo de Rede" not in df_redes.columns:
-    df_redes["Tipo de Rede"] = ""
-
-# Preenche valores nulos
-df_redes["Tipo de Rede"] = df_redes["Tipo de Rede"].fillna("")
-
-df_redes = df_redes[["Nome", "Tipo de Rede", "Ponto Focal", "Tema", "Prioridade", "Dedicação", "Programa", "Status"]]
-
-# --- Preparar listas únicas para filtros ---
-pontos_unicos = (
-    df_redes["Ponto Focal"]
-    .dropna()
-    .astype(str)
-    .str.split(",")
-    .explode()
-    .str.strip()
-    .unique()
-    .tolist()
-)
-
-programas_unicos = (
-    df_redes["Programa"]
-    .dropna()
-    .astype(str)
-    .str.split(",")
-    .explode()
-    .str.strip()
-    .unique()
-    .tolist()
-)
-
-temas_unicos = (
-    df_redes["Tema"]
-    .dropna()
-    .astype(str)
-    .str.split(",")
-    .explode()
-    .str.strip()
-    .unique()
-    .tolist()
-)
-
-status_unicos = df_redes["Status"].dropna().unique().tolist()
-if not status_unicos:
-    status_unicos = ["ativa", "inativa"]  # fallback se não existir no banco
-
-# --- Filtros ---
-with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
-    colf1, colf2, colf3, colf4 = st.columns(4)
-    
-    rede_sel = colf1.multiselect(
-        "Rede",
-        options=sorted(df_redes["Nome"].dropna().unique().tolist()), placeholder=""
-    )
-    tipo_rede_sel = colf4.multiselect(
-        "Tipo de Rede",
-        options=["1", "2", "3"],
-        placeholder=""
-    )
-    ponto_sel = colf2.multiselect(
-        "Ponto Focal",
-        options=sorted(pontos_unicos), placeholder=""
-    )
-    tema_sel = colf3.multiselect(  
-        "Tema",
-        options=sorted(temas_unicos), placeholder=""
-    )
-    
-    colf1, colf2, colf3, colf4 = st.columns(4)
-
-    prioridade_sel = colf1.multiselect(
-        "Grau de Prioridade",
-        options=["Estratégico", "Médio", "Baixo"], placeholder=""
-    )
-    dedicacao_sel = colf2.multiselect(
-        "Dedicação",
-        options=sorted(df_redes["Dedicação"].dropna().unique().tolist()), placeholder=""
-    )
-    programa_sel = colf3.multiselect(
-        "Programa",
-        options=sorted(programas_unicos), placeholder=""
-    )
-    status_sel = colf4.multiselect(
-        "Status",
-        options=sorted(status_unicos),
-        default=["ativa"], 
-        placeholder=""
-    )
-
-st.write("")
-
-# --- Aplica filtros ---
-df_filtrado = df_redes.copy()
-
-if rede_sel:
-    df_filtrado = df_filtrado[df_filtrado["Nome"].isin(rede_sel)]
-
-if prioridade_sel:
-    df_filtrado = df_filtrado[df_filtrado["Prioridade"].isin(prioridade_sel)]
-
-if dedicacao_sel:
-    df_filtrado = df_filtrado[df_filtrado["Dedicação"].isin(dedicacao_sel)]
-
-if ponto_sel:
-    df_filtrado = df_filtrado[
-        df_filtrado["Ponto Focal"]
-        .astype(str)
-        .apply(lambda x: any(p in x for p in ponto_sel))
-    ]
-
-if programa_sel:
-    df_filtrado = df_filtrado[
-        df_filtrado["Programa"]
-        .astype(str)
-        .apply(lambda x: any(p in x for p in programa_sel))
-    ]
-
-if tema_sel:
-    df_filtrado = df_filtrado[
-        df_filtrado["Tema"]
-        .astype(str)
-        .apply(lambda x: any(t in x for t in tema_sel))
-    ]
-
-# Filtro Status
-if status_sel:
-    df_filtrado = df_filtrado[df_filtrado["Status"].isin(status_sel)]
-
-# Filtro tipo de rede 
-if tipo_rede_sel:
-    df_filtrado = df_filtrado[
-        df_filtrado["Tipo de Rede"].isin(tipo_rede_sel)
-    ]
-
-# --- Ordenação customizada pelo Grau de Prioridade ---
-ordem_prioridade = ["Estratégico", "Médio", "Baixo"]
-df_filtrado["Prioridade"] = pd.Categorical(
-    df_filtrado["Prioridade"],
-    categories=ordem_prioridade,
-    ordered=True
-)
-
-df_exibir = (
-    df_filtrado
-    .sort_values(by=["Nome"])
-    .reset_index(drop=True)
-)
-
-# SUBHEADER DE CONTAGEM
-st.subheader(f"{len(df_exibir)} Redes e Articulações")
-st.write('')
-
-# --- Layout da tabela customizada ---
-colunas_visiveis = ["Nome", "Tipo de Rede", "Ponto Focal", "Prioridade", "Dedicação", "Programa"]
-headers = colunas_visiveis + ["Detalhes"]
-
-# Ajuste dos tamanhos de coluna (ponto focal mais estreito)
-col_sizes = [4, 1, 4, 1, 1, 2, 2]
-
-# Cabeçalho
-header_cols = st.columns(col_sizes)
-for col, header in zip(header_cols, headers):
-    col.markdown(f"**{header}**")
-
-st.divider()
-
-# Linhas
-for i, row in df_exibir.iterrows():
-    cols = st.columns(col_sizes)
-    for j, key in enumerate(colunas_visiveis):
-        cols[j].write(row[key])
-    if cols[-1].button("Detalhes", key=f"detalhes_{i}", icon=":material/menu:", use_container_width=True):
-        # Busca documento original no Mongo
-        rede_doc = redes.find_one({"rede_articulacao": row["Nome"]})
-        if rede_doc:
-            mostrar_detalhes(rede_doc)
     st.divider()
 
+    # Linhas
+    for i, row in df_exibir.iterrows():
+        cols = st.columns(col_sizes)
+        for j, key in enumerate(colunas_visiveis):
+            cols[j].write(row[key])
+        if cols[-1].button("Detalhes", key=f"detalhes_{i}", icon=":material/menu:", use_container_width=True):
+            # Busca documento original no Mongo
+            rede_doc = redes.find_one({"rede_articulacao": row["Nome"]})
+            if rede_doc:
+                mostrar_detalhes(rede_doc)
+        st.divider()
 
+with aba_registros:
+    st.write("")
+
+with aba_forms:
+
+    st.write("")
+    st.write("")
+
+    # Opções fixas ---------------------------------------------------------------
+    OPCOES_ABRANGENCIA = [
+        "Nacional (ex: Ministérios, Congresso, Conselhos Nacionais)",
+        "Estadual (ex: Secretarias Estaduais, Assembleias Legislativas)",
+        "Municipal (ex: Prefeituras, Câmaras de Vereadores)",
+        "Internacional (ex: COP, ONU)",
+    ]
+
+    OPCOES_TIPO_REGISTRO = ["Incidência política", "Articulação"]
+
+    TERRITORIO_PADRAO_NACIONAL = "Brasília - DF"
+
+    opcoes_territorio = carregar_opcoes_territorio()
+
+    # =====================================================================
+    # 1. INFORMAÇÕES GERAIS (fora do form, para reagir às escolhas)
+    # =====================================================================
+    st.subheader("1. Informações gerais")
+    st.write("")
+
+    col1, col2 = st.columns(2)
+
+    nome_registro = col1.text_input(
+        "Nome",
+        value=st.session_state.get("nome", ""),
+        disabled=True,
+        key="novo_reg_nome",
+    )
+
+    data_atividade = col2.date_input(
+        "Data em que a atividade ocorreu*",
+        value=None,
+        max_value=datetime.now().date(),
+        format="DD/MM/YYYY",
+        key="novo_reg_data",
+        disabled=usuario_visitante,
+    )
+
+    st.write("")
+
+    col1, col2 = st.columns(2)
+
+    abrangencia = col1.radio(
+        "Abrangência / Escopo do Espaço*",
+        options=OPCOES_ABRANGENCIA,
+        index=None,
+        key="novo_reg_abrangencia",
+        disabled=usuario_visitante,
+    )
+
+    st.write("")
+
+    territorio = col2.multiselect(
+        "Território (Município/Estado) onde a ação se localiza fisicamente ou politicamente*",
+        options=opcoes_territorio,
+        placeholder="Digite para buscar o município",
+        key="novo_reg_territorio",
+        disabled=usuario_visitante,
+        help="Se for de âmbito Nacional/Federal, pode preencher como Brasília-DF."
+    )
+
+    tipo_registro = st.selectbox(
+        "Tipo de registro*",
+        options=OPCOES_TIPO_REGISTRO,
+        index=None,
+        placeholder="Selecione o tipo de registro",
+        key="novo_reg_tipo",
+        disabled=usuario_visitante,
+        help="**Opção 1 - Incidência política:** Ações direcionadas a influenciar políticas públicas, "
+                "tomadores de decisão, proposição legislativa e espaços de governança formais para a "
+                "defesa de direitos.  \n\n"
+                "**Opção 2 - Articulação:** Eventos de articulação/rede, reuniões ampliadas, reuniões "
+                "estratégicas, conferências de articulação específica que o ISPN faz parte, etc."
+    )
+
+    # Território padrão: se for Nacional e nada for selecionado, assume Brasília - DF
+    territorio_final = territorio
+    if not territorio and abrangencia and abrangencia.startswith("Nacional"):
+        territorio_final = [TERRITORIO_PADRAO_NACIONAL]
+
+    # Dados gerais prontos para serem gravados junto com a seção 2
+    dados_gerais = {
+        "nome": nome_registro,
+        "data_atividade": data_atividade.strftime("%d/%m/%Y") if data_atividade else None,
+        "abrangencia": abrangencia.split(" (")[0] if abrangencia else None,  # ex: "Nacional"
+        "territorio": territorio_final,
+        "tipo_registro": tipo_registro,
+    }
+
+    st.divider()
+
+    # =====================================================================
+    # 2. DETALHAMENTO (próxima etapa)
+    # =====================================================================
+    if tipo_registro == "Incidência política":
+        st.subheader("2. Detalhamento - Incidência política")
+        # form da seção 2 virá aqui
+
+    elif tipo_registro == "Articulação":
+        st.subheader("2. Detalhamento - Articulação / Redes")
+    
 
 
