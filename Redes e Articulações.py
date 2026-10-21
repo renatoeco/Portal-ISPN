@@ -4,6 +4,7 @@ from datetime import datetime
 import time
 import re
 import unicodedata
+from bson import ObjectId
 
 from funcoes_auxiliares import (
     conectar_mongo_portal_ispn,
@@ -86,6 +87,7 @@ redes = db["redes_articulacoes"]
 pessoas = db["pessoas"]
 estatistica = db["estatistica"]
 ufs_municipios = db["ufs_municipios"]
+programas_areas = db["programas_areas"]
 
 # Cria a coleção de registros caso ainda não exista
 if "registros_incidencia_politica" not in db.list_collection_names():
@@ -924,6 +926,118 @@ def carregar_opcoes_territorio() -> list[str]:
     return sorted(set(opcoes), key=_chave_ordenacao)
 
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def carregar_opcoes_programas() -> dict[str, str]:
+    """
+    Retorna {id_programa (str): nome_programa_area}, ordenado pelo nome.
+    Os ids vão como string porque o cache e o multiselect lidam melhor com tipos simples.
+    """
+    programas = {
+        str(p["_id"]): p["nome_programa_area"].strip()
+        for p in programas_areas.find({}, {"nome_programa_area": 1})
+        if p.get("nome_programa_area")
+    }
+    return dict(sorted(programas.items(), key=lambda item: _chave_ordenacao(item[1])))
+
+
+def salvar_registro(dados_gerais: dict, dados_detalhe: dict, obrigatorios_detalhe: list, mensagem_sucesso: str):
+    """
+    Valida as seções 1 e 2, grava o registro em registros_incidencia_politica
+    e limpa o formulário.
+    """
+    faltando = validar_informacoes_gerais(dados_gerais)
+    faltando += [nome for nome, valor in obrigatorios_detalhe if not valor]
+
+    if faltando:
+        st.warning(f"Preencha todos os campos obrigatórios: {', '.join(faltando)}")
+        st.stop()
+
+    novo_registro = {
+        **dados_gerais,
+        **dados_detalhe,
+        "data_registro": datetime.now().strftime("%d/%m/%Y %H:%M"),
+    }
+
+    registros_incidencia.insert_one(novo_registro)
+
+    st.success(mensagem_sucesso)
+    time.sleep(2)
+
+    limpar_formulario_novo_registro()
+    st.rerun()
+
+
+def validar_informacoes_gerais(dados_gerais: dict) -> list[str]:
+    """Retorna os campos obrigatórios da seção 1 que não foram preenchidos."""
+    obrigatorios = [
+        ("Data em que a atividade ocorreu", dados_gerais.get("data_atividade")),
+        ("Abrangência / Escopo do Espaço", dados_gerais.get("abrangencia")),
+        ("Território", dados_gerais.get("territorio")),
+        ("Tipo de registro", dados_gerais.get("tipo_registro")),
+    ]
+    return [nome for nome, valor in obrigatorios if not valor]
+
+
+def limpar_formulario_novo_registro():
+    """Apaga do session_state todos os campos do formulário (chaves 'novo_reg_')."""
+    for chave in [k for k in st.session_state.keys() if str(k).startswith("novo_reg_")]:
+        del st.session_state[chave]
+        
+
+def carregar_registros() -> pd.DataFrame:
+    """
+    Lê a coleção registros_incidencia_politica e devolve um DataFrame pronto para
+    filtrar e exibir. Programas são traduzidos de _id para nome. Território,
+    UFs e programas ficam como listas, para os filtros funcionarem por item.
+    """
+    docs = list(registros_incidencia.find())
+    if not docs:
+        return pd.DataFrame()
+
+    mapa_programas = carregar_opcoes_programas()  # {id (str): nome}
+
+    linhas = []
+    for d in docs:
+        territorio = d.get("territorio") or []
+        if isinstance(territorio, str):
+            territorio = [territorio]
+
+        programas = [
+            mapa_programas.get(str(pid), "Programa removido")
+            for pid in (d.get("programas") or [])
+        ]
+
+        envolveu = d.get("envolveu_outras_organizacoes")
+        envolveu_txt = "" if envolveu is None else ("Sim" if envolveu else "Não")
+
+        linhas.append({
+            "_id": d["_id"],
+            "data": pd.to_datetime(d.get("data_atividade"), format="%d/%m/%Y", errors="coerce"),
+            "tipo_registro": d.get("tipo_registro", ""),
+            "nome": d.get("nome", ""),
+            "abrangencia": d.get("abrangencia", ""),
+            "territorio": territorio,
+            "ufs": sorted({t.rsplit(" - ", 1)[-1] for t in territorio if " - " in t}),
+            "programas": programas,
+            "orgao_incidencia": d.get("orgao_incidencia", ""),
+            "ator_impactado": d.get("ator_impactado", ""),
+            "rede_articulacao": d.get("rede_articulacao", ""),
+            "pauta_objetivo": d.get("pauta_objetivo", ""),
+            "encaminhamentos": d.get("encaminhamentos", ""),
+            "envolveu_outras_organizacoes": envolveu_txt,
+            "organizacoes_envolvidas": d.get("organizacoes_envolvidas", ""),
+            "data_registro": d.get("data_registro", ""),
+        })
+
+    return pd.DataFrame(linhas)
+
+
+def _opcoes_de_listas(serie: pd.Series) -> list[str]:
+    """Valores únicos de uma coluna de listas, em ordem alfabética sem acento."""
+    valores = {v for lista in serie for v in lista if v}
+    return sorted(valores, key=_chave_ordenacao)
+
+
 ######################################################################################################
 # MAIN
 ######################################################################################################
@@ -1150,7 +1264,185 @@ with aba_redes:
         st.divider()
 
 with aba_registros:
+
     st.write("")
+
+    df_registros = carregar_registros()
+
+    if df_registros.empty:
+        st.caption("**Nenhum registro de incidência política ou articulação foi cadastrado ainda.**")
+
+    else:
+        # =====================
+        # Filtros
+        # =====================
+        with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
+
+            colf1, colf2, colf3, colf4 = st.columns(4)
+
+            tipo_sel = colf1.multiselect(
+                "Tipo de registro",
+                options=sorted(df_registros["tipo_registro"].dropna().unique()),
+                placeholder="",
+                key="filtro_reg_tipo",
+            )
+
+            abrangencia_sel = colf2.multiselect(
+                "Abrangência",
+                options=sorted(df_registros["abrangencia"].dropna().unique()),
+                placeholder="",
+                key="filtro_reg_abrangencia",
+            )
+
+            programa_sel_reg = colf3.multiselect(
+                "Programa",
+                options=_opcoes_de_listas(df_registros["programas"]),
+                placeholder="",
+                key="filtro_reg_programa",
+            )
+
+            pessoa_sel = colf4.multiselect(
+                "Registrado por",
+                options=sorted(df_registros["nome"].dropna().unique(), key=_chave_ordenacao),
+                placeholder="",
+                key="filtro_reg_pessoa",
+            )
+
+            colf1, colf2, colf3, colf4 = st.columns(4)
+
+            uf_sel = colf1.multiselect(
+                "Estado (UF)",
+                options=_opcoes_de_listas(df_registros["ufs"]),
+                placeholder="",
+                key="filtro_reg_uf",
+            )
+
+            # Municípios: se houver UF selecionada, mostra só os municípios dessas UFs
+            municipios_opcoes = _opcoes_de_listas(df_registros["territorio"])
+            if uf_sel:
+                municipios_opcoes = [m for m in municipios_opcoes if m.rsplit(" - ", 1)[-1] in uf_sel]
+
+            municipio_sel = colf2.multiselect(
+                "Município",
+                options=municipios_opcoes,
+                placeholder="",
+                key="filtro_reg_municipio",
+            )
+
+            # Período da atividade
+            datas_validas = df_registros["data"].dropna()
+            periodo_sel = None
+            if not datas_validas.empty:
+                periodo_sel = colf3.date_input(
+                    "Período da atividade",
+                    value=(datas_validas.min().date(), datas_validas.max().date()),
+                    format="DD/MM/YYYY",
+                    key="filtro_reg_periodo",
+                )
+
+            busca_texto = colf4.text_input(
+                "Buscar por texto",
+                placeholder="Pauta, órgão, ator, rede...",
+                key="filtro_reg_busca",
+            )
+
+        # =====================
+        # Aplica filtros
+        # =====================
+        df_filtrado_reg = df_registros.copy()
+
+        if tipo_sel:
+            df_filtrado_reg = df_filtrado_reg[df_filtrado_reg["tipo_registro"].isin(tipo_sel)]
+
+        if abrangencia_sel:
+            df_filtrado_reg = df_filtrado_reg[df_filtrado_reg["abrangencia"].isin(abrangencia_sel)]
+
+        if pessoa_sel:
+            df_filtrado_reg = df_filtrado_reg[df_filtrado_reg["nome"].isin(pessoa_sel)]
+
+        if programa_sel_reg:
+            df_filtrado_reg = df_filtrado_reg[
+                df_filtrado_reg["programas"].apply(lambda lista: any(p in lista for p in programa_sel_reg))
+            ]
+
+        if uf_sel:
+            df_filtrado_reg = df_filtrado_reg[
+                df_filtrado_reg["ufs"].apply(lambda lista: any(uf in lista for uf in uf_sel))
+            ]
+
+        if municipio_sel:
+            df_filtrado_reg = df_filtrado_reg[
+                df_filtrado_reg["territorio"].apply(lambda lista: any(m in lista for m in municipio_sel))
+            ]
+
+        # O date_input de intervalo devolve 1 data enquanto a pessoa ainda está escolhendo a segunda
+        if periodo_sel and isinstance(periodo_sel, (tuple, list)) and len(periodo_sel) == 2:
+            inicio, fim = pd.Timestamp(periodo_sel[0]), pd.Timestamp(periodo_sel[1])
+            df_filtrado_reg = df_filtrado_reg[df_filtrado_reg["data"].between(inicio, fim)]
+
+        if busca_texto.strip():
+            termo = _chave_ordenacao(busca_texto.strip())
+            colunas_busca = [
+                "pauta_objetivo", "encaminhamentos", "orgao_incidencia",
+                "ator_impactado", "rede_articulacao", "organizacoes_envolvidas",
+            ]
+            texto_linha = df_filtrado_reg[colunas_busca].fillna("").astype(str).agg(" ".join, axis=1)
+            df_filtrado_reg = df_filtrado_reg[texto_linha.apply(_chave_ordenacao).str.contains(termo, regex=False)]
+
+        # =====================
+        # Monta tabela de exibição
+        # =====================
+        df_exibir_reg = df_filtrado_reg.sort_values("data", ascending=False).copy()
+
+        # Listas viram texto separado por vírgula
+        for col in ["territorio", "programas"]:
+            df_exibir_reg[col] = df_exibir_reg[col].apply(lambda lista: ", ".join(lista))
+
+        df_exibir_reg = df_exibir_reg.rename(columns={
+            "data": "Data",
+            "tipo_registro": "Tipo",
+            "nome": "Registrado por",
+            "abrangencia": "Abrangência",
+            "territorio": "Território",
+            "programas": "Programas",
+            "orgao_incidencia": "Órgão / Espaço",
+            "ator_impactado": "Ator / Autoridade",
+            "rede_articulacao": "Rede / Articulação",
+            "pauta_objetivo": "Pauta / Objetivo",
+            "encaminhamentos": "Encaminhamentos",
+            "envolveu_outras_organizacoes": "Outras organizações?",
+            "organizacoes_envolvidas": "Organizações envolvidas",
+            "data_registro": "Registrado em",
+        })
+
+        colunas_exibidas = [
+            "Data", "Tipo", "Registrado por", "Abrangência", "Território", "Programas",
+            "Órgão / Espaço", "Ator / Autoridade", "Rede / Articulação",
+            "Pauta / Objetivo", "Encaminhamentos", "Outras organizações?",
+            "Organizações envolvidas", "Registrado em",
+        ]
+
+        # Contagem
+        n_incidencia = (df_filtrado_reg["tipo_registro"] == "Incidência política").sum()
+        n_articulacao = (df_filtrado_reg["tipo_registro"] == "Articulação").sum()
+
+        st.subheader(f"{len(df_filtrado_reg)} registros")
+        st.caption(f"{n_incidencia} de incidência política · {n_articulacao} de articulação")
+        st.write("")
+
+        st.dataframe(
+            df_exibir_reg[colunas_exibidas],
+            hide_index=True,
+            width="stretch",
+            column_config={
+                "Data": st.column_config.DateColumn("Data", format="DD/MM/YYYY", width="small"),
+                "Tipo": st.column_config.TextColumn("Tipo", width="small"),
+                "Pauta / Objetivo": st.column_config.TextColumn("Pauta / Objetivo", width="large"),
+                "Encaminhamentos": st.column_config.TextColumn("Encaminhamentos", width="large"),
+                "Outras organizações?": st.column_config.TextColumn("Outras organizações?", width="small"),
+            },
+        )
+
 
 with aba_forms:
 
@@ -1249,14 +1541,159 @@ with aba_forms:
     st.divider()
 
     # =====================================================================
-    # 2. DETALHAMENTO (próxima etapa)
+    # 2. DETALHAMENTO - INCIDÊNCIA POLÍTICA
     # =====================================================================
     if tipo_registro == "Incidência política":
         st.subheader("2. Detalhamento - Incidência política")
-        # form da seção 2 virá aqui
+        st.write("")
 
+        mapa_programas = carregar_opcoes_programas()  # {id: nome}
+
+        col1, col2 = st.columns(2)
+
+        orgao_incidencia = col1.text_input(
+            "Órgão / Instituição / Espaço de Incidência*",
+            key="novo_reg_inc_orgao",
+            disabled=usuario_visitante,
+            help="Nome específico do espaço (ex: Ministério do Meio Ambiente - MMA, Secretaria de Estado de Meio Ambiente e Recursos Naturais do Maranhão, Núcleo Agrário, etc.)."
+        )
+
+        ator_impactado = col2.text_input(
+            "Ator / Autoridade Impactada*",
+            key="novo_reg_inc_ator",
+            disabled=usuario_visitante,
+            help="Indique o tomador de decisão, autoridade ou ator político central que foi o foco dessa ação de incidência."
+        )
+
+        programas_ids = st.multiselect(
+            "Programa(s) do ISPN relacionado(s)*",
+            options=list(mapa_programas.keys()),
+            format_func=lambda pid: mapa_programas.get(pid, pid),
+            placeholder="",
+            key="novo_reg_inc_programas",
+            disabled=usuario_visitante,
+        )
+
+        pauta_objetivo = st.text_area(
+            "Pauta / Objetivo*",
+            key="novo_reg_inc_pauta",
+            disabled=usuario_visitante,
+        )
+
+        encaminhamentos = st.text_area(
+            "Encaminhamentos",
+            key="novo_reg_inc_encaminhamentos",
+            disabled=usuario_visitante,
+        )
+
+        envolveu_organizacoes = st.radio(
+            "Essa incidência envolveu outras organizações?*",
+            options=["Sim", "Não"],
+            index=None,
+            horizontal=True,
+            key="novo_reg_inc_envolveu_orgs",
+            disabled=usuario_visitante,
+        )
+
+        organizacoes_envolvidas = ""
+        if envolveu_organizacoes == "Sim":
+            organizacoes_envolvidas = st.text_area(
+                "Quais organizações estiveram envolvidas?*",
+                key="novo_reg_inc_orgs",
+                disabled=usuario_visitante,
+            )
+
+        st.write("")
+
+        if st.button(
+            "Salvar registro",
+            icon=":material/check:",
+            type="primary",
+            width=200,
+            disabled=usuario_visitante,
+            key="btn_salvar_incidencia",
+        ):
+            obrigatorios = [
+                ("Órgão / Instituição / Espaço de Incidência", orgao_incidencia.strip()),
+                ("Ator / Autoridade Impactada", ator_impactado.strip()),
+                ("Programa(s) do ISPN relacionado(s)", programas_ids),
+                ("Pauta / Objetivo", pauta_objetivo.strip()),
+                ("Essa incidência envolveu outras organizações?", envolveu_organizacoes),
+            ]
+            if envolveu_organizacoes == "Sim":
+                obrigatorios.append(
+                    ("Quais organizações estiveram envolvidas?", organizacoes_envolvidas.strip())
+                )
+
+            dados_incidencia = {
+                "orgao_incidencia": orgao_incidencia.strip(),
+                "ator_impactado": ator_impactado.strip(),
+                "programas": [ObjectId(pid) for pid in programas_ids],
+                "pauta_objetivo": pauta_objetivo.strip(),
+                "encaminhamentos": encaminhamentos.strip(),
+                "envolveu_outras_organizacoes": envolveu_organizacoes == "Sim",
+                "organizacoes_envolvidas": organizacoes_envolvidas.strip(),
+            }
+
+            salvar_registro(
+                dados_gerais,
+                dados_incidencia,
+                obrigatorios,
+                "Registro de incidência política salvo com sucesso!",
+            )
+
+    # =====================================================================
+    # 2. DETALHAMENTO - ARTICULAÇÃO / REDES
+    # =====================================================================
     elif tipo_registro == "Articulação":
         st.subheader("2. Detalhamento - Articulação / Redes")
+        st.write("")
+
+        rede_referente = st.text_input(
+            "A qual rede/articulação se refere?*",
+            key="novo_reg_art_rede",
+            disabled=usuario_visitante,
+        )
+
+        pauta_objetivo_art = st.text_area(
+            "Pauta / Objetivo*",
+            key="novo_reg_art_pauta",
+            disabled=usuario_visitante,
+        )
+
+        encaminhamentos_art = st.text_area(
+            "Encaminhamentos",
+            key="novo_reg_art_encaminhamentos",
+            disabled=usuario_visitante,
+        )
+
+        st.write("")
+
+        if st.button(
+            "Salvar registro",
+            icon=":material/check:",
+            type="primary",
+            width=200,
+            disabled=usuario_visitante,
+            key="btn_salvar_articulacao",
+        ):
+            obrigatorios = [
+                ("A qual rede/articulação se refere?", rede_referente.strip()),
+                ("Pauta / Objetivo", pauta_objetivo_art.strip()),
+            ]
+
+            dados_articulacao = {
+                "rede_articulacao": rede_referente.strip(),
+                "pauta_objetivo": pauta_objetivo_art.strip(),
+                "encaminhamentos": encaminhamentos_art.strip(),
+            }
+
+            salvar_registro(
+                dados_gerais,
+                dados_articulacao,
+                obrigatorios,
+                "Registro de articulação salvo com sucesso!",
+            )
     
 
 
