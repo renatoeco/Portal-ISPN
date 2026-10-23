@@ -5,6 +5,7 @@ import time
 import re
 import unicodedata
 from bson import ObjectId
+import altair as alt
 
 from funcoes_auxiliares import (
     conectar_mongo_portal_ispn,
@@ -1132,6 +1133,96 @@ def mostrar_detalhes_registro(reg):
             st.write(f"**Organizações envolvidas:** {reg['organizacoes_envolvidas']}")
 
 
+ORDEM_ABRANGENCIA = ["Nacional", "Estadual", "Municipal", "Internacional"]
+CORES_ABRANGENCIA = ["#9ecae1", "#a8d8a8", "#fdd0a2", "#cbb8e3"]  # azul, verde, pêssego, lilás
+
+ORDEM_TIPOS = ["Incidência política", "Articulação"]
+CORES_TIPOS = ["#9ecae1", "#fdd0a2"]  # azul e pêssego, combinando com os badges dos cards
+
+def grafico_pizza(serie: pd.Series, categorias: list[str], cores: list[str]) -> alt.Chart:
+    """
+    Gráfico de pizza com o percentual de cada categoria dentro das fatias
+    e legenda à direita, centralizada verticalmente.
+    A legenda mostra sempre todas as categorias (com cores fixas);
+    fatias com 0 registros não são desenhadas.
+    """
+    # Inclui categorias inesperadas que existam nos dados, no fim da lista
+    categorias = categorias + [c for c in serie.dropna().unique() if c and c not in categorias]
+    cores = (cores + ["#d9d9d9"] * len(categorias))[:len(categorias)]
+
+    contagem = (
+        serie.value_counts()
+        .reindex(categorias, fill_value=0)
+        .rename_axis("categoria")
+        .reset_index(name="quantidade")
+    )
+    contagem["ordem"] = range(len(contagem))
+
+    total = contagem["quantidade"].sum()
+    contagem["percentual"] = contagem["quantidade"] / total if total else 0
+
+    # Fatias muito pequenas ficam sem rótulo (o valor continua no tooltip)
+    contagem["rotulo"] = contagem["percentual"].apply(lambda p: f"{p:.0%}" if p >= 0.05 else "")
+
+    # Fatias zeradas não entram no desenho
+    contagem = contagem[contagem["quantidade"] > 0]
+
+    # ---------- Dimensões ----------
+    TAMANHO_PIZZA = 180      # área quadrada da pizza (diâmetro + margem)
+    RAIO = 80
+    ESPACO_LEGENDA = 24      # distância entre a pizza e a legenda
+    ALTURA_ITEM = 16         # altura aproximada de cada item da legenda
+    ESPACO_ITENS = 10        # espaço entre os itens da legenda
+
+    # Centraliza a legenda verticalmente em relação à pizza
+    n_itens = len(categorias)
+    altura_legenda = n_itens * ALTURA_ITEM + (n_itens - 1) * ESPACO_ITENS
+    legenda_y = max((TAMANHO_PIZZA - altura_legenda) / 2, 0)
+
+    base = alt.Chart(contagem).encode(
+        theta=alt.Theta("quantidade:Q", stack=True),
+        order=alt.Order("ordem:Q"),
+        color=alt.Color(
+            "categoria:N",
+            scale=alt.Scale(domain=categorias, range=cores),
+            legend=alt.Legend(
+                title=None,
+                orient="none",
+                legendX=TAMANHO_PIZZA + ESPACO_LEGENDA,
+                legendY=legenda_y,
+                direction="vertical",
+                rowPadding=ESPACO_ITENS,
+                labelLimit=0,        # não corta os nomes das categorias
+                labelFontSize=13,
+                symbolType="circle",
+            ),
+        ),
+        tooltip=[
+            alt.Tooltip("categoria:N", title=""),
+            alt.Tooltip("quantidade:Q", title="Registros"),
+            alt.Tooltip("percentual:Q", title="Percentual", format=".0%"),
+        ],
+    )
+
+    fatias = base.mark_arc(outerRadius=RAIO, stroke="white", strokeWidth=2)
+
+    rotulos = base.mark_text(radius=RAIO * 0.62, fontSize=12).encode(
+        text="rotulo:N",
+        color=alt.value("black"),
+    )
+
+    return (
+        (fatias + rotulos)
+        .properties(
+            width=TAMANHO_PIZZA,
+            height=TAMANHO_PIZZA,
+            # A área total cresce para incluir a legenda, sem cortar nada
+            autosize=alt.AutoSizeParams(type="pad", contains="padding"),
+            padding={"left": 10, "right": 20, "top": 10, "bottom": 10},
+        )
+        .configure_view(strokeWidth=0)
+    )
+
 ######################################################################################################
 # MAIN
 ######################################################################################################
@@ -1350,7 +1441,7 @@ with aba_redes:
         cols = st.columns(col_sizes)
         for j, key in enumerate(colunas_visiveis):
             cols[j].write(row[key])
-        if cols[-1].button("Detalhes", key=f"detalhes_{i}", icon=":material/menu:", use_container_width=True):
+        if cols[-1].button("Detalhes", key=f"detalhes_{i}", icon=":material/menu:", width="content"):
             # Busca documento original no Mongo
             rede_doc = redes.find_one({"rede_articulacao": row["Nome"]})
             if rede_doc:
@@ -1368,90 +1459,106 @@ with aba_registros:
         st.caption("**Nenhum registro de incidência política ou articulação foi cadastrado ainda.**")
 
     else:
-        # =====================
-        # Filtros
-        # =====================
-        colf1, colf2, colf3, colf4 = st.columns(4)
+        # Coluna auxiliar com o ano da atividade
+        df_registros["ano"] = df_registros["data"].dt.year
+        
+        with st.expander("Filtros", icon=":material/filter_alt:"):
 
-        tipo_sel = colf1.multiselect(
-            "Tipo de registro",
-            options=sorted(df_registros["tipo_registro"].dropna().unique()),
-            placeholder="",
-            key="filtro_reg_tipo",
-        )
+            # =====================
+            # Filtros
+            # =====================
+            colf0, colf1 = st.columns([1,3])
 
-        # Quando só "Articulação" está selecionado, a tabela mostra apenas as colunas de articulação
-        somente_articulacao = set(tipo_sel) == {"Articulação"}
-        somente_incidencia = set(tipo_sel) == {"Incidência política"}
+            tipo_sel = colf0.multiselect(
+                "Tipo de registro",
+                options=sorted(df_registros["tipo_registro"].dropna().unique()),
+                placeholder="",
+                key="filtro_reg_tipo",
+            )
+            
+            busca_texto = colf1.text_input(
+                "Buscar por texto",
+                placeholder="Pauta, órgão, ator, rede...",
+                key="filtro_reg_busca",
+            )
+            
+            col1, col2, col3, col4 = st.columns(4)
 
-        abrangencia_sel = colf2.multiselect(
-            "Abrangência",
-            options=sorted(df_registros["abrangencia"].dropna().unique()),
-            placeholder="",
-            key="filtro_reg_abrangencia",
-        )
+            somente_articulacao = set(tipo_sel) == {"Articulação"}
 
-        # Programa só existe em incidência política: fica desabilitado quando o filtro é só Articulação
-        programa_sel_reg = colf3.multiselect(
-            "Programa",
-            options=_opcoes_de_listas(df_registros["programas"]),
-            placeholder="",
-            key="filtro_reg_programa",
-            disabled=somente_articulacao,
-        )
-
-        pessoa_sel = colf4.multiselect(
-            "Registrado por",
-            options=sorted(df_registros["nome"].dropna().unique(), key=_chave_ordenacao),
-            placeholder="",
-            key="filtro_reg_pessoa",
-        )
-
-        colf1, colf2, colf3, colf4 = st.columns(4)
-
-        uf_sel = colf1.multiselect(
-            "Estado (UF)",
-            options=_opcoes_de_listas(df_registros["ufs"]),
-            placeholder="",
-            key="filtro_reg_uf",
-        )
-
-        # Municípios: se houver UF selecionada, mostra só os municípios dessas UFs
-        municipios_opcoes = _opcoes_de_listas(df_registros["territorio"])
-        if uf_sel:
-            municipios_opcoes = [m for m in municipios_opcoes if m.rsplit(" - ", 1)[-1] in uf_sel]
-
-        municipio_sel = colf2.multiselect(
-            "Município",
-            options=municipios_opcoes,
-            placeholder="",
-            key="filtro_reg_municipio",
-        )
-
-        # Período da atividade
-        datas_validas = df_registros["data"].dropna()
-        periodo_sel = None
-        if not datas_validas.empty:
-            periodo_sel = colf3.date_input(
-                "Período da atividade",
-                value=(datas_validas.min().date(), datas_validas.max().date()),
-                format="DD/MM/YYYY",
-                key="filtro_reg_periodo",
+            # Programa só existe em incidência política: fica desabilitado quando o filtro é só Articulação
+            programa_sel_reg = col1.multiselect(
+                "Programa",
+                options=_opcoes_de_listas(df_registros["programas"]),
+                placeholder="",
+                key="filtro_reg_programa",
+                disabled=somente_articulacao,
             )
 
-        busca_texto = colf4.text_input(
-            "Buscar por texto",
-            placeholder="Pauta, órgão, ator, rede...",
-            key="filtro_reg_busca",
-        )
+            pessoa_sel = col2.multiselect(
+                "Registrado por",
+                options=sorted(df_registros["nome"].dropna().unique(), key=_chave_ordenacao),
+                placeholder="",
+                key="filtro_reg_pessoa",
+            )
+            
+            anos_opcoes = sorted(df_registros["ano"].dropna().astype(int).unique(), reverse=True)
+            
+            ano_sel = col3.multiselect(
+                "Ano",
+                options=anos_opcoes,
+                placeholder="",
+                key="filtro_reg_ano",
+            )
 
-        st.write("")
+            # Período da atividade
+            datas_validas = df_registros["data"].dropna()
+            periodo_sel = None
+            if not datas_validas.empty:
+                periodo_sel = col4.date_input(
+                    "Período da atividade",
+                    value=(datas_validas.min().date(), datas_validas.max().date()),
+                    format="DD/MM/YYYY",
+                    key="filtro_reg_periodo",
+                )
+
+            colf1, colf2, colf3 = st.columns(3)
+            
+            abrangencia_sel = colf1.multiselect(
+                "Abrangência",
+                options=sorted(df_registros["abrangencia"].dropna().unique()),
+                placeholder="",
+                key="filtro_reg_abrangencia",
+            )
+
+            uf_sel = colf2.multiselect(
+                "Estado (UF)",
+                options=_opcoes_de_listas(df_registros["ufs"]),
+                placeholder="",
+                key="filtro_reg_uf",
+            )
+
+            # Municípios: se houver UF selecionada, mostra só os municípios dessas UFs
+            municipios_opcoes = _opcoes_de_listas(df_registros["territorio"])
+            if uf_sel:
+                municipios_opcoes = [m for m in municipios_opcoes if m.rsplit(" - ", 1)[-1] in uf_sel]
+
+            municipio_sel = colf3.multiselect(
+                "Município",
+                options=municipios_opcoes,
+                placeholder="",
+                key="filtro_reg_municipio",
+            )
+        
         st.write("")
 
         # =====================
         # Aplica filtros
         # =====================
         df_filtrado_reg = df_registros.copy()
+
+        if ano_sel:
+            df_filtrado_reg = df_filtrado_reg[df_filtrado_reg["ano"].isin(ano_sel)]
 
         if tipo_sel:
             df_filtrado_reg = df_filtrado_reg[df_filtrado_reg["tipo_registro"].isin(tipo_sel)]
@@ -1492,20 +1599,8 @@ with aba_registros:
             df_filtrado_reg = df_filtrado_reg[texto_linha.apply(_chave_ordenacao).str.contains(termo, regex=False)]
 
         # =====================
-        # Forma de visualização
-        # =====================
-        visualizacao = st.segmented_control(
-            "Visualização",
-            options=["Tabela", "Cards"],
-            default="Tabela",
-            selection_mode="single",
-            key="visualizacao_registros",
-            label_visibility="collapsed",
-        ) or "Tabela"  # se a pessoa desmarcar, volta para Tabela
-
-        st.write("")
-
         # Contagem
+        # =====================
         n_incidencia = (df_filtrado_reg["tipo_registro"] == "Incidência política").sum()
         n_articulacao = (df_filtrado_reg["tipo_registro"] == "Articulação").sum()
 
@@ -1513,100 +1608,72 @@ with aba_registros:
         st.caption(f"{n_incidencia} de incidência política · {n_articulacao} de articulação")
         st.write("")
 
+                # =====================
+        # Gráficos
+        # =====================
+        if not df_filtrado_reg.empty:
+
+            LARGURA_GRAFICO = 400  # pizza (180) + legenda + respiro
+
+            with st.container(horizontal=True, gap="large"):
+
+                with st.container(width=LARGURA_GRAFICO):
+                    st.markdown("**Registros por tipo**")
+                    st.altair_chart(
+                        grafico_pizza(df_filtrado_reg["tipo_registro"], ORDEM_TIPOS, CORES_TIPOS),
+                        width="content",
+                    )
+
+                with st.container(width=LARGURA_GRAFICO):
+                    st.markdown("**Registros por abrangência**")
+                    st.altair_chart(
+                        grafico_pizza(df_filtrado_reg["abrangencia"], ORDEM_ABRANGENCIA, CORES_ABRANGENCIA),
+                        width="content",
+                    )
+
+            st.write("")
+
+        # =====================================================================
+        # VISUALIZAÇÃO: CARDS + PAINEL DE DETALHES
+        # =====================================================================
+        ALTURA_PAINEIS = 750
+        LARGURA_CARDS = 400
+
         df_ordenado = df_filtrado_reg.sort_values("data", ascending=False)
 
-        # =====================================================================
-        # VISUALIZAÇÃO 1: TABELA
-        # =====================================================================
-        if visualizacao == "Tabela":
+        # Registro selecionado (só vale se ainda estiver entre os filtrados)
+        id_sel = st.session_state.get("registro_selecionado")
+        reg_sel = (
+            df_ordenado[df_ordenado["_id"].astype(str) == id_sel]
+            if id_sel else pd.DataFrame()
+        )
+        tem_selecao = not reg_sel.empty
 
-            df_exibir_reg = df_ordenado.copy()
+        with st.container(horizontal=True, gap="medium"):
 
-            # Listas viram texto separado por vírgula
-            for col in ["territorio", "programas"]:
-                df_exibir_reg[col] = df_exibir_reg[col].apply(lambda lista: ", ".join(lista))
+            # ---------- Cards (largura fixa, colados no painel) ----------
+            with st.container(width=LARGURA_CARDS, height="content", border=False):
+                if df_ordenado.empty:
+                    st.caption("Nenhum registro encontrado com os filtros atuais.")
+                for _, reg in df_ordenado.iterrows():
+                    mostrar_card_registro(reg)
 
-            df_exibir_reg = df_exibir_reg.rename(columns={
-                "data": "Data",
-                "tipo_registro": "Tipo",
-                "nome": "Registrado por",
-                "abrangencia": "Abrangência",
-                "territorio": "Território",
-                "programas": "Programas",
-                "orgao_incidencia": "Órgão / Espaço",
-                "ator_impactado": "Ator / Autoridade",
-                "rede_articulacao": "Rede / Articulação",
-                "pauta_objetivo": "Pauta / Objetivo",
-                "encaminhamentos": "Encaminhamentos",
-                "envolveu_outras_organizacoes": "Outras organizações?",
-                "organizacoes_envolvidas": "Organizações envolvidas",
-                "data_registro": "Registrado em",
-            })
+            # ---------- Detalhes (ocupa o resto da largura) ----------
+            with st.container(width="stretch"):
+                if tem_selecao:
+                    reg_detalhe = reg_sel.iloc[0]
 
-            # Colunas por tipo de registro
-            COLUNAS_COMUNS_INICIO = ["Data", "Tipo", "Registrado por", "Abrangência", "Território"]
-            COLUNAS_INCIDENCIA = [
-                "Programas", "Órgão / Espaço", "Ator / Autoridade",
-                "Pauta / Objetivo", "Encaminhamentos",
-                "Outras organizações?", "Organizações envolvidas",
-            ]
-            COLUNAS_ARTICULACAO = ["Rede / Articulação", "Pauta / Objetivo", "Encaminhamentos"]
-            COLUNAS_COMUNS_FIM = ["Registrado em"]
+                    # Incidência: altura fixa com rolagem. Articulação: do tamanho do conteúdo.
+                    altura_detalhes = (
+                        ALTURA_PAINEIS
+                        if reg_detalhe["tipo_registro"] == "Incidência política"
+                        else "content"
+                    )
 
-            if somente_articulacao:
-                colunas_exibidas = COLUNAS_COMUNS_INICIO + COLUNAS_ARTICULACAO + COLUNAS_COMUNS_FIM
-            elif somente_incidencia:
-                colunas_exibidas = COLUNAS_COMUNS_INICIO + COLUNAS_INCIDENCIA + COLUNAS_COMUNS_FIM
-            else:
-                colunas_exibidas = COLUNAS_COMUNS_INICIO + [
-                    "Programas", "Órgão / Espaço", "Ator / Autoridade", "Rede / Articulação",
-                    "Pauta / Objetivo", "Encaminhamentos",
-                    "Outras organizações?", "Organizações envolvidas",
-                ] + COLUNAS_COMUNS_FIM
-
-            st.dataframe(
-                df_exibir_reg[colunas_exibidas],
-                hide_index=True,
-                width="stretch",
-                column_config={
-                    "Data": st.column_config.DateColumn("Data", format="DD/MM/YYYY", width="small"),
-                    "Tipo": st.column_config.TextColumn("Tipo", width="small"),
-                    "Pauta / Objetivo": st.column_config.TextColumn("Pauta / Objetivo", width="large"),
-                    "Encaminhamentos": st.column_config.TextColumn("Encaminhamentos", width="large"),
-                    "Outras organizações?": st.column_config.TextColumn("Outras organizações?", width="small"),
-                },
-            )
-
-        # =====================================================================
-        # VISUALIZAÇÃO 2: CARDS + PAINEL DE DETALHES
-        # =====================================================================
-        else:
-
-            ALTURA_PAINEIS = 750
-
-            col_cards, col_detalhes  = st.columns([2, 3], gap="large")
-
-            # ---------- Cards (esquerda) ----------
-            with col_cards:
-                with st.container(height=ALTURA_PAINEIS, border=False):
-                    if df_ordenado.empty:
-                        st.caption("Nenhum registro encontrado com os filtros atuais.")
-                    for _, reg in df_ordenado.iterrows():
-                        mostrar_card_registro(reg)
-
-            # ---------- Detalhes (direita) ----------
-            with col_detalhes:
-                with st.container(height=ALTURA_PAINEIS, border=True):
-
-                    id_sel = st.session_state.get("registro_selecionado")
-                    reg_sel = df_ordenado[df_ordenado["_id"].astype(str) == id_sel] if id_sel else pd.DataFrame()
-
-                    if not id_sel:
-                        st.caption(":material/arrow_back: Clique no ícone :material/info: de um card para ver os detalhes do registro.")
-                    elif reg_sel.empty:
-                        st.caption("O registro selecionado não aparece com os filtros atuais.")
-                    else:
-                        mostrar_detalhes_registro(reg_sel.iloc[0])
+                    with st.container(height=altura_detalhes, border=True):
+                        mostrar_detalhes_registro(reg_detalhe)
+                else:
+                    st.caption("***Selecione um registro para ver os detalhes***")
 
 
 with aba_forms:
