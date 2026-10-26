@@ -145,6 +145,31 @@ st.session_state["pagina_anterior"] = PAGINA_ID
 ######################################################################################################
 
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def carregar_opcoes_programas() -> dict[str, str]:
+    """
+    Retorna {id_programa (str): nome_programa_area}, ordenado pelo nome.
+    Os ids vão como string porque o cache e o multiselect lidam melhor com tipos simples.
+    """
+    programas = {
+        str(p["_id"]): p["nome_programa_area"].strip()
+        for p in programas_areas.find({}, {"nome_programa_area": 1})
+        if p.get("nome_programa_area")
+    }
+    return dict(sorted(programas.items(), key=lambda item: _chave_ordenacao(item[1])))
+
+
+# Opções fixas para status
+status_opcoes = ["Ativa", "Em análise", "Inativa"]
+
+tipos_rede_opcoes = ["Articulação","Conselho / Câmara Técnica", "Espaço de Incidência", "Outro"]
+
+tipos_abrangencia = ["Nacional","Sub-nacional", "Internacional"]
+
+# Nomes vindos da coleção programas_areas (sem repetição, em ordem alfabética)
+programas_opcoes = list(dict.fromkeys(carregar_opcoes_programas().values()))
+
+
 @st.dialog("Detalhes da rede", width="large", on_dismiss="rerun")
 def mostrar_detalhes(rede_doc):
     st.subheader(rede_doc.get("rede_articulacao", ""))
@@ -182,10 +207,11 @@ def mostrar_detalhes(rede_doc):
                 st.write(f"**Descrição da rede:** {rede_doc.get('descricao', '')}")
                 st.write(f"**Ponto(s) Focal(is):** {rede_doc.get('ponto_focal', '')}")
 
-                col1, col2 = st.columns(2)
+                col1, col2, col3 = st.columns(3)
 
                 col1.write(f"**Tema:** {rede_doc.get('tema', '')}")
                 col2.write(f"**Tipo de Rede:** {rede_doc.get('tipo_rede', '')}")
+                col3.write(f"**Abrangência:** {rede_doc.get('abrangencia', '')}")
 
                 col1, col2, col3, col4 = st.columns(4)
 
@@ -212,21 +238,6 @@ def mostrar_detalhes(rede_doc):
 
                 pessoas_opcoes = sorted({p.get("nome_completo") for p in pessoas.find() if p.get("nome_completo")})
 
-                programas_opcoes = [
-                    "",
-                    "Cerrado",
-                    "Coordenação",
-                    "Iniciativas Comunitárias",
-                    "Maranhão",
-                    "Povos Indígenas",
-                    "Sociobiodiversidade",
-                ]
-
-                # Opções fixas para status
-                status_opcoes = ["ativa", "inativa"]
-                
-                tipos_rede_opcoes = [" ","tipo 1", "tipo 2", "tipo 3"]
-
                 # =====================
                 # Campos editáveis
                 # =====================
@@ -245,7 +256,7 @@ def mostrar_detalhes(rede_doc):
                 )
 
 
-                col1, col2 = st.columns(2)
+                col1, col2, col3 = st.columns(3)
 
                 temas_default = [
                     t.strip()
@@ -263,7 +274,16 @@ def mostrar_detalhes(rede_doc):
                     "Tipo de Rede",
                     options=tipos_rede_opcoes,
                     index=tipos_rede_opcoes.index(rede_doc.get("tipo_rede")) 
-                    if rede_doc.get("tipo_rede") in tipos_rede_opcoes else 0,
+                    if rede_doc.get("tipo_rede") in tipos_rede_opcoes else None,
+                    placeholder=""
+                )
+
+                abrangencia_edit = col3.selectbox(
+                    "Abrangência",
+                    options=tipos_abrangencia,
+                    index=tipos_abrangencia.index(rede_doc.get("abrangencia")) 
+                    if rede_doc.get("abrangencia") in tipos_abrangencia else None,
+                    placeholder=""
                 )
                 
                 col1, col2, col3, col4 = st.columns(4)
@@ -271,26 +291,28 @@ def mostrar_detalhes(rede_doc):
                 programa_edit = col1.selectbox(
                     "Programa",
                     options=programas_opcoes,
-                    index=programas_opcoes.index(rede_doc.get("programa")) if rede_doc.get("programa") in programas_opcoes else 0,
+                    index=programas_opcoes.index(rede_doc.get("programa"))
+                    if rede_doc.get("programa") in programas_opcoes else None,
+                    placeholder=""
                 )
 
                 prioridade_edit = col2.selectbox(
                     "Grau de Prioridade",
                     options=prioridades_opcoes,
-                    index=prioridades_opcoes.index(rede_doc.get("prioridade")) if rede_doc.get("prioridade") in prioridades_opcoes else 0,
+                    index=prioridades_opcoes.index(rede_doc.get("prioridade")) if rede_doc.get("prioridade") in prioridades_opcoes else None,
                 )
 
                 dedicacao_edit = col3.selectbox(
                     "Dedicação",
                     options=dedicacao_opcoes,
-                    index=dedicacao_opcoes.index(rede_doc.get("dedicacao")) if rede_doc.get("dedicacao") in dedicacao_opcoes else 0,
+                    index=dedicacao_opcoes.index(rede_doc.get("dedicacao")) if rede_doc.get("dedicacao") in dedicacao_opcoes else None,
                 )
 
 
                 status_edit = col4.selectbox(
                     "Status",
                     options=status_opcoes,
-                    index=status_opcoes.index(rede_doc.get("status", "ativa")) if rede_doc.get("status", "ativa") in status_opcoes else 0,
+                    index=status_opcoes.index(rede_doc.get("status", "Ativa")) if rede_doc.get("status", "Ativa") in status_opcoes else None,
                 )
 
 
@@ -311,6 +333,7 @@ def mostrar_detalhes(rede_doc):
                                 "programa": programa_edit,
                                 "status": status_edit, 
                                 "tipo_rede": tipo_rede_edit,
+                                "abrangencia": abrangencia_edit
                             }
                         },
                     )
@@ -326,10 +349,11 @@ def mostrar_detalhes(rede_doc):
             st.write(f"**Descrição da rede:** {rede_doc.get('descricao', '')}")
             st.write(f"**Ponto(s) Focal(is):** {rede_doc.get('ponto_focal', '')}")
 
-            col1, col2 = st.columns(2)
+            col1, col2, col3 = st.columns(3)
 
             col1.write(f"**Tema:** {rede_doc.get('tema', '')}")
             col2.write(f"**Tipo de Rede:** {rede_doc.get('tipo_rede', '')}")
+            col3.write(f"**Abrangência:** {rede_doc.get('abrangencia', '')}")
 
             col1, col2, col3, col4 = st.columns(4)
 
@@ -694,7 +718,7 @@ def mostrar_detalhes(rede_doc):
                                 st.markdown(f"- [{nome}]({url})")
 
 
-@st.dialog("Cadastrar rede", width="medium") 
+@st.dialog("Cadastrar rede", width="large") 
 def cadastro_rede():
     
     # =====================
@@ -713,66 +737,76 @@ def cadastro_rede():
 
     pessoas_opcoes = sorted({p.get("nome_completo") for p in pessoas.find() if p.get("nome_completo")})
 
-    programas_opcoes = [
-        "",
-        "ADM Brasília",
-        "ADM Santa Inês",
-        "Advocacy",
-        "Cerrado",
-        "Comunicação",
-        "Coordenação",
-        "Iniciativas Comunitárias",
-        "Maranhão",
-        "Povos Indígenas",
-        "Sociobiodiversidade",
-    ]
     
-    tipos_rede_opcoes = ["1", "2", "3"]
     
     # =====================
-    # Campos do cadastro
+    # Formulário de cadastro
     # =====================
-    
-    rede_edit = st.text_input("Rede/Articulação*")
+    # Chave própria: "form_novo_registro" já é usada no formulário da aba "Novo registro"
+    with st.form("form_cadastro_rede", border=False):
 
-    descricao_edit = st.text_area("Descrição da rede*")
+        rede_edit = st.text_input("Rede/Articulação*")
 
-    col1, col2, col3 = st.columns([1.5, 2, 0.5])
-    ponto_focal_edit = col1.multiselect("Ponto Focal*", options=pessoas_opcoes, placeholder="")
-    temas_selecionados = col2.multiselect("Temas*", options=temas_opcoes, placeholder="")
-    tipo_rede_edit = col3.selectbox(
-        "Tipo de Rede*",
-        options=tipos_rede_opcoes
-    )
+        descricao_edit = st.text_area("Descrição da rede*")
 
-    col1, col2, col3 = st.columns(3)
-    prioridade_edit = col1.selectbox("Grau de Prioridade*", options=prioridades_opcoes)
-    dedicacao_edit = col2.selectbox("Dedicação*", options=dedicacao_opcoes)
-    programa_edit = col3.selectbox("Programa*", options=programas_opcoes)
+        col1, col2 = st.columns(2)
+        ponto_focal_edit = col1.multiselect("Ponto Focal*", options=pessoas_opcoes, placeholder="")
+        temas_selecionados = col2.multiselect("Temas*", options=temas_opcoes, placeholder="")
+
+        col1, col2, col3 = st.columns(3)
+
+        tipo_rede_edit = col1.selectbox(
+            "Tipo de Rede*",
+            options=tipos_rede_opcoes,
+            index=None, 
+            placeholder=""
+        )
+
+        abrangencia_cadastro = col2.selectbox(
+            "Abrangência",
+            options=tipos_abrangencia,
+            index=None, 
+            placeholder=""
+        )
+
+        status_cadastro = col3.selectbox(
+            "Status*",
+            options=status_opcoes,
+            index=None, 
+            placeholder=""
+        )
+
+        col1, col2, col3 = st.columns(3)
+        prioridade_edit = col1.selectbox("Grau de Prioridade*", options=prioridades_opcoes, index=None, placeholder="")
+        dedicacao_edit = col2.selectbox("Dedicação*", options=dedicacao_opcoes, index=None, placeholder="")
+        programa_edit = col3.selectbox("Programa*", options=programas_opcoes, index=None, placeholder="")
+
+        st.write("")
+
+        # =====================
+        # Botão salvar (submit do form)
+        # =====================
+        enviado = st.form_submit_button(
+            "Adicionar rede",
+            width=200,
+            icon=":material/check:",
+            type="primary",
+        )
 
     # =====================
-    # Acompanhamento / Memória iniciais
+    # Envio
     # =====================
-    
-    usuario_logado = st.session_state.get("nome", "Desconhecido")
-    #nova_anotacao = st.text_area("Acompanhamento", key="anotacao_inicial", height="content")
-    st.write("")
+    if enviado:
 
-    # =====================
-    # Botão salvar
-    # =====================
-    
-    if st.button("Adicionar rede", width=200, icon=":material/check:", type="primary"):
-        
         # -----------------
         # Validação obrigatórios
         # -----------------
-        
         campos_obrigatorios = [
             ("Rede/Articulação", rede_edit.strip()),
             ("Descrição da rede", descricao_edit.strip()),
             ("Ponto Focal", ponto_focal_edit),
             ("Tipo de Rede", tipo_rede_edit),
+            ("Status", status_cadastro),
             ("Temas", temas_selecionados),
             ("Grau de Prioridade", prioridade_edit.strip() if prioridade_edit else ""),
             ("Dedicação", dedicacao_edit.strip() if dedicacao_edit else ""),
@@ -780,48 +814,51 @@ def cadastro_rede():
         ]
 
         faltando = [nome for nome, valor in campos_obrigatorios if not valor]
-        if faltando:
-            st.warning(f"Preencha todos os campos obrigatórios: {', '.join(faltando)}")
-            st.stop()
 
         # -----------------
         # Verificação duplicidade
         # -----------------
-        
-        existe = redes.find_one({"rede_articulacao": {"$regex": f"^{re.escape(rede_edit.strip())}$", "$options": "i"}})
-        if existe:
+        existe = None
+        if not faltando:
+            existe = redes.find_one({
+                "rede_articulacao": {
+                    "$regex": f"^{re.escape(rede_edit.strip())}$",
+                    "$options": "i"
+                }
+            })
+
+        if faltando:
+            st.warning(f"Preencha todos os campos obrigatórios: {', '.join(faltando)}")
+
+        elif existe:
             st.error("Já existe uma rede cadastrada com esse nome.")
-            st.stop()
 
-        # -----------------
-        # Monta documento
-        # -----------------
-        
-        nova_rede = {
-            "rede_articulacao": rede_edit.strip(),
-            "descricao": descricao_edit.strip(),
-            "descricao": descricao_edit.strip(),
-            "ponto_focal": ", ".join(ponto_focal_edit),
-            "tema": ", ".join(temas_selecionados),
-            "prioridade": prioridade_edit,
-            "dedicacao": dedicacao_edit,
-            "programa": programa_edit,
-            "status": "ativa",  
-            "tipo_rede": tipo_rede_edit,
-            "anotacoes": [],
-        }
+        else:
+            # -----------------
+            # Monta documento
+            # -----------------
+            nova_rede = {
+                "rede_articulacao": rede_edit.strip(),
+                "descricao": descricao_edit.strip(),
+                "ponto_focal": ", ".join(ponto_focal_edit),
+                "tema": ", ".join(temas_selecionados),
+                "prioridade": prioridade_edit,
+                "dedicacao": dedicacao_edit,
+                "programa": programa_edit,
+                "status": status_cadastro,
+                "tipo_rede": tipo_rede_edit,
+                "abrangencia": abrangencia_cadastro,
+                "anotacoes": [],
+            }
 
+            # -----------------
+            # Inserção no banco
+            # -----------------
+            redes.insert_one(nova_rede)
 
-
-        # -----------------
-        # Inserção no banco
-        # -----------------
-        
-        redes.insert_one(nova_rede)
-
-        st.success("Rede cadastrada com sucesso!")
-        time.sleep(2)
-        st.rerun()
+            st.success("Rede cadastrada com sucesso!")
+            time.sleep(2)
+            st.rerun()
 
 
 def enviar_email_acompanhamento(destinatario: str, nome_destinatario: str, rede_nome: str, descricao: str, texto: str, autor: str) -> bool:
@@ -927,18 +964,7 @@ def carregar_opcoes_territorio() -> list[str]:
     return sorted(set(opcoes), key=_chave_ordenacao)
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
-def carregar_opcoes_programas() -> dict[str, str]:
-    """
-    Retorna {id_programa (str): nome_programa_area}, ordenado pelo nome.
-    Os ids vão como string porque o cache e o multiselect lidam melhor com tipos simples.
-    """
-    programas = {
-        str(p["_id"]): p["nome_programa_area"].strip()
-        for p in programas_areas.find({}, {"nome_programa_area": 1})
-        if p.get("nome_programa_area")
-    }
-    return dict(sorted(programas.items(), key=lambda item: _chave_ordenacao(item[1])))
+
 
 
 def salvar_registro(dados_gerais: dict, dados_detalhe: dict, obrigatorios_detalhe: list, mensagem_sucesso: str):
@@ -1314,7 +1340,7 @@ with aba_redes:
 
     status_unicos = df_redes["Status"].dropna().unique().tolist()
     if not status_unicos:
-        status_unicos = ["ativa", "inativa"]  # fallback se não existir no banco
+        status_unicos = ["Ativa", "Inativa"]  # fallback se não existir no banco
 
     # --- Filtros ---
     with st.expander("Filtros", expanded=False, icon=":material/filter_alt:"):
@@ -1355,7 +1381,7 @@ with aba_redes:
         status_sel = colf4.multiselect(
             "Status",
             options=sorted(status_unicos),
-            default=["ativa"], 
+            default=["Ativa"], 
             placeholder=""
         )
 
@@ -1427,7 +1453,7 @@ with aba_redes:
     headers = colunas_visiveis + ["Detalhes"]
 
     # Ajuste dos tamanhos de coluna (ponto focal mais estreito)
-    col_sizes = [4, 1, 4, 1, 1, 2, 2]
+    col_sizes = [2, 1, 3, 1, 1, 2, 2]
 
     # Cabeçalho
     header_cols = st.columns(col_sizes)
@@ -1613,7 +1639,7 @@ with aba_registros:
         # =====================
         if not df_filtrado_reg.empty:
 
-            LARGURA_GRAFICO = 400  # pizza (180) + legenda + respiro
+            LARGURA_GRAFICO = 500  # pizza (180) + legenda + respiro
 
             with st.container(horizontal=True, gap="large"):
 
