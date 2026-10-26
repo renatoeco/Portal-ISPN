@@ -5,7 +5,7 @@ import time
 import re
 import unicodedata
 from bson import ObjectId
-import altair as alt
+import plotly.graph_objects as go
 
 from funcoes_auxiliares import (
     conectar_mongo_portal_ispn,
@@ -143,6 +143,11 @@ st.session_state["pagina_anterior"] = PAGINA_ID
 ######################################################################################################
 # FUNÇÕES
 ######################################################################################################
+
+
+def _chave_ordenacao(texto: str) -> str:
+    """Remove acentos para ordenar alfabeticamente (ex: 'Água Boa' junto dos 'A')."""
+    return unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode().lower()
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -929,11 +934,6 @@ def enviar_email_acompanhamento(destinatario: str, nome_destinatario: str, rede_
         return False
 
 
-def _chave_ordenacao(texto: str) -> str:
-    """Remove acentos para ordenar alfabeticamente (ex: 'Água Boa' junto dos 'A')."""
-    return unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode().lower()
-
-
 @st.cache_data(ttl=3600, show_spinner=False)
 def carregar_opcoes_territorio() -> list[str]:
     """
@@ -1165,7 +1165,12 @@ CORES_ABRANGENCIA = ["#9ecae1", "#a8d8a8", "#fdd0a2", "#cbb8e3"]  # azul, verde,
 ORDEM_TIPOS = ["Incidência política", "Articulação"]
 CORES_TIPOS = ["#9ecae1", "#fdd0a2"]  # azul e pêssego, combinando com os badges dos cards
 
-def grafico_pizza(serie: pd.Series, categorias: list[str], cores: list[str]) -> alt.Chart:
+ALTURA_GRAFICOS = 240  # altura comum para pizzas e mapa
+
+CONFIG_PLOTLY = {"displayModeBar": False}  # esconde a barra de ferramentas do plotly
+
+
+def grafico_pizza(serie: pd.Series, categorias: list[str], cores: list[str]) -> go.Figure:
     """
     Gráfico de pizza com o percentual de cada categoria dentro das fatias
     e legenda à direita, centralizada verticalmente.
@@ -1176,78 +1181,50 @@ def grafico_pizza(serie: pd.Series, categorias: list[str], cores: list[str]) -> 
     categorias = categorias + [c for c in serie.dropna().unique() if c and c not in categorias]
     cores = (cores + ["#d9d9d9"] * len(categorias))[:len(categorias)]
 
-    contagem = (
-        serie.value_counts()
-        .reindex(categorias, fill_value=0)
-        .rename_axis("categoria")
-        .reset_index(name="quantidade")
-    )
-    contagem["ordem"] = range(len(contagem))
-
-    total = contagem["quantidade"].sum()
-    contagem["percentual"] = contagem["quantidade"] / total if total else 0
+    contagem = serie.value_counts().reindex(categorias, fill_value=0)
+    total = contagem.sum()
 
     # Fatias muito pequenas ficam sem rótulo (o valor continua no tooltip)
-    contagem["rotulo"] = contagem["percentual"].apply(lambda p: f"{p:.0%}" if p >= 0.05 else "")
+    rotulos = [
+        f"{q / total:.0%}" if total and q / total >= 0.05 else ""
+        for q in contagem.values
+    ]
 
-    # Fatias zeradas não entram no desenho
-    contagem = contagem[contagem["quantidade"] > 0]
-
-    # ---------- Dimensões ----------
-    TAMANHO_PIZZA = 180      # área quadrada da pizza (diâmetro + margem)
-    RAIO = 80
-    ESPACO_LEGENDA = 24      # distância entre a pizza e a legenda
-    ALTURA_ITEM = 16         # altura aproximada de cada item da legenda
-    ESPACO_ITENS = 10        # espaço entre os itens da legenda
-
-    # Centraliza a legenda verticalmente em relação à pizza
-    n_itens = len(categorias)
-    altura_legenda = n_itens * ALTURA_ITEM + (n_itens - 1) * ESPACO_ITENS
-    legenda_y = max((TAMANHO_PIZZA - altura_legenda) / 2, 0)
-
-    base = alt.Chart(contagem).encode(
-        theta=alt.Theta("quantidade:Q", stack=True),
-        order=alt.Order("ordem:Q"),
-        color=alt.Color(
-            "categoria:N",
-            scale=alt.Scale(domain=categorias, range=cores),
-            legend=alt.Legend(
-                title=None,
-                orient="none",
-                legendX=TAMANHO_PIZZA + ESPACO_LEGENDA,
-                legendY=legenda_y,
-                direction="vertical",
-                rowPadding=ESPACO_ITENS,
-                labelLimit=0,        # não corta os nomes das categorias
-                labelFontSize=13,
-                symbolType="circle",
+    fig = go.Figure(
+        go.Pie(
+            labels=categorias,
+            values=contagem.values,
+            marker=dict(colors=cores, line=dict(color="white", width=2)),
+            sort=False,                 # mantém a ordem definida em categorias
+            direction="clockwise",
+            text=rotulos,
+            textinfo="text",
+            textposition="inside",
+            insidetextfont=dict(color="black", size=12),
+            hovertemplate=(
+                "<b>%{label}</b><br>"
+                "Registros: %{value}<br>"
+                "Percentual: %{percent:.0%}"
+                "<extra></extra>"
             ),
-        ),
-        tooltip=[
-            alt.Tooltip("categoria:N", title=""),
-            alt.Tooltip("quantidade:Q", title="Registros"),
-            alt.Tooltip("percentual:Q", title="Percentual", format=".0%"),
-        ],
-    )
-
-    fatias = base.mark_arc(outerRadius=RAIO, stroke="white", strokeWidth=2)
-
-    rotulos = base.mark_text(radius=RAIO * 0.62, fontSize=12).encode(
-        text="rotulo:N",
-        color=alt.value("black"),
-    )
-
-    return (
-        (fatias + rotulos)
-        .properties(
-            width=TAMANHO_PIZZA,
-            height=TAMANHO_PIZZA,
-            # A área total cresce para incluir a legenda, sem cortar nada
-            autosize=alt.AutoSizeParams(type="pad", contains="padding"),
-            padding={"left": 10, "right": 20, "top": 10, "bottom": 10},
         )
-        .configure_view(strokeWidth=0)
     )
+
+    fig.update_layout(
+        height=ALTURA_GRAFICOS,
+        margin=dict(l=0, r=0, t=10, b=10),
+        paper_bgcolor="rgba(0,0,0,0)",
+        legend=dict(
+            orientation="v",
+            x=1.02,
+            y=0.5,
+            yanchor="middle",
+            font=dict(size=13),
+        ),
+    )
+
+    return fig
+
 
 ######################################################################################################
 # MAIN
@@ -1634,30 +1611,41 @@ with aba_registros:
         st.caption(f"{n_incidencia} de incidência política · {n_articulacao} de articulação")
         st.write("")
 
-                # =====================
+        # =====================
         # Gráficos
         # =====================
         if not df_filtrado_reg.empty:
 
-            LARGURA_GRAFICO = 500  # pizza (180) + legenda + respiro
+            LARGURA_GRAFICO = 400      # pizza + legenda
+            LARGURA_GRAFICO_UF = 360   # mapa + barra de cores
+
+            st.write("")
 
             with st.container(horizontal=True, gap="large"):
 
+                
+
                 with st.container(width=LARGURA_GRAFICO):
                     st.markdown("**Registros por tipo**")
-                    st.altair_chart(
+                    st.plotly_chart(
                         grafico_pizza(df_filtrado_reg["tipo_registro"], ORDEM_TIPOS, CORES_TIPOS),
-                        width="content",
+                        width="stretch",
+                        config=CONFIG_PLOTLY,
+                        key="grafico_tipo",
                     )
 
                 with st.container(width=LARGURA_GRAFICO):
                     st.markdown("**Registros por abrangência**")
-                    st.altair_chart(
+                    st.plotly_chart(
                         grafico_pizza(df_filtrado_reg["abrangencia"], ORDEM_ABRANGENCIA, CORES_ABRANGENCIA),
-                        width="content",
+                        width="stretch",
+                        config=CONFIG_PLOTLY,
+                        key="grafico_abrangencia",
                     )
 
             st.write("")
+            st.write("")
+
 
         # =====================================================================
         # VISUALIZAÇÃO: CARDS + PAINEL DE DETALHES
