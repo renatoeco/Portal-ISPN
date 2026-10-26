@@ -1194,7 +1194,7 @@ def grafico_pizza(serie: pd.Series, categorias: list[str], cores: list[str]) -> 
         go.Pie(
             labels=categorias,
             values=contagem.values,
-            marker=dict(colors=cores, line=dict(color="white", width=2)),
+            marker=dict(colors=cores, line=dict(width=0)),   # sem borda entre as fatias
             sort=False,                 # mantém a ordem definida em categorias
             direction="clockwise",
             text=rotulos,
