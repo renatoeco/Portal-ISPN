@@ -1651,7 +1651,7 @@ with aba_registros:
         # VISUALIZAÇÃO: CARDS + PAINEL DE DETALHES
         # =====================================================================
         ALTURA_PAINEIS = 750
-        LARGURA_CARDS = 400
+        LARGURA_CARDS = 500
 
         df_ordenado = df_filtrado_reg.sort_values("data", ascending=False)
 
