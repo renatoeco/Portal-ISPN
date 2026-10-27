@@ -1085,13 +1085,25 @@ if set(st.session_state.tipo_usuario) & {"admin", "gestao_ferias", "supervisao_f
                             
                             # Aba para EDITAR a solicitação ===================
                             with tab1.form(key=f'form_editar_solicitacao_{solicitacao_selecionada_indice}'):
-                                
+
                                 # Exibe campos para edição dos dados da solicitação
                                 data_solicitacao = st.text_input("Data da solicitação", value=solicitacao_editar.get('data_solicitacao', ''))
-                                dias_solicitados = st.text_input(
+
+                                # Converte o período salvo (strings dd/mm/aaaa) em datas para o date_input
+                                lista_dias_atual = solicitacao_editar.get('lista_de_dias', [])
+                                try:
+                                    inicio_atual = datetime.strptime(lista_dias_atual[0], "%d/%m/%Y").date()
+                                    fim_atual = datetime.strptime(lista_dias_atual[-1], "%d/%m/%Y").date()
+                                except (ValueError, IndexError):
+                                    # Se houver alguma data inválida no banco, usa hoje como padrão
+                                    inicio_atual = fim_atual = date.today()
+
+                                periodo_solicitado = st.date_input(
                                     "Período solicitado",
-                                    value=", ".join(map(str, solicitacao_editar.get('lista_de_dias', [])))
+                                    value=(inicio_atual, fim_atual),
+                                    format="DD/MM/YYYY"
                                 )
+
                                 dias_uteis = st.number_input(
                                     "Dias úteis",
                                     value=int(solicitacao_editar.get('numero_dias_uteis', 0)),
@@ -1103,34 +1115,46 @@ if set(st.session_state.tipo_usuario) & {"admin", "gestao_ferias", "supervisao_f
                                 # Botão para salvar as alterações realizadas
                                 st.write('')
                                 if st.form_submit_button("Salvar alterações", width=200, icon=":material/save:", type="primary"):
-                                    # Atualiza a solicitação específica na lista local
-                                    solicitacoes_ano[solicitacao_selecionada_indice] = {
-                                        'data_solicitacao': data_solicitacao,
-                                        'lista_de_dias': [dia.strip() for dia in dias_solicitados.split(',')],
-                                        'numero_dias_uteis': dias_uteis,
-                                        'observacoes': observacoes
-                                    }
 
-                                    # Monta o filtro para encontrar o colaborador correto no banco
-                                    filtro = { "nome_completo": colaborador_selecionado }
+                                    # Verifica se ao menos a data de início foi selecionada
+                                    if not periodo_solicitado:
+                                        st.warning("Selecione o período solicitado.")
+                                    else:
+                                        # Formata as datas no mesmo padrão usado no banco
+                                        lista_de_dias = [dia.strftime("%d/%m/%Y") for dia in periodo_solicitado]
 
-                                    # Monta a operação de atualização no caminho correto
-                                    novo_valor = {
-                                        "$set": {
-                                            f"férias.anos.{ano_selecionado}.solicitacoes": solicitacoes_ano
+                                        # Se só a data de início foi selecionada, duplica (mesma lógica da nova solicitação)
+                                        if len(lista_de_dias) == 1:
+                                            lista_de_dias.append(lista_de_dias[0])
+
+                                        # Atualiza a solicitação específica na lista local
+                                        solicitacoes_ano[solicitacao_selecionada_indice] = {
+                                            'data_solicitacao': data_solicitacao,
+                                            'lista_de_dias': lista_de_dias,
+                                            'numero_dias_uteis': dias_uteis,
+                                            'observacoes': observacoes
                                         }
-                                    }
 
-                                    # Executa a atualização no MongoDB
-                                    colecao.update_one(filtro, novo_valor)
+                                        # Monta o filtro para encontrar o colaborador correto no banco
+                                        filtro = { "nome_completo": colaborador_selecionado }
 
-                                    # Atualiza os dados locais após a alteração
-                                    atualizar_dados_colaborador()
-                                    
-                                    # Mensagem de sucesso e recarregamento da página
-                                    st.success("Período atualizado com sucesso!", icon=":material/thumb_up:")
-                                    time.sleep(4)
-                                    st.rerun()
+                                        # Monta a operação de atualização no caminho correto
+                                        novo_valor = {
+                                            "$set": {
+                                                f"férias.anos.{ano_selecionado}.solicitacoes": solicitacoes_ano
+                                            }
+                                        }
+
+                                        # Executa a atualização no MongoDB
+                                        colecao.update_one(filtro, novo_valor)
+
+                                        # Atualiza os dados locais após a alteração
+                                        atualizar_dados_colaborador()
+
+                                        # Mensagem de sucesso e recarregamento da página
+                                        st.success("Período atualizado com sucesso!", icon=":material/thumb_up:")
+                                        time.sleep(4)
+                                        st.rerun()
 
 
 
