@@ -463,10 +463,10 @@ with st.expander("TERMOS DE REFERÊNCIA"):
     st.write("Modelo de Termo de Referência para contratação de serviços.")
 
     with st.container(horizontal=True, horizontal_alignment="distribute"):
-        st.write("Versão: maio de 2025")
+        st.write("Versão: outubro de 2026")
         st.link_button(
             label="Ver documento",
-            url="https://ispn.org.br/wp-content/uploads/2025/10/TDR_padrao_15-05-2025.docx", 
+            url="https://ispn.org.br/wp-content/uploads/2026/10/TDR_padrao_28-10-2025.docx", 
             type="tertiary",
             icon=":material/open_in_new:"
         )
