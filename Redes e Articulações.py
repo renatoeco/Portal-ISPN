@@ -2112,15 +2112,9 @@ with aba_registros:
                 if tem_selecao:
                     reg_detalhe = reg_sel.iloc[0]
 
-                    # Incidência: altura fixa com rolagem. Articulação: do tamanho do conteúdo.
-                    altura_detalhes = (
-                        ALTURA_PAINEIS
-                        if reg_detalhe["tipo_registro"] == "Incidência política"
-                        else "content"
-                    )
-
-                    with st.container(height=altura_detalhes, border=True):
+                    with st.container(height="content", border=True):
                         mostrar_detalhes_registro(reg_detalhe)
+                        
                 else:
                     st.caption("***Selecione um registro para ver os detalhes***")
 
