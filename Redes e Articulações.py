@@ -1379,7 +1379,7 @@ def salvar_registro(dados_gerais: dict, dados_detalhe: dict, obrigatorios_detalh
     novo_registro = {
         **dados_gerais,
         **dados_detalhe,
-        "data_registro": datetime.now().strftime("%d/%m/%Y %H:%M"),
+        "data_registro": datetime.now().strftime("%d/%m/%Y"),
     }
 
     registros_incidencia.insert_one(novo_registro)
@@ -1890,7 +1890,7 @@ with aba_registros:
     st.write("")
 
     df_registros = carregar_registros()
-
+    
     if df_registros.empty:
         st.caption("**Nenhum registro de incidência política ou articulação foi cadastrado ainda.**")
 
@@ -1950,10 +1950,12 @@ with aba_registros:
             # Período da atividade
             datas_validas = df_registros["data"].dropna()
             periodo_sel = None
+            periodo_padrao = None
             if not datas_validas.empty:
+                periodo_padrao = (datas_validas.min().date(), df_registros["data_fim"].max().date())
                 periodo_sel = col4.date_input(
                     "Período da atividade",
-                    value=(datas_validas.min().date(), df_registros["data_fim"].max().date()),
+                    value=periodo_padrao,
                     format="DD/MM/YYYY",
                     key="filtro_reg_periodo",
                 )
@@ -2021,7 +2023,12 @@ with aba_registros:
             ]
 
         # O date_input de intervalo devolve 1 data enquanto a pessoa ainda está escolhendo a segunda
-        if periodo_sel and isinstance(periodo_sel, (tuple, list)) and len(periodo_sel) == 2:
+        if (
+            periodo_sel
+            and isinstance(periodo_sel, (tuple, list))
+            and len(periodo_sel) == 2
+            and tuple(periodo_sel) != periodo_padrao
+        ):
             inicio, fim = pd.Timestamp(periodo_sel[0]), pd.Timestamp(periodo_sel[1])
             df_filtrado_reg = df_filtrado_reg[
                 (df_filtrado_reg["data"] <= fim) & (df_filtrado_reg["data_fim"] >= inicio)
