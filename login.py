@@ -437,6 +437,7 @@ else:
 
         pg = st.navigation([
             st.Page("Institucional.py", title="Institucional", icon=":material/account_balance:"),
+            st.Page("Entregas.py", title="Entregas", icon=":material/package_2:"),
             st.Page("Programas e Áreas.py", title="Programas e Áreas", icon=":material/team_dashboard:"),
             st.Page("Projetos.py", title="Projetos", icon=":material/book:"),
             st.Page("Doadores.py", title="Doadores", icon=":material/all_inclusive:"),
