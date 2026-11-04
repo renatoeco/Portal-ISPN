@@ -9,11 +9,9 @@ from funcoes_auxiliares import (
     mostrar_detalhes_entrega,
     cadastrar_entrega,
     cadastrar_registro_entrega,
-    editar_registro_entrega
+    editar_registro_entrega,
 )
 import plotly.express as px
-import time
-import bson
 from streamlit_scroll_to_top import scroll_to_here
 from streamlit_calendar import calendar
 

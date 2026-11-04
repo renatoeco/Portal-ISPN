@@ -151,6 +151,25 @@ def convert_objectid(obj):
         return obj
 
 
+# ##########################################################
+# Situações das entregas
+# ##########################################################
+
+SITUACOES_ENTREGA = [
+    "Prevista",
+    "Em andamento",
+    "Atrasada",
+    "Concluída"
+]
+
+# Cor no calendário e cor do badge, por situação.
+ESTILO_SITUACAO = {
+    "Prevista":     {"cor_calendario": "#FFF2CC", "badge": "orange"},
+    "Em andamento": {"cor_calendario": "#D9EAD3", "badge": "green"},
+    "Atrasada":     {"cor_calendario": "#F4CCCC", "badge": "red"},
+    "Concluída":    {"cor_calendario": "#ADD8E6", "badge": "blue"},
+}
+
 
 # ##########################################################
 # Diálogo para cadastro de nova entrega
@@ -372,7 +391,7 @@ def cadastrar_entrega():
 
     situacao = col1.selectbox(
         "Situação",
-        options=situacoes,
+        options=SITUACOES_ENTREGA,
         index=None,
         placeholder=""
     )
@@ -809,21 +828,11 @@ def mostrar_detalhes_entrega(entrega_id):
         gap="medium"
     )
 
-
-
-
-
-
-
     # ==================================================
     # COLUNA 1 — INFORMAÇÕES DA ENTREGA
     # ==================================================
 
     with col1:
-
-
-
-
 
         st.write(
             f"**Responsável(is):** {responsaveis_texto}"
@@ -856,8 +865,13 @@ def mostrar_detalhes_entrega(entrega_id):
         st.write('')
 
 
-        st.write(
-            f"**Situação:** {situacao}"
+        cor_badge = ESTILO_SITUACAO.get(
+            situacao,
+            {}
+        ).get("badge", "gray")
+
+        st.markdown(
+            f"**Situação:** :{cor_badge}-badge[{situacao}]"
         )
 
 
@@ -2554,24 +2568,18 @@ def dialog_editar_entrega(entrega_id):
 
     col1, col2 = st.columns(2)
 
-    situacoes = [
-        "Prevista",
-        "Atrasada",
-        "Concluída"
-    ]
-
     situacao_atual = entrega.get(
         "situacao",
         "Prevista"
     )
 
-    if situacao_atual not in situacoes:
+    if situacao_atual not in SITUACOES_ENTREGA:
         situacao_atual = "Prevista"
 
     situacao = col1.selectbox(
         "Situação",
-        options=situacoes,
-        index=situacoes.index(
+        options=SITUACOES_ENTREGA,
+        index=SITUACOES_ENTREGA.index(
             situacao_atual
         )
     )
