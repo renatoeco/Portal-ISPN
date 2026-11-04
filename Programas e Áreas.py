@@ -698,8 +698,8 @@ def gerenciar_programa_dialog(programa):
                             for aid in objetivos_relacionados:
                                 st.markdown(f"- {mapa_acoes_objetivos.get(aid, '')}")
                                 
-                        if objetivos_relacionados:
-                            st.write("")                            
+                        if eixos_relacionados:
+                            st.write("")
                             st.markdown("**Contribui com Eixos da Estratégia:**")
                             for aid in eixos_relacionados:
                                 st.markdown(f"- {mapa_eixos.get(aid, '')}")
