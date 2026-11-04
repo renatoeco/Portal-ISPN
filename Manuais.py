@@ -466,7 +466,7 @@ with st.expander("TERMOS DE REFERÊNCIA"):
         st.write("Versão: outubro de 2026")
         st.link_button(
             label="Ver documento",
-            url="https://ispn.org.br/wp-content/uploads/2026/10/TDR_padrao_28-10-2025.docx", 
+            url="https://ispn.org.br/wp-content/uploads/2026/11/TDR_padrao_03-11-2026.docx", 
             type="tertiary",
             icon=":material/open_in_new:"
         )
