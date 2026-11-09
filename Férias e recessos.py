@@ -434,12 +434,6 @@ def gerar_grafico_tabela(colaborador_selecionado):
         (df_gantt["Fim"] >= data_inicio_periodo)
     ]
 
-    # Mantém os períodos que se sobrepõem ao intervalo selecionado
-    df_gantt = df_gantt[
-        (df_gantt["Início"] <= data_fim_periodo) &
-        (df_gantt["Fim"] >= data_inicio_periodo)
-    ]
-
     # VISÃO ANUAL: heatmap colaborador × mês
     if mes_selecionado == "Todos":
         fig_heatmap = gerar_heatmap_anual(colaboradores, ano_selecionado, colaborador_selecionado, setor_selecionado)
