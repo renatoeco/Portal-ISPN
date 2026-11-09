@@ -2,12 +2,11 @@ import pandas as pd
 import streamlit as st
 import plotly.express as px
 import time
-from pymongo import MongoClient
 from datetime import datetime, timedelta, date
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from bson import ObjectId
+import plotly.graph_objects as go
 
 from funcoes_auxiliares import conectar_mongo_portal_ispn  # Função personalizada para conectar ao MongoDB
 
@@ -170,8 +169,6 @@ def montar_dataframe_saldo_do_ano(ano_selecionado, ano_dados):
     return pd.DataFrame(df_saldos)
 
 
-
-
 # Função para atualizar o total_gozado e o saldo_atual sempre que cadastrar uma nova solicitação, editar uma solicitação ou deletar uma solicitação
 def atualizar_dados_colaborador():
     # Carrega a coleção de colaboradores
@@ -266,7 +263,6 @@ def atualizar_dados_colaborador():
             }
 
             colecao.update_one(filtro, {"$set": novos_valores})
-
 
 
 # Função para gerar o gráfico e a tabela, usado para todo tipo de usuário
@@ -438,10 +434,29 @@ def gerar_grafico_tabela(colaborador_selecionado):
         (df_gantt["Fim"] >= data_inicio_periodo)
     ]
 
-    # Verifica se há registros para o gráfico
-    if df_gantt.empty:
+    # Mantém os períodos que se sobrepõem ao intervalo selecionado
+    df_gantt = df_gantt[
+        (df_gantt["Início"] <= data_fim_periodo) &
+        (df_gantt["Fim"] >= data_inicio_periodo)
+    ]
+
+    # VISÃO ANUAL: heatmap colaborador × mês
+    if mes_selecionado == "Todos":
+        fig_heatmap = gerar_heatmap_anual(colaboradores, ano_selecionado, colaborador_selecionado, setor_selecionado)
+        if fig_heatmap:
+            container_mês.plotly_chart(fig_heatmap)
+        else:
+            container_mês.write(f"Não há férias programadas para {texto_periodo}.")
+
+    # VISÃO MENSAL: verifica se há registros para o gráfico de Gantt
+    elif df_gantt.empty:
         st.write('')
-        container_mês.write(f"Não há férias programadas para {texto_periodo}.")  # Mensagem de ausência de dados
+        container_mês.write(f"Não há férias programadas para {texto_periodo}.")
+
+    # # Verifica se há registros para o gráfico
+    # if df_gantt.empty:
+    #     st.write('')
+    #     container_mês.write(f"Não há férias programadas para {texto_periodo}.")  # Mensagem de ausência de dados
 
     # Tem registros
     else:
@@ -589,6 +604,7 @@ def gerar_grafico_tabela(colaborador_selecionado):
                     gridwidth=0.5,
                     gridcolor="lightgrey"
                 )
+                
             else:
                 # Visão mensal: um tick por dia
                 fig.update_xaxes(
@@ -797,6 +813,116 @@ def gerar_grafico_tabela(colaborador_selecionado):
                         coluna2.write(f"Não há solicitações de férias para {ano} até o momento.")
 
 
+def gerar_heatmap_anual(colaboradores, ano_selecionado, colaborador_selecionado="Todos(as)", setor_selecionado="Todos"):
+    ano_int = int(ano_selecionado)
+    meses_abrev = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
+                   "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
+
+    contagem = {}   # {(nome, mês): dias úteis de férias}
+    periodos = {}   # {(nome, mês): [(início, fim), ...]}
+    nomes = []
+
+    for colaborador in colaboradores:
+        nome = colaborador.get("nome_completo", "Desconhecido")
+
+        # Setores do colaborador (para o filtro de Programa / Área)
+        programas_ids = colaborador.get("programa_area", [])
+        if not isinstance(programas_ids, list):
+            programas_ids = [programas_ids]
+        setores = [mapa_programas_areas.get(str(pid), "Desconhecido") for pid in programas_ids]
+
+        # Aplica os filtros da página
+        if colaborador_selecionado != "Todos(as)" and nome != colaborador_selecionado:
+            continue
+        if setor_selecionado != "Todos" and setor_selecionado not in setores:
+            continue
+
+        # Todos aparecem no gráfico, mesmo sem férias no ano
+        nomes.append(nome)
+
+        anos = colaborador.get("férias", {}).get("anos", {})
+        for dados_ano in anos.values():
+            for solicitacao in dados_ano.get("solicitacoes", []):
+                lista_de_dias = solicitacao.get("lista_de_dias", [])
+
+                for i in range(0, len(lista_de_dias) - 1, 2):
+                    try:
+                        inicio = datetime.strptime(lista_de_dias[i], "%d/%m/%Y")
+                        fim = datetime.strptime(lista_de_dias[i + 1], "%d/%m/%Y")
+                    except (ValueError, IndexError):
+                        continue
+
+                    # Ignora períodos que não tocam o ano selecionado
+                    if fim.year < ano_int or inicio.year > ano_int:
+                        continue
+
+                    # Conta os dias úteis (seg a sex) em cada mês
+                    for dia in pd.bdate_range(inicio, fim):
+                        if dia.year == ano_int:
+                            chave = (nome, dia.month)
+                            contagem[chave] = contagem.get(chave, 0) + 1
+
+                    # Registra o período em todos os meses que ele atravessa
+                    meses_do_periodo = {
+                        dia.month for dia in pd.date_range(inicio, fim) if dia.year == ano_int
+                    }
+                    for mes in meses_do_periodo:
+                        periodos.setdefault((nome, mes), []).append((inicio, fim))
+
+    if not nomes:
+        return None
+
+    # Ordem alfabética de cima para baixo (o Plotly desenha o eixo Y de baixo para cima)
+    nomes = sorted(set(nomes), reverse=True)
+
+    # Monta as matrizes de valores, textos das células e textos do hover
+    z, texto, hover = [], [], []
+    for nome in nomes:
+        linha_z, linha_texto, linha_hover = [], [], []
+
+        for mes in range(1, 13):
+            dias = contagem.get((nome, mes), 0)
+            lista_periodos = sorted(set(periodos.get((nome, mes), [])))
+
+            linha_z.append(dias)
+            linha_texto.append(str(dias) if dias else "")
+
+            if lista_periodos:
+                periodos_formatados = "<br>".join(
+                    f"• {ini:%d/%m/%Y} a {fim:%d/%m/%Y}" for ini, fim in lista_periodos
+                )
+                linha_hover.append(f"{dias} dias úteis no mês<br><br>Período(s):<br>{periodos_formatados}")
+            else:
+                linha_hover.append("Sem férias neste mês")
+
+        z.append(linha_z)
+        texto.append(linha_texto)
+        hover.append(linha_hover)
+
+    fig = go.Figure(go.Heatmap(
+        z=z,
+        x=meses_abrev,
+        y=nomes,
+        text=texto,
+        texttemplate="%{text}",
+        customdata=hover,
+        colorscale=[[0, "#f5f5f5"], [0.01, "#d6e6f8"], [1, "#1f5fa8"]],
+        zmin=0,
+        xgap=3,
+        ygap=3,
+        colorbar=dict(title="Dias úteis"),
+        hovertemplate="<b>%{y}</b> · %{x}<br>%{customdata}<extra></extra>",
+    ))
+
+    fig.update_layout(
+        height=max(250, 32 * len(nomes) + 100),
+        margin=dict(l=20, r=20, t=40, b=20),
+        xaxis=dict(side="top"),
+        yaxis=dict(tickfont=dict(size=14)),
+        hoverlabel=dict(align="left"),
+    )
+
+    return fig
 
 
 # ###########################################################################
