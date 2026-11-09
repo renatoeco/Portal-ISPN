@@ -141,10 +141,18 @@ with st.expander("FUNDO ECOS"):
             icon=":material/open_in_new:"
         )
 
+    st.divider()
 
+    st.write("""Vídeo de treinamento, para parceiros, da plataforma Coruja 2 para gestão de projetos.""")
 
-
-
+    with st.container(horizontal=True, horizontal_alignment="distribute"):
+            st.write("Versão: outubro de 2026")
+            st.link_button(
+                label="Ver vídeo",
+                url="https://youtu.be/9dwfNyYtbag", 
+                type="tertiary",
+                icon=":material/open_in_new:"
+            )
 
 
 
