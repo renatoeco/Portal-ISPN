@@ -391,9 +391,10 @@ def gerar_grafico_tabela(colaborador_selecionado):
             setor_selecionado = st.selectbox("Programa / Área", options=["Todos"] + lista_programas_areas, index=0)
 
     # Selectbox para os meses, com o mês atual como padrão
+    # "Todos" fica na posição 0, então o índice do mês atual é o próprio mes_atual
     with col4:
         st.write('')
-        mes_selecionado = st.selectbox("Selecione o mês", options=meses, index=mes_atual - 1)
+        mes_selecionado = st.selectbox("Selecione o mês", options=["Todos"] + meses, index=mes_atual)
 
     # Selectbox para os anos, com o ano atual como padrão
     with col5:
@@ -410,35 +411,37 @@ def gerar_grafico_tabela(colaborador_selecionado):
         # Criar o selectbox com o ano atual selecionado por padrão
         ano_selecionado = st.selectbox("Selecione o ano", options=anos_disponiveis, index=index_ano_atual)
 
-    # Escrevendo o mês e ano na col1
-    if ano_selecionado != None:
-        titulo_mes.subheader(f'{mes_selecionado} de {ano_selecionado}')  # Exibe o mês e ano selecionados
+        # Escrevendo o mês e ano na col1
+        if ano_selecionado != None:
+            if mes_selecionado == "Todos":
+                titulo_mes.subheader(f'Ano de {ano_selecionado}')
+            else:
+                titulo_mes.subheader(f'{mes_selecionado} de {ano_selecionado}')
 
-    # Mapeia o nome do mês para seu número (1-12)
-    mes_numero = meses.index(mes_selecionado) + 1
+    ano_int = int(ano_selecionado)
 
+    # Define o período de referência: o ano inteiro ou só o mês selecionado
+    if mes_selecionado == "Todos":
+        mes_numero = None
+        data_inicio_periodo = datetime(ano_int, 1, 1)
+        data_fim_periodo = datetime(ano_int, 12, 31)
+        texto_periodo = f"o ano de {ano_selecionado}"
+    else:
+        mes_numero = meses.index(mes_selecionado) + 1
+        data_inicio_periodo = datetime(ano_int, mes_numero, 1)
+        data_fim_periodo = (pd.Timestamp(data_inicio_periodo) + pd.offsets.MonthEnd(0)).to_pydatetime()
+        texto_periodo = f"o mês de {mes_selecionado.lower()}"
 
-    # Define a data de referência para o mês e ano selecionados
-    data_inicio_mes = datetime(int(ano_selecionado), mes_numero, 1)  # Primeiro dia do mês selecionado
-    if mes_numero == 12:  # Caso seja dezembro, calcula o último dia do mês
-        data_fim_mes = datetime(int(ano_selecionado) + 1, 1, 1) - pd.Timedelta(days=1)
-    else:  # Para outros meses, calcula o último dia normalmente
-        data_fim_mes = datetime(int(ano_selecionado), mes_numero + 1, 1) - pd.Timedelta(days=1)
-
-    # Filtra o DataFrame para incluir somente os registros do mês e ano selecionados
+    # Mantém os períodos que se sobrepõem ao intervalo selecionado
     df_gantt = df_gantt[
-        ((df_gantt["Início"].dt.year == int(ano_selecionado)) & 
-        (df_gantt["Início"].dt.month == mes_numero)) |
-        ((df_gantt["Fim"].dt.year == int(ano_selecionado)) & 
-        (df_gantt["Fim"].dt.month == mes_numero)) |
-        ((df_gantt["Início"] <= data_fim_mes) & 
-        (df_gantt["Fim"] >= data_inicio_mes))
+        (df_gantt["Início"] <= data_fim_periodo) &
+        (df_gantt["Fim"] >= data_inicio_periodo)
     ]
 
     # Verifica se há registros para o gráfico
     if df_gantt.empty:
         st.write('')
-        container_mês.write(f"Não há férias programadas para o mês de {mes_selecionado.lower()}.")  # Mensagem de ausência de dados
+        container_mês.write(f"Não há férias programadas para {texto_periodo}.")  # Mensagem de ausência de dados
 
     # Tem registros
     else:
@@ -467,10 +470,6 @@ def gerar_grafico_tabela(colaborador_selecionado):
                     altura_grafico = 900
             else:
                 altura_grafico = 130  # Altura menor para um colaborador específico
-
-            # Define o primeiro e o último dia do mês selecionado
-            primeiro_dia = datetime(int(ano_selecionado), mes_numero, 1)
-            ultimo_dia = (primeiro_dia + timedelta(days=31)).replace(day=1)
 
             # Adiciona 1 dia ao valor da coluna "Fim" para ajustar visualmente o gráfico
             df_gantt["Final"] = df_gantt["Fim"] + pd.Timedelta(days=1)
@@ -576,15 +575,30 @@ def gerar_grafico_tabela(colaborador_selecionado):
             # Remove o título do eixo Y
             fig.update_yaxes(title_text='')  
 
-            # Configura o eixo X para mostrar todos os dias do mês selecionado
-            fig.update_xaxes(
-                range=[primeiro_dia, ultimo_dia], 
-                dtick="D1", 
-                tickformat="%d/%m", 
-                showgrid=True, 
-                gridwidth=0.5, 
-                gridcolor="lightgrey"
-            )
+            if mes_selecionado == "Todos":
+                # Visão anual: um tick por mês, com nomes em português
+                meses_abrev = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
+                               "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
+
+                fig.update_xaxes(
+                    range=[datetime(ano_int, 1, 1), datetime(ano_int + 1, 1, 1)],
+                    tickmode="array",
+                    tickvals=[datetime(ano_int, m, 1) for m in range(1, 13)],
+                    ticktext=meses_abrev,
+                    showgrid=True,
+                    gridwidth=0.5,
+                    gridcolor="lightgrey"
+                )
+            else:
+                # Visão mensal: um tick por dia
+                fig.update_xaxes(
+                    range=[data_inicio_periodo, data_fim_periodo + timedelta(days=1)],
+                    dtick="D1",
+                    tickformat="%d/%m",
+                    showgrid=True,
+                    gridwidth=0.5,
+                    gridcolor="lightgrey"
+                )
 
 
             # Exibe o gráfico no container
@@ -660,12 +674,8 @@ def gerar_grafico_tabela(colaborador_selecionado):
                         inicio_periodo = lista_de_dias_timestamp[0]
                         fim_periodo = lista_de_dias_timestamp[-1]
 
-                        # Define o intervalo do mês selecionado
-                        data_referencia_inicio = pd.to_datetime(f"{ano_selecionado}-{mes_numero}-01")
-                        data_referencia_fim = data_referencia_inicio + pd.offsets.MonthEnd(0)
-
-                        # Verifica sobreposição com o mês selecionado
-                        if (inicio_periodo <= data_referencia_fim) and (fim_periodo >= data_referencia_inicio):
+                        # Verifica sobreposição com o período selecionado (mês ou ano inteiro)
+                        if (inicio_periodo <= pd.Timestamp(data_fim_periodo)) and (fim_periodo >= pd.Timestamp(data_inicio_periodo)):
                             todas_solicitacoes.append({
                                 "Nome": nome,
                                 "Setor": setor_formatado,
@@ -693,7 +703,10 @@ def gerar_grafico_tabela(colaborador_selecionado):
                     ]
 
                 # Subtítulo
-                container_mês.subheader("**Solicitações de férias no mês**")
+                if mes_selecionado == "Todos":
+                    container_mês.subheader("**Solicitações de férias no ano**")
+                else:
+                    container_mês.subheader("**Solicitações de férias no mês**")
 
                 # Altura dinâmica do DataFrame
                 altura_df_solicitacoes = ((len(df_todas_solicitacoes) + 1) * 35) + 2
