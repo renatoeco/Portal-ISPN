@@ -544,6 +544,16 @@ def obter_email_pessoa_por_id(pessoa_id):
     return (pessoa or {}).get("e_mail")
 
 
+def obter_email_coordenador_projeto(projeto_id):
+    """Busca o e-mail do coordenador do projeto informado, a partir do
+    _id guardado na chave 'coordenador' do documento do projeto."""
+    if not projeto_id:
+        return None
+    projeto = projetos_ispn.find_one({"_id": ObjectId(projeto_id)}, {"coordenador": 1})
+    coordenador_id = (projeto or {}).get("coordenador")
+    return obter_email_pessoa_por_id(coordenador_id)
+
+
 def obter_destinatarios_adm(solicitacao):
     """Retorna o(s) e-mail(s) administrativo(s) a notificar, com base no
     campo 'escritorio' do responsável ORIGINAL pela solicitação."""
@@ -576,6 +586,13 @@ def enviar_notificacao_solicitacao(solicitacao, tipo, projetos_dict, pessoas_dic
     email_responsavel = obter_email_pessoa_por_id(solicitacao.get("responsavel_id"))
     if email_responsavel:
         destinatarios.append(email_responsavel)
+
+    # Inclui o e-mail do coordenador do projeto da solicitação
+    email_coordenador = obter_email_coordenador_projeto(solicitacao.get("projeto_id"))
+    if email_coordenador:
+        destinatarios.append(email_coordenador)
+
+    # Remove duplicados (...)  <- o restante continua igual
 
     # Remove duplicados (ex.: se o responsável também for o e-mail adm),
     # preservando a ordem e ignorando diferenças de maiúsculas/minúsculas
