@@ -18,6 +18,9 @@ from funcoes_auxiliares import (
 import smtplib
 from email.mime.text import MIMEText
 
+from io import BytesIO
+from openpyxl.styles import Font, Alignment
+from openpyxl.utils import get_column_letter
 
 
 
@@ -1592,6 +1595,85 @@ def mostrar_detalhes_registro(reg):
             st.write(f"**Organizações envolvidas:** {reg['organizacoes_envolvidas']}")
 
 
+def _planilha_registros(df: pd.DataFrame, eh_incidencia: bool) -> pd.DataFrame:
+    """Monta a tabela de um tipo de registro com nomes de colunas legíveis."""
+    mapa_ufs = carregar_opcoes_ufs()
+    linhas = []
+
+    for _, reg in df.sort_values("data", ascending=False).iterrows():
+        inicio, fim = reg["data"], reg["data_fim"]
+
+        linha = {
+            "Registrado em": reg.get("data_registro") or "",
+            "Registrado por": reg.get("nome") or "",
+            "Data de início da atividade": _data_formatada(inicio),
+            "Data de fim da atividade": _data_formatada(fim) if pd.notna(fim) and fim != inicio else "",
+            "Abrangência": reg.get("abrangencia") or "",
+            "Estado(s)": ", ".join(f"{mapa_ufs.get(s, s)} - {s}" for s in reg["ufs_registro"]),
+            "Município(s)": ", ".join(reg["territorio"]),
+        }
+
+        if eh_incidencia:
+            linha.update({
+                "Órgão / Instituição / Espaço": reg.get("orgao_incidencia") or "",
+                "Ator / Autoridade impactada": reg.get("ator_impactado") or "",
+                "Programa(s) do ISPN": ", ".join(reg["programas"]),
+            })
+        else:
+            linha["Rede / Articulação"] = reg.get("rede_articulacao") or ""
+
+        linha.update({
+            "Pauta / Objetivo": reg.get("pauta_objetivo") or "",
+            "Encaminhamentos": reg.get("encaminhamentos") or "",
+        })
+
+        if eh_incidencia:
+            linha.update({
+                "Envolveu outras organizações?": reg.get("envolveu_outras_organizacoes") or "",
+                "Organizações envolvidas": reg.get("organizacoes_envolvidas") or "",
+            })
+
+        linhas.append(linha)
+
+    return pd.DataFrame(linhas)
+
+
+def _formatar_aba(ws, planilha: pd.DataFrame):
+    """Cabeçalho em negrito e congelado, largura das colunas ajustada e quebra de texto."""
+    ws.freeze_panes = "A2"
+
+    for cel in ws[1]:
+        cel.font = Font(bold=True)
+
+    for i, coluna in enumerate(planilha.columns, start=1):
+        maior = max([len(str(coluna))] + [len(str(v)) for v in planilha[coluna]])
+        ws.column_dimensions[get_column_letter(i)].width = min(max(maior + 2, 12), 60)
+
+    for linha in ws.iter_rows(min_row=2):
+        for cel in linha:
+            cel.alignment = Alignment(wrap_text=True, vertical="top")
+
+
+def gerar_excel_registros(df: pd.DataFrame) -> bytes:
+    """
+    Gera o .xlsx com uma aba por tipo de registro.
+    Só cria a aba do tipo que tiver registros no DataFrame (já filtrado).
+    """
+    buffer = BytesIO()
+
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        for tipo in OPCOES_TIPO_REGISTRO:  # [Incidência política, Articulação]
+            df_tipo = df[df["tipo_registro"] == tipo]
+            if df_tipo.empty:
+                continue
+
+            planilha = _planilha_registros(df_tipo, eh_incidencia=(tipo == TIPO_INCIDENCIA))
+            planilha.to_excel(writer, sheet_name=tipo, index=False)
+            _formatar_aba(writer.sheets[tipo], planilha)
+
+    return buffer.getvalue()
+
+
 ORDEM_ABRANGENCIA = ["Nacional", "Estadual", "Municipal", "Internacional"]
 CORES_ABRANGENCIA = ["#9ecae1", "#a8d8a8", "#fdd0a2", "#cbb8e3"]  # azul, verde, pêssego, lilás
 
@@ -1987,6 +2069,12 @@ with aba_registros:
                 placeholder="",
                 key="filtro_reg_municipio",
             )
+
+        # Lugar reservado para o botão de download, logo abaixo dos filtros.
+        # É preenchido mais abaixo, depois que os filtros são aplicados.
+        st.write("")
+
+        container_download = st.container(horizontal=True, horizontal_alignment="right")
         
         st.write("")
 
@@ -2042,6 +2130,22 @@ with aba_registros:
             ]
             texto_linha = df_filtrado_reg[colunas_busca].fillna("").astype(str).agg(" ".join, axis=1)
             df_filtrado_reg = df_filtrado_reg[texto_linha.apply(_chave_ordenacao).str.contains(termo, regex=False)]
+
+        # =====================
+        # Download Excel (respeita os filtros)
+        # =====================
+        with container_download:
+            st.download_button(
+                "Baixar registros",
+                data=gerar_excel_registros(df_filtrado_reg) if not df_filtrado_reg.empty else b"",
+                file_name=f"registros_incidencia_articulacao_{datetime.now():%d-%m-%Y}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                icon=":material/download:",
+                type="secondary",
+                disabled=df_filtrado_reg.empty,
+                on_click="ignore",
+                key="btn_download_registros",
+            )
 
         # =====================
         # Contagem
