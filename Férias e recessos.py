@@ -7,6 +7,7 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import plotly.graph_objects as go
+import unicodedata
 
 from funcoes_auxiliares import conectar_mongo_portal_ispn  # Função personalizada para conectar ao MongoDB
 
@@ -167,6 +168,12 @@ def montar_dataframe_saldo_do_ano(ano_selecionado, ano_dados):
 
     # Cria um DataFrame com os dados de saldo e o exibe na primeira coluna
     return pd.DataFrame(df_saldos)
+
+
+# Chave de ordenação que ignora acentos e maiúsculas/minúsculas
+def chave_alfabetica(texto):
+    sem_acento = unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode("ascii")
+    return sem_acento.lower()
 
 
 # Função para atualizar o total_gozado e o saldo_atual sempre que cadastrar uma nova solicitação, editar uma solicitação ou deletar uma solicitação
@@ -472,9 +479,8 @@ def gerar_grafico_tabela(colaborador_selecionado):
         # Adiciona 1 dia ao valor da coluna "Fim" para ajustar visualmente o gráfico
         df_gantt["Final"] = df_gantt["Fim"] + pd.Timedelta(days=1)
 
-        # Ordena pela menor data de início de cada colaborador e depois pela data de início
-        df_gantt['Menor_Início'] = df_gantt.groupby('Colaborador')['Início'].transform('min')
-        df_gantt = df_gantt.sort_values(by=['Menor_Início', 'Início'], ascending=False)
+        # Ordem alfabética de cima para baixo (o Plotly desenha o eixo Y de baixo para cima)
+        ordem_nomes = sorted(df_gantt["Colaborador"].unique(), key=chave_alfabetica, reverse=True)
 
         # Paleta de cores por setor
         cores_setores = {
@@ -528,7 +534,7 @@ def gerar_grafico_tabela(colaborador_selecionado):
             )
         )
 
-        fig.update_yaxes(title_text='')
+        fig.update_yaxes(title_text='', categoryorder="array", categoryarray=ordem_nomes)
 
         if mes_selecionado == "Todos":
             # Visão anual: um tick por mês, com nomes em português
