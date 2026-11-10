@@ -434,185 +434,129 @@ def gerar_grafico_tabela(colaborador_selecionado):
         (df_gantt["Fim"] >= data_inicio_periodo)
     ]
 
-    # VISÃO ANUAL: heatmap colaborador × mês
+    # VISÃO ANUAL: heatmap colaborador × mês (aparece acima do Gantt para comparação)
     if mes_selecionado == "Todos":
         fig_heatmap = gerar_heatmap_anual(colaboradores, ano_selecionado, colaborador_selecionado, setor_selecionado)
         if fig_heatmap:
-            container_mês.plotly_chart(fig_heatmap)
-        else:
-            container_mês.write(f"Não há férias programadas para {texto_periodo}.")
+            container_mês.markdown("##### Dias úteis de férias por mês")
+            container_mês.plotly_chart(fig_heatmap, key="heatmap_anual")
+            container_mês.write('')
+            container_mês.markdown("##### Linha do tempo")
 
-    # VISÃO MENSAL: verifica se há registros para o gráfico de Gantt
-    elif df_gantt.empty:
-        st.write('')
+    # Filtra os dados se um colaborador específico estiver selecionado
+    if colaborador_selecionado != "Todos(as)":
+        df_gantt = df_gantt[df_gantt["Colaborador"] == colaborador_selecionado]
+
+    # Se o colaborador for Todos(as), filtra pelo setor selecionado
+    elif setor_selecionado != "Todos":
+        df_gantt = df_gantt[df_gantt["Setor"] == setor_selecionado]
+
+    # GANTT: aparece tanto na visão mensal quanto na anual
+    if df_gantt.empty:
         container_mês.write(f"Não há férias programadas para {texto_periodo}.")
 
-    # # Verifica se há registros para o gráfico
-    # if df_gantt.empty:
-    #     st.write('')
-    #     container_mês.write(f"Não há férias programadas para {texto_periodo}.")  # Mensagem de ausência de dados
-
-    # Tem registros
     else:
-        # Filtra os dados se um colaborador específico estiver selecionado
-        if colaborador_selecionado != "Todos(as)":
-            df_gantt = df_gantt[df_gantt["Colaborador"] == colaborador_selecionado]
-
-        # Se o colaborador for Todos(as),Filtra os dados se um setor específico estiver selecionado
-        elif setor_selecionado != "Todos":
-            df_gantt = df_gantt[df_gantt["Setor"] == setor_selecionado]  # Assumindo que há uma coluna 'Setor' no DataFrame
-
-        # Verifica novamente se há dados após o filtro por colaborador
-        if df_gantt.empty:
-            container_mês.write(f"Não há férias programadas para o mês de {mes_selecionado.lower()}.")  # Mensagem após o filtro
+        # Define a altura do gráfico com base na seleção
+        if colaborador_selecionado == "Todos(as)":
+            if len(df_gantt) < 10:
+                altura_grafico = 300
+            elif len(df_gantt) < 20:
+                altura_grafico = 600
+            elif len(df_gantt) < 30:
+                altura_grafico = 700
+            else:
+                altura_grafico = 900
         else:
+            altura_grafico = 130
 
-            # Define a altura do gráfico com base na seleção
-            if colaborador_selecionado == "Todos(as)":
-                if len(df_gantt) < 10:
-                    altura_grafico = 300
-                elif len(df_gantt) < 20:
-                    altura_grafico = 600  # Altura padrão para todos
-                elif len(df_gantt) < 30:
-                    altura_grafico = 700
-                else:
-                    altura_grafico = 900
-            else:
-                altura_grafico = 130  # Altura menor para um colaborador específico
+        # Adiciona 1 dia ao valor da coluna "Fim" para ajustar visualmente o gráfico
+        df_gantt["Final"] = df_gantt["Fim"] + pd.Timedelta(days=1)
 
-            # Adiciona 1 dia ao valor da coluna "Fim" para ajustar visualmente o gráfico
-            df_gantt["Final"] = df_gantt["Fim"] + pd.Timedelta(days=1)
+        # Ordena pela menor data de início de cada colaborador e depois pela data de início
+        df_gantt['Menor_Início'] = df_gantt.groupby('Colaborador')['Início'].transform('min')
+        df_gantt = df_gantt.sort_values(by=['Menor_Início', 'Início'], ascending=False)
 
-            # Adiciona a menor data de "Início" por colaborador
-            df_gantt['Menor_Início'] = df_gantt.groupby('Colaborador')['Início'].transform('min')
+        # Paleta de cores por setor
+        cores_setores = {
+            "Advocacy": "rgba(255, 127, 14, 0.55)",
+            "Adm. Brasília": "rgba(44, 160, 44, 0.55)",
+            "Adm. Santa Inês": "rgba(227, 119, 194, 0.55)",
+            "Comunicação": "rgba(148, 103, 189, 0.55)",
+            "Coordenação": "rgba(214, 39, 40, 0.55)",
+            "Estagiário(a)": "rgba(255, 187, 120, 0.55)",
+            "Programa Cerrado": "rgba(140, 86, 75, 0.55)",
+            "Programa Iniciativas Comunitárias": "rgba(31, 119, 180, 0.55)",
+            "Programa Maranhão": "rgba(188, 189, 34, 0.55)",
+            "Programa Povos Indígenas": "rgba(23, 190, 207, 0.55)",
+            "Programa Sociobiodiversidade": "rgba(127, 127, 127, 0.55)"
+        }
 
-            # Ordena o DataFrame com base na menor data de "Início" e depois pela data "Início"
-            df_gantt = df_gantt.sort_values(by=['Menor_Início', 'Início'], ascending=False)
+        # Cria o gráfico de Gantt
+        fig = px.timeline(
+            df_gantt,
+            x_start="Início",
+            x_end="Final",
+            y="Colaborador",
+            color="Setor",
+            color_discrete_map=cores_setores,
+            custom_data=["Inicio_hover", "Fim_hover", "Setor"]
+        )
 
-            # Definindo a paleta de cores divergente
-            cores_setores = {
-                "Advocacy": "rgba(255, 127, 14, 0.55)",              # Laranja brilhante
-                "Adm. Brasília": "rgba(44, 160, 44, 0.55)",          # Verde
-                "Adm. Santa Inês": "rgba(227, 119, 194, 0.55)",       # Azul
-                "Comunicação": "rgba(148, 103, 189, 0.55)",          # Roxo
-                "Coordenação": "rgba(214, 39, 40, 0.55)",            # Vermelho
-                "Estagiário(a)": "rgba(255, 187, 120, 0.55)",        # Laranja claro
-                "Programa Cerrado": "rgba(140, 86, 75, 0.55)",       # Marrom
-                "Programa Iniciativas Comunitárias": "rgba(31, 119, 180, 0.55)", # Rosa
-                "Programa Maranhão": "rgba(188, 189, 34, 0.55)",     # Verde amarelado
-                "Programa Povos Indígenas": "rgba(23, 190, 207, 0.55)", # Ciano
-                "Programa Sociobiodiversidade": "rgba(127, 127, 127, 0.55)" # Cinza
-            }
+        fig.update_traces(
+            hovertemplate=
+            "<b>%{y}</b><br>" +
+            "Início: %{customdata[0]|%d/%m/%Y}<br>" +
+            "Fim: %{customdata[1]|%d/%m/%Y}<br>" +
+            "Programa: %{customdata[2]}<extra></extra>"
+        )
 
+        # Linha vertical vermelha marcando o dia de hoje
+        fig.add_vline(x=datetime.now().date(), line_width=2, line_color="red")
 
-            # Se setor_selecionado for "Todos(as)", utilizamos a paleta de cores
-            if setor_selecionado == "Todos":
-                # Cria o gráfico de Gantt com as cores baseadas no setor
-                fig = px.timeline(
-                    df_gantt,
-                    x_start="Início",
-                    x_end="Final",
-                    y="Colaborador",
-                    color="Setor",
-                    color_discrete_map=cores_setores,
-                    custom_data=["Inicio_hover", "Fim_hover", "Setor"]
-                )
+        # Estilo do gráfico
+        fig.update_layout(
+            yaxis=dict(tickfont=dict(size=15)),
+            height=altura_grafico,
+            margin=dict(l=20, r=20, t=50, b=50),
+            xaxis=dict(side="top"),
+            legend=dict(
+                orientation="h",
+                y=-0.2,
+                x=0.5,
+                xanchor="center",
+                title=None
+            )
+        )
 
-                fig.update_traces(
-                    hovertemplate=
-                    "<b>%{y}</b><br>" +
-                    "Início: %{customdata[0]|%d/%m/%Y}<br>" +
-                    "Fim: %{customdata[1]|%d/%m/%Y}<br>" +
-                    "Programa: %{customdata[2]}<extra></extra>"
-                )
+        fig.update_yaxes(title_text='')
 
-            else:
-                # Cria o gráfico de Gantt com o setor selecionado, usando a cor do setor selecionado
-                fig = px.timeline(
-                    df_gantt,
-                    x_start="Início",
-                    x_end="Final",
-                    y="Colaborador",
-                    color="Setor",
-                    color_discrete_map=cores_setores,
-                    hover_data={
-                        "Início": False,
-                        "Fim": False,
-                        "Inicio_real": "|%d/%m/%Y",
-                        "Fim_real": "|%d/%m/%Y",
-                        "Setor": True
-                    }
-                )
+        if mes_selecionado == "Todos":
+            # Visão anual: um tick por mês, com nomes em português
+            meses_abrev = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
+                           "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
 
-            # Mapeia rótulos reais (remove o sufixo __idx)
-            labels_y = {
-                v: v.split("__")[0]
-                for v in df_gantt["Colaborador"].unique()
-            }
-
-            fig.update_yaxes(
+            fig.update_xaxes(
+                range=[datetime(ano_int, 1, 1), datetime(ano_int + 1, 1, 1)],
                 tickmode="array",
-                tickvals=list(labels_y.keys()),
-                ticktext=list(labels_y.values())
+                tickvals=[datetime(ano_int, m, 1) for m in range(1, 13)],
+                ticktext=meses_abrev,
+                showgrid=True,
+                gridwidth=0.5,
+                gridcolor="lightgrey"
+            )
+        else:
+            # Visão mensal: um tick por dia
+            fig.update_xaxes(
+                range=[data_inicio_periodo, data_fim_periodo + timedelta(days=1)],
+                dtick="D1",
+                tickformat="%d/%m",
+                showgrid=True,
+                gridwidth=0.5,
+                gridcolor="lightgrey"
             )
 
-            # Adiciona uma linha vertical vermelha para marcar o dia de hoje
-            hoje = datetime.now().date()  # Multiplicado por 1000 para obter o timestamp em milissegundos
-            fig.add_vline(
-                x=hoje,  # Posição da linha vertical (data de hoje)
-                line_width=2,  # Espessura da linha
-                # line_dash="dash",  # Estilo da linha (tracejada)
-                line_color="red",  # Cor da linha
-            )
-
-
-            # Estilo do gráfico
-            fig.update_layout(
-                yaxis=dict(tickfont=dict(size=15)),  # Ajusta o tamanho da fonte do eixo Y
-                height=altura_grafico,  # Define a altura do gráfico
-                margin=dict(l=20, r=20, t=50, b=50),  # Define margens
-                xaxis=dict(side="top"),  # Move os rótulos do eixo X para o topo
-                legend=dict(
-                    orientation="h",  # Define a orientação da legenda como horizontal
-                    y=-0.2,  # Move a legenda para baixo do gráfico
-                    x=0.5,  # Centraliza a legenda horizontalmente
-                    xanchor="center",  # Define o ponto de ancoragem da legenda
-                    title=None
-                )
-            )
-
-            # Remove o título do eixo Y
-            fig.update_yaxes(title_text='')  
-
-            if mes_selecionado == "Todos":
-                # Visão anual: um tick por mês, com nomes em português
-                meses_abrev = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
-                               "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
-
-                fig.update_xaxes(
-                    range=[datetime(ano_int, 1, 1), datetime(ano_int + 1, 1, 1)],
-                    tickmode="array",
-                    tickvals=[datetime(ano_int, m, 1) for m in range(1, 13)],
-                    ticktext=meses_abrev,
-                    showgrid=True,
-                    gridwidth=0.5,
-                    gridcolor="lightgrey"
-                )
-                
-            else:
-                # Visão mensal: um tick por dia
-                fig.update_xaxes(
-                    range=[data_inicio_periodo, data_fim_periodo + timedelta(days=1)],
-                    dtick="D1",
-                    tickformat="%d/%m",
-                    showgrid=True,
-                    gridwidth=0.5,
-                    gridcolor="lightgrey"
-                )
-
-
-            # Exibe o gráfico no container
-            container_mês.plotly_chart(fig)
+        # Exibe o Gantt no container
+        container_mês.plotly_chart(fig, key="gantt")
 
     # except:
     #     st.warning('Cadastre um(a) colaborador(a) e ao menos uma solicitação de férias.')
