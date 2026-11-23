@@ -363,20 +363,20 @@ def cadastrar_entrega():
     # ----------------------------------------------------------
 
     nome_da_entrega = st.text_input(
-        "Nome da entrega",
+        "Nome da entrega *",
         value=""
     )
 
     col1, col2 = st.columns(2)
 
     data_inicio = col1.date_input(
-        "Data de início",
+        "Data de início *",
         value=None,
         format="DD/MM/YYYY"
     )
 
     data_fim = col2.date_input(
-        "Previsão de conclusão",
+        "Previsão de conclusão *",
         value=None,
         format="DD/MM/YYYY"
     )
@@ -506,18 +506,27 @@ def cadastrar_entrega():
             )
             return
 
-        # Mantém o formato de datas utilizado nos documentos existentes.
-        data_inicio_salvar = (
-            data_inicio.strftime("%d/%m/%Y")
-            if data_inicio
-            else None
-        )
+        if not data_inicio:
+            st.warning(
+                "Informe a data de início da entrega."
+            )
+            return
 
-        data_fim_salvar = (
-            data_fim.strftime("%d/%m/%Y")
-            if data_fim
-            else None
-        )
+        if not data_fim:
+            st.warning(
+                "Informe a previsão de conclusão da entrega."
+            )
+            return
+
+        if data_fim < data_inicio:
+            st.warning(
+                "A previsão de conclusão não pode ser anterior à data de início."
+            )
+            return
+
+        # Mantém o formato de datas utilizado nos documentos existentes.
+        data_inicio_salvar = data_inicio.strftime("%d/%m/%Y")
+        data_fim_salvar = data_fim.strftime("%d/%m/%Y")
 
         entrega_id = ObjectId()
 
@@ -2509,7 +2518,7 @@ def dialog_editar_entrega(entrega_id):
     # ----------------------------------------------------------
 
     nome_da_entrega = st.text_input(
-        "Nome da entrega",
+        "Nome da entrega *",
         value=entrega.get(
             "nome_da_entrega",
             ""
@@ -2537,7 +2546,7 @@ def dialog_editar_entrega(entrega_id):
             data_inicio = data_inicio_convertida.date()
 
     data_inicio = col1.date_input(
-        "Data de início",
+        "Data de início *",
         value=data_inicio,
         format="DD/MM/YYYY"
     )
@@ -2561,7 +2570,7 @@ def dialog_editar_entrega(entrega_id):
             data_fim = data_fim_convertida.date()
 
     data_fim = col2.date_input(
-        "Previsão de conclusão",
+        "Previsão de conclusão *",
         value=data_fim,
         format="DD/MM/YYYY"
     )
@@ -2720,18 +2729,27 @@ def dialog_editar_entrega(entrega_id):
             )
             return
 
-        # Mantém o formato de datas utilizado nos documentos existentes.
-        data_inicio_salvar = (
-            data_inicio.strftime("%d/%m/%Y")
-            if data_inicio
-            else None
-        )
+        if not data_inicio:
+            st.warning(
+                "Informe a data de início da entrega."
+            )
+            return
 
-        data_fim_salvar = (
-            data_fim.strftime("%d/%m/%Y")
-            if data_fim
-            else None
-        )
+        if not data_fim:
+            st.warning(
+                "Informe a previsão de conclusão da entrega."
+            )
+            return
+
+        if data_fim < data_inicio:
+            st.warning(
+                "A previsão de conclusão não pode ser anterior à data de início."
+            )
+            return
+
+        # Mantém o formato de datas utilizado nos documentos existentes.
+        data_inicio_salvar = data_inicio.strftime("%d/%m/%Y")
+        data_fim_salvar = data_fim.strftime("%d/%m/%Y")
 
         # Atualiza somente os campos editáveis da entrega.
         campos_atualizacao = {
