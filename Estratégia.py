@@ -483,7 +483,215 @@ def bloco_metas(
                 
     else:
         st.dataframe(df_metas, hide_index=True)
+
+
+###########################################################################################################
+# METAS DOS OBJETIVOS ESTRATÉGICOS ORGANIZACIONAIS
+###########################################################################################################
+
+
+def _texto_celula(valor):
+    """Converte o valor de uma célula do data_editor em texto (None/NaN viram "")."""
+    if valor is None or (isinstance(valor, float) and pd.isna(valor)):
+        return ""
+    return str(valor).strip()
+
+
+def _valor_valido_para_tipo(valor, tipo):
+    """
+    Verifica se o valor digitado na meta é compatível com o tipo do
+    indicador (int / float / str). Valores vazios são aceitos.
+    Aceita o formato brasileiro (1.234,56).
+    """
+    valor = _texto_celula(valor)
+    
+    if not valor or tipo in (None, "str"):
+        return True
+    
+    normalizado = valor.replace(".", "").replace(",", ".")
+    
+    if tipo == "int":
+        return re.fullmatch(r"-?\d+", normalizado) is not None
+    
+    if tipo == "float":
+        try:
+            float(normalizado)
+            return True
+        except ValueError:
+            return False
         
+    return True
+
+
+@st.fragment
+def bloco_metas_objetivo(*, objetivo, obj_idx, doc_id):
+    """
+    Bloco de Metas dos Objetivos Estratégicos Organizacionais.
+    As linhas vêm dos indicadores cadastrados no próprio objetivo.
+    Só a coluna "Objetivo / meta" é editável; "Indicador" e
+    "Alcançado" são somente leitura.
+    """
+    
+    st.markdown("##### :material/target: Metas:")
+    st.write("")
+    
+    indicadores_obj = objetivo.get("indicadores", [])
+    
+    if not indicadores_obj:
+        st.caption("**Nenhum indicador cadastrado para este objetivo.**")
+        return
+    
+    # Metas já salvas, indexadas pelo ID do indicador e, para dados
+    # legados, pelo nome do indicador.
+    metas_por_id = {}
+    metas_por_nome = {}
+    
+    for m in objetivo.get("metas", []):
+        id_ind = normalizar_id(m.get("id_indicador"))
+        if id_ind:
+            metas_por_id[id_ind] = m
+            
+        nome_legado = (m.get("nome_indicador_texto") or "").strip().casefold()
+        if nome_legado:
+            metas_por_nome[nome_legado] = m
+            
+    linhas = []
+    ids_linhas = []
+    tipos_linhas = []
+    
+    for ind in indicadores_obj:
+        id_ind = str(ind["_id"])
+        nome_ind = ind.get("nome_indicador", "Indicador sem nome")
+        
+        meta = (
+            metas_por_id.get(id_ind)
+            or metas_por_nome.get(nome_ind.strip().casefold())
+            or {}
+        )
+        
+        linhas.append({
+            "Indicador": nome_ind,
+            "Objetivo / meta": meta.get("objetivo", "") or "",
+            "Alcançado": meta.get("alcancado", "") or ""
+        })
+        ids_linhas.append(id_ind)
+        tipos_linhas.append(ind.get("tipo_dado"))
+        
+    df_metas = pd.DataFrame(
+        linhas,
+        columns=["Indicador", "Objetivo / meta", "Alcançado"]
+    )
+    
+    # Fora do modo de edição: apenas exibe
+    if not st.session_state.modo_edicao:
+        st.dataframe(df_metas, hide_index=True)
+        return
+    
+    df_editado = st.data_editor(
+        df_metas,
+        hide_index=True,
+        key=f"editor_metas_obj_{obj_idx}_{len(indicadores_obj)}",
+        column_config={
+            "Indicador": st.column_config.TextColumn("Indicador"),
+            "Objetivo / meta": st.column_config.TextColumn("Objetivo / meta"),
+            "Alcançado": st.column_config.TextColumn("Alcançado"),
+        },
+        disabled=["Indicador", "Alcançado"],
+        num_rows="fixed"
+    )
+    
+    if df_editado.equals(df_metas):
+        return
+    
+    if st.button(
+        "Salvar alterações",
+        key=f"salvar_metas_obj_{obj_idx}",
+        icon=":material/save:"
+    ):
+        # Valida o valor da meta conforme o tipo do indicador
+        invalidos = [
+            f"{df_metas.at[i, 'Indicador']} ({tipos_linhas[i]})"
+            for i in range(len(df_editado))
+            if not _valor_valido_para_tipo(
+                df_editado.at[i, "Objetivo / meta"], tipos_linhas[i]
+            )
+        ]
+        
+        if invalidos:
+            st.warning(
+                "Valor incompatível com o tipo do indicador: "
+                + "; ".join(invalidos)
+            )
+            return
+        
+        nova_lista = [
+            {
+                "id_indicador": ids_linhas[i],
+                "objetivo": _texto_celula(df_editado.at[i, "Objetivo / meta"]),
+                # "Alcançado" não é editável: preserva o valor salvo
+                "alcancado": df_metas.at[i, "Alcançado"]
+            }
+            for i in range(len(df_editado))
+        ]
+        
+        estrategia.update_one(
+            {"_id": doc_id},
+            {"$set": {
+                f"objetivos_estrategicos_institucionais.obj_estrat_inst.{obj_idx}.metas": nova_lista
+            }}
+        )
+        
+        st.success("Metas atualizadas!")
+        time.sleep(2)
+        st.cache_data.clear()
+        st.rerun()
+
+
+###########################################################################################################
+# PERMISSÃO: USUÁRIO DO PROGRAMA / ÁREA "MONITORAMENTO"
+###########################################################################################################
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def id_programa_monitoramento():
+    """Retorna o ID (str) do programa/área "Monitoramento"."""
+    prog = programas_areas.find_one(
+        {"nome_programa_area": "Monitoramento"},
+        {"_id": 1}
+    )
+    return str(prog["_id"]) if prog else None
+
+
+def usuario_e_do_monitoramento():
+    """
+    True se o usuário logado pertence ao programa/área "Monitoramento".
+    AJUSTE os nomes abaixo se forem diferentes no portal:
+      - st.session_state["id_usuario"]  -> _id da pessoa logada
+      - campo "programa_area" na coleção "pessoas"
+    """
+    id_mon = id_programa_monitoramento()
+    id_usuario = st.session_state.get("id_usuario")
+    
+    if not id_mon or not id_usuario:
+        return False
+    
+    try:
+        filtro_id = ObjectId(str(id_usuario))
+    except Exception:
+        filtro_id = id_usuario
+        
+    pessoa = db["pessoas"].find_one({"_id": filtro_id}, {"programa_area": 1})
+    
+    if not pessoa:
+        return False
+    
+    valor = pessoa.get("programa_area")
+    programas_usuario = normalizar_lista_ids(
+        valor if isinstance(valor, list) else [valor]
+    )
+    
+    return id_mon in programas_usuario
+
         
 # Editar Estratégia
 @st.dialog("Editar Estratégia", width="large", on_dismiss="rerun")
@@ -909,6 +1117,9 @@ def editar_titulo_de_cada_resultado_lp_dialog(resultado_idx):
                     st.rerun(scope="fragment")
         
         
+TIPOS_INDICADOR = ["int", "float", "str"]
+OPCAO_CADASTRAR_INDICADOR = "--Cadastrar indicador--"
+
 @st.dialog("Editar objetivo estratégico", width="large", on_dismiss="rerun")
 def editar_objetivo_estrategico_dialog(obj_idx):
     
@@ -920,10 +1131,48 @@ def editar_objetivo_estrategico_dialog(obj_idx):
     
     objetivo = objetivos[obj_idx]
     
-    aba1, aba2 = st.tabs(
-        ["Título", "Ações Estratégicas", ]
-    )
     
+    def salvar_objetivos():
+        """Grava a lista completa de objetivos no MongoDB."""
+        estrategia.update_one(
+            {"_id": doc["_id"]},
+            {"$set": {
+                "objetivos_estrategicos_institucionais.obj_estrat_inst": objetivos
+            }}
+        )
+        
+        
+    # -------------------------------------------------
+    # INDICADORES DO OBJETIVO
+    # -------------------------------------------------
+    # Os indicadores ficam salvos dentro do próprio objetivo
+    # (campo 'indicadores'). Indicadores legados sem _id recebem
+    # um ID aqui, para poderem ser vinculados às ações estratégicas.
+    indicadores_obj = objetivo.setdefault("indicadores", [])
+    
+    if any("_id" not in ind for ind in indicadores_obj):
+        for ind in indicadores_obj:
+            ind.setdefault("_id", str(ObjectId()))
+        salvar_objetivos()
+        
+    # Mapa {id: nome} usado nos multiselects das ações estratégicas
+    mapa_ind_obj = {
+        str(ind["_id"]): ind.get("nome_indicador", "Indicador sem nome")
+        for ind in indicadores_obj
+    }
+    
+    pode_editar_indicadores = usuario_e_do_monitoramento()
+    
+    nomes_abas = ["Título", "Ações Estratégicas"]
+    if pode_editar_indicadores:
+        nomes_abas.append("Indicadores")
+        
+    abas = st.tabs(nomes_abas)
+    aba1, aba2 = abas[0], abas[1]
+    
+    # =================================================
+    # ABA 1 - TÍTULO
+    # =================================================
     with aba1:
         titulo_atual = objetivo.get("titulo", "")
         
@@ -935,21 +1184,25 @@ def editar_objetivo_estrategico_dialog(obj_idx):
         
         if st.button("Salvar", icon=":material/save:"):
             objetivos[obj_idx]["titulo"] = novo_titulo
-            estrategia.update_one(
-                {"_id": doc["_id"]},
-                {"$set": {
-                    "objetivos_estrategicos_institucionais.obj_estrat_inst": objetivos
-                }}
-            )
+            salvar_objetivos()
             
             st.success("Título atualizado com sucesso!")
             time.sleep(2)
             st.cache_data.clear()
             st.rerun(scope="fragment")
             
+    # =================================================
+    # ABA 2 - AÇÕES ESTRATÉGICAS
+    # =================================================
     with aba2:
         acoes = objetivo.get("acoes_estrategicas", [])
         
+        if not mapa_ind_obj:
+            st.caption(
+                "Cadastre indicadores na aba **Indicadores** para "
+                "vinculá-los às ações estratégicas."
+            )
+            
         # -------------------------------------------------
         # ADICIONAR NOVA AÇÃO
         # -------------------------------------------------
@@ -957,6 +1210,13 @@ def editar_objetivo_estrategico_dialog(obj_idx):
             nova_acao = st.text_area(
                 "Título da ação estratégica",
                 key=f"nova_acao_obj_{obj_idx}"
+            )
+            
+            indicadores_nova_acao = multiselect_indicadores(
+                [],
+                mapa_ind_obj,
+                key=f"ind_nova_acao_obj_{obj_idx}",
+                label="Indicadores relacionados"
             )
             
             if st.button(
@@ -967,17 +1227,12 @@ def editar_objetivo_estrategico_dialog(obj_idx):
                 
                 nova = {
                     "_id": str(ObjectId()),
-                    "acao_estrategica_obj": nova_acao
+                    "acao_estrategica_obj": nova_acao,
+                    "indicadores_relacionados": indicadores_nova_acao
                 }
                 
                 objetivo.setdefault("acoes_estrategicas", []).append(nova)
-                
-                estrategia.update_one(
-                    {"_id": doc["_id"]},
-                    {"$set": {
-                        "objetivos_estrategicos_institucionais.obj_estrat_inst": objetivos
-                    }}
-                )
+                salvar_objetivos()
                 
                 st.success("Ação estratégica adicionada com sucesso!")
                 time.sleep(2)
@@ -1000,22 +1255,131 @@ def editar_objetivo_estrategico_dialog(obj_idx):
                     key=f"acao_nome_{obj_idx}_{i}"
                 )
                 
+                indicadores_acao = multiselect_indicadores(
+                    acao.get("indicadores_relacionados", []),
+                    mapa_ind_obj,
+                    key=f"ind_acao_obj_{obj_idx}_{i}",
+                    label="Indicadores relacionados"
+                )
                 
                 if st.button(
                     "Salvar",
                     key=f"salvar_acao_{obj_idx}_{i}",
                     icon=":material/save:"
                 ):
-                    objetivos[obj_idx]["acoes_estrategicas"][i]["acao_estrategica_obj"] = novo_nome
-                    
-                    estrategia.update_one(
-                        {"_id": doc["_id"]},
-                        {"$set": {
-                            "objetivos_estrategicos_institucionais.obj_estrat_inst": objetivos
-                        }}
-                    )
+                    objetivos[obj_idx]["acoes_estrategicas"][i].update({
+                        "acao_estrategica_obj": novo_nome,
+                        "indicadores_relacionados": indicadores_acao
+                    })
+                    salvar_objetivos()
                     
                     st.success("Ação estratégica atualizada com sucesso!")
+                    time.sleep(2)
+                    st.cache_data.clear()
+                    st.rerun(scope="fragment")
+                    
+    # =================================================
+    # ABA 3 - INDICADORES (somente programa/área Monitoramento)
+    # =================================================
+    if not pode_editar_indicadores:
+        return
+    
+    aba3 = abas[2]
+    
+    with aba3:
+        
+        # Versão do formulário: incrementada após salvar, para
+        # limpar o selectbox e os campos (as keys mudam).
+        ver_key = f"ver_form_ind_obj_{obj_idx}"
+        st.session_state.setdefault(ver_key, 0)
+        ver = st.session_state[ver_key]
+        
+        ids_ordenados = sorted(
+            mapa_ind_obj,
+            key=lambda id_ind: mapa_ind_obj[id_ind].casefold()
+        )
+        
+        selecao = st.selectbox(
+            "Indicador",
+            options=["", OPCAO_CADASTRAR_INDICADOR, *ids_ordenados],
+            format_func=lambda op: mapa_ind_obj.get(op, op),
+            key=f"sel_ind_obj_{obj_idx}_{ver}"
+        )
+        
+        if selecao:
+            cadastrando = selecao == OPCAO_CADASTRAR_INDICADOR
+            
+            ind_atual = {} if cadastrando else next(
+                ind for ind in indicadores_obj
+                if str(ind["_id"]) == selecao
+            )
+            
+            nome_ind = st.text_input(
+                "Nome do indicador",
+                value=ind_atual.get("nome_indicador", ""),
+                key=f"nome_ind_obj_{obj_idx}_{selecao}_{ver}"
+            )
+            
+            tipo_atual = ind_atual.get("tipo_dado")
+            
+            tipo_ind = st.selectbox(
+                "Tipo",
+                options=TIPOS_INDICADOR,
+                index=(
+                    TIPOS_INDICADOR.index(tipo_atual)
+                    if tipo_atual in TIPOS_INDICADOR
+                    else None
+                ),
+                placeholder="",
+                key=f"tipo_ind_obj_{obj_idx}_{selecao}_{ver}"
+            )
+            
+            st.write("")
+            
+            if st.button(
+                "Cadastrar indicador" if cadastrando else "Salvar",
+                icon=":material/add:" if cadastrando else ":material/save:",
+                key=f"btn_ind_obj_{obj_idx}_{ver}"
+            ):
+                nome_ind = nome_ind.strip()
+                
+                duplicado = any(
+                    ind.get("nome_indicador", "").strip().casefold()
+                    == nome_ind.casefold()
+                    and str(ind["_id"]) != selecao
+                    for ind in indicadores_obj
+                )
+                
+                if not nome_ind:
+                    st.warning("Informe o nome do indicador.")
+                    
+                elif tipo_ind is None:
+                    st.warning("Selecione o tipo de dado.")
+                    
+                elif duplicado:
+                    st.warning("Já existe um indicador com esse nome neste objetivo.")
+                    
+                else:
+                    if cadastrando:
+                        indicadores_obj.append({
+                            "_id": str(ObjectId()),
+                            "nome_indicador": nome_ind,
+                            "tipo_dado": tipo_ind
+                        })
+                        
+                    else:
+                        ind_atual.update({
+                            "nome_indicador": nome_ind,
+                            "tipo_dado": tipo_ind
+                        })
+                        
+                    salvar_objetivos()
+                    st.session_state[ver_key] += 1
+                    
+                    st.success(
+                        "Indicador cadastrado com sucesso!" if cadastrando
+                        else "Indicador atualizado com sucesso!"
+                    )
                     time.sleep(2)
                     st.cache_data.clear()
                     st.rerun(scope="fragment")
@@ -1875,6 +2239,23 @@ with aba_ebj_est_ins:
     
     objetivos = doc["objetivos_estrategicos_institucionais"]["obj_estrat_inst"]
     
+    # Garante _id em todos os indicadores dos objetivos (vínculo das metas)
+    if any(
+        "_id" not in ind
+        for obj in objetivos
+        for ind in obj.get("indicadores", [])
+    ):
+        for obj in objetivos:
+            for ind in obj.get("indicadores", []):
+                ind.setdefault("_id", str(ObjectId()))
+                
+        estrategia.update_one(
+            {"_id": doc["_id"]},
+            {"$set": {
+                "objetivos_estrategicos_institucionais.obj_estrat_inst": objetivos
+            }}
+        )
+    
     st.write('')
     st.subheader(doc["objetivos_estrategicos_institucionais"]["titulo_pagina_obj_estrat_inst"])
     st.write('')
@@ -1885,13 +2266,13 @@ with aba_ebj_est_ins:
             # BOTÃO EDITAR
             # --------------------------------------------
             if st.session_state.modo_edicao:
-                col1, col2 = st.columns([4,1])
-                col2.button(
-                    "Editar objetivo",
-                    icon=":material/edit:",
-                    key=f"editar_obj_{idx}",
-                    on_click=lambda i=idx: editar_objetivo_estrategico_dialog(i)
-                )
+                with st.container(horizontal=True, horizontal_alignment="right"):
+                    st.button(
+                        "Editar objetivo",
+                        icon=":material/edit:",
+                        key=f"editar_obj_{idx}",
+                        on_click=lambda i=idx: editar_objetivo_estrategico_dialog(i)
+                    )
                 
             st.write("")
             st.write("")   
@@ -1899,14 +2280,10 @@ with aba_ebj_est_ins:
             # ====================================================
             # METAS (Indicador / Objetivo / Alcançado)
             # ====================================================
-            bloco_metas(
-                metas_atual=metas_com_seed_de_indicadores_objetivo(objetivo),
-                mapa_nomes_indicadores=mapa_nomes_indicadores,
-                nome_para_id_indicadores=nome_para_id_indicadores,
-                chave=f"obj_{idx}",
-                campo_mongo=f"objetivos_estrategicos_institucionais.obj_estrat_inst.{idx}.metas",
-                doc_id=doc["_id"],
-                colecao=estrategia
+            bloco_metas_objetivo(
+                objetivo=objetivo,
+                obj_idx=idx,
+                doc_id=doc["_id"]
             )
             
             st.divider()
