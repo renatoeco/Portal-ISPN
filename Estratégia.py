@@ -1303,7 +1303,8 @@ def editar_objetivo_estrategico_dialog(obj_idx):
             "Indicador",
             options=["", OPCAO_CADASTRAR_INDICADOR, *ids_ordenados],
             format_func=lambda op: mapa_ind_obj.get(op, op),
-            key=f"sel_ind_obj_{obj_idx}_{ver}"
+            key=f"sel_ind_obj_{obj_idx}_{ver}",
+            width=400
         )
         
         if selecao:
@@ -1314,25 +1315,27 @@ def editar_objetivo_estrategico_dialog(obj_idx):
                 if str(ind["_id"]) == selecao
             )
             
-            nome_ind = st.text_input(
-                "Nome do indicador",
-                value=ind_atual.get("nome_indicador", ""),
-                key=f"nome_ind_obj_{obj_idx}_{selecao}_{ver}"
-            )
+            with st.container(horizontal=True):
             
-            tipo_atual = ind_atual.get("tipo_dado")
-            
-            tipo_ind = st.selectbox(
-                "Tipo",
-                options=TIPOS_INDICADOR,
-                index=(
-                    TIPOS_INDICADOR.index(tipo_atual)
-                    if tipo_atual in TIPOS_INDICADOR
-                    else None
-                ),
-                placeholder="",
-                key=f"tipo_ind_obj_{obj_idx}_{selecao}_{ver}"
-            )
+                nome_ind = st.text_input(
+                    "Nome do indicador",
+                    value=ind_atual.get("nome_indicador", ""),
+                    key=f"nome_ind_obj_{obj_idx}_{selecao}_{ver}",
+                )
+                
+                tipo_atual = ind_atual.get("tipo_dado")
+                
+                tipo_ind = st.selectbox(
+                    "Tipo",
+                    options=TIPOS_INDICADOR,
+                    index=(
+                        TIPOS_INDICADOR.index(tipo_atual)
+                        if tipo_atual in TIPOS_INDICADOR
+                        else None
+                    ),
+                    placeholder="",
+                    key=f"tipo_ind_obj_{obj_idx}_{selecao}_{ver}",
+                )
             
             st.write("")
             
