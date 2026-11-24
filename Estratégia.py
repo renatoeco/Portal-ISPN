@@ -29,6 +29,10 @@ indicadores = db["indicadores"]
 lancamentos_indicadores = db["lancamentos_indicadores"]
 programas_areas = db["programas_areas"]
 
+# Indicadores dos Objetivos Estratégicos Organizacionais (OEO).
+# Cada documento: {_id, id_objetivo, nome_indicador, tipo_dado}
+indicadores_oeo = db["indicadores_oeo"]
+
 
 ###########################################################################################################
 # CONTADOR DE ACESSOS À PÁGINA
@@ -42,7 +46,7 @@ pagina_anterior = st.session_state.get("pagina_anterior")
 navegou_para_esta_pagina = (pagina_anterior != PAGINA_ID)
 
 if navegou_para_esta_pagina:
-    
+
     # Obter o único documento
     doc = estatistica.find_one({})
     # Criar o campo caso não exista
@@ -51,20 +55,20 @@ if navegou_para_esta_pagina:
             {},
             {"$set": {nome_pagina: []}}
         )
-        
+
     estatistica.update_one(
             {},
             {"$inc": {f"{nome_pagina}.$[elem].numero_de_acessos": 1}},
             array_filters=[{"elem.data": hoje}]
         )
-    
+
     estatistica.update_one(
         {f"{nome_pagina}.data": {"$ne": hoje}},
         {"$push": {
             nome_pagina: {"data": hoje, "numero_de_acessos": 1}
         }}
     )
-    
+
 # Registrar página anterior
 st.session_state["pagina_anterior"] = PAGINA_ID
 
@@ -85,25 +89,25 @@ def df_tem_mudancas(df_novo: pd.DataFrame, df_antigo: pd.DataFrame) -> bool:
     Returns:
         bool: True se os DataFrames forem diferentes, False se iguais.
     """
-    
+
     return not df_novo.equals(df_antigo)
 
 
-# Editar Teoria da Mudança  
+# Editar Teoria da Mudança
 @st.dialog("Editar Teoria da Mudança", width="large", on_dismiss="rerun")
 def editar_info_teoria_mudanca_dialog():
-    
+
     # Pega o documento da coleção estratégia com a teoria da mudança
     teoria_doc = estrategia.find_one({"teoria da mudança": {"$exists": True}})
-    
+
     # Cria lista com os valores atuais da teoria da mudança
     lista_tm = teoria_doc["teoria da mudança"] if teoria_doc else []
-    
+
     # Valores padrões
     problema_atual = ""
     proposito_atual = ""
     impacto_atual = ""
-    
+
     # Percorre a lista e extrai os valores atuais
     for item in lista_tm:
         if "problema" in item:
@@ -112,12 +116,12 @@ def editar_info_teoria_mudanca_dialog():
             proposito_atual = item["proposito"]
         if "impacto" in item:
             impacto_atual = item["impacto"]
-            
+
     # Input para novos valores
     novo_problema = st.text_area("Problema", value=problema_atual, height="content")
     novo_proposito = st.text_area("Propósito", value=proposito_atual, height="content")
     novo_impacto = st.text_area("Impacto", value=impacto_atual, height="content")
-    
+
     # Botão para salvar alterações
     if st.button("Salvar alterações", key="salvar_teoria_mudanca", icon=":material/save:"):
         # Cria lista com os novos valores
@@ -126,7 +130,7 @@ def editar_info_teoria_mudanca_dialog():
             {"proposito": novo_proposito},
             {"impacto": novo_impacto}
         ]
-        
+
         # Verifica se o documento existe
         if teoria_doc:
             # Atualiza o documento
@@ -135,46 +139,15 @@ def editar_info_teoria_mudanca_dialog():
                 {"$set": {"teoria da mudança": novos_dados}}
             )
             st.success("Teoria da mudança atualizada com sucesso!")
-            
+
         else:
             # Cria um novo documento
             estrategia.insert_one({"teoria da mudança": novos_dados})
             st.success("Teoria da mudança criada com sucesso!")
-            
+
         # Espera 2 segundos e recarrega a página
         time.sleep(2)
         st.rerun()
-     
-        
-def mapa_indicadores_disponiveis():
-    """
-    Carrega todos os indicadores e cria dois mapas:
-    1. mapa_indicadores:
-       Permite encontrar rapidamente o documento completo do indicador
-       a partir do seu ID.
-    2. mapa_nomes_indicadores:
-       Permite transformar o ID do indicador no nome que será mostrado
-       no multiselect do Streamlit.
-    Os IDs são normalizados para string para evitar problemas quando
-    alguns documentos possuem ObjectId e outros possuem strings.
-    """
-    
-    todos_indicadores = carregar_indicadores()
-    mapa_indicadores = {}
-    mapa_nomes_indicadores = {}
-    
-    for indicador in todos_indicadores:
-        indicador_id = str(indicador["_id"])
-        
-        nome = indicador.get(
-            "nome_indicador",
-            "Indicador sem nome"
-        )
-        
-        mapa_indicadores[indicador_id] = indicador
-        mapa_nomes_indicadores[indicador_id] = nome
-        
-    return mapa_indicadores, mapa_nomes_indicadores
 
 
 def ids_indicadores_normalizados(lista):
@@ -187,80 +160,21 @@ def ids_indicadores_normalizados(lista):
     - valores nulos
     O retorno sempre será uma lista de strings.
     """
-    
+
     ids = []
     for item in lista or []:
         if isinstance(item, ObjectId):
             ids.append(str(item))
-            
+
         elif isinstance(item, dict) and "$oid" in item:
             ids.append(str(item["$oid"]))
-            
+
         elif item is not None:
             ids.append(str(item))
-            
+
     return ids
 
 
-def multiselect_indicadores(
-    indicadores_selecionados,
-    mapa_nomes_indicadores,
-    key,
-    label="Quais indicadores contribuem?"
-):
-    """
-    Exibe o multiselect de indicadores relacionados a um elemento
-    da estratégia.
-    O valor interno utilizado pelo Streamlit continua sendo o ID
-    do indicador, enquanto o usuário visualiza o nome do indicador.
-    O parâmetro 'label' permite personalizar a pergunta exibida
-    conforme o contexto:
-        - Eixo:
-          "Quais indicadores contribuem para este eixo?"
-        - Resultado:
-          "Quais indicadores contribuem para este resultado?"
-    """
-    
-    # Ordena os IDs dos indicadores alfabeticamente pelo nome
-    # que será exibido ao usuário no multiselect.
-    opcoes_ids = sorted(
-        mapa_nomes_indicadores.keys(),
-        key=lambda indicador_id: mapa_nomes_indicadores.get(
-            indicador_id,
-            ""
-        ).casefold()
-    )
-    
-    # Normaliza os indicadores que já estão salvos no banco.
-    # Isso garante compatibilidade com ObjectId, strings e
-    # documentos no formato {"$oid": "..."}.
-    ids_selecionados = ids_indicadores_normalizados(
-        indicadores_selecionados
-    )
-    
-    return st.multiselect(
-        label,
-        options=opcoes_ids,
-        
-        # Mantém selecionados apenas os IDs que ainda existem
-        # no mapa de indicadores disponíveis.
-        default=[
-            indicador_id
-            for indicador_id in ids_selecionados
-            if indicador_id in mapa_nomes_indicadores
-        ],
-        
-        # Converte o ID armazenado internamente no nome que será
-        # apresentado visualmente ao usuário.
-        format_func=lambda indicador_id: mapa_nomes_indicadores.get(
-            indicador_id,
-            "Indicador sem nome"
-        ),
-        key=key,
-        placeholder=""
-    )
-    
-    
 ###########################################################################################################
 # BLOCO ÚNICO DE METAS (Indicador / Objetivo / Alcançado)
 ###########################################################################################################
@@ -280,8 +194,8 @@ def mapa_nome_para_id_indicadores(mapa_nomes_indicadores):
         nome: id_indicador
         for id_indicador, nome in mapa_nomes_indicadores.items()
     }
-    
-    
+
+
 def montar_df_metas(metas, mapa_nomes_indicadores):
     """
     Converte a lista de metas salva no banco em um DataFrame com as
@@ -290,14 +204,14 @@ def montar_df_metas(metas, mapa_nomes_indicadores):
     vinculado (id_indicador); quando não há vínculo com a coleção de
     indicadores (dados legados), usa o texto livre salvo anteriormente.
     """
-    
+
     linhas = []
-    
+
     for m in metas:
         id_indicador = normalizar_id(m.get("id_indicador"))
         if id_indicador and id_indicador in mapa_nomes_indicadores:
             nome_indicador = mapa_nomes_indicadores[id_indicador]
-            
+
         else:
             nome_indicador = (
                 m.get("nome_indicador_texto")
@@ -305,19 +219,19 @@ def montar_df_metas(metas, mapa_nomes_indicadores):
                 or m.get("meta_obj")
                 or ""
             )
-            
+
         linhas.append({
             "Indicador": nome_indicador,
             "Objetivo / meta": m.get("objetivo", ""),
             "Alcançado": m.get("alcancado", "")
         })
-        
+
     return pd.DataFrame(
         linhas,
         columns=["Indicador", "Objetivo / meta", "Alcançado"]
     )
-    
-    
+
+
 def metas_com_seed_de_indicadores(item):
     """
     Retorna a lista de metas de um eixo/resultado. Caso ainda não
@@ -325,43 +239,18 @@ def metas_com_seed_de_indicadores(item):
     vinculados (campo legado 'indicadores') como linhas iniciais da
     tabela de metas.
     """
-    
+
     metas = item.get("metas")
     if metas:
         return metas
     ids_legado = ids_indicadores_normalizados(item.get("indicadores", []))
-    
+
     return [
         {"id_indicador": id_indicador, "objetivo": "", "alcancado": ""}
         for id_indicador in ids_legado
     ]
-    
-    
-def metas_com_seed_de_indicadores_objetivo(objetivo):
-    """
-    Mesma ideia de 'metas_com_seed_de_indicadores', mas para os
-    Objetivos Estratégicos Organizacionais, cujos indicadores são
-    salvos como uma lista local de dicionários (não vinculados à
-    coleção de indicadores).
-    """
-    
-    metas = objetivo.get("metas")
-    if metas:
-        return metas
-    
-    indicadores_obj = objetivo.get("indicadores", [])
-    
-    return [
-        {
-            "nome_indicador_texto": ind.get("nome_indicador", ""),
-            "objetivo": "",
-            "alcancado": ""
-        }
-        for ind in indicadores_obj
-        if ind.get("nome_indicador")
-    ]
-    
-    
+
+
 def df_metas_para_lista(df_editado, nome_para_id_indicadores):
     """
     Converte o DataFrame editado de volta em uma lista de dicionários
@@ -369,30 +258,30 @@ def df_metas_para_lista(df_editado, nome_para_id_indicadores):
     corresponde a um indicador cadastrado, salva o vínculo por ID;
     caso contrário, mantém o texto digitado.
     """
-    
+
     nova_lista = []
     for _, linha in df_editado.iterrows():
-        
+
         nome_indicador = str(linha.get("Indicador") or "").strip()
-        
+
         if not nome_indicador or nome_indicador.lower() == "none":
             continue
-        
+
         id_indicador = nome_para_id_indicadores.get(nome_indicador)
-        
+
         item_meta = {
             "objetivo": linha.get("Objetivo / meta", "") or "",
             "alcancado": linha.get("Alcançado", "") or ""
         }
-        
+
         if id_indicador:
             item_meta["id_indicador"] = id_indicador
-            
+
         else:
             item_meta["nome_indicador_texto"] = nome_indicador
-            
+
         nova_lista.append(item_meta)
-        
+
     return nova_lista
 
 
@@ -414,17 +303,17 @@ def bloco_metas(
     editáveis — a coluna Indicador é um seletor vinculado à coleção
     de indicadores — e permite adicionar novas linhas.
     """
-    
+
     st.markdown("##### :material/target: Metas:")
     st.write("")
-    
+
     if not metas_atual and not st.session_state.modo_edicao:
         st.caption("**Nenhuma meta cadastrada.**")
-        
+
         return
-    
+
     df_metas = montar_df_metas(metas_atual, mapa_nomes_indicadores)
-    
+
     # As opções do seletor são os indicadores cadastrados na coleção,
     # somadas a eventuais nomes legados já salvos (para não quebrar
     # dados antigos que não estejam vinculados à coleção).
@@ -439,9 +328,9 @@ def bloco_metas(
         },
         key=lambda n: n.casefold()
     )
-    
+
     if st.session_state.modo_edicao:
-        
+
         df_editado = st.data_editor(
             df_metas,
             hide_index=True,
@@ -459,7 +348,7 @@ def bloco_metas(
             },
             num_rows="dynamic"
         )
-        
+
         if not df_editado.equals(df_metas):
             if st.button(
                 "Salvar alterações",
@@ -469,18 +358,18 @@ def bloco_metas(
                 nova_lista = df_metas_para_lista(
                     df_editado, nome_para_id_indicadores
                 )
-                
+
                 colecao.update_one(
                     {"_id": doc_id},
                     {"$set": {campo_mongo: nova_lista}},
                     array_filters=array_filters
                 )
-                
+
                 st.success("Metas atualizadas!")
                 time.sleep(2)
                 st.cache_data.clear()
                 st.rerun()
-                
+
     else:
         st.dataframe(df_metas, hide_index=True)
 
@@ -504,71 +393,75 @@ def _valor_valido_para_tipo(valor, tipo):
     Aceita o formato brasileiro (1.234,56).
     """
     valor = _texto_celula(valor)
-    
-    if not valor or tipo in (None, "str"):
+
+    if not valor or tipo in (None, "Texto"):
         return True
-    
+
     normalizado = valor.replace(".", "").replace(",", ".")
-    
-    if tipo == "int":
+
+    if tipo == "Número inteiro":
         return re.fullmatch(r"-?\d+", normalizado) is not None
-    
-    if tipo == "float":
+
+    if tipo == "Número decimal":
         try:
             float(normalizado)
             return True
         except ValueError:
             return False
-        
+
     return True
 
 
 @st.fragment
-def bloco_metas_objetivo(*, objetivo, obj_idx, doc_id):
+def bloco_metas_objetivo(*, objetivo, indicadores_obj, obj_idx, doc_id):
     """
     Bloco de Metas dos Objetivos Estratégicos Organizacionais.
-    As linhas vêm dos indicadores cadastrados no próprio objetivo.
-    Só a coluna "Objetivo / meta" é editável; "Indicador" e
-    "Alcançado" são somente leitura.
+    As linhas vêm dos indicadores do objetivo, salvos na coleção
+    'indicadores_oeo'. Só a coluna "Objetivo / meta" é editável;
+    "Indicador" e "Alcançado" são somente leitura.
     """
-    
+
     st.markdown("##### :material/target: Metas:")
     st.write("")
-    
-    indicadores_obj = objetivo.get("indicadores", [])
-    
+
     if not indicadores_obj:
         st.caption("**Nenhum indicador cadastrado para este objetivo.**")
         return
-    
+
+    # Ordena os indicadores pelo nome
+    indicadores_obj = sorted(
+        indicadores_obj,
+        key=lambda ind: ind.get("nome_indicador", "").casefold()
+    )
+
     # Metas já salvas, indexadas pelo ID do indicador e, para dados
     # legados, pelo nome do indicador.
     metas_por_id = {}
     metas_por_nome = {}
-    
+
     for m in objetivo.get("metas", []):
         id_ind = normalizar_id(m.get("id_indicador"))
         if id_ind:
             metas_por_id[id_ind] = m
-            
+
         nome_legado = (m.get("nome_indicador_texto") or "").strip().casefold()
         if nome_legado:
             metas_por_nome[nome_legado] = m
-            
+
     linhas = []
     ids_linhas = []
     tipos_linhas = []
-    
+
     for ind in indicadores_obj:
         id_ind = str(ind["_id"])
         nome_ind = ind.get("nome_indicador", "Indicador sem nome")
-        
+
         meta = (
             metas_por_id.get(id_ind)
             or metas_por_nome.get(nome_ind.strip().casefold())
             or {}
         )
-        
+
         linhas.append({
             "Indicador": nome_ind,
             "Objetivo / meta": meta.get("objetivo", "") or "",
@@ -576,17 +469,17 @@ def bloco_metas_objetivo(*, objetivo, obj_idx, doc_id):
         })
         ids_linhas.append(id_ind)
         tipos_linhas.append(ind.get("tipo_dado"))
-        
+
     df_metas = pd.DataFrame(
         linhas,
         columns=["Indicador", "Objetivo / meta", "Alcançado"]
     )
-    
+
     # Fora do modo de edição: apenas exibe
     if not st.session_state.modo_edicao:
         st.dataframe(df_metas, hide_index=True)
         return
-    
+
     df_editado = st.data_editor(
         df_metas,
         hide_index=True,
@@ -599,10 +492,10 @@ def bloco_metas_objetivo(*, objetivo, obj_idx, doc_id):
         disabled=["Indicador", "Alcançado"],
         num_rows="fixed"
     )
-    
+
     if df_editado.equals(df_metas):
         return
-    
+
     if st.button(
         "Salvar alterações",
         key=f"salvar_metas_obj_{obj_idx}",
@@ -616,14 +509,14 @@ def bloco_metas_objetivo(*, objetivo, obj_idx, doc_id):
                 df_editado.at[i, "Objetivo / meta"], tipos_linhas[i]
             )
         ]
-        
+
         if invalidos:
             st.warning(
                 "Valor incompatível com o tipo do indicador: "
                 + "; ".join(invalidos)
             )
             return
-        
+
         nova_lista = [
             {
                 "id_indicador": ids_linhas[i],
@@ -633,18 +526,81 @@ def bloco_metas_objetivo(*, objetivo, obj_idx, doc_id):
             }
             for i in range(len(df_editado))
         ]
-        
+
         estrategia.update_one(
             {"_id": doc_id},
             {"$set": {
                 f"objetivos_estrategicos_institucionais.obj_estrat_inst.{obj_idx}.metas": nova_lista
             }}
         )
-        
+
         st.success("Metas atualizadas!")
         time.sleep(2)
         st.cache_data.clear()
         st.rerun()
+
+
+def migrar_objetivos_estrategicos(doc):
+    """
+    Ajusta os Objetivos Estratégicos Organizacionais à nova estrutura
+    (roda só uma vez, quando ainda houver dados no formato antigo):
+      - garante um _id em cada objetivo (usado como 'id_objetivo'
+        na coleção 'indicadores_oeo');
+      - move os indicadores da chave 'indicadores' de cada objetivo
+        para a coleção 'indicadores_oeo', preservando o _id (para não
+        perder o vínculo com as metas já salvas) e apaga a chave;
+      - apaga 'indicadores_relacionados' das ações estratégicas.
+    Retorna a lista de objetivos já ajustada.
+    """
+
+    objetivos = doc["objetivos_estrategicos_institucionais"]["obj_estrat_inst"]
+    alterou = False
+
+    for obj in objetivos:
+
+        if "_id" not in obj:
+            obj["_id"] = str(ObjectId())
+            alterou = True
+
+        id_objetivo = str(obj["_id"])
+
+        if "indicadores" in obj:
+            for ind in obj.pop("indicadores") or []:
+                id_antigo = ind.get("_id")
+
+                id_ind = (
+                    ObjectId(str(id_antigo))
+                    if id_antigo and ObjectId.is_valid(str(id_antigo))
+                    else ObjectId()
+                )
+
+                indicadores_oeo.update_one(
+                    {"_id": id_ind},
+                    {"$set": {
+                        "id_objetivo": id_objetivo,
+                        "nome_indicador": ind.get("nome_indicador", ""),
+                        "tipo_dado": ind.get("tipo_dado")
+                    }},
+                    upsert=True
+                )
+
+            alterou = True
+
+        for acao in obj.get("acoes_estrategicas", []):
+            if "indicadores_relacionados" in acao:
+                acao.pop("indicadores_relacionados")
+                alterou = True
+
+    if alterou:
+        estrategia.update_one(
+            {"_id": doc["_id"]},
+            {"$set": {
+                "objetivos_estrategicos_institucionais.obj_estrat_inst": objetivos
+            }}
+        )
+        st.cache_data.clear()
+
+    return objetivos
 
 
 ###########################################################################################################
@@ -671,41 +627,41 @@ def usuario_e_do_monitoramento():
     """
     id_mon = id_programa_monitoramento()
     id_usuario = st.session_state.get("id_usuario")
-    
+
     if not id_mon or not id_usuario:
         return False
-    
+
     try:
         filtro_id = ObjectId(str(id_usuario))
     except Exception:
         filtro_id = id_usuario
-        
+
     pessoa = db["pessoas"].find_one({"_id": filtro_id}, {"programa_area": 1})
-    
+
     if not pessoa:
         return False
-    
+
     valor = pessoa.get("programa_area")
     programas_usuario = normalizar_lista_ids(
         valor if isinstance(valor, list) else [valor]
     )
-    
+
     return id_mon in programas_usuario
 
-        
+
 # Editar Estratégia
 @st.dialog("Editar Estratégia", width="large", on_dismiss="rerun")
 def editar_estrategia_dialog():
-    
+
     # Busca o documento da estratégia que possui a chave "estrategia"
     estrategia_doc = estrategia.find_one({"estrategia": {"$exists": True}})
-    
+
     # Obtém o título atual da página de estratégias, se existir
     titulo_pagina_atual = estrategia_doc.get("estrategia", {}).get("titulo_pagina_estrategia", "") if estrategia_doc else ""
-    
+
     # Campo de entrada para um novo título da página de estratégias
     novo_titulo_pagina = st.text_input("Título da página de estratégias", value=titulo_pagina_atual)
-    
+
     # Botão para atualizar o título da página
     if st.button("Atualizar título da página", key="atualizar_titulo_pagina_estrategias", icon=":material/save:"):
         if estrategia_doc:
@@ -713,79 +669,79 @@ def editar_estrategia_dialog():
                 {"_id": estrategia_doc["_id"]},
                 {"$set": {"estrategia.titulo_pagina_estrategia": novo_titulo_pagina}}
             )
-            
+
             st.success("Título da página atualizado com sucesso!")
             time.sleep(2)
             st.cache_data.clear()
             st.rerun(scope="fragment")
-            
+
         else:
             st.error("Documento não encontrado.")
-            
-            
+
+
 # Função do diálogo para editar ou adicionar resultados de médio prazo
 @st.dialog("Editar Título da Página", width="large", on_dismiss="rerun")
 def editar_titulo_pagina_resultados_mp_dialog():
-    
+
     # Recupera os dados atuais do banco
     doc = estrategia.find_one({"resultados_medio_prazo": {"$exists": True}})
     resultados_data = doc.get("resultados_medio_prazo", {}) if doc else {}
-    
+
     # Título da aba principal de Resultados de Médio Prazo
     titulo_atual = resultados_data.get("titulo_pagina_resultados_mp", "")
-    
+
     # Campo para editar o título da aba
     novo_titulo = st.text_input("Título da página de Resultados de Médio Prazo", value=titulo_atual)
-    
+
     if st.button("Atualizar", key="atualizar_titulo_mp", icon=":material/save:"):
         estrategia.update_one(
             {"_id": doc["_id"]},
             {"$set": {"resultados_medio_prazo.titulo_pagina_resultados_mp": novo_titulo}}
         )
-        
+
         st.success("Título da página atualizado com sucesso!")
         time.sleep(2)
         st.cache_data.clear()
         st.rerun(scope="fragment")
-        
-        
+
+
 # Função do diálogo para editar resultados de médio prazo
 @st.dialog("Editar Informações do Resultado", width="large", on_dismiss="rerun")
 def editar_titulo_de_cada_resultado_mp_dialog(resultado_idx):
-    
+
     # Recupera os dados do banco
     doc = estrategia.find_one({"resultados_medio_prazo": {"$exists": True}})
     resultados_data = doc.get("resultados_medio_prazo", {})
     resultados = resultados_data.get("resultados_mp", [])
-    
+
     # Verifica se o índice é válido
     if resultado_idx < 0 or resultado_idx >= len(resultados):
         st.error("Índice de resultado inválido.")
         return
-    
+
     resultado = resultados[resultado_idx]
-    
+
     if "admin" in st.session_state.tipo_usuario:
-    
+
         # Tab para editar o título
         aba1, aba2 = st.tabs(["Título", "Ações Estratégicas"])
         # Aba de Título
         with aba1:
-            
+
             st.subheader("Editar Título do Resultado")
             st.write("")
             titulo_atual = resultado.get(
                 "titulo",
                 ""
             )
-            
+
             novo_titulo = st.text_input(
                 "Novo título",
                 value=titulo_atual
             )
-            
+
             st.write("")
-            
+
             if st.button(
                 "Salvar",
                 key=f"salvar_titulo_{resultado_idx}",
@@ -802,70 +758,70 @@ def editar_titulo_de_cada_resultado_mp_dialog(resultado_idx):
                         }
                     }
                 )
-                
+
                 st.success("Resultado atualizado com sucesso!")
                 time.sleep(2)
                 st.cache_data.clear()
                 st.rerun(scope="fragment")
-                
+
         # -------------------------- #
         # ABA 2 - AÇÕES ESTRATÉGICAS
         # -------------------------- #
         with aba2:
             acoes = resultado.get("acoes_estrategicas", [])
-            
+
             # Expander para adicionar nova ação estratégica (com atividades e anotações)
             with st.expander("Adicionar nova ação estratégica", expanded=False, icon=":material/add_notes:"):
-                
+
                 novo_titulo_acao = st.text_area("Título da nova ação estratégica", key=f"nova_acao_titulo_{resultado_idx}")
-                
+
                 if st.button("Adicionar ação estratégica", key=f"btn_add_acao_{resultado_idx}", icon=":material/add:"):
                     nova_acao = {
                         "_id": str(ObjectId()),
                         "nome_acao_estrategica": novo_titulo_acao,
                     }
-                    
+
                     resultados[resultado_idx].setdefault("acoes_estrategicas", []).append(nova_acao)
-                    
+
                     estrategia.update_one(
                         {"_id": doc["_id"]},
                         {"$set": {"resultados_medio_prazo.resultados_mp": resultados}}
                     )
-                    
+
                     st.success("Nova ação estratégica adicionada com sucesso!")
                     time.sleep(2)
                     st.cache_data.clear()
                     st.rerun(scope="fragment")
-            
+
             st.write("")
-        
+
             # Edição das ações estratégicas existentes
             for a_idx, acao in enumerate(acoes):
                 titulo_acao = acao.get("nome_acao_estrategica", f"Ação Estratégica {a_idx + 1}")
                 with st.expander(f"{titulo_acao}"):
-                
+
                     novo_nome_acao = st.text_area(
                         "Título da ação estratégica",
                         value=titulo_acao,
                         height="content",
                         key=f"acao_estrat_{resultado_idx}_{a_idx}"
                     )
-                    
+
                     if st.button(f"Salvar", key=f"salvar_acao_{resultado_idx}_{a_idx}", icon=":material/save:"):
                         resultados[resultado_idx]["acoes_estrategicas"][a_idx].update({
                             "nome_acao_estrategica": novo_nome_acao,
                         })
-                        
+
                         estrategia.update_one(
                             {"_id": doc["_id"]},
                             {"$set": {"resultados_medio_prazo.resultados_mp": resultados}}
                         )
-                        
+
                         st.success("Ação estratégica atualizada com sucesso!")
                         time.sleep(2)
                         st.cache_data.clear()
                         st.rerun(scope="fragment")
-                    
+
     else:
         acoes = resultado.get("acoes_estrategicas", [])
         st.caption("Utilize o bloco de Metas na página principal para editar as metas deste resultado.")
@@ -881,7 +837,7 @@ def editar_eixos_da_estrategia_dialog(
     Permite editar o título do eixo. O vínculo com indicadores agora é
     feito diretamente no bloco de Metas da página principal.
     """
-    
+
     # ---------------------------------------------------------
     # CAMPOS ATUAIS DO EIXO
     # ---------------------------------------------------------
@@ -889,17 +845,17 @@ def editar_eixos_da_estrategia_dialog(
         "Eixo da estratégia:",
         value=estrategia_item.get("titulo", "")
     )
-    
+
     st.write("")
-    
+
     col1, col2 = st.columns(2)
-    
+
     if col1.button(
         "Salvar",
         use_container_width=False,
         icon=":material/save:"
     ):
-        
+
         # -----------------------------------------------------
         # LOCALIZAR O EIXO ORIGINAL
         # -----------------------------------------------------
@@ -907,14 +863,14 @@ def editar_eixos_da_estrategia_dialog(
             if str(eixo.get("_id")) == str(
                 estrategia_item.get("_id")
             ):
-                
+
                 eixo["titulo"] = novo_titulo
-                
+
                 # Garante que o eixo tenha um ID.
                 if "_id" not in eixo:
                     eixo["_id"] = str(ObjectId())
                 break
-            
+
         # -----------------------------------------------------
         # SALVAR NO MONGODB
         # -----------------------------------------------------
@@ -927,30 +883,30 @@ def editar_eixos_da_estrategia_dialog(
                 }
             }
         )
-        
+
         st.success("Eixo atualizado com sucesso!")
         time.sleep(2)
         st.cache_data.clear()
         st.rerun(scope="fragment")
-         
-            
+
+
 @st.dialog("Editar título da página", on_dismiss="rerun")
 def editar_titulo_pagina_resultados_lp_dialog():
-    
+
     # Buscar documento
     doc = estrategia.find_one({"resultados_longo_prazo": {"$exists": True}})
-    
+
     if not doc:
         st.error("Nenhum documento encontrado com 'resultados_longo_prazo'.")
         return
-    
+
     dados_lp = doc.get("resultados_longo_prazo", {})
-    
+
     titulo_atual = dados_lp.get("titulo_pagina_resultados_lp", "")
-    
+
     # Campos editáveis
     novo_titulo = st.text_input("Título da página", value=titulo_atual)
-    
+
     # Botão de salvar
     if st.button("Salvar alterações", icon=":material/save:", use_container_width=False):
         estrategia.update_one(
@@ -959,51 +915,51 @@ def editar_titulo_pagina_resultados_lp_dialog():
                 "resultados_longo_prazo.titulo_pagina_resultados_lp": novo_titulo,
             }}
         )
-        
+
         st.success("Título da página atualizado com sucesso!")
         time.sleep(2)
         st.cache_data.clear()
         st.rerun(scope="fragment")
-            
-            
+
+
 @st.dialog("Editar resultado de longo prazo", width="large", on_dismiss="rerun")
 def editar_titulo_de_cada_resultado_lp_dialog(resultado_idx):
-    
+
     # ----------------------------------------------------
     # BUSCAR DOCUMENTO
     # ----------------------------------------------------
     doc = estrategia.find_one({"resultados_longo_prazo": {"$exists": True}})
-    
+
     if not doc:
         st.error("Nenhum documento encontrado com 'resultados_longo_prazo'.")
         return
-    
+
     resultados_lp = doc.get("resultados_longo_prazo", {}).get("resultados_lp", [])
-    
+
     if resultado_idx is None or resultado_idx >= len(resultados_lp):
         st.error("Índice de resultado inválido.")
         return
-    
+
     resultado = resultados_lp[resultado_idx]
-    
+
     # ----------------------------------------------------
     # ABAS (MESMA ESTRUTURA DO MP)
     # ----------------------------------------------------
-    
+
     aba1, aba2 = st.tabs(["Título", "Ações Estratégicas"])
-    
+
     # ====================================================
     # ABA 1 - TÍTULO
     # ====================================================
     with aba1:
         st.subheader("Editar Título do Resultado")
-        
+
         novo_titulo = st.text_area(
             "Título do resultado",
             value=resultado.get("titulo", ""),
             height="content"
         )
-        
+
         if st.button(
             "Salvar Título",
             key=f"salvar_titulo_lp_{resultado_idx}",
@@ -1011,11 +967,11 @@ def editar_titulo_de_cada_resultado_lp_dialog(resultado_idx):
         ):
             # Atualiza o título do RLP.
             resultados_lp[resultado_idx]["titulo"] = novo_titulo
-            
+
             # Garante que o RLP tenha um ID.
             if "_id" not in resultados_lp[resultado_idx]:
                 resultados_lp[resultado_idx]["_id"] = str(ObjectId())
-                
+
             estrategia.update_one(
                 {"_id": doc["_id"]},
                 {
@@ -1025,18 +981,18 @@ def editar_titulo_de_cada_resultado_lp_dialog(resultado_idx):
                     }
                 }
             )
-            
+
             st.success("Resultado atualizado com sucesso!")
             time.sleep(2)
             st.cache_data.clear()
             st.rerun(scope="fragment")
-            
+
     # ====================================================
     # ABA 2 - AÇÕES ESTRATÉGICAS
     # ====================================================
     with aba2:
         acoes = resultado.get("acoes_estrategicas", [])
-        
+
         # --------------------------
         # ADICIONAR NOVA AÇÃO
         # --------------------------
@@ -1045,93 +1001,93 @@ def editar_titulo_de_cada_resultado_lp_dialog(resultado_idx):
             expanded=False,
             icon=":material/add_notes:"
         ):
-            
+
             novo_titulo_acao = st.text_area(
                 "Título da nova ação estratégica",
                 key=f"nova_acao_lp_{resultado_idx}"
             )
-            
+
             if st.button(
                 "Adicionar ação estratégica",
                 key=f"btn_add_acao_lp_{resultado_idx}",
                 icon=":material/add:"
             ):
-                
+
                 nova_acao = {
                     "_id": str(ObjectId()),
                     "nome_acao_estrategica": novo_titulo_acao,
                 }
-                
+
                 resultados_lp[resultado_idx].setdefault(
                     "acoes_estrategicas", []
                 ).append(nova_acao)
-                
+
                 estrategia.update_one(
                     {"_id": doc["_id"]},
                     {"$set": {"resultados_longo_prazo.resultados_lp": resultados_lp}}
                 )
-                
+
                 st.success("Nova ação estratégica adicionada!")
                 time.sleep(2)
                 st.cache_data.clear()
                 st.rerun(scope="fragment")
-                
+
         st.write("")
-        
+
         # --------------------------
         # EDITAR AÇÕES EXISTENTES
         # --------------------------
         for a_idx, acao in enumerate(acoes):
-            
+
             titulo_acao = acao.get(
                 "nome_acao_estrategica",
                 f"Ação Estratégica {a_idx + 1}"
             )
-            
+
             with st.expander(titulo_acao):
-                
+
                 novo_nome_acao = st.text_area(
                     "Título da ação estratégica",
                     value=titulo_acao,
                     key=f"acao_lp_{resultado_idx}_{a_idx}"
                 )
-                
+
                 if st.button(
                     "Salvar",
                     key=f"salvar_acao_lp_{resultado_idx}_{a_idx}",
                     icon=":material/save:"
                 ):
-                    
+
                     resultados_lp[resultado_idx]["acoes_estrategicas"][a_idx].update({
                         "nome_acao_estrategica": novo_nome_acao
                     })
-                    
+
                     estrategia.update_one(
                         {"_id": doc["_id"]},
                         {"$set": {"resultados_longo_prazo.resultados_lp": resultados_lp}}
                     )
-                    
+
                     st.success("Ação estratégica atualizada!")
                     time.sleep(2)
                     st.cache_data.clear()
                     st.rerun(scope="fragment")
-        
-        
-TIPOS_INDICADOR = ["int", "float", "str"]
+
+
+TIPOS_INDICADOR = ["Número inteiro", "Número decimal", "Texto"]
 OPCAO_CADASTRAR_INDICADOR = "--Cadastrar indicador--"
 
 @st.dialog("Editar objetivo estratégico", width="large", on_dismiss="rerun")
 def editar_objetivo_estrategico_dialog(obj_idx):
-    
+
     doc = estrategia.find_one(
         {"objetivos_estrategicos_institucionais": {"$exists": True}}
     )
-    
+
     objetivos = doc["objetivos_estrategicos_institucionais"]["obj_estrat_inst"]
-    
+
     objetivo = objetivos[obj_idx]
-    
-    
+
+
     def salvar_objetivos():
         """Grava a lista completa de objetivos no MongoDB."""
         estrategia.update_one(
@@ -1140,69 +1096,52 @@ def editar_objetivo_estrategico_dialog(obj_idx):
                 "objetivos_estrategicos_institucionais.obj_estrat_inst": objetivos
             }}
         )
-        
-        
-    # -------------------------------------------------
-    # INDICADORES DO OBJETIVO
-    # -------------------------------------------------
-    # Os indicadores ficam salvos dentro do próprio objetivo
-    # (campo 'indicadores'). Indicadores legados sem _id recebem
-    # um ID aqui, para poderem ser vinculados às ações estratégicas.
-    indicadores_obj = objetivo.setdefault("indicadores", [])
-    
-    if any("_id" not in ind for ind in indicadores_obj):
-        for ind in indicadores_obj:
-            ind.setdefault("_id", str(ObjectId()))
+
+
+    # Garante que o objetivo tenha um _id (usado como 'id_objetivo'
+    # na coleção 'indicadores_oeo').
+    if "_id" not in objetivo:
+        objetivo["_id"] = str(ObjectId())
         salvar_objetivos()
-        
-    # Mapa {id: nome} usado nos multiselects das ações estratégicas
-    mapa_ind_obj = {
-        str(ind["_id"]): ind.get("nome_indicador", "Indicador sem nome")
-        for ind in indicadores_obj
-    }
-    
+
+    id_objetivo = str(objetivo["_id"])
+
     pode_editar_indicadores = usuario_e_do_monitoramento()
-    
+
     nomes_abas = ["Título", "Ações Estratégicas"]
     if pode_editar_indicadores:
         nomes_abas.append("Indicadores")
-        
+
     abas = st.tabs(nomes_abas)
     aba1, aba2 = abas[0], abas[1]
-    
+
     # =================================================
     # ABA 1 - TÍTULO
     # =================================================
     with aba1:
         titulo_atual = objetivo.get("titulo", "")
-        
+
         novo_titulo = st.text_area(
             "Título do objetivo",
             value=titulo_atual,
             height="content"
         )
-        
+
         if st.button("Salvar", icon=":material/save:"):
             objetivos[obj_idx]["titulo"] = novo_titulo
             salvar_objetivos()
-            
+
             st.success("Título atualizado com sucesso!")
             time.sleep(2)
             st.cache_data.clear()
             st.rerun(scope="fragment")
-            
+
     # =================================================
     # ABA 2 - AÇÕES ESTRATÉGICAS
     # =================================================
     with aba2:
         acoes = objetivo.get("acoes_estrategicas", [])
-        
-        if not mapa_ind_obj:
-            st.caption(
-                "Cadastre indicadores na aba **Indicadores** para "
-                "vinculá-los às ações estratégicas."
-            )
-            
+
         # -------------------------------------------------
         # ADICIONAR NOVA AÇÃO
         # -------------------------------------------------
@@ -1211,94 +1150,86 @@ def editar_objetivo_estrategico_dialog(obj_idx):
                 "Título da ação estratégica",
                 key=f"nova_acao_obj_{obj_idx}"
             )
-            
-            indicadores_nova_acao = multiselect_indicadores(
-                [],
-                mapa_ind_obj,
-                key=f"ind_nova_acao_obj_{obj_idx}",
-                label="Indicadores relacionados"
-            )
-            
+
             if st.button(
                 "Adicionar ação",
                 icon=":material/add:",
                 key=f"add_acao_obj_{obj_idx}"
             ):
-                
+
                 nova = {
                     "_id": str(ObjectId()),
-                    "acao_estrategica_obj": nova_acao,
-                    "indicadores_relacionados": indicadores_nova_acao
+                    "acao_estrategica_obj": nova_acao
                 }
-                
+
                 objetivo.setdefault("acoes_estrategicas", []).append(nova)
                 salvar_objetivos()
-                
+
                 st.success("Ação estratégica adicionada com sucesso!")
                 time.sleep(2)
                 st.cache_data.clear()
                 st.rerun(scope="fragment")
-                
+
         st.write("")
-        
+
         # -------------------------------------------------
         # EDITAR AÇÕES EXISTENTES
         # -------------------------------------------------
         for i, acao in enumerate(acoes):
-            
+
             titulo = acao.get("acao_estrategica_obj", f"Ação {i+1}")
-            
+
             with st.expander(titulo):
                 novo_nome = st.text_area(
                     "Título da ação estratégica",
                     value=titulo,
                     key=f"acao_nome_{obj_idx}_{i}"
                 )
-                
-                indicadores_acao = multiselect_indicadores(
-                    acao.get("indicadores_relacionados", []),
-                    mapa_ind_obj,
-                    key=f"ind_acao_obj_{obj_idx}_{i}",
-                    label="Indicadores relacionados"
-                )
-                
+
                 if st.button(
                     "Salvar",
                     key=f"salvar_acao_{obj_idx}_{i}",
                     icon=":material/save:"
                 ):
-                    objetivos[obj_idx]["acoes_estrategicas"][i].update({
-                        "acao_estrategica_obj": novo_nome,
-                        "indicadores_relacionados": indicadores_acao
-                    })
+                    objetivos[obj_idx]["acoes_estrategicas"][i]["acao_estrategica_obj"] = novo_nome
                     salvar_objetivos()
-                    
+
                     st.success("Ação estratégica atualizada com sucesso!")
                     time.sleep(2)
                     st.cache_data.clear()
                     st.rerun(scope="fragment")
-                    
+
     # =================================================
     # ABA 3 - INDICADORES (somente programa/área Monitoramento)
     # =================================================
     if not pode_editar_indicadores:
         return
-    
+
     aba3 = abas[2]
-    
+
     with aba3:
-        
+
+        # Indicadores deste objetivo, salvos na coleção 'indicadores_oeo'
+        indicadores_obj = list(
+            indicadores_oeo.find({"id_objetivo": id_objetivo})
+        )
+
+        mapa_ind_obj = {
+            str(ind["_id"]): ind.get("nome_indicador", "Indicador sem nome")
+            for ind in indicadores_obj
+        }
+
         # Versão do formulário: incrementada após salvar, para
         # limpar o selectbox e os campos (as keys mudam).
         ver_key = f"ver_form_ind_obj_{obj_idx}"
         st.session_state.setdefault(ver_key, 0)
         ver = st.session_state[ver_key]
-        
+
         ids_ordenados = sorted(
             mapa_ind_obj,
             key=lambda id_ind: mapa_ind_obj[id_ind].casefold()
         )
-        
+
         selecao = st.selectbox(
             "Indicador",
             options=["", OPCAO_CADASTRAR_INDICADOR, *ids_ordenados],
@@ -1306,25 +1237,25 @@ def editar_objetivo_estrategico_dialog(obj_idx):
             key=f"sel_ind_obj_{obj_idx}_{ver}",
             width=400
         )
-        
+
         if selecao:
             cadastrando = selecao == OPCAO_CADASTRAR_INDICADOR
-            
+
             ind_atual = {} if cadastrando else next(
                 ind for ind in indicadores_obj
                 if str(ind["_id"]) == selecao
             )
-            
+
             with st.container(horizontal=True):
-            
+
                 nome_ind = st.text_input(
                     "Nome do indicador",
                     value=ind_atual.get("nome_indicador", ""),
                     key=f"nome_ind_obj_{obj_idx}_{selecao}_{ver}",
                 )
-                
+
                 tipo_atual = ind_atual.get("tipo_dado")
-                
+
                 tipo_ind = st.selectbox(
                     "Tipo",
                     options=TIPOS_INDICADOR,
@@ -1336,49 +1267,51 @@ def editar_objetivo_estrategico_dialog(obj_idx):
                     placeholder="",
                     key=f"tipo_ind_obj_{obj_idx}_{selecao}_{ver}",
                 )
-            
+
             st.write("")
-            
+
             if st.button(
                 "Cadastrar indicador" if cadastrando else "Salvar",
                 icon=":material/add:" if cadastrando else ":material/save:",
                 key=f"btn_ind_obj_{obj_idx}_{ver}"
             ):
                 nome_ind = nome_ind.strip()
-                
+
                 duplicado = any(
                     ind.get("nome_indicador", "").strip().casefold()
                     == nome_ind.casefold()
                     and str(ind["_id"]) != selecao
                     for ind in indicadores_obj
                 )
-                
+
                 if not nome_ind:
                     st.warning("Informe o nome do indicador.")
-                    
+
                 elif tipo_ind is None:
                     st.warning("Selecione o tipo de dado.")
-                    
+
                 elif duplicado:
                     st.warning("Já existe um indicador com esse nome neste objetivo.")
-                    
+
                 else:
                     if cadastrando:
-                        indicadores_obj.append({
-                            "_id": str(ObjectId()),
+                        indicadores_oeo.insert_one({
+                            "id_objetivo": id_objetivo,
                             "nome_indicador": nome_ind,
                             "tipo_dado": tipo_ind
                         })
-                        
+
                     else:
-                        ind_atual.update({
-                            "nome_indicador": nome_ind,
-                            "tipo_dado": tipo_ind
-                        })
-                        
-                    salvar_objetivos()
+                        indicadores_oeo.update_one(
+                            {"_id": ind_atual["_id"]},
+                            {"$set": {
+                                "nome_indicador": nome_ind,
+                                "tipo_dado": tipo_ind
+                            }}
+                        )
+
                     st.session_state[ver_key] += 1
-                    
+
                     st.success(
                         "Indicador cadastrado com sucesso!" if cadastrando
                         else "Indicador atualizado com sucesso!"
@@ -1386,14 +1319,14 @@ def editar_objetivo_estrategico_dialog(obj_idx):
                     time.sleep(2)
                     st.cache_data.clear()
                     st.rerun(scope="fragment")
-                    
-                    
+
+
 def _safe_key(text):
     """Gera uma chave segura para Streamlit a partir de um texto (sem chars especiais)."""
-    
+
     if text is None:
         return "none"
-    
+
     return re.sub(r"\W+", "_", str(text)).strip("_").lower()
 
 
@@ -1402,17 +1335,17 @@ def _format_responsaveis_list(responsaveis_list, responsaveis_dict):
     Recebe lista de responsáveis (pode conter dicts com {'$oid': '...'} ou ObjectId/str)
     e retorna string formatada com nomes.
     """
-    
+
     nomes = []
-    
+
     for r in responsaveis_list:
         if isinstance(r, dict) and "$oid" in r:
             key = str(r["$oid"])
-            
+
         else:
             key = str(r)
         nomes.append(responsaveis_dict.get(key, "Desconhecido"))
-        
+
     return ", ".join(nomes) if nomes else "-"
 
 
@@ -1421,19 +1354,19 @@ def normalizar_lista_ids(lista):
     Converte uma lista que pode conter ObjectId, dict {'$oid': ...} ou str
     para uma lista de strings.
     """
-    
+
     ids = []
-    
+
     for item in lista or []:
         if isinstance(item, ObjectId):
             ids.append(str(item))
-            
+
         elif isinstance(item, dict) and "$oid" in item:
             ids.append(str(item["$oid"]))
-            
+
         else:
             ids.append(str(item))
-            
+
     return ids
 
 
@@ -1515,19 +1448,19 @@ def exibir_entregas_como_tabela(entregas_list, key_prefix="tabela", key_suffix=N
     """
     if not entregas_list:
         return None
-    
+
     df = pd.DataFrame(entregas_list)
-    
+
     # Parse para datetime considerando dia/mês/ano; mantém strings inválidas como NaT
     if "Previsão de Conclusão" in df.columns:
         df["_dt_previsao"] = pd.to_datetime(df["Previsão de Conclusão"], dayfirst=True, errors="coerce")
         df = df.sort_values(by="_dt_previsao", ascending=True).drop(columns=["_dt_previsao"])
-    
+
     # montar key única
     if key_suffix is None:
         key_suffix = pd.util.hash_pandas_object(df).sum()  # fallback (não muito legível, mas único)
     key = f"{key_prefix}_{_safe_key(key_suffix)}"
-    
+
     # exibir
     ui.table(data=df, key=key)
     return df
@@ -1535,24 +1468,24 @@ def exibir_entregas_como_tabela(entregas_list, key_prefix="tabela", key_suffix=N
 
 def buscar_entregas_por_acao(nome_acao):
     entregas_relacionadas = []
-    
+
     projetos = projetos_ispn.find(
         {"entregas.acoes_resultados_medio_prazo": nome_acao},
         {"sigla": 1, "entregas": 1}
     )
-    
+
     for projeto in projetos:
         sigla = projeto.get("sigla", "")
-        
+
         for entrega in projeto.get("entregas", []):
-            
+
             if nome_acao in entrega.get("acoes_resultados_medio_prazo", []):
-                
+
                 progresso = entrega.get("progresso")
                 progresso_formatado = (
                     f"{progresso}%" if progresso not in [None, ""] else ""
                 )
-                
+
                 entregas_relacionadas.append({
                     "Projeto": sigla,
                     "Entrega": entrega.get("nome_da_entrega", ""),
@@ -1561,7 +1494,7 @@ def buscar_entregas_por_acao(nome_acao):
                     "Ano(s) de Referência": ", ".join(map(str, sorted(entrega.get("anos_de_referencia", [])))),
                     "Progresso": progresso_formatado
                 })
-                
+
     return entregas_relacionadas
 
 
@@ -1570,11 +1503,17 @@ def carregar_estrategia():
     return estrategia.find_one(
         {"estrategia.eixos_da_estrategia": {"$exists": True}}
     )
-    
-    
+
+
 @st.cache_data(ttl=300, show_spinner=False)
 def carregar_indicadores():
     return list(indicadores.find())
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def carregar_indicadores_oeo():
+    """Carrega os indicadores dos Objetivos Estratégicos Organizacionais."""
+    return list(indicadores_oeo.find())
 
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -1590,12 +1529,12 @@ def carregar_projetos_com_entregas():
             {
                 "entregas": 1,
                 "sigla": 1,
-                "programas": 1  
+                "programas": 1
             }
         )
     )
-    
-    
+
+
 @st.cache_data(ttl=300, show_spinner=False)
 def carregar_pessoas():
     return list(db["pessoas"].find({}, {"nome_completo": 1}))
@@ -1619,7 +1558,7 @@ def carregar_programas():
             {"nome_programa_area": 1}
         )
     )
-    
+
 
 @st.cache_data(ttl=300, show_spinner=False)
 def carregar_acoes_estrategicas_programas():
@@ -1668,22 +1607,22 @@ def acoes_programa_relacionadas(todas_acoes_programa, campo, elemento_id):
         acao for acao in todas_acoes_programa
         if elemento_id in acao.get(campo, [])
     ]
-    
-    
+
+
 def normalizar_id(valor):
     """
     Converte ObjectId, dict {'$oid': ...} ou str em str limpa.
     """
-    
+
     if isinstance(valor, ObjectId):
         return str(valor)
-    
+
     if isinstance(valor, dict) and "$oid" in valor:
         return str(valor["$oid"])
-    
+
     if valor is None:
         return None
-    
+
     return str(valor)
 
 
@@ -1700,7 +1639,7 @@ st.write('')
 # ----------------------------------------------------
 with st.form("filtros_entregas", border=False):
     col1, col2, col3 = st.columns(3)
-    
+
     # ----------------------------------
     # PROJETO
     # ----------------------------------
@@ -1719,7 +1658,7 @@ with st.form("filtros_entregas", border=False):
             if proj.get("sigla")
         }
     )
-    
+
     with col1:
         projetos_selecionados = st.multiselect(
             "Projeto",
@@ -1727,7 +1666,7 @@ with st.form("filtros_entregas", border=False):
             default=st.session_state.get("filtro_projetos", []),
             placeholder=""
         )
-        
+
     # ----------------------------------
     # PROGRAMA
     # ----------------------------------
@@ -1736,7 +1675,7 @@ with st.form("filtros_entregas", border=False):
         str(p["_id"]): p["nome_programa_area"]
         for p in lista_programas
     }
-    
+
     programas_ids_com_entregas = set()
     for proj in projetos_ispn.find(
         {
@@ -1747,13 +1686,13 @@ with st.form("filtros_entregas", border=False):
     ):
         for p in proj.get("programas", []):
             programas_ids_com_entregas.add(str(p))
-            
+
     programas_opcoes = {
         mapa_programas[pid]: pid
         for pid in programas_ids_com_entregas
         if pid in mapa_programas
     }
-    
+
     with col2:
         programas_selecionados_nomes = st.multiselect(
             "Programa",
@@ -1761,12 +1700,12 @@ with st.form("filtros_entregas", border=False):
             default=[],
             placeholder=""
         )
-        
+
     programas_selecionados = [
         programas_opcoes[nome]
         for nome in programas_selecionados_nomes
     ]
-    
+
     # ----------------------------------
     # ANOS DE REFERÊNCIA
     # ----------------------------------
@@ -1779,7 +1718,7 @@ with st.form("filtros_entregas", border=False):
         for ent in proj.get("entregas", []) or []
         for ano in ent.get("anos_de_referencia", []) or []
     })
-    
+
     with col3:
         anos_ref_selecionados = st.multiselect(
             "Ano(s) de referência",
@@ -1787,13 +1726,13 @@ with st.form("filtros_entregas", border=False):
             default=st.session_state.get("filtro_anos_referencia", []),
             placeholder=""
         )
-        
+
     aplicar = st.form_submit_button(
         "Aplicar filtros",
         icon=":material/filter_alt:"
     )
-    
-    
+
+
 # ------------------------------------------------
 # APLICAÇÃO DOS FILTROS (SESSION_STATE)
 # ------------------------------------------------
@@ -1801,11 +1740,11 @@ if aplicar:
     st.session_state["filtro_projetos"] = projetos_selecionados
     st.session_state["filtro_programas"] = programas_selecionados
     st.session_state["filtro_anos_referencia"] = anos_ref_selecionados
-    
+
     st.success("Filtros aplicados com sucesso")
     time.sleep(2)
     st.rerun()
-    
+
 st.write("")
 st.write("")
 
@@ -1840,7 +1779,7 @@ todas_acoes_programa = carregar_acoes_estrategicas_programas()
 # ------------------------------------------------
 if "modo_edicao" not in st.session_state:
     st.session_state.modo_edicao = False
-    
+
 if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)"}:
     col1, col2 = st.columns([5,1])
     with col2:
@@ -1848,7 +1787,7 @@ if set(st.session_state.tipo_usuario) & {"admin", "coordenador(a)"}:
             "Modo de edição",
             key="modo_edicao"
         )
-                
+
 st.write("")
 
 
@@ -1863,17 +1802,17 @@ with aba_est:
     # CARREGAR ESTRATÉGIA
     # ----------------------------------------------------
     estrategia_doc = carregar_estrategia()
-    
+
     titulo_pagina_atual = (
         estrategia_doc.get("estrategia", {}).get("titulo_pagina_estrategia", "")
         if estrategia_doc else ""
     )
-    
+
     lista_estrategias_atual = (
         estrategia_doc.get("estrategia", {}).get("eixos_da_estrategia", [])
         if estrategia_doc else []
     )
-    
+
     # ----------------------------------------------------
     # MODO EDIÇÃO
     # ----------------------------------------------------
@@ -1887,17 +1826,17 @@ with aba_est:
                 on_click=editar_estrategia_dialog,
                 use_container_width=True
             )
-            
+
     st.write("")
-    
+
     st.subheader(
         titulo_pagina_atual
         if titulo_pagina_atual
         else "Promoção de Paisagens Produtivas Ecossociais"
     )
-    
+
     st.write("")
-    
+
     # ----------------------------------------------------
     # ORDENAR EIXOS
     # ----------------------------------------------------
@@ -1910,16 +1849,16 @@ with aba_est:
         lista_estrategias_atual,
         key=extrair_numero
     )
-    
+
     # ----------------------------------------------------
     # LOOP DOS EIXOS
     # ----------------------------------------------------
     for eixo in lista_estrategias_ordenada:
         eixo_id = str(eixo["_id"])
         titulo_eixo = eixo.get("titulo", "Título não definido")
-        
+
         with st.expander(f"**{titulo_eixo}**"):
-            
+
             # --------------------------------------------
             # BOTÃO EDITAR EIXO
             # --------------------------------------------
@@ -1933,7 +1872,7 @@ with aba_est:
                     use_container_width=True,
                     icon=":material/edit:"
                 )
-                
+
             # --------------------------------------------
             # METAS DO EIXO (Indicador / Objetivo / Alcançado)
             # --------------------------------------------
@@ -1947,16 +1886,16 @@ with aba_est:
                 colecao=estrategia,
                 array_filters=[{"elem._id": eixo["_id"]}]
             )
-            
+
             # --------------------------------------------
             # ENTREGAS DO EIXO
             # --------------------------------------------
             st.divider()
-            
+
             st.markdown("##### **:material/package_2: Entregas Planejadas / Realizadas:**")
-            
+
             st.write("")
-            
+
             acoes_prog_eixo = acoes_programa_relacionadas(
                 todas_acoes_programa, "eixo_relacionado", eixo_id
             )
@@ -1969,40 +1908,40 @@ with aba_est:
                 anos_referencia=st.session_state.get("filtro_anos_referencia", []),
                 projetos=st.session_state.get("filtro_projetos", [])
             )
-            
+
             if entregas_filtradas:
                 exibir_entregas_como_tabela(
                     entregas_filtradas,
                     key_prefix="tabela_entregas_eixo",
                     key_suffix=_safe_key(titulo_eixo)
                 )
-                
+
             else:
                 st.caption("**Nenhuma entrega registrada para este eixo.**")
-                
+
 # ---------------------------
 # ABA RESULTADOS DE MÉDIO PRAZO
 # ---------------------------
 with aba_res_mp:
-    
+
     # ----------------------------------------------------
     # CARREGAR DOCUMENTO DE RESULTADOS MP
     # ----------------------------------------------------
     doc = estrategia.find_one({"resultados_medio_prazo": {"$exists": True}})
     resultados_data = doc.get("resultados_medio_prazo", {}) if doc else {}
-    
+
     titulo_pagina = resultados_data.get(
         "titulo_pagina_resultados_mp",
         "Resultados de Médio Prazo"
     )
-    
+
     lista_resultados = resultados_data.get("resultados_mp", [])
-    
+
     # ----------------------------------------------------
     # MODO EDIÇÃO
     # ----------------------------------------------------
     col1, col2 = st.columns([4, 1])
-    
+
     if st.session_state.modo_edicao:
         with col2:
             st.button(
@@ -2012,19 +1951,19 @@ with aba_res_mp:
                 on_click=editar_titulo_pagina_resultados_mp_dialog,
                 use_container_width=True
             )
-            
+
     st.write("")
     st.subheader(titulo_pagina)
     st.write("")
-    
+
     # ----------------------------------------------------
     # LOOP PELOS RESULTADOS DE MÉDIO PRAZO
     # ----------------------------------------------------
     for idx, resultado in enumerate(lista_resultados):
         titulo_result = resultado.get("titulo", f"Resultado {idx + 1}")
-        
+
         with st.expander(titulo_result):
-            
+
             # --------------------------------------------
             # BOTÃO EDITAR RESULTADO
             # --------------------------------------------
@@ -2037,7 +1976,7 @@ with aba_res_mp:
                     on_click=lambda i=idx: editar_titulo_de_cada_resultado_mp_dialog(i),
                     use_container_width=True
                 )
-                
+
             # --------------------------------------------
             # METAS DO RESULTADO (Indicador / Objetivo / Alcançado)
             # --------------------------------------------
@@ -2050,9 +1989,9 @@ with aba_res_mp:
                 doc_id=doc["_id"],
                 colecao=estrategia
             )
-            
+
             st.divider()
-            
+
             # --------------------------------------------
             # AÇÕES ESTRATÉGICAS / ENTREGAS
             # --------------------------------------------
@@ -2102,30 +2041,30 @@ with aba_res_mp:
                         st.caption("**Nenhuma entrega vinculada a esta ação estratégica.**")
 
                     st.divider()
-            
+
 # ---------------------------
 # ABA RESULTADOS DE LONGO PRAZO
 # ---------------------------
 with aba_res_lp:
-    
+
     # ----------------------------------------------------
     # CARREGAR DOCUMENTO DE RESULTADOS DE LONGO PRAZO
     # ----------------------------------------------------
     doc = estrategia.find_one({"resultados_longo_prazo": {"$exists": True}})
     resultados_lp_data = doc.get("resultados_longo_prazo", {}) if doc else {}
-    
+
     titulo_pagina_lp = resultados_lp_data.get(
         "titulo_pagina_resultados_lp",
         "Resultados de Longo Prazo - 2030"
     )
-    
+
     lista_resultados_lp = resultados_lp_data.get("resultados_lp", [])
-    
+
     # ----------------------------------------------------
     # MODO DE EDIÇÃO
     # ----------------------------------------------------
     col1, col2 = st.columns([4, 1])
-    
+
     if st.session_state.modo_edicao:
         with col2:
             st.button(
@@ -2135,20 +2074,20 @@ with aba_res_lp:
                 on_click=editar_titulo_pagina_resultados_lp_dialog,
                 use_container_width=True
             )
-            
+
     st.write("")
     st.subheader(titulo_pagina_lp)
     st.write("")
-    
+
     # ----------------------------------------------------
     # LOOP DOS RESULTADOS DE LONGO PRAZO
     # ----------------------------------------------------
     if lista_resultados_lp:
         for idx, resultado in enumerate(lista_resultados_lp):
-            
+
             resultado_lp_id = str(resultado["_id"])
             titulo_result_lp = resultado.get("titulo", f"Resultado {idx + 1}")
-            
+
             with st.expander(titulo_result_lp):
                 # --------------------------------------------
                 # BOTÃO EDITAR RESULTADO
@@ -2162,7 +2101,7 @@ with aba_res_lp:
                         on_click=lambda i=idx: editar_titulo_de_cada_resultado_lp_dialog(i),
                         use_container_width=True
                     )
-                    
+
                 # ====================================================
                 # METAS DO RESULTADO (Indicador / Objetivo / Alcançado)
                 # ====================================================
@@ -2175,9 +2114,9 @@ with aba_res_lp:
                     doc_id=doc["_id"],
                     colecao=estrategia
                 )
-                
+
                 st.divider()
-                
+
                 # ====================================================
                 # AÇÕES ESTRATÉGICAS / ENTREGAS (IGUAL AO MP)
                 # ====================================================
@@ -2226,43 +2165,35 @@ with aba_res_lp:
                             st.caption("**Nenhuma entrega vinculada a esta ação estratégica.**")
 
                         st.divider()
-                
+
     else:
         st.caption("Nenhum resultado de longo prazo encontrado no banco de dados.")
-        
-        
+
+
 # -----------------------------------------------------------
 # ABA OBJETIVOS ESTRATEGICOS INSTITUCIONAIS
 # -----------------------------------------------------------
 with aba_ebj_est_ins:
-    
+
     doc = estrategia.find_one(
         {"objetivos_estrategicos_institucionais": {"$exists": True}}
     )
-    
-    objetivos = doc["objetivos_estrategicos_institucionais"]["obj_estrat_inst"]
-    
-    # Garante _id em todos os indicadores dos objetivos (vínculo das metas)
-    if any(
-        "_id" not in ind
-        for obj in objetivos
-        for ind in obj.get("indicadores", [])
-    ):
-        for obj in objetivos:
-            for ind in obj.get("indicadores", []):
-                ind.setdefault("_id", str(ObjectId()))
-                
-        estrategia.update_one(
-            {"_id": doc["_id"]},
-            {"$set": {
-                "objetivos_estrategicos_institucionais.obj_estrat_inst": objetivos
-            }}
-        )
-    
+
+    # Migra dados do formato antigo (indicadores dentro dos objetivos)
+    # para a coleção 'indicadores_oeo' e apaga as chaves antigas.
+    objetivos = migrar_objetivos_estrategicos(doc)
+
+    # Indicadores agrupados por objetivo: {id_objetivo: [indicadores]}
+    indicadores_por_objetivo = {}
+    for ind in carregar_indicadores_oeo():
+        indicadores_por_objetivo.setdefault(
+            str(ind.get("id_objetivo")), []
+        ).append(ind)
+
     st.write('')
     st.subheader(doc["objetivos_estrategicos_institucionais"]["titulo_pagina_obj_estrat_inst"])
     st.write('')
-    
+
     for idx, objetivo in enumerate(objetivos):
         with st.expander(f"**Objetivo {idx+1} - {objetivo['titulo']}**"):
             # --------------------------------------------
@@ -2276,21 +2207,24 @@ with aba_ebj_est_ins:
                         key=f"editar_obj_{idx}",
                         on_click=lambda i=idx: editar_objetivo_estrategico_dialog(i)
                     )
-                
+
             st.write("")
-            st.write("")   
-            
+            st.write("")
+
             # ====================================================
             # METAS (Indicador / Objetivo / Alcançado)
             # ====================================================
             bloco_metas_objetivo(
                 objetivo=objetivo,
+                indicadores_obj=indicadores_por_objetivo.get(
+                    str(objetivo["_id"]), []
+                ),
                 obj_idx=idx,
                 doc_id=doc["_id"]
             )
-            
+
             st.divider()
-            
+
             # ====================================================
             # AÇÕES ESTRATÉGICAS
             # ====================================================
@@ -2339,5 +2273,5 @@ with aba_ebj_est_ins:
                         st.caption("**Nenhuma entrega vinculada a esta ação estratégica.**")
 
                     st.divider()
-
-
+                    
+                    
