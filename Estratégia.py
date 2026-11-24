@@ -33,6 +33,9 @@ programas_areas = db["programas_areas"]
 # Cada documento: {_id, id_objetivo, nome_indicador, tipo_dado}
 indicadores_oeo = db["indicadores_oeo"]
 
+# Lançamentos dos indicadores OEO, feitos no registro de entregas.
+lancamentos_indicadores_oeo = db["lancamentos_indicadores_oeo"]
+
 
 ###########################################################################################################
 # CONTADOR DE ACESSOS À PÁGINA
@@ -412,13 +415,68 @@ def _valor_valido_para_tipo(valor, tipo):
     return True
 
 
+def _numero_do_lancamento(valor):
+    """Converte o valor salvo no lançamento em número (aceita int, float ou texto no formato brasileiro)."""
+    if isinstance(valor, bool):
+        return 0
+    if isinstance(valor, (int, float)):
+        return valor
+    return br_to_float(str(valor or ""))
+
+
+def calcular_alcancado_oeo(lancamentos, tipo_por_indicador):
+    """
+    Monta o texto da coluna "Alcançado" de cada indicador OEO a partir
+    dos lançamentos feitos no registro de entregas:
+        - "Número inteiro": soma, exibida sem casas decimais;
+        - "Número decimal": soma, exibida no formato brasileiro (1.234,56);
+        - "Texto": lançamentos separados por ", ", em ordem de lançamento.
+    Retorna {id_indicador (str): texto}.
+    """
+
+    lancamentos = sorted(
+        lancamentos,
+        key=lambda l: l.get("data_anotacao") or datetime.min
+    )
+
+    somas = {}
+    textos = {}
+
+    for lanc in lancamentos:
+        id_ind = str(lanc.get("id_do_indicador"))
+        tipo = tipo_por_indicador.get(id_ind)
+        valor = lanc.get("valor")
+
+        if tipo == "Texto":
+            texto = str(valor).strip() if valor is not None else ""
+            if texto:
+                textos.setdefault(id_ind, []).append(texto)
+        else:
+            somas[id_ind] = somas.get(id_ind, 0) + _numero_do_lancamento(valor)
+
+    alcancado = {}
+
+    for id_ind, soma in somas.items():
+        if tipo_por_indicador.get(id_ind) == "Número decimal":
+            alcancado[id_ind] = float_to_br(float(soma))
+        else:
+            alcancado[id_ind] = f"{int(round(soma)):,}".replace(",", ".")
+
+    for id_ind, lista in textos.items():
+        alcancado[id_ind] = ", ".join(lista)
+
+    return alcancado
+
+
 @st.fragment
-def bloco_metas_objetivo(*, objetivo, indicadores_obj, obj_idx, doc_id):
+def bloco_metas_objetivo(*, objetivo, indicadores_obj, obj_idx, doc_id, alcancado_por_indicador):
     """
     Bloco de Metas dos Objetivos Estratégicos Organizacionais.
     As linhas vêm dos indicadores do objetivo, salvos na coleção
-    'indicadores_oeo'. Só a coluna "Objetivo / meta" é editável;
-    "Indicador" e "Alcançado" são somente leitura.
+    'indicadores_oeo'. Só a coluna "Objetivo / meta" é editável.
+    "Alcançado" é calculado automaticamente a partir dos lançamentos
+    feitos no registro de entregas (soma para números, lançamentos
+    separados por vírgula para texto) e não é editável.
     """
 
     st.markdown("##### :material/target: Metas:")
@@ -451,6 +509,7 @@ def bloco_metas_objetivo(*, objetivo, indicadores_obj, obj_idx, doc_id):
     linhas = []
     ids_linhas = []
     tipos_linhas = []
+    alcancados_salvos = []
 
     for ind in indicadores_obj:
         id_ind = str(ind["_id"])
@@ -465,10 +524,12 @@ def bloco_metas_objetivo(*, objetivo, indicadores_obj, obj_idx, doc_id):
         linhas.append({
             "Indicador": nome_ind,
             "Objetivo / meta": meta.get("objetivo", "") or "",
-            "Alcançado": meta.get("alcancado", "") or ""
+            # Soma automática dos lançamentos do registro de entregas
+            "Alcançado": alcancado_por_indicador.get(id_ind, "")
         })
         ids_linhas.append(id_ind)
         tipos_linhas.append(ind.get("tipo_dado"))
+        alcancados_salvos.append(meta.get("alcancado", "") or "")
 
     df_metas = pd.DataFrame(
         linhas,
@@ -521,8 +582,8 @@ def bloco_metas_objetivo(*, objetivo, indicadores_obj, obj_idx, doc_id):
             {
                 "id_indicador": ids_linhas[i],
                 "objetivo": _texto_celula(df_editado.at[i, "Objetivo / meta"]),
-                # "Alcançado" não é editável: preserva o valor salvo
-                "alcancado": df_metas.at[i, "Alcançado"]
+                # "Alcançado" é calculado na tela: mantém o que já estava salvo
+                "alcancado": alcancados_salvos[i]
             }
             for i in range(len(df_editado))
         ]
@@ -589,6 +650,32 @@ def migrar_objetivos_estrategicos(doc):
         for acao in obj.get("acoes_estrategicas", []):
             if "indicadores_relacionados" in acao:
                 acao.pop("indicadores_relacionados")
+                alterou = True
+
+    # Garante uma meta (vazia) para cada indicador do objetivo, inclusive
+    # os cadastrados antes desta regra, para que apareçam no registro de entregas.
+    ids_por_objetivo = {}
+    for ind in indicadores_oeo.find({}, {"id_objetivo": 1}):
+        ids_por_objetivo.setdefault(
+            str(ind.get("id_objetivo")), []
+        ).append(str(ind["_id"]))
+
+    for obj in objetivos:
+        metas = obj.setdefault("metas", [])
+
+        ids_com_meta = {
+            normalizar_id(m.get("id_indicador"))
+            for m in metas
+            if isinstance(m, dict)
+        }
+
+        for id_ind in ids_por_objetivo.get(str(obj["_id"]), []):
+            if id_ind not in ids_com_meta:
+                metas.append({
+                    "id_indicador": id_ind,
+                    "objetivo": "",
+                    "alcancado": ""
+                })
                 alterou = True
 
     if alterou:
@@ -1295,11 +1382,24 @@ def editar_objetivo_estrategico_dialog(obj_idx):
 
                 else:
                     if cadastrando:
-                        indicadores_oeo.insert_one({
+                        resultado = indicadores_oeo.insert_one({
                             "id_objetivo": id_objetivo,
                             "nome_indicador": nome_ind,
                             "tipo_dado": tipo_ind
                         })
+
+                        # Cria a meta vazia do novo indicador no objetivo,
+                        # para que ele apareça no registro de entregas.
+                        estrategia.update_one(
+                            {"_id": doc["_id"]},
+                            {"$push": {
+                                f"objetivos_estrategicos_institucionais.obj_estrat_inst.{obj_idx}.metas": {
+                                    "id_indicador": str(resultado.inserted_id),
+                                    "objetivo": "",
+                                    "alcancado": ""
+                                }
+                            }}
+                        )
 
                     else:
                         indicadores_oeo.update_one(
@@ -2185,10 +2285,26 @@ with aba_ebj_est_ins:
 
     # Indicadores agrupados por objetivo: {id_objetivo: [indicadores]}
     indicadores_por_objetivo = {}
+    tipo_por_indicador_oeo = {}
+
     for ind in carregar_indicadores_oeo():
         indicadores_por_objetivo.setdefault(
             str(ind.get("id_objetivo")), []
         ).append(ind)
+
+        tipo_por_indicador_oeo[str(ind["_id"])] = ind.get("tipo_dado")
+
+    # "Alcançado" de cada indicador, somando os lançamentos do registro
+    # de entregas (sem cache, para refletir os lançamentos mais recentes).
+    alcancado_por_indicador = calcular_alcancado_oeo(
+        list(
+            lancamentos_indicadores_oeo.find(
+                {},
+                {"id_do_indicador": 1, "valor": 1, "data_anotacao": 1}
+            )
+        ),
+        tipo_por_indicador_oeo
+    )
 
     st.write('')
     st.subheader(doc["objetivos_estrategicos_institucionais"]["titulo_pagina_obj_estrat_inst"])
@@ -2220,7 +2336,8 @@ with aba_ebj_est_ins:
                     str(objetivo["_id"]), []
                 ),
                 obj_idx=idx,
-                doc_id=doc["_id"]
+                doc_id=doc["_id"],
+                alcancado_por_indicador=alcancado_por_indicador
             )
 
             st.divider()
