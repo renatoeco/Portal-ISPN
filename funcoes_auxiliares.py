@@ -1,5 +1,6 @@
 import streamlit as st
 from pymongo import MongoClient
+from pymongo.errors import CollectionInvalid
 import time
 import pandas as pd
 from datetime import datetime
@@ -17,7 +18,7 @@ from googleapiclient.http import MediaIoBaseUpload
 def conectar_mongo_portal_ispn():
     cliente = MongoClient(
     st.secrets["senhas"]["senha_mongo_portal_ispn"])
-    db_portal_ispn = cliente["ISPN_Hub"]                   
+    db_portal_ispn = cliente["ISPN_Hub"]
     return db_portal_ispn
 
 
@@ -33,7 +34,7 @@ def conectar_mongo_pls():
 def conectar_mongo_coruja2():
     cliente_3 = MongoClient(
     st.secrets["senhas"]["senha_mongo_coruja2"])
-    db_coruja2 = cliente_3["Coruja"]                   
+    db_coruja2 = cliente_3["Coruja"]
     return db_coruja2
 
 
@@ -75,10 +76,10 @@ def ajustar_altura_dataframe(
     hide_index=True,
     column_config={
         "Link": st.column_config.Column(
-            width="medium"  
+            width="medium"
         ),
         "Data da Última Ação Legislativa": st.column_config.Column(
-            label="Última ação",  
+            label="Última ação",
         )
     }
 ):
@@ -88,7 +89,7 @@ def ajustar_altura_dataframe(
     """
 
     # Define a altura em pixels de cada linha
-    altura_por_linha = 35  
+    altura_por_linha = 35
 
     # Calcula a altura total necessária
     altura_total = ((df_nao_atualizado.shape[0] + linhas_adicionais) * altura_por_linha) + 2
@@ -169,6 +170,534 @@ ESTILO_SITUACAO = {
     "Atrasada":     {"cor_calendario": "#F4CCCC", "badge": "red"},
     "Concluída":    {"cor_calendario": "#ADD8E6", "badge": "blue"},
 }
+
+
+# ##########################################################
+# Indicadores dos objetivos estratégicos organizacionais (OEO)
+# ##########################################################
+#
+# Caminho da ligação:
+#   entrega.acoes_estrat_programa
+#     -> ação estratégica do programa (programas_areas.acoes_estrategicas)
+#     -> ação estratégica do OEO
+#        (estrategia.objetivos_estrategicos_institucionais.obj_estrat_inst[].acoes_estrategicas)
+#     -> objetivo estratégico
+#     -> metas do objetivo (metas[].id_indicador)
+#     -> indicadores (coleção indicadores_oeo)
+#
+# A entrega não se liga direto aos OEO: a ligação está na ação
+# estratégica do programa, no campo "objetivos_estrategicos_relacionados",
+# que guarda os _id das ações estratégicas dos OEO.
+
+COLECAO_ESTRATEGIA = "estrategia"
+COLECAO_INDICADORES_OEO = "indicadores_oeo"
+COLECAO_LANCAMENTOS_OEO = "lancamentos_indicadores_oeo"
+
+# Bloco dos objetivos no documento da coleção "estrategia" e lista de objetivos dentro dele.
+CAMPO_BLOCO_OEO = "objetivos_estrategicos_institucionais"
+CAMPO_LISTA_OEO = "obj_estrat_inst"
+
+# Lista de ações estratégicas dentro de cada objetivo.
+CAMPO_ACOES_OEO = "acoes_estrategicas"
+
+# Lista de metas dentro de cada objetivo e campo com o id do indicador.
+CAMPO_METAS_OEO = "metas"
+CAMPO_INDICADOR_NA_META = "id_indicador"
+
+# Na ação estratégica do programa: ids das ações estratégicas dos OEO associadas.
+CAMPO_ACOES_OEO_NA_ACAO_PROGRAMA = "objetivos_estrategicos_relacionados"
+
+TITULO_SECAO_ISPN = "### Lançamento de indicadores ISPN"
+TITULO_SECAO_OEO = "### Lançamento de indicadores dos Objetivos Estratégicos Organizacionais"
+
+
+def _ids_como_str(valor):
+    """
+    Normaliza um id ou uma lista de ids para um set de strings.
+    """
+
+    if valor is None:
+        return set()
+
+    if not isinstance(valor, list):
+        valor = [valor]
+
+    return {
+        str(item)
+        for item in valor
+        if item
+    }
+
+
+def _nome_objetivo_oeo(objetivo):
+
+    return (
+        objetivo.get("titulo")
+        or objetivo.get("objetivo")
+        or objetivo.get("nome")
+        or "Objetivo sem título"
+    )
+
+
+def obter_colecao_lancamentos_oeo(db):
+    """
+    Retorna a coleção de lançamentos de indicadores dos OEO,
+    criando-a (com índice por registro de entrega) caso ainda não exista.
+    """
+
+    if COLECAO_LANCAMENTOS_OEO not in db.list_collection_names():
+
+        try:
+
+            db.create_collection(
+                COLECAO_LANCAMENTOS_OEO
+            )
+
+        except CollectionInvalid:
+
+            # Criada por outra sessão ao mesmo tempo.
+            pass
+
+        db[COLECAO_LANCAMENTOS_OEO].create_index(
+            "id_lanc_entrega"
+        )
+
+    return db[COLECAO_LANCAMENTOS_OEO]
+
+
+def listar_objetivos_oeo(db):
+    """
+    Lista os objetivos estratégicos organizacionais cadastrados.
+    """
+
+    objetivos = []
+
+    for doc in db[COLECAO_ESTRATEGIA].find(
+        {
+            CAMPO_BLOCO_OEO: {"$exists": True}
+        },
+        {
+            CAMPO_BLOCO_OEO: 1
+        }
+    ):
+
+        bloco = doc.get(CAMPO_BLOCO_OEO) or {}
+
+        lista = bloco.get(
+            CAMPO_LISTA_OEO
+        ) if isinstance(bloco, dict) else None
+
+        if isinstance(lista, list):
+
+            objetivos.extend(
+                objetivo
+                for objetivo in lista
+                if isinstance(objetivo, dict)
+            )
+
+    return objetivos
+
+
+def obter_indicadores_oeo_da_entrega(db, entrega):
+    """
+    Retorna os indicadores OEO que se aplicam à entrega, agrupados por objetivo:
+
+    [
+        {
+            "objetivo_id": <id do objetivo>,
+            "objetivo_nome": str,
+            "indicadores": [documento de indicadores_oeo, ...]
+        },
+        ...
+    ]
+
+    Lista vazia quando nenhuma ação estratégica da entrega
+    está associada a ações dos objetivos estratégicos.
+    """
+
+    acoes_entrega = _ids_como_str(
+        entrega.get("acoes_estrat_programa", [])
+    )
+
+    if not acoes_entrega:
+        return []
+
+    objetivos = listar_objetivos_oeo(db)
+
+    # Mapa: ação estratégica do OEO -> objetivo ao qual ela pertence.
+    # (os _id das ações dos OEO podem estar gravados como string,
+    # por isso a comparação é sempre feita em string)
+    objetivo_da_acao_oeo = {}
+    objetivos_vinculados = set()
+
+    for objetivo in objetivos:
+
+        objetivo_id = str(objetivo.get("_id"))
+
+        acoes_oeo = objetivo.get(CAMPO_ACOES_OEO) or []
+
+        for acao_oeo in acoes_oeo:
+
+            if not isinstance(acao_oeo, dict):
+                continue
+
+            objetivo_da_acao_oeo[
+                str(acao_oeo.get("_id"))
+            ] = objetivo_id
+
+    # Ações estratégicas do programa usadas na entrega.
+    acoes_entrega_object_ids = [
+        ObjectId(acao_id)
+        for acao_id in acoes_entrega
+        if ObjectId.is_valid(acao_id)
+    ]
+
+    programas_com_acoes = db["programas_areas"].find(
+        {
+            "acoes_estrategicas._id": {
+                "$in": acoes_entrega_object_ids
+            }
+        },
+        {
+            "acoes_estrategicas": 1
+        }
+    )
+
+    for programa in programas_com_acoes:
+
+        for acao in programa.get("acoes_estrategicas", []):
+
+            if str(acao.get("_id")) not in acoes_entrega:
+                continue
+
+            acoes_oeo_ligadas = _ids_como_str(
+                acao.get(CAMPO_ACOES_OEO_NA_ACAO_PROGRAMA)
+            )
+
+            for acao_oeo_id in acoes_oeo_ligadas:
+
+                objetivo_id = objetivo_da_acao_oeo.get(
+                    acao_oeo_id
+                )
+
+                if objetivo_id:
+                    objetivos_vinculados.add(objetivo_id)
+
+    if not objetivos_vinculados:
+        return []
+
+    mapa_indicadores_oeo = {
+        str(indicador["_id"]): indicador
+        for indicador in db[COLECAO_INDICADORES_OEO].find()
+    }
+
+    grupos = []
+    indicadores_ja_incluidos = set()
+
+    # Mantém a ordem dos objetivos da página de Estratégia.
+    for objetivo in objetivos:
+
+        objetivo_id = str(objetivo.get("_id"))
+
+        if objetivo_id not in objetivos_vinculados:
+            continue
+
+        # Indicadores referenciados nas metas do objetivo.
+        ids_indicadores_objetivo = []
+
+        for meta in objetivo.get(CAMPO_METAS_OEO) or []:
+
+            if not isinstance(meta, dict):
+                continue
+
+            id_indicador = meta.get(CAMPO_INDICADOR_NA_META)
+
+            if id_indicador:
+                ids_indicadores_objetivo.append(str(id_indicador))
+
+        indicadores_objetivo = sorted(
+            [
+                mapa_indicadores_oeo[indicador_id]
+                for indicador_id in dict.fromkeys(ids_indicadores_objetivo)
+                if indicador_id in mapa_indicadores_oeo
+                and indicador_id not in indicadores_ja_incluidos
+            ],
+            key=lambda i: str(i.get("nome_indicador", "")).lower()
+        )
+
+        if not indicadores_objetivo:
+            continue
+
+        indicadores_ja_incluidos.update(
+            str(indicador["_id"])
+            for indicador in indicadores_objetivo
+        )
+
+        grupos.append(
+            {
+                "objetivo_id": objetivo.get("_id"),
+                "objetivo_nome": _nome_objetivo_oeo(objetivo),
+                "indicadores": indicadores_objetivo
+            }
+        )
+
+    return grupos
+
+
+def campo_valor_indicador(
+    container,
+    tipo_variavel,
+    key,
+    valor_atual=None
+):
+    """
+    Desenha o campo de valor conforme o tipo do indicador (int, float ou str).
+    """
+
+    if tipo_variavel == "float":
+
+        try:
+            valor_inicial = float(valor_atual) if valor_atual not in [None, ""] else 0.0
+        except (TypeError, ValueError):
+            valor_inicial = 0.0
+
+        return container.number_input(
+            "Valor",
+            value=valor_inicial,
+            step=0.01,
+            format="%.2f",
+            key=key
+        )
+
+    if tipo_variavel == "str":
+
+        return container.text_input(
+            "Valor",
+            value="" if valor_atual is None else str(valor_atual),
+            key=key
+        )
+
+    try:
+        valor_inicial = int(valor_atual) if valor_atual not in [None, ""] else 0
+    except (TypeError, ValueError):
+        valor_inicial = 0
+
+    return container.number_input(
+        "Valor",
+        value=valor_inicial,
+        step=1,
+        format="%d",
+        key=key
+    )
+
+
+# Tipo do indicador no momento do lançamento:
+#   "Número inteiro" -> int | "Número decimal" -> float | "Texto" -> str
+# (também aceita os valores antigos "int", "float" e "str").
+MAPA_TIPO_INDICADOR = {
+    "Número inteiro": "int",
+    "Número decimal": "float",
+    "Texto": "str",
+    "int": "int",
+    "float": "float",
+    "str": "str"
+}
+
+
+def tipo_variavel_indicador(indicador):
+    """
+    Retorna o tipo do indicador no padrão int / float / str,
+    lendo o campo "tipo_dado" ou "tipo_variavel".
+    Sem tipo reconhecido, considera int.
+    """
+
+    for campo in ["tipo_dado", "tipo_variavel"]:
+
+        tipo = MAPA_TIPO_INDICADOR.get(
+            str(indicador.get(campo) or "").strip()
+        )
+
+        if tipo:
+            return tipo
+
+    return "int"
+
+
+def converter_valor_indicador(tipo_variavel, valor):
+
+    if tipo_variavel == "float":
+        return float(valor)
+
+    if tipo_variavel == "str":
+        return str(valor)
+
+    return int(valor)
+
+
+def formulario_indicadores_oeo(
+    grupos_oeo,
+    prefixo_key,
+    lancamentos_atuais=None
+):
+    """
+    Desenha os campos de lançamento dos indicadores dos objetivos estratégicos.
+
+    - lancamentos_atuais: dict {id_indicador (str): lançamento existente}, usado na edição.
+
+    Retorna dict {id_indicador (str): dados digitados}.
+    """
+
+    valores = {}
+
+    st.markdown(
+        TITULO_SECAO_OEO
+    )
+
+    if not grupos_oeo:
+
+        st.caption(
+            "Esta entrega não está associada a ações dos Objetivos Estratégicos Organizacionais."
+        )
+
+        st.divider()
+
+        return valores
+
+    lancamentos_atuais = lancamentos_atuais or {}
+
+    for grupo in grupos_oeo:
+
+        st.caption(
+            f"Objetivo estratégico: **{grupo['objetivo_nome']}**"
+        )
+
+        for indicador in grupo["indicadores"]:
+
+            indicador_id = str(indicador["_id"])
+
+            tipo_variavel = tipo_variavel_indicador(
+                indicador
+            )
+
+            lancamento_atual = lancamentos_atuais.get(
+                indicador_id
+            )
+
+            st.markdown(
+                f"**{indicador.get('nome_indicador', 'Indicador sem nome')}**"
+            )
+
+            col1, col2 = st.columns([1, 4])
+
+            valor = campo_valor_indicador(
+                col1,
+                tipo_variavel,
+                key=f"{prefixo_key}_oeo_valor_{indicador_id}",
+                valor_atual=(
+                    lancamento_atual.get("valor")
+                    if lancamento_atual
+                    else None
+                )
+            )
+
+            observacoes = col2.text_input(
+                "Observações",
+                value=(
+                    lancamento_atual.get("observacoes") or ""
+                    if lancamento_atual
+                    else ""
+                ),
+                key=f"{prefixo_key}_oeo_obs_{indicador_id}"
+            )
+
+            valores[indicador_id] = {
+                "valor": valor,
+                "observacoes": observacoes,
+                "tipo_variavel": tipo_variavel,
+                "objetivo_id": grupo["objetivo_id"],
+                "lancamento": lancamento_atual
+            }
+
+            st.divider()
+
+    return valores
+
+
+def salvar_lancamentos_oeo(
+    db,
+    valores_oeo,
+    projeto_id,
+    entrega_id,
+    id_lanc_entrega,
+    ano
+):
+    """
+    Insere ou atualiza os lançamentos de indicadores OEO de um registro de entrega
+    na coleção lancamentos_indicadores_oeo (criada se ainda não existir).
+    """
+
+    if not valores_oeo:
+        return
+
+    colecao = obter_colecao_lancamentos_oeo(db)
+
+    ano = str(ano)
+
+    for indicador_id, dados in valores_oeo.items():
+
+        valor_novo = converter_valor_indicador(
+            dados["tipo_variavel"],
+            dados["valor"]
+        )
+
+        lancamento_existente = dados.get("lancamento")
+
+        # Lançamento novo.
+        if not lancamento_existente:
+
+            if dados["valor"] in ["", None, 0]:
+                continue
+
+            colecao.insert_one(
+                {
+                    "id_do_indicador": ObjectId(indicador_id),
+                    "id_objetivo": dados["objetivo_id"],
+                    "projeto": projeto_id,
+                    "id_entrega": entrega_id,
+                    "data_anotacao": datetime.now(),
+                    "autor_anotacao": st.session_state.get("nome"),
+                    "valor": valor_novo,
+                    "ano": ano,
+                    "observacoes": dados["observacoes"],
+                    "tipo": "ispn",
+                    "id_lanc_entrega": id_lanc_entrega
+                }
+            )
+
+            continue
+
+        # Atualiza somente os campos modificados.
+        campos = {}
+
+        if lancamento_existente.get("valor") != valor_novo:
+            campos["valor"] = valor_novo
+
+        if lancamento_existente.get("observacoes", "") != dados["observacoes"]:
+            campos["observacoes"] = dados["observacoes"]
+
+        if lancamento_existente.get("ano", "") != ano:
+            campos["ano"] = ano
+
+        if campos:
+
+            colecao.update_one(
+                {
+                    "_id": lancamento_existente["_id"]
+                },
+                {
+                    "$set": campos
+                }
+            )
 
 
 # ##########################################################
@@ -363,20 +892,20 @@ def cadastrar_entrega():
     # ----------------------------------------------------------
 
     nome_da_entrega = st.text_input(
-        "Nome da entrega",
+        "Nome da entrega *",
         value=""
     )
 
     col1, col2 = st.columns(2)
 
     data_inicio = col1.date_input(
-        "Data de início",
+        "Data de início *",
         value=None,
         format="DD/MM/YYYY"
     )
 
     data_fim = col2.date_input(
-        "Previsão de conclusão",
+        "Previsão de conclusão *",
         value=None,
         format="DD/MM/YYYY"
     )
@@ -506,18 +1035,27 @@ def cadastrar_entrega():
             )
             return
 
-        # Mantém o formato de datas utilizado nos documentos existentes.
-        data_inicio_salvar = (
-            data_inicio.strftime("%d/%m/%Y")
-            if data_inicio
-            else None
-        )
+        if not data_inicio:
+            st.warning(
+                "Informe a data de início da entrega."
+            )
+            return
 
-        data_fim_salvar = (
-            data_fim.strftime("%d/%m/%Y")
-            if data_fim
-            else None
-        )
+        if not data_fim:
+            st.warning(
+                "Informe a previsão de conclusão da entrega."
+            )
+            return
+
+        if data_fim < data_inicio:
+            st.warning(
+                "A previsão de conclusão não pode ser anterior à data de início."
+            )
+            return
+
+        # Mantém o formato de datas utilizado nos documentos existentes.
+        data_inicio_salvar = data_inicio.strftime("%d/%m/%Y")
+        data_fim_salvar = data_fim.strftime("%d/%m/%Y")
 
         entrega_id = ObjectId()
 
@@ -1144,18 +1682,27 @@ def cadastrar_registro_entrega(
     # ----------------------------------------------------------
 
     mapa_tipo_variavel = {
-        str(indicador["_id"]): indicador.get(
-            "tipo_variavel",
-            "int"
+        str(indicador["_id"]): tipo_variavel_indicador(
+            indicador
         )
         for indicador in indicadores.find(
             {},
             {
                 "_id": 1,
-                "tipo_variavel": 1
+                "tipo_variavel": 1,
+                "tipo_dado": 1
             }
         )
     }
+
+    # ----------------------------------------------------------
+    # Indicadores dos objetivos estratégicos ligados à entrega
+    # ----------------------------------------------------------
+
+    grupos_oeo = obter_indicadores_oeo_da_entrega(
+        db,
+        entrega
+    )
 
     # ----------------------------------------------------------
     # Identificação da entrega
@@ -1195,7 +1742,7 @@ def cadastrar_registro_entrega(
     st.divider()
 
     st.markdown(
-        "### Lançamento de indicadores"
+        TITULO_SECAO_ISPN
     )
 
     valores_indicadores = {}
@@ -1204,6 +1751,14 @@ def cadastrar_registro_entrega(
         "indicadores_relacionados",
         []
     )
+
+    if not indicadores_entrega:
+
+        st.caption(
+            "Nenhum indicador ISPN relacionado a esta entrega."
+        )
+
+        st.divider()
 
     for indicador in indicadores_entrega:
 
@@ -1261,6 +1816,15 @@ def cadastrar_registro_entrega(
         }
 
         st.divider()
+
+    # ----------------------------------------------------------
+    # Lançamento dos indicadores dos objetivos estratégicos
+    # ----------------------------------------------------------
+
+    valores_oeo = formulario_indicadores_oeo(
+        grupos_oeo,
+        prefixo_key=f"novo_{entrega_id}"
+    )
 
     # ----------------------------------------------------------
     # Salvamento
@@ -1363,6 +1927,19 @@ def cadastrar_registro_entrega(
                 }
             )
 
+        # ------------------------------------------------------
+        # Registros dos indicadores dos objetivos estratégicos
+        # ------------------------------------------------------
+
+        salvar_lancamentos_oeo(
+            db,
+            valores_oeo,
+            projeto_id=projeto["_id"],
+            entrega_id=entrega_object_id,
+            id_lanc_entrega=id_lanc_entrega,
+            ano=ano_lancamento
+        )
+
         st.success(
             "Registro salvo com sucesso!",
             icon=":material/check:"
@@ -1390,6 +1967,7 @@ def editar_registro_entrega(
     projetos_ispn = db["projetos_ispn"]
     indicadores = db["indicadores"]
     colecao_lancamentos = db["lancamentos_indicadores"]
+    colecao_lancamentos_oeo = db[COLECAO_LANCAMENTOS_OEO]
 
     # ----------------------------------------------------------
     # Converte os identificadores
@@ -1491,15 +2069,33 @@ def editar_registro_entrega(
     }
 
     mapa_tipo_variavel = {
-        str(indicador["_id"]): indicador.get(
-            "tipo_variavel",
-            "int"
+        str(indicador["_id"]): tipo_variavel_indicador(
+            indicador
         )
         for indicador in indicadores.find(
             {},
             {
                 "_id": 1,
-                "tipo_variavel": 1
+                "tipo_variavel": 1,
+                "tipo_dado": 1
+            }
+        )
+    }
+
+    # ----------------------------------------------------------
+    # Indicadores dos objetivos estratégicos e lançamentos atuais
+    # ----------------------------------------------------------
+
+    grupos_oeo = obter_indicadores_oeo_da_entrega(
+        db,
+        entrega
+    )
+
+    lancamentos_oeo_atuais = {
+        str(item["id_do_indicador"]): item
+        for item in colecao_lancamentos_oeo.find(
+            {
+                "id_lanc_entrega": lancamento_object_id
             }
         )
     }
@@ -1571,7 +2167,7 @@ def editar_registro_entrega(
     st.divider()
 
     st.markdown(
-        "### Lançamento de indicadores"
+        TITULO_SECAO_ISPN
     )
 
     # ----------------------------------------------------------
@@ -1584,6 +2180,14 @@ def editar_registro_entrega(
         "indicadores_relacionados",
         []
     )
+
+    if not indicadores_entrega:
+
+        st.caption(
+            "Nenhum indicador ISPN relacionado a esta entrega."
+        )
+
+        st.divider()
 
     for indicador in indicadores_entrega:
 
@@ -1694,6 +2298,16 @@ def editar_registro_entrega(
         st.divider()
 
     # ----------------------------------------------------------
+    # Registros dos indicadores dos objetivos estratégicos
+    # ----------------------------------------------------------
+
+    valores_oeo = formulario_indicadores_oeo(
+        grupos_oeo,
+        prefixo_key=f"editar_{lancamento_id}",
+        lancamentos_atuais=lancamentos_oeo_atuais
+    )
+
+    # ----------------------------------------------------------
     # Botões
     # ----------------------------------------------------------
 
@@ -1763,6 +2377,13 @@ def editar_registro_entrega(
 
             # Remove os lançamentos dos indicadores vinculados ao registro.
             colecao_lancamentos.delete_many(
+                {
+                    "id_lanc_entrega": lancamento_object_id
+                }
+            )
+
+            # Remove os lançamentos dos indicadores OEO vinculados ao registro.
+            colecao_lancamentos_oeo.delete_many(
                 {
                     "id_lanc_entrega": lancamento_object_id
                 }
@@ -1943,6 +2564,19 @@ def editar_registro_entrega(
                     }
                 )
 
+        # ------------------------------------------------------
+        # Atualiza os indicadores dos objetivos estratégicos
+        # ------------------------------------------------------
+
+        salvar_lancamentos_oeo(
+            db,
+            valores_oeo,
+            projeto_id=projeto["_id"],
+            entrega_id=entrega_object_id,
+            id_lanc_entrega=lancamento_object_id,
+            ano=ano_novo
+        )
+
         st.success(
             "Registro atualizado com sucesso!"
         )
@@ -1974,6 +2608,7 @@ def mostrar_detalhes_registro_entrega(
     projetos_ispn = db["projetos_ispn"]
     indicadores = db["indicadores"]
     colecao_lancamentos = db["lancamentos_indicadores"]
+    colecao_lancamentos_oeo = db[COLECAO_LANCAMENTOS_OEO]
 
     # ----------------------------------------------------------
     # Converte os identificadores
@@ -2075,15 +2710,15 @@ def mostrar_detalhes_registro_entrega(
     }
 
     mapa_tipo_variavel = {
-        str(indicador["_id"]): indicador.get(
-            "tipo_variavel",
-            "int"
+        str(indicador["_id"]): tipo_variavel_indicador(
+            indicador
         )
         for indicador in indicadores.find(
             {},
             {
                 "_id": 1,
-                "tipo_variavel": 1
+                "tipo_variavel": 1,
+                "tipo_dado": 1
             }
         )
     }
@@ -2150,7 +2785,7 @@ def mostrar_detalhes_registro_entrega(
     st.divider()
 
     st.markdown(
-        "### Lançamento de indicadores"
+        TITULO_SECAO_ISPN
     )
 
     indicadores_entrega = entrega.get(
@@ -2161,8 +2796,10 @@ def mostrar_detalhes_registro_entrega(
     if not indicadores_entrega:
 
         st.caption(
-            "Nenhum indicador relacionado a esta entrega."
+            "Nenhum indicador ISPN relacionado a esta entrega."
         )
+
+        st.divider()
 
     else:
 
@@ -2239,6 +2876,91 @@ def mostrar_detalhes_registro_entrega(
                     )
 
             st.divider()
+
+    # ----------------------------------------------------------
+    # Indicadores dos objetivos estratégicos
+    # ----------------------------------------------------------
+
+    grupos_oeo = obter_indicadores_oeo_da_entrega(
+        db,
+        entrega
+    )
+
+    st.markdown(
+        TITULO_SECAO_OEO
+    )
+
+    if not grupos_oeo:
+
+        st.caption(
+            "Esta entrega não está associada a ações dos Objetivos Estratégicos Organizacionais."
+        )
+
+    else:
+
+        lancamentos_oeo = {
+            str(item["id_do_indicador"]): item
+            for item in colecao_lancamentos_oeo.find(
+                {
+                    "id_lanc_entrega": lancamento_object_id
+                }
+            )
+        }
+
+        for grupo in grupos_oeo:
+
+            st.caption(
+                f"Objetivo estratégico: **{grupo['objetivo_nome']}**"
+            )
+
+            for indicador in grupo["indicadores"]:
+
+                st.markdown(
+                    f"**{indicador.get('nome_indicador', 'Indicador sem nome')}**"
+                )
+
+                lancamento_oeo = lancamentos_oeo.get(
+                    str(indicador["_id"])
+                )
+
+                if not lancamento_oeo:
+
+                    st.caption(
+                        "Nenhum valor registrado."
+                    )
+
+                    st.divider()
+
+                    continue
+
+                observacoes = lancamento_oeo.get(
+                    "observacoes",
+                    ""
+                )
+
+                col1, col2 = st.columns([2, 3])
+
+                with col1:
+
+                    st.markdown(
+                        f"**Valor**  \n{lancamento_oeo.get('valor', '')}"
+                    )
+
+                with col2:
+
+                    if observacoes:
+
+                        st.markdown(
+                            f"**Observações**  \n{observacoes}"
+                        )
+
+                    else:
+
+                        st.caption(
+                            "Sem observações."
+                        )
+
+                st.divider()
 
 
 
@@ -2509,7 +3231,7 @@ def dialog_editar_entrega(entrega_id):
     # ----------------------------------------------------------
 
     nome_da_entrega = st.text_input(
-        "Nome da entrega",
+        "Nome da entrega *",
         value=entrega.get(
             "nome_da_entrega",
             ""
@@ -2537,7 +3259,7 @@ def dialog_editar_entrega(entrega_id):
             data_inicio = data_inicio_convertida.date()
 
     data_inicio = col1.date_input(
-        "Data de início",
+        "Data de início *",
         value=data_inicio,
         format="DD/MM/YYYY"
     )
@@ -2561,7 +3283,7 @@ def dialog_editar_entrega(entrega_id):
             data_fim = data_fim_convertida.date()
 
     data_fim = col2.date_input(
-        "Previsão de conclusão",
+        "Previsão de conclusão *",
         value=data_fim,
         format="DD/MM/YYYY"
     )
@@ -2720,18 +3442,27 @@ def dialog_editar_entrega(entrega_id):
             )
             return
 
-        # Mantém o formato de datas utilizado nos documentos existentes.
-        data_inicio_salvar = (
-            data_inicio.strftime("%d/%m/%Y")
-            if data_inicio
-            else None
-        )
+        if not data_inicio:
+            st.warning(
+                "Informe a data de início da entrega."
+            )
+            return
 
-        data_fim_salvar = (
-            data_fim.strftime("%d/%m/%Y")
-            if data_fim
-            else None
-        )
+        if not data_fim:
+            st.warning(
+                "Informe a previsão de conclusão da entrega."
+            )
+            return
+
+        if data_fim < data_inicio:
+            st.warning(
+                "A previsão de conclusão não pode ser anterior à data de início."
+            )
+            return
+
+        # Mantém o formato de datas utilizado nos documentos existentes.
+        data_inicio_salvar = data_inicio.strftime("%d/%m/%Y")
+        data_fim_salvar = data_fim.strftime("%d/%m/%Y")
 
         # Atualiza somente os campos editáveis da entrega.
         campos_atualizacao = {
@@ -2801,7 +3532,7 @@ def atualizar_entrega_no_projeto(
     """
 
     db = conectar_mongo_portal_ispn()
-    projetos_ispn = db["projetos_ispn"]  
+    projetos_ispn = db["projetos_ispn"]
 
     projeto = projetos_ispn.find_one(
         {"_id": ObjectId(projeto_origem_id)}
@@ -2988,4 +3719,3 @@ def gerar_link_drive(id_arquivo):
     Gera o link público padrão de visualização do Google Drive.
     """
     return f"https://drive.google.com/file/d/{id_arquivo}/view"
-

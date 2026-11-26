@@ -2,12 +2,11 @@ import pandas as pd
 import streamlit as st
 import plotly.express as px
 import time
-from pymongo import MongoClient
 from datetime import datetime, timedelta, date
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from bson import ObjectId
+import unicodedata
 
 from funcoes_auxiliares import conectar_mongo_portal_ispn  # Função personalizada para conectar ao MongoDB
 
@@ -170,6 +169,10 @@ def montar_dataframe_saldo_do_ano(ano_selecionado, ano_dados):
     return pd.DataFrame(df_saldos)
 
 
+# Chave de ordenação que ignora acentos e maiúsculas/minúsculas
+def chave_alfabetica(texto):
+    sem_acento = unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode("ascii")
+    return sem_acento.lower()
 
 
 # Função para atualizar o total_gozado e o saldo_atual sempre que cadastrar uma nova solicitação, editar uma solicitação ou deletar uma solicitação
@@ -266,7 +269,6 @@ def atualizar_dados_colaborador():
             }
 
             colecao.update_one(filtro, {"$set": novos_valores})
-
 
 
 # Função para gerar o gráfico e a tabela, usado para todo tipo de usuário
@@ -391,9 +393,10 @@ def gerar_grafico_tabela(colaborador_selecionado):
             setor_selecionado = st.selectbox("Programa / Área", options=["Todos"] + lista_programas_areas, index=0)
 
     # Selectbox para os meses, com o mês atual como padrão
+    # "Todos" fica na posição 0, então o índice do mês atual é o próprio mes_atual
     with col4:
         st.write('')
-        mes_selecionado = st.selectbox("Selecione o mês", options=meses, index=mes_atual - 1)
+        mes_selecionado = st.selectbox("Selecione o mês", options=["Todos"] + meses, index=mes_atual)
 
     # Selectbox para os anos, com o ano atual como padrão
     with col5:
@@ -410,185 +413,146 @@ def gerar_grafico_tabela(colaborador_selecionado):
         # Criar o selectbox com o ano atual selecionado por padrão
         ano_selecionado = st.selectbox("Selecione o ano", options=anos_disponiveis, index=index_ano_atual)
 
-    # Escrevendo o mês e ano na col1
-    if ano_selecionado != None:
-        titulo_mes.subheader(f'{mes_selecionado} de {ano_selecionado}')  # Exibe o mês e ano selecionados
+        # Escrevendo o mês e ano na col1
+        if ano_selecionado != None:
+            if mes_selecionado == "Todos":
+                titulo_mes.subheader(f'Ano de {ano_selecionado}')
+            else:
+                titulo_mes.subheader(f'{mes_selecionado} de {ano_selecionado}')
 
-    # Mapeia o nome do mês para seu número (1-12)
-    mes_numero = meses.index(mes_selecionado) + 1
+    ano_int = int(ano_selecionado)
 
+    # Define o período de referência: o ano inteiro ou só o mês selecionado
+    if mes_selecionado == "Todos":
+        mes_numero = None
+        data_inicio_periodo = datetime(ano_int, 1, 1)
+        data_fim_periodo = datetime(ano_int, 12, 31)
+        texto_periodo = f"o ano de {ano_selecionado}"
+    else:
+        mes_numero = meses.index(mes_selecionado) + 1
+        data_inicio_periodo = datetime(ano_int, mes_numero, 1)
+        data_fim_periodo = (pd.Timestamp(data_inicio_periodo) + pd.offsets.MonthEnd(0)).to_pydatetime()
+        texto_periodo = f"o mês de {mes_selecionado.lower()}"
 
-    # Define a data de referência para o mês e ano selecionados
-    data_inicio_mes = datetime(int(ano_selecionado), mes_numero, 1)  # Primeiro dia do mês selecionado
-    if mes_numero == 12:  # Caso seja dezembro, calcula o último dia do mês
-        data_fim_mes = datetime(int(ano_selecionado) + 1, 1, 1) - pd.Timedelta(days=1)
-    else:  # Para outros meses, calcula o último dia normalmente
-        data_fim_mes = datetime(int(ano_selecionado), mes_numero + 1, 1) - pd.Timedelta(days=1)
-
-    # Filtra o DataFrame para incluir somente os registros do mês e ano selecionados
+    # Mantém os períodos que se sobrepõem ao intervalo selecionado
     df_gantt = df_gantt[
-        ((df_gantt["Início"].dt.year == int(ano_selecionado)) & 
-        (df_gantt["Início"].dt.month == mes_numero)) |
-        ((df_gantt["Fim"].dt.year == int(ano_selecionado)) & 
-        (df_gantt["Fim"].dt.month == mes_numero)) |
-        ((df_gantt["Início"] <= data_fim_mes) & 
-        (df_gantt["Fim"] >= data_inicio_mes))
+        (df_gantt["Início"] <= data_fim_periodo) &
+        (df_gantt["Fim"] >= data_inicio_periodo)
     ]
 
-    # Verifica se há registros para o gráfico
+    # Filtra os dados se um colaborador específico estiver selecionado
+    if colaborador_selecionado != "Todos(as)":
+        df_gantt = df_gantt[df_gantt["Colaborador"] == colaborador_selecionado]
+
+    # Se o colaborador for Todos(as), filtra pelo setor selecionado
+    elif setor_selecionado != "Todos":
+        df_gantt = df_gantt[df_gantt["Setor"] == setor_selecionado]
+
+    # GANTT: aparece tanto na visão mensal quanto na anual
     if df_gantt.empty:
-        st.write('')
-        container_mês.write(f"Não há férias programadas para o mês de {mes_selecionado.lower()}.")  # Mensagem de ausência de dados
+        container_mês.write(f"Não há férias programadas para {texto_periodo}.")
 
-    # Tem registros
     else:
-        # Filtra os dados se um colaborador específico estiver selecionado
-        if colaborador_selecionado != "Todos(as)":
-            df_gantt = df_gantt[df_gantt["Colaborador"] == colaborador_selecionado]
-
-        # Se o colaborador for Todos(as),Filtra os dados se um setor específico estiver selecionado
-        elif setor_selecionado != "Todos":
-            df_gantt = df_gantt[df_gantt["Setor"] == setor_selecionado]  # Assumindo que há uma coluna 'Setor' no DataFrame
-
-        # Verifica novamente se há dados após o filtro por colaborador
-        if df_gantt.empty:
-            container_mês.write(f"Não há férias programadas para o mês de {mes_selecionado.lower()}.")  # Mensagem após o filtro
+        # Define a altura do gráfico com base na seleção
+        if colaborador_selecionado == "Todos(as)":
+            if len(df_gantt) < 10:
+                altura_grafico = 300
+            elif len(df_gantt) < 20:
+                altura_grafico = 600
+            elif len(df_gantt) < 30:
+                altura_grafico = 700
+            else:
+                altura_grafico = 900
         else:
+            altura_grafico = 130
 
-            # Define a altura do gráfico com base na seleção
-            if colaborador_selecionado == "Todos(as)":
-                if len(df_gantt) < 10:
-                    altura_grafico = 300
-                elif len(df_gantt) < 20:
-                    altura_grafico = 600  # Altura padrão para todos
-                elif len(df_gantt) < 30:
-                    altura_grafico = 700
-                else:
-                    altura_grafico = 900
-            else:
-                altura_grafico = 130  # Altura menor para um colaborador específico
+        # Adiciona 1 dia ao valor da coluna "Fim" para ajustar visualmente o gráfico
+        df_gantt["Final"] = df_gantt["Fim"] + pd.Timedelta(days=1)
 
-            # Define o primeiro e o último dia do mês selecionado
-            primeiro_dia = datetime(int(ano_selecionado), mes_numero, 1)
-            ultimo_dia = (primeiro_dia + timedelta(days=31)).replace(day=1)
+        # Ordem alfabética de cima para baixo (o Plotly desenha o eixo Y de baixo para cima)
+        ordem_nomes = sorted(df_gantt["Colaborador"].unique(), key=chave_alfabetica, reverse=True)
 
-            # Adiciona 1 dia ao valor da coluna "Fim" para ajustar visualmente o gráfico
-            df_gantt["Final"] = df_gantt["Fim"] + pd.Timedelta(days=1)
+        # Paleta de cores por setor
+        cores_setores = {
+            "Advocacy": "rgba(255, 127, 14, 0.55)",
+            "Adm. Brasília": "rgba(44, 160, 44, 0.55)",
+            "Adm. Santa Inês": "rgba(227, 119, 194, 0.55)",
+            "Comunicação": "rgba(148, 103, 189, 0.55)",
+            "Coordenação": "rgba(214, 39, 40, 0.55)",
+            "Estagiário(a)": "rgba(255, 187, 120, 0.55)",
+            "Programa Cerrado": "rgba(140, 86, 75, 0.55)",
+            "Programa Iniciativas Comunitárias": "rgba(31, 119, 180, 0.55)",
+            "Programa Maranhão": "rgba(188, 189, 34, 0.55)",
+            "Programa Povos Indígenas": "rgba(23, 190, 207, 0.55)",
+            "Programa Sociobiodiversidade": "rgba(127, 127, 127, 0.55)"
+        }
 
-            # Adiciona a menor data de "Início" por colaborador
-            df_gantt['Menor_Início'] = df_gantt.groupby('Colaborador')['Início'].transform('min')
+        # Cria o gráfico de Gantt
+        fig = px.timeline(
+            df_gantt,
+            x_start="Início",
+            x_end="Final",
+            y="Colaborador",
+            color="Setor",
+            color_discrete_map=cores_setores,
+            custom_data=["Inicio_hover", "Fim_hover", "Setor"]
+        )
 
-            # Ordena o DataFrame com base na menor data de "Início" e depois pela data "Início"
-            df_gantt = df_gantt.sort_values(by=['Menor_Início', 'Início'], ascending=False)
+        fig.update_traces(
+            hovertemplate=
+            "<b>%{y}</b><br>" +
+            "Início: %{customdata[0]|%d/%m/%Y}<br>" +
+            "Fim: %{customdata[1]|%d/%m/%Y}<br>" +
+            "Programa: %{customdata[2]}<extra></extra>"
+        )
 
-            # Definindo a paleta de cores divergente
-            cores_setores = {
-                "Advocacy": "rgba(255, 127, 14, 0.55)",              # Laranja brilhante
-                "Adm. Brasília": "rgba(44, 160, 44, 0.55)",          # Verde
-                "Adm. Santa Inês": "rgba(227, 119, 194, 0.55)",       # Azul
-                "Comunicação": "rgba(148, 103, 189, 0.55)",          # Roxo
-                "Coordenação": "rgba(214, 39, 40, 0.55)",            # Vermelho
-                "Estagiário(a)": "rgba(255, 187, 120, 0.55)",        # Laranja claro
-                "Programa Cerrado": "rgba(140, 86, 75, 0.55)",       # Marrom
-                "Programa Iniciativas Comunitárias": "rgba(31, 119, 180, 0.55)", # Rosa
-                "Programa Maranhão": "rgba(188, 189, 34, 0.55)",     # Verde amarelado
-                "Programa Povos Indígenas": "rgba(23, 190, 207, 0.55)", # Ciano
-                "Programa Sociobiodiversidade": "rgba(127, 127, 127, 0.55)" # Cinza
-            }
+        # Linha vertical vermelha marcando o dia de hoje
+        fig.add_vline(x=datetime.now().date(), line_width=2, line_color="red")
 
-
-            # Se setor_selecionado for "Todos(as)", utilizamos a paleta de cores
-            if setor_selecionado == "Todos":
-                # Cria o gráfico de Gantt com as cores baseadas no setor
-                fig = px.timeline(
-                    df_gantt,
-                    x_start="Início",
-                    x_end="Final",
-                    y="Colaborador",
-                    color="Setor",
-                    color_discrete_map=cores_setores,
-                    custom_data=["Inicio_hover", "Fim_hover", "Setor"]
-                )
-
-                fig.update_traces(
-                    hovertemplate=
-                    "<b>%{y}</b><br>" +
-                    "Início: %{customdata[0]|%d/%m/%Y}<br>" +
-                    "Fim: %{customdata[1]|%d/%m/%Y}<br>" +
-                    "Programa: %{customdata[2]}<extra></extra>"
-                )
-
-            else:
-                # Cria o gráfico de Gantt com o setor selecionado, usando a cor do setor selecionado
-                fig = px.timeline(
-                    df_gantt,
-                    x_start="Início",
-                    x_end="Final",
-                    y="Colaborador",
-                    color="Setor",
-                    color_discrete_map=cores_setores,
-                    hover_data={
-                        "Início": False,
-                        "Fim": False,
-                        "Inicio_real": "|%d/%m/%Y",
-                        "Fim_real": "|%d/%m/%Y",
-                        "Setor": True
-                    }
-                )
-
-            # Mapeia rótulos reais (remove o sufixo __idx)
-            labels_y = {
-                v: v.split("__")[0]
-                for v in df_gantt["Colaborador"].unique()
-            }
-
-            fig.update_yaxes(
-                tickmode="array",
-                tickvals=list(labels_y.keys()),
-                ticktext=list(labels_y.values())
+        # Estilo do gráfico
+        fig.update_layout(
+            yaxis=dict(tickfont=dict(size=15)),
+            height=altura_grafico,
+            margin=dict(l=20, r=20, t=50, b=50),
+            xaxis=dict(side="top"),
+            legend=dict(
+                orientation="h",
+                y=-0.2,
+                x=0.5,
+                xanchor="center",
+                title=None
             )
+        )
 
-            # Adiciona uma linha vertical vermelha para marcar o dia de hoje
-            hoje = datetime.now().date()  # Multiplicado por 1000 para obter o timestamp em milissegundos
-            fig.add_vline(
-                x=hoje,  # Posição da linha vertical (data de hoje)
-                line_width=2,  # Espessura da linha
-                # line_dash="dash",  # Estilo da linha (tracejada)
-                line_color="red",  # Cor da linha
-            )
+        fig.update_yaxes(title_text='', categoryorder="array", categoryarray=ordem_nomes)
 
+        if mes_selecionado == "Todos":
+            # Visão anual: um tick por mês, com nomes em português
+            meses_abrev = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
+                           "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
 
-            # Estilo do gráfico
-            fig.update_layout(
-                yaxis=dict(tickfont=dict(size=15)),  # Ajusta o tamanho da fonte do eixo Y
-                height=altura_grafico,  # Define a altura do gráfico
-                margin=dict(l=20, r=20, t=50, b=50),  # Define margens
-                xaxis=dict(side="top"),  # Move os rótulos do eixo X para o topo
-                legend=dict(
-                    orientation="h",  # Define a orientação da legenda como horizontal
-                    y=-0.2,  # Move a legenda para baixo do gráfico
-                    x=0.5,  # Centraliza a legenda horizontalmente
-                    xanchor="center",  # Define o ponto de ancoragem da legenda
-                    title=None
-                )
-            )
-
-            # Remove o título do eixo Y
-            fig.update_yaxes(title_text='')  
-
-            # Configura o eixo X para mostrar todos os dias do mês selecionado
             fig.update_xaxes(
-                range=[primeiro_dia, ultimo_dia], 
-                dtick="D1", 
-                tickformat="%d/%m", 
-                showgrid=True, 
-                gridwidth=0.5, 
+                range=[datetime(ano_int, 1, 1), datetime(ano_int + 1, 1, 1)],
+                tickmode="array",
+                tickvals=[datetime(ano_int, m, 1) for m in range(1, 13)],
+                ticktext=meses_abrev,
+                showgrid=True,
+                gridwidth=0.5,
+                gridcolor="lightgrey"
+            )
+        else:
+            # Visão mensal: um tick por dia
+            fig.update_xaxes(
+                range=[data_inicio_periodo, data_fim_periodo + timedelta(days=1)],
+                dtick="D1",
+                tickformat="%d/%m",
+                showgrid=True,
+                gridwidth=0.5,
                 gridcolor="lightgrey"
             )
 
-
-            # Exibe o gráfico no container
-            container_mês.plotly_chart(fig)
+        # Exibe o Gantt no container
+        container_mês.plotly_chart(fig, key="gantt")
 
     # except:
     #     st.warning('Cadastre um(a) colaborador(a) e ao menos uma solicitação de férias.')
@@ -660,12 +624,8 @@ def gerar_grafico_tabela(colaborador_selecionado):
                         inicio_periodo = lista_de_dias_timestamp[0]
                         fim_periodo = lista_de_dias_timestamp[-1]
 
-                        # Define o intervalo do mês selecionado
-                        data_referencia_inicio = pd.to_datetime(f"{ano_selecionado}-{mes_numero}-01")
-                        data_referencia_fim = data_referencia_inicio + pd.offsets.MonthEnd(0)
-
-                        # Verifica sobreposição com o mês selecionado
-                        if (inicio_periodo <= data_referencia_fim) and (fim_periodo >= data_referencia_inicio):
+                        # Verifica sobreposição com o período selecionado (mês ou ano inteiro)
+                        if (inicio_periodo <= pd.Timestamp(data_fim_periodo)) and (fim_periodo >= pd.Timestamp(data_inicio_periodo)):
                             todas_solicitacoes.append({
                                 "Nome": nome,
                                 "Setor": setor_formatado,
@@ -693,7 +653,10 @@ def gerar_grafico_tabela(colaborador_selecionado):
                     ]
 
                 # Subtítulo
-                container_mês.subheader("**Solicitações de férias no mês**")
+                if mes_selecionado == "Todos":
+                    container_mês.subheader("**Solicitações de férias no ano**")
+                else:
+                    container_mês.subheader("**Solicitações de férias no mês**")
 
                 # Altura dinâmica do DataFrame
                 altura_df_solicitacoes = ((len(df_todas_solicitacoes) + 1) * 35) + 2
@@ -782,8 +745,6 @@ def gerar_grafico_tabela(colaborador_selecionado):
                     else:
                         # Mensagem exibida caso não existam solicitações de férias para o ano
                         coluna2.write(f"Não há solicitações de férias para {ano} até o momento.")
-
-
 
 
 # ###########################################################################
