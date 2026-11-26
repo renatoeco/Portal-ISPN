@@ -2964,7 +2964,48 @@ def mostrar_detalhes_registro_entrega(
 
 
 
+# ##########################################################
+# Permissão de exclusão de entregas
+# ##########################################################
 
+MSG_ENTREGA_COM_LANCAMENTOS = (
+    "Essa entrega não pode ser deletada porque tem lançamentos associados. "
+    "Contacte os administradores do sistema."
+)
+
+
+def usuario_coordena_programa_do_projeto(db, projeto):
+    """
+    Retorna True se o usuário logado é coordenador (coordenador_id)
+    de algum dos programas/áreas do projeto.
+    """
+
+    usuario_id = st.session_state.get("id_usuario")
+
+    if not usuario_id or not ObjectId.is_valid(str(usuario_id)):
+        return False
+
+    programas_projeto = projeto.get("programas", [])
+
+    if not isinstance(programas_projeto, list):
+        programas_projeto = []
+
+    programas_ids = [
+        ObjectId(str(programa_id))
+        for programa_id in programas_projeto
+        if ObjectId.is_valid(str(programa_id))
+    ]
+
+    if not programas_ids:
+        return False
+
+    return db["programas_areas"].count_documents(
+        {
+            "_id": {"$in": programas_ids},
+            "coordenador_id": ObjectId(str(usuario_id))
+        },
+        limit=1
+    ) > 0
 
 
 # ##########################################################
@@ -3420,11 +3461,135 @@ def dialog_editar_entrega(entrega_id):
 
     st.write("")
 
-    salvar_edicao = st.button(
-        "Salvar alterações",
-        icon=":material/save:",
-        width=200
+    pode_excluir_entrega = usuario_coordena_programa_do_projeto(
+        db,
+        projeto
     )
+
+    excluir_entrega = False
+
+    with st.container(horizontal=True, horizontal_alignment="distribute"):
+
+        salvar_edicao = st.button(
+            "Salvar alterações",
+            icon=":material/save:",
+            type="primary",
+            width=200
+        )
+
+        if pode_excluir_entrega:
+
+            excluir_entrega = st.button(
+                "Excluir entrega",
+                icon=":material/delete:",
+                type="secondary",
+                width=200
+            )
+
+    # ----------------------------------------------------------
+    # Exclusão da entrega (somente coordenadores do programa)
+    # ----------------------------------------------------------
+
+    chave_confirmacao = f"confirmar_exclusao_entrega_{entrega_id}"
+
+    if excluir_entrega:
+
+        if entrega.get("lancamentos_entregas"):
+
+            st.session_state.pop(chave_confirmacao, None)
+
+            st.warning(
+                MSG_ENTREGA_COM_LANCAMENTOS,
+                icon=":material/block:"
+            )
+
+        else:
+
+            st.session_state[chave_confirmacao] = True
+
+    if pode_excluir_entrega and st.session_state.get(chave_confirmacao):
+
+        st.warning(
+            "Tem certeza que deseja excluir esta entrega? Essa ação não pode ser desfeita."
+        )
+
+        with st.container(horizontal=True, horizontal_alignment="right"):
+
+            confirmar_exclusao = st.button(
+                "Sim, excluir",
+                icon=":material/delete:",
+                type="primary",
+                key=f"btn_confirmar_exclusao_entrega_{entrega_id}"
+            )
+
+            cancelar_exclusao = st.button(
+                "Cancelar",
+                key=f"btn_cancelar_exclusao_entrega_{entrega_id}"
+            )
+
+        if cancelar_exclusao:
+
+            st.session_state.pop(chave_confirmacao, None)
+
+            st.rerun(scope="fragment")
+
+        if confirmar_exclusao:
+
+            st.session_state.pop(chave_confirmacao, None)
+
+            # Confere no banco se surgiram lançamentos desde a abertura do diálogo.
+            tem_lancamentos = projetos_ispn.count_documents(
+                {
+                    "_id": projeto_id,
+                    "entregas": {
+                        "$elemMatch": {
+                            "_id": entrega_object_id,
+                            "lancamentos_entregas.0": {"$exists": True}
+                        }
+                    }
+                },
+                limit=1
+            ) > 0
+
+            if tem_lancamentos:
+
+                st.warning(
+                    MSG_ENTREGA_COM_LANCAMENTOS,
+                    icon=":material/block:"
+                )
+
+                return
+
+            resultado = projetos_ispn.update_one(
+                {
+                    "_id": projeto_id
+                },
+                {
+                    "$pull": {
+                        "entregas": {
+                            "_id": entrega_object_id
+                        }
+                    }
+                }
+            )
+
+            if resultado.modified_count:
+
+                st.success(
+                    "Entrega excluída com sucesso!"
+                )
+
+                time.sleep(3)
+
+                st.rerun()
+
+            else:
+
+                st.error(
+                    "Não foi possível excluir a entrega."
+                )
+
+            return
 
 
 
