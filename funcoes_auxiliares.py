@@ -2969,8 +2969,7 @@ def mostrar_detalhes_registro_entrega(
 # ##########################################################
 
 MSG_ENTREGA_COM_LANCAMENTOS = (
-    "Essa entrega não pode ser deletada porque tem lançamentos associados. "
-    "Contacte os administradores do sistema."
+    "Essa entrega não pode ser deletada porque tem lançamentos associados. Delete antes todos os lançamentos."
 )
 
 
