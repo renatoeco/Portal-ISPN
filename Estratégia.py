@@ -392,27 +392,25 @@ def _texto_celula(valor):
 def _valor_valido_para_tipo(valor, tipo):
     """
     Verifica se o valor digitado na meta é compatível com o tipo do
-    indicador (int / float / str). Valores vazios são aceitos.
+    indicador ("int" / "float"). Valores vazios são aceitos.
     Aceita o formato brasileiro (1.234,56).
     """
     valor = _texto_celula(valor)
+    tipo = normalizar_tipo_indicador(tipo)
 
-    if not valor or tipo in (None, "Texto"):
+    if not valor or tipo not in TIPOS_INDICADOR:
         return True
 
     normalizado = valor.replace(".", "").replace(",", ".")
 
-    if tipo == "Número inteiro":
+    if tipo == "int":
         return re.fullmatch(r"-?\d+", normalizado) is not None
 
-    if tipo == "Número decimal":
-        try:
-            float(normalizado)
-            return True
-        except ValueError:
-            return False
-
-    return True
+    try:
+        float(normalizado)
+        return True
+    except ValueError:
+        return False
 
 
 def _numero_do_lancamento(valor):
@@ -444,9 +442,10 @@ def calcular_alcancado_oeo(lancamentos, tipo_por_indicador):
 
     for lanc in lancamentos:
         id_ind = str(lanc.get("id_do_indicador"))
-        tipo = tipo_por_indicador.get(id_ind)
+        tipo = normalizar_tipo_indicador(tipo_por_indicador.get(id_ind))
         valor = lanc.get("valor")
 
+        # "Texto" não é mais uma opção, mas fica aqui para indicadores antigos
         if tipo == "Texto":
             texto = str(valor).strip() if valor is not None else ""
             if texto:
@@ -457,13 +456,10 @@ def calcular_alcancado_oeo(lancamentos, tipo_por_indicador):
     alcancado = {}
 
     for id_ind, soma in somas.items():
-        if tipo_por_indicador.get(id_ind) == "Número decimal":
+        if normalizar_tipo_indicador(tipo_por_indicador.get(id_ind)) == "float":
             alcancado[id_ind] = float_to_br(float(soma))
         else:
             alcancado[id_ind] = f"{int(round(soma)):,}".replace(",", ".")
-
-    for id_ind, lista in textos.items():
-        alcancado[id_ind] = ", ".join(lista)
 
     return alcancado
 
@@ -528,7 +524,7 @@ def bloco_metas_objetivo(*, objetivo, indicadores_obj, obj_idx, doc_id, alcancad
             "Alcançado": alcancado_por_indicador.get(id_ind, "")
         })
         ids_linhas.append(id_ind)
-        tipos_linhas.append(ind.get("tipo_dado"))
+        tipos_linhas.append(normalizar_tipo_indicador(ind.get("tipo_dado")))
         alcancados_salvos.append(meta.get("alcancado", "") or "")
 
     df_metas = pd.DataFrame(
@@ -564,7 +560,8 @@ def bloco_metas_objetivo(*, objetivo, indicadores_obj, obj_idx, doc_id, alcancad
     ):
         # Valida o valor da meta conforme o tipo do indicador
         invalidos = [
-            f"{df_metas.at[i, 'Indicador']} ({tipos_linhas[i]})"
+            f"{df_metas.at[i, 'Indicador']} "
+            f"({ROTULOS_TIPO_INDICADOR.get(tipos_linhas[i], tipos_linhas[i])})"
             for i in range(len(df_editado))
             if not _valor_valido_para_tipo(
                 df_editado.at[i, "Objetivo / meta"], tipos_linhas[i]
@@ -640,7 +637,7 @@ def migrar_objetivos_estrategicos(doc):
                     {"$set": {
                         "id_objetivo": id_objetivo,
                         "nome_indicador": ind.get("nome_indicador", ""),
-                        "tipo_dado": ind.get("tipo_dado")
+                        "tipo_dado": normalizar_tipo_indicador(ind.get("tipo_dado"))
                     }},
                     upsert=True
                 )
@@ -651,6 +648,13 @@ def migrar_objetivos_estrategicos(doc):
             if "indicadores_relacionados" in acao:
                 acao.pop("indicadores_relacionados")
                 alterou = True
+
+    # Converte o tipo_dado antigo dos indicadores OEO para "int"/"float"
+    for antigo, novo in TIPOS_INDICADOR_LEGADOS.items():
+        indicadores_oeo.update_many(
+            {"tipo_dado": antigo},
+            {"$set": {"tipo_dado": novo}}
+        )
 
     # Garante uma meta (vazia) para cada indicador do objetivo, inclusive
     # os cadastrados antes desta regra, para que apareçam no registro de entregas.
@@ -1160,8 +1164,26 @@ def editar_titulo_de_cada_resultado_lp_dialog(resultado_idx):
                     st.rerun(scope="fragment")
 
 
-TIPOS_INDICADOR = ["Número inteiro", "Número decimal", "Texto"]
+# Tipos de dado dos indicadores OEO
+TIPOS_INDICADOR = ["int", "float"]
+
+# Rótulos exibidos na tela para cada tipo
+ROTULOS_TIPO_INDICADOR = {
+    "int": "Número inteiro",
+    "float": "Número decimal",
+}
+
+# Valores antigos ainda salvos no banco -> novo formato
+TIPOS_INDICADOR_LEGADOS = {
+    "Número inteiro": "int",
+    "Número decimal": "float",
+}
+
 OPCAO_CADASTRAR_INDICADOR = "--Cadastrar indicador--"
+
+def normalizar_tipo_indicador(tipo):
+    """Converte o tipo antigo ("Número inteiro"/"Número decimal") para "int"/"float"."""
+    return TIPOS_INDICADOR_LEGADOS.get(tipo, tipo)
 
 @st.dialog("Editar objetivo estratégico", width="large", on_dismiss="rerun")
 def editar_objetivo_estrategico_dialog(obj_idx):
@@ -1341,11 +1363,12 @@ def editar_objetivo_estrategico_dialog(obj_idx):
                     key=f"nome_ind_obj_{obj_idx}_{selecao}_{ver}",
                 )
 
-                tipo_atual = ind_atual.get("tipo_dado")
+                tipo_atual = normalizar_tipo_indicador(ind_atual.get("tipo_dado"))
 
                 tipo_ind = st.selectbox(
                     "Tipo",
                     options=TIPOS_INDICADOR,
+                    format_func=lambda t: ROTULOS_TIPO_INDICADOR.get(t, t),
                     index=(
                         TIPOS_INDICADOR.index(tipo_atual)
                         if tipo_atual in TIPOS_INDICADOR

@@ -534,6 +534,78 @@ def converter_valor_indicador(tipo_variavel, valor):
     return int(valor)
 
 
+# ##########################################################
+# Tipo e valor dos indicadores OEO (somente int / float)
+# ##########################################################
+
+# Aceita também os rótulos antigos, caso algum indicador ainda não tenha sido convertido.
+MAPA_TIPO_INDICADOR_OEO = {
+    "int": "int",
+    "float": "float",
+    "Número inteiro": "int",
+    "Número decimal": "float",
+}
+
+
+def tipo_variavel_indicador_oeo(indicador):
+    """
+    Retorna "int" ou "float" para um indicador OEO.
+    Sem tipo reconhecido (inclusive indicadores antigos do tipo "Texto"), considera int.
+    """
+
+    tipo = str(indicador.get("tipo_dado") or "").strip()
+
+    return MAPA_TIPO_INDICADOR_OEO.get(tipo, "int")
+
+
+def _numero_salvo(valor):
+    """
+    Converte o valor já salvo (int, float ou texto no formato brasileiro) em número.
+    """
+
+    if valor in [None, ""] or isinstance(valor, bool):
+        return 0
+
+    if isinstance(valor, (int, float)):
+        return valor
+
+    return br_to_float(str(valor))
+
+
+def campo_valor_indicador_oeo(container, tipo_variavel, key, valor_atual=None):
+    """
+    Desenha o campo de valor de um indicador OEO: inteiro ou decimal.
+    """
+
+    numero = _numero_salvo(valor_atual)
+
+    if tipo_variavel == "float":
+
+        return container.number_input(
+            "Valor",
+            value=float(numero),
+            step=0.01,
+            format="%.2f",
+            key=key
+        )
+
+    return container.number_input(
+        "Valor",
+        value=int(round(numero)),
+        step=1,
+        format="%d",
+        key=key
+    )
+
+
+def converter_valor_indicador_oeo(tipo_variavel, valor):
+
+    if tipo_variavel == "float":
+        return float(valor)
+
+    return int(valor)
+
+
 def formulario_indicadores_oeo(
     grupos_oeo,
     prefixo_key,
@@ -575,7 +647,7 @@ def formulario_indicadores_oeo(
 
             indicador_id = str(indicador["_id"])
 
-            tipo_variavel = tipo_variavel_indicador(
+            tipo_variavel = tipo_variavel_indicador_oeo(
                 indicador
             )
 
@@ -589,7 +661,7 @@ def formulario_indicadores_oeo(
 
             col1, col2 = st.columns([1, 4])
 
-            valor = campo_valor_indicador(
+            valor = campo_valor_indicador_oeo(
                 col1,
                 tipo_variavel,
                 key=f"{prefixo_key}_oeo_valor_{indicador_id}",
@@ -614,7 +686,6 @@ def formulario_indicadores_oeo(
                 "valor": valor,
                 "observacoes": observacoes,
                 "tipo_variavel": tipo_variavel,
-                "objetivo_id": grupo["objetivo_id"],
                 "lancamento": lancamento_atual
             }
 
@@ -626,8 +697,6 @@ def formulario_indicadores_oeo(
 def salvar_lancamentos_oeo(
     db,
     valores_oeo,
-    projeto_id,
-    entrega_id,
     id_lanc_entrega,
     ano
 ):
@@ -645,7 +714,7 @@ def salvar_lancamentos_oeo(
 
     for indicador_id, dados in valores_oeo.items():
 
-        valor_novo = converter_valor_indicador(
+        valor_novo = converter_valor_indicador_oeo(
             dados["tipo_variavel"],
             dados["valor"]
         )
@@ -655,17 +724,13 @@ def salvar_lancamentos_oeo(
         # Lançamento novo.
         if not lancamento_existente:
 
-            if dados["valor"] in ["", None, 0]:
+            if valor_novo == 0:
                 continue
 
             colecao.insert_one(
                 {
                     "id_do_indicador": ObjectId(indicador_id),
-                    "id_objetivo": dados["objetivo_id"],
-                    "projeto": projeto_id,
-                    "id_entrega": entrega_id,
                     "data_anotacao": datetime.now(),
-                    "autor_anotacao": st.session_state.get("nome"),
                     "valor": valor_novo,
                     "ano": ano,
                     "observacoes": dados["observacoes"],
@@ -1934,8 +1999,6 @@ def cadastrar_registro_entrega(
         salvar_lancamentos_oeo(
             db,
             valores_oeo,
-            projeto_id=projeto["_id"],
-            entrega_id=entrega_object_id,
             id_lanc_entrega=id_lanc_entrega,
             ano=ano_lancamento
         )
@@ -2513,9 +2576,6 @@ def editar_registro_entrega(
                         "id_do_indicador": indicador_object_id,
                         "projeto": projeto["_id"],
                         "data_anotacao": datetime.now(),
-                        "autor_anotacao": st.session_state.get(
-                            "nome"
-                        ),
                         "valor": valor_novo,
                         "ano": ano_novo,
                         "observacoes": observacoes_novas,
@@ -2571,8 +2631,6 @@ def editar_registro_entrega(
         salvar_lancamentos_oeo(
             db,
             valores_oeo,
-            projeto_id=projeto["_id"],
-            entrega_id=entrega_object_id,
             id_lanc_entrega=lancamento_object_id,
             ano=ano_novo
         )
